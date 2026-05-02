@@ -8,8 +8,14 @@ require('dotenv').config();
 const app = express();
 
 // Middleware
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
 app.use(cors({
-  origin: true, // Accept all origins in dev to avoid Vite port jumping issues
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(express.json());
