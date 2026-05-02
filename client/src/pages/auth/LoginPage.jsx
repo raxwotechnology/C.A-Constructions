@@ -1,16 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Eye, EyeOff, Shield, Lock, Globe, Building2, Loader2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function LoginPage() {
-  const { login, logout, loading, error } = useAuth();
+  const { login, logout, loading, error, user, token } = useAuth();
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [localError, setLocalError] = useState('');
+
+  useEffect(() => {
+    if (user && token) {
+      if (user.userType === 'customer') navigate('/customer/dashboard');
+      else navigate('/dashboard');
+    }
+  }, [user, token, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

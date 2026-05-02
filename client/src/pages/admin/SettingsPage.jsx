@@ -7,7 +7,7 @@ import {
   Image, Building, AlignLeft, ChevronRight, Loader2, CheckCircle, X
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 function Section({ icon: Icon, title, description, children }) {
   return (

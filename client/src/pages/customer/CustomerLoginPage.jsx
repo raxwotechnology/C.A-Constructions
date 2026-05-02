@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Eye, EyeOff, Phone, Lock, Loader2, ArrowRight, Zap, Shield, Star, CheckCircle } from 'lucide-react';
@@ -12,13 +12,20 @@ const features = [
 ];
 
 export default function CustomerLoginPage() {
-  const { login, logout, loading } = useAuth();
+  const { login, logout, loading, user, token } = useAuth();
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [focused, setFocused] = useState(null);
+
+  useEffect(() => {
+    if (user && token) {
+      if (user.userType === 'customer') navigate('/customer/dashboard');
+      else navigate('/dashboard');
+    }
+  }, [user, token, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

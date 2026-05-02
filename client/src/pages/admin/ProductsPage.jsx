@@ -6,7 +6,7 @@ import { Plus, Edit2, Trash2, Package, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
-const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 function ProductForm({ defaultValues, onSubmit, loading }) {
   const [form, setForm] = useState(defaultValues || { name: '', description: '', category: '', price: '', salePrice: '', stock: '', sku: '', tags: '', status: 'active', featured: false });

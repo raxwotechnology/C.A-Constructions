@@ -70,7 +70,7 @@ export default function App() {
             </Route>
 
             {/* Staff dashboard */}
-            <Route path="/" element={
+            <Route element={
               <ProtectedRoute roles={STAFF_ROLES}><DashboardLayout /></ProtectedRoute>
             }>
               <Route path="dashboard" element={<DashboardPage />} />

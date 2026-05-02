@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
-const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '').replace(/\/$/, '');
 const PLATFORMS = ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'youtube'];
 
 const platformIcons = { facebook: '📘', instagram: '📷', twitter: '🐦', linkedin: '💼', tiktok: '🎵', youtube: '▶️' };
