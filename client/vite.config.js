@@ -7,12 +7,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://medical-clinic-3dno.onrender.com',
+        target: 'https://backend.raxwo.net',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       '/uploads': {
-        target: 'https://medical-clinic-3dno.onrender.com',
+        target: 'https://backend.raxwo.net',
         changeOrigin: true,
         secure: false,
       }

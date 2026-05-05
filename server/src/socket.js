@@ -8,7 +8,11 @@ const userSocketMap = new Map();
 function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: [
+        process.env.CLIENT_URL || 'https://manage.raxwo.net',
+        'http://localhost:5173',
+        'http://localhost:3000',
+      ],
       credentials: true,
     },
   });
