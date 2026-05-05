@@ -7,12 +7,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://backend.raxwo.net',
+        target: 'http://localhost:5000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
       '/uploads': {
-        target: 'https://backend.raxwo.net',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
       }
