@@ -102,7 +102,7 @@ exports.initiatePayment = async (req, res, next) => {
         merchant_id: merchantId,
         return_url: `${process.env.CLIENT_URL}/client/payments/success`,
         cancel_url: `${process.env.CLIENT_URL}/client/payments/cancel`,
-        notify_url: `${process.env.SERVER_URL}/api/payments/payhere/callback`,
+        notify_url: `${process.env.CLIENT_URL?.replace('5173', '5000')}/api/payments/payhere/callback`,
         order_id: orderId,
         items: invoice.items.map(i => i.description).join(', '),
         amount,

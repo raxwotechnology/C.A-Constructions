@@ -18,8 +18,15 @@ export default function Login() {
     try {
       const user = await login(data.email, data.password)
       toast.success(`Welcome back, ${user.name}!`)
-      const redirect = { admin: '/admin', manager: '/manager', developer: '/developer', client: '/my-projects' }
-      navigate(redirect[user.role] || '/')
+      const redirect = {
+        admin: '/admin',
+        manager: '/manager',
+        developer: '/developer',
+        employee: '/employee',
+        hr: '/manager',
+        client: '/my-projects',
+      }
+      navigate(redirect[user.role] || '/login')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed')
     } finally {
@@ -128,22 +135,7 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Demo credentials */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Demo Accounts</p>
-            <div className="space-y-1">
-              {[
-                { role: 'Admin', email: 'admin@raxwo.com', pass: 'Admin@2026' },
-                { role: 'Developer', email: 'john@raxwo.com', pass: 'Employee@2026' },
-                { role: 'Client', email: 'client@techcorp.lk', pass: 'Client@2026' },
-              ].map(d => (
-                <div key={d.role} className="text-xs text-gray-500 flex justify-between">
-                  <span className="font-medium text-gray-700">{d.role}:</span>
-                  <span>{d.email} / {d.pass}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+
 
           <p className="text-center text-sm text-gray-500 mt-6">
             Don't have an account?{' '}
