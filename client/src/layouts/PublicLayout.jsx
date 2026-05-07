@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { FiMenu, FiX, FiBell, FiChevronDown, FiLogOut, FiMessageSquare, FiCreditCard, FiFolder } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -23,6 +23,8 @@ export default function PublicLayout() {
   const [scrolled, setScrolled] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const topbarRef = useRef(null)
+  const [topbarH, setTopbarH] = useState(80)
   const { user, isAuthenticated, logout } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
@@ -55,6 +57,25 @@ export default function PublicLayout() {
     setNotifOpen(false)
   }, [location])
 
+  useEffect(() => {
+    if (!topbarRef.current) return
+
+    const el = topbarRef.current
+    const update = () => {
+      const next = Math.round(el.getBoundingClientRect().height || 0)
+      if (next > 0) setTopbarH(next)
+    }
+
+    update()
+    const ro = new ResizeObserver(() => update())
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+
   const handleLogout = () => {
     logout()
     toast.success('Signed out successfully')
@@ -67,7 +88,7 @@ export default function PublicLayout() {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled ? 'bg-primary/95 backdrop-blur-md shadow-navy border-b border-white/15 py-3' : 'bg-primary/95 backdrop-blur-md border-b border-white/10 py-4 md:py-5'
       }`}>
-        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <div ref={topbarRef} className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Logo */}
           <NavLink to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
@@ -253,7 +274,7 @@ export default function PublicLayout() {
       </header>
 
       {/* Page content */}
-      <main className="flex-1 bg-slate-50">
+      <main className="flex-1 bg-slate-50" style={{ paddingTop: topbarH }}>
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 2 }}
