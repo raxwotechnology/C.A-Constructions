@@ -1,6 +1,19 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
-import { FiMenu, FiX, FiBell, FiChevronDown, FiLogOut, FiMessageSquare, FiCreditCard, FiFolder } from 'react-icons/fi'
+import {
+  FiMenu,
+  FiX,
+  FiBell,
+  FiChevronDown,
+  FiLogOut,
+  FiMessageSquare,
+  FiCreditCard,
+  FiFolder,
+  FiHome,
+  FiCalendar,
+  FiGift,
+  FiUsers,
+} from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
@@ -8,14 +21,18 @@ import { mediaUrl } from '../lib/media'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 
+// Minimal public navigation (client-only links go in profile dropdown)
 const navLinks = [
   { to: '/', label: 'Home', exact: true },
   { to: '/services', label: 'Services' },
-  { to: '/about', label: 'About' },
   { to: '/portfolio', label: 'Portfolio' },
-  { to: '/feedback', label: 'Feedback' },
-  { to: '/careers', label: 'Careers' },
+  { to: '/about', label: 'About' },
   { to: '/contact', label: 'Contact' },
+]
+
+const moreLinks = [
+  { to: '/careers', label: 'Careers' },
+  { to: '/feedback', label: 'Feedback' },
 ]
 
 export default function PublicLayout() {
@@ -23,6 +40,10 @@ export default function PublicLayout() {
   const [scrolled, setScrolled] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const profileRef = useRef(null)
+  const notifRef = useRef(null)
+  const moreRef = useRef(null)
   const topbarRef = useRef(null)
   const [topbarH, setTopbarH] = useState(80)
   const { user, isAuthenticated, logout } = useAuthStore()
@@ -55,7 +76,23 @@ export default function PublicLayout() {
     setMenuOpen(false)
     setProfileOpen(false)
     setNotifOpen(false)
+    setMoreOpen(false)
   }, [location])
+
+  useEffect(() => {
+    const onDown = (e) => {
+      const t = e.target
+      if (profileRef.current && !profileRef.current.contains(t)) setProfileOpen(false)
+      if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false)
+      if (moreRef.current && !moreRef.current.contains(t)) setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
+  }, [])
 
   useEffect(() => {
     if (!topbarRef.current) return
@@ -88,9 +125,9 @@ export default function PublicLayout() {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled ? 'bg-primary/95 backdrop-blur-md shadow-navy border-b border-white/15 py-3' : 'bg-primary/95 backdrop-blur-md border-b border-white/10 py-4 md:py-5'
       }`}>
-        <div ref={topbarRef} className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <div ref={topbarRef} className="w-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
           {/* Logo */}
-          <NavLink to="/" className="flex items-center gap-3 group">
+          <NavLink to="/" className="flex items-center gap-3 group flex-shrink-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
               <span className="text-white font-bold text-lg font-heading">R</span>
             </div>
@@ -101,14 +138,14 @@ export default function PublicLayout() {
           </NavLink>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 overflow-x-auto scrollbar-hide max-w-[60vw]">
+          <nav className="hidden md:flex flex-1 items-center justify-center gap-0.5 min-w-0 overflow-visible">
             {navLinks.map(link => (
               <NavLink
                 key={link.to}
                 to={link.to}
                 end={link.exact}
                 className={({ isActive }) =>
-                  `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  `px-3 lg:px-4 py-2 rounded-lg text-[13px] lg:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'
                   }`
                 }
@@ -116,31 +153,51 @@ export default function PublicLayout() {
                 {link.label}
               </NavLink>
             ))}
-            {isClient ? (
-              <>
-                <NavLink to="/my-projects" className={({ isActive }) => `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                  My Projects
-                </NavLink>
-                <NavLink to="/payments" className={({ isActive }) => `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                  Payments
-                </NavLink>
-                <NavLink to="/booking" className={({ isActive }) => `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                  Booking
-                </NavLink>
-                <NavLink to="/messages" className={({ isActive }) => `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                  Messages
-                </NavLink>
-                <NavLink to="/rewards" className={({ isActive }) => `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                  Rewards
-                </NavLink>
-              </>
-            ) : null}
+
+            {/* Optional links under a compact dropdown */}
+            <div ref={moreRef} className="relative ml-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setMoreOpen((s) => !s)}
+                className={`px-3 lg:px-4 py-2 rounded-lg text-[13px] lg:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                  moreLinks.some((l) => location.pathname.startsWith(l.to))
+                    ? 'bg-white/15 text-white'
+                    : 'text-white/75 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                More <FiChevronDown className="inline-block ml-1 -mt-0.5" size={14} />
+              </button>
+              <AnimatePresence>
+                {moreOpen ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    className="absolute left-0 top-12 w-44 p-2 z-[120] rounded-2xl border border-white/15 bg-primary/95 backdrop-blur-md shadow-2xl"
+                  >
+                    {moreLinks.map((l) => (
+                      <NavLink
+                        key={l.to}
+                        to={l.to}
+                        className={({ isActive }) =>
+                          `block px-3 py-2 rounded-xl text-sm transition-colors ${
+                            isActive ? 'bg-white/15 text-white' : 'text-white/85 hover:bg-white/10'
+                          }`
+                        }
+                      >
+                        {l.label}
+                      </NavLink>
+                    ))}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
           </nav>
 
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
             {isClient ? (
               <>
-                <div className="relative">
+                <div ref={notifRef} className="relative">
                   <button
                     onClick={() => setNotifOpen((s) => !s)}
                     className="relative w-10 h-10 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15 flex items-center justify-center transition-colors"
@@ -154,7 +211,7 @@ export default function PublicLayout() {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 top-12 w-80 card z-50"
+                        className="absolute right-0 top-12 w-80 card z-[120]"
                       >
                         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                           <h4 className="font-semibold text-primary">Notifications</h4>
@@ -181,7 +238,7 @@ export default function PublicLayout() {
                     ) : null}
                   </AnimatePresence>
                 </div>
-                <div className="relative">
+                <div ref={profileRef} className="relative">
                   <button
                     onClick={() => setProfileOpen((s) => !s)}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white hover:bg-white/15 transition-colors"
@@ -198,15 +255,26 @@ export default function PublicLayout() {
                         initial={{ opacity: 0, y: 8, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                        className="absolute right-0 top-12 w-52 p-2 z-50 rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                        className="absolute right-0 top-12 w-52 p-2 z-[120] rounded-2xl border border-slate-200 bg-white shadow-2xl"
                       >
-                        <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiFolder size={14} /> My Projects</NavLink>
-                        <NavLink to="/payments" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Payments</NavLink>
-                        <NavLink to="/messages" className="btn-ghost w-full justify-start text-sm"><FiMessageSquare size={14} /> Messages</NavLink>
-                        <NavLink to="/rewards" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Rewards</NavLink>
-                        <NavLink to="/booking" className="btn-ghost w-full justify-start text-sm">Booking</NavLink>
-                        <NavLink to="/feedback" className="btn-ghost w-full justify-start text-sm">Feedback</NavLink>
-                        <NavLink to="/my-account" className="btn-ghost w-full justify-start text-sm">My Account</NavLink>
+                        {isClient ? (
+                          <>
+                            <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiHome size={14} /> Dashboard</NavLink>
+                            <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiFolder size={14} /> My Projects</NavLink>
+                            <NavLink to="/payments" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Payments</NavLink>
+                            <NavLink to="/booking" className="btn-ghost w-full justify-start text-sm"><FiCalendar size={14} /> Booking</NavLink>
+                            <NavLink to="/messages" className="btn-ghost w-full justify-start text-sm"><FiMessageSquare size={14} /> Messages</NavLink>
+                            <NavLink to="/rewards" className="btn-ghost w-full justify-start text-sm"><FiGift size={14} /> Rewards</NavLink>
+                            <NavLink to="/notifications" className="btn-ghost w-full justify-start text-sm"><FiBell size={14} /> Notifications</NavLink>
+                            <div className="my-1 border-t border-slate-100" />
+                            <NavLink to="/my-account" className="btn-ghost w-full justify-start text-sm"><FiUsers size={14} /> Settings</NavLink>
+                          </>
+                        ) : (
+                          <>
+                            <NavLink to="/login" className="btn-ghost w-full justify-start text-sm">Sign In</NavLink>
+                            <NavLink to="/contact" className="btn-ghost w-full justify-start text-sm">Get a Quote</NavLink>
+                          </>
+                        )}
                         <button onClick={handleLogout} className="btn-ghost w-full justify-start text-sm text-red-500 hover:text-red-600"><FiLogOut size={14} /> Sign Out</button>
                       </motion.div>
                     ) : null}
@@ -251,14 +319,27 @@ export default function PublicLayout() {
                     {link.label}
                   </NavLink>
                 ))}
+                {moreLinks.map((link) => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    className={({ isActive }) =>
+                      `px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-white/15 text-white' : 'text-white/85 hover:bg-white/10'}`
+                    }
+                  >
+                    {link.label}
+                  </NavLink>
+                ))}
                 {isClient ? (
                   <div className="mt-3 pt-3 border-t border-white/10 space-y-1">
+                    <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Dashboard</NavLink>
                     <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">My Projects</NavLink>
                     <NavLink to="/payments" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Payments</NavLink>
                     <NavLink to="/messages" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Messages</NavLink>
                     <NavLink to="/rewards" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Rewards</NavLink>
                     <NavLink to="/booking" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Booking</NavLink>
-                    <NavLink to="/feedback" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Feedback</NavLink>
+                    <NavLink to="/notifications" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Notifications</NavLink>
+                    <NavLink to="/my-account" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Settings</NavLink>
                     <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-red-500/10 transition-colors">Sign Out</button>
                   </div>
                 ) : (
