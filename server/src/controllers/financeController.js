@@ -35,12 +35,18 @@ exports.addEntry = async (req, res, next) => {
 
 exports.getEntries = async (req, res, next) => {
   try {
-    const { type, category, month, year } = req.query;
+    const { type, category, month, year, from, to } = req.query;
     const q = {};
     if (type) q.type = type;
     if (category) q.category = category;
     const dateRange = getRange(month, year);
-    if (dateRange.$gte) q.date = dateRange;
+    if (from || to) {
+      q.date = {};
+      if (from) q.date.$gte = new Date(from);
+      if (to) q.date.$lte = new Date(to);
+    } else if (dateRange.$gte) {
+      q.date = dateRange;
+    }
 
     const entries = await FinanceEntry.find(q).sort({ date: -1, createdAt: -1 }).populate('createdBy', 'name email');
     const totals = entries.reduce((acc, e) => {

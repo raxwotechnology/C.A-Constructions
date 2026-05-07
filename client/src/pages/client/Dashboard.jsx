@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
-import { FiFolder, FiCreditCard, FiCheckCircle, FiClock, FiTrendingUp } from 'react-icons/fi'
+import { FiFolder, FiCreditCard, FiCheckCircle, FiClock, FiTrendingUp, FiGift } from 'react-icons/fi'
 
 export default function ClientDashboard() {
   const { user } = useAuthStore()
@@ -16,6 +16,10 @@ export default function ClientDashboard() {
     queryKey: ['client-invoices'],
     queryFn: () => api.get('/invoices').then(r => r.data),
   })
+  const { data: rewardsData } = useQuery({
+    queryKey: ['client-rewards-dashboard'],
+    queryFn: () => api.get('/rewards/me').then((r) => r.data),
+  })
 
   const projects = projData?.projects || []
   const invoices = invData?.invoices || []
@@ -23,6 +27,7 @@ export default function ClientDashboard() {
   const completedProjects = projects.filter(p => p.status === 'completed').length
   const pendingInvoices = invoices.filter(i => i.status === 'sent').length
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((a, b) => a + (b.total || 0), 0)
+  const rewardPoints = rewardsData?.reward?.totalPoints || 0
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -39,12 +44,13 @@ export default function ClientDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label:'Active Projects', value:activeProjects, icon:FiFolder, color:'kpi-blue' },
           { label:'Completed', value:completedProjects, icon:FiCheckCircle, color:'kpi-green' },
           { label:'Pending Invoices', value:pendingInvoices, icon:FiClock, color:'kpi-navy' },
           { label:'Total Paid', value:`LKR ${(totalPaid/1000).toFixed(0)}k`, icon:FiCreditCard, color:'kpi-purple' },
+          { label:'Reward Points', value:rewardPoints, icon:FiGift, color:'kpi-blue' },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} transition={{delay:i*0.08}}
             className={`kpi-card ${s.color}`}>
@@ -103,6 +109,16 @@ export default function ClientDashboard() {
             ))}
             {invoices.length === 0 && <p className="text-gray-400 text-sm text-center py-4">No invoices yet</p>}
           </div>
+        </div>
+      </div>
+
+      <div className="card card-body">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-primary font-heading">Rewards & Loyalty</h3>
+            <p className="text-sm text-slate-500">Use points for vouchers and premium service benefits.</p>
+          </div>
+          <Link to="/rewards" className="btn-primary btn-sm">Open Rewards</Link>
         </div>
       </div>
     </div>

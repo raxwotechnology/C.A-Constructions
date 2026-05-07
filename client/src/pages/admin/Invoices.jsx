@@ -26,6 +26,11 @@ export default function AdminInvoices() {
   })
 
   const clients = (clientData?.users || []).filter(u => u.role === 'client')
+  const selectedClient = watch('client')
+  const projectOptions = (projData?.projects || []).filter((p) => {
+    const projectClientId = p.client?._id || p.client
+    return !selectedClient || String(projectClientId) === String(selectedClient)
+  })
 
   const createMut = useMutation({
     mutationFn: d => {
@@ -80,7 +85,7 @@ export default function AdminInvoices() {
               <tr key={inv._id}>
                 <td><span className="badge badge-navy">{inv.invoiceNo}</span></td>
                 <td className="font-medium">{inv.client?.name}</td>
-                <td className="text-gray-500 text-sm">{inv.project?.title || '—'}</td>
+                <td className="text-gray-500 text-sm">{inv.project?.title ? `This invoice belongs to ${inv.project.title}` : '—'}</td>
                 <td className="font-bold text-gray-800">LKR {inv.total?.toLocaleString()}</td>
                 <td className="text-sm text-gray-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-LK') : '—'}</td>
                 <td>
@@ -116,10 +121,10 @@ export default function AdminInvoices() {
                       <option value="">Select client</option>
                       {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                     </select></div>
-                  <div><label className="form-label">Project</label>
-                    <select {...register('project')} className="form-select">
-                      <option value="">No project</option>
-                      {(projData?.projects||[]).map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+                  <div><label className="form-label">Project *</label>
+                    <select {...register('project', { required: true })} className="form-select">
+                      <option value="">Select project for this invoice</option>
+                      {projectOptions.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
                     </select></div>
                 </div>
                 <div>

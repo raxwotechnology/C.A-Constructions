@@ -3,6 +3,27 @@ const Employee = require('../models/Employee');
 const Notification = require('../models/Notification');
 const { createNotification } = require('../services/notificationService');
 
+const enrichLeaveBalances = async (leaves) => {
+  const byEmployee = new Map();
+  leaves.forEach((l) => {
+    const key = String(l.employee?._id || l.employee);
+    if (!byEmployee.has(key)) byEmployee.set(key, []);
+    byEmployee.get(key).push(l);
+  });
+  return leaves.map((l) => {
+    const key = String(l.employee?._id || l.employee);
+    const rows = byEmployee.get(key) || [];
+    const approvedDays = rows.filter((x) => x.status === 'approved').reduce((sum, x) => sum + Number(x.days || 0), 0);
+    const maxLeaves = Number(l.employee?.maxLeavesPerYear || 24);
+    return {
+      ...l.toObject(),
+      totalLeavesTaken: approvedDays,
+      remainingLeaves: Math.max(maxLeaves - approvedDays, 0),
+      maxLeaves,
+    };
+  });
+};
+
 // @desc    Request leave
 // @route   POST /api/leaves
 exports.requestLeave = async (req, res, next) => {
@@ -15,6 +36,12 @@ exports.requestLeave = async (req, res, next) => {
     const end = new Date(endDate);
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
+    const approvedLeaves = await Leave.find({ employee: employee._id, status: 'approved' });
+    const usedDays = approvedLeaves.reduce((sum, l) => sum + Number(l.days || 0), 0);
+    const maxLeaves = Number(employee.maxLeavesPerYear || 24);
+    if (usedDays + days > maxLeaves) {
+      return res.status(400).json({ success: false, message: `Insufficient leave balance. Remaining: ${Math.max(maxLeaves - usedDays, 0)} day(s)` });
+    }
     const leave = await Leave.create({ employee: employee._id, leaveType, startDate: start, endDate: end, days, reason });
 
     // Notify manager/admin
@@ -82,7 +109,8 @@ exports.getLeaves = async (req, res, next) => {
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
       .populate('approvedBy', 'name')
       .sort({ createdAt: -1 });
-    res.json({ success: true, count: leaves.length, leaves });
+    const withBalances = await enrichLeaveBalances(leaves);
+    res.json({ success: true, count: leaves.length, leaves: withBalances });
   } catch (err) { next(err); }
 };
 
@@ -92,8 +120,11 @@ exports.getMyLeaves = async (req, res, next) => {
   try {
     const employee = await Employee.findOne({ userId: req.user._id });
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    const leaves = await Leave.find({ employee: employee._id }).sort({ createdAt: -1 });
-    res.json({ success: true, leaves });
+    const leaves = await Leave.find({ employee: employee._id })
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
+      .sort({ createdAt: -1 });
+    const withBalances = await enrichLeaveBalances(leaves);
+    res.json({ success: true, leaves: withBalances });
   } catch (err) { next(err); }
 };
 

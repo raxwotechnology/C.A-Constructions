@@ -1,10 +1,17 @@
 const Feedback = require('../models/Feedback');
+const { awardPoints } = require('../services/rewardService');
 
 exports.submitFeedback = async (req, res, next) => {
   try {
     const feedback = await Feedback.create({
       ...req.body,
       client: req.user._id,
+    });
+    await awardPoints({
+      userId: req.user._id,
+      action: 'leave_review',
+      sourceKey: `feedback:${feedback._id}`,
+      note: 'Points for submitting feedback',
     });
     res.status(201).json({ success: true, feedback });
   } catch (err) { next(err); }

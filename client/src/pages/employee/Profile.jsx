@@ -74,6 +74,13 @@ export default function EmployeeProfile() {
           </div>
         )}
 
+        {emp?.cvUrl ? (
+          <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
+            <a href={emp.cvUrl} target="_blank" rel="noreferrer" className="btn-outline btn-sm">View CV</a>
+            <a href={emp.cvUrl} download className="btn-ghost btn-sm">Download CV</a>
+          </div>
+        ) : null}
+
         <form onSubmit={handleSubmit(async (v) => {
           const avatar = await uploadAvatar()
           profileMut.mutate({ ...v, avatar })

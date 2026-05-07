@@ -98,6 +98,25 @@ Human Resources Department
 Raxwo Pvt Ltd
   `,
 
+  service_agreement: (emp, data) => `
+SERVICE AGREEMENT LETTER
+
+Date: ${new Date().toLocaleDateString('en-LK')}
+Ref: RXW-SVC-${emp.employeeNo}
+
+This agreement confirms that ${emp.userId.name} (${emp.employeeNo}) serves as ${emp.designation} in the ${emp.department} department.
+
+Service Start Date: ${data.startDate || emp.joinedDate?.toLocaleDateString('en-LK') || 'TBD'}
+Scope of Service: ${data.scope || 'As per role responsibilities and assigned company policies.'}
+Compensation: Basic LKR ${emp.basicSalary?.toLocaleString()} + Allowances LKR ${emp.allowances?.toLocaleString()}
+
+Both parties agree to comply with company confidentiality, conduct, and operational standards.
+
+Sincerely,
+${data.issuedByName}
+Raxwo Pvt Ltd
+  `,
+
   confirmation: (emp, data) => `
 CONFIRMATION OF EMPLOYMENT LETTER
 
@@ -182,5 +201,23 @@ exports.getMyLetters = async (req, res, next) => {
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
     const letters = await Letter.find({ employee: employee._id }).sort({ createdAt: -1 });
     res.json({ success: true, letters });
+  } catch (err) { next(err); }
+};
+
+// @desc    Update letter content/details
+// @route   PUT /api/letters/:id
+exports.updateLetter = async (req, res, next) => {
+  try {
+    const { title, content, type } = req.body;
+    const update = {
+      ...(title ? { title } : {}),
+      ...(content ? { content } : {}),
+      ...(type ? { type } : {}),
+    };
+    const letter = await Letter.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .populate('issuedBy', 'name');
+    if (!letter) return res.status(404).json({ success: false, message: 'Letter not found' });
+    res.json({ success: true, letter });
   } catch (err) { next(err); }
 };

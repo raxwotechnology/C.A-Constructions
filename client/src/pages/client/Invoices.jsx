@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiCreditCard, FiDownload } from 'react-icons/fi'
 
 export default function ClientInvoices() {
+  const [voucherMap, setVoucherMap] = useState({})
+  const [previewMap, setPreviewMap] = useState({})
   const { data, isLoading } = useQuery({
     queryKey: ['client-invoices'],
     queryFn: () => api.get('/invoices').then(r => r.data),
@@ -15,9 +18,21 @@ export default function ClientInvoices() {
 
   const statusColor = { draft:'badge-gray', sent:'badge-blue', paid:'badge-green', overdue:'badge-red', cancelled:'badge-gray' }
 
+  const handlePreview = async (inv) => {
+    const code = voucherMap[inv._id]
+    if (!code) return toast.error('Enter voucher code first')
+    try {
+      const { data } = await api.post('/rewards/vouchers/preview', { invoiceId: inv._id, voucherCode: code })
+      setPreviewMap((s) => ({ ...s, [inv._id]: data }))
+      toast.success('Voucher applied in preview')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Preview failed')
+    }
+  }
+
   const handlePay = async (inv) => {
     try {
-      const { data } = await api.post('/payments/payhere/init', { invoiceId: inv._id })
+      const { data } = await api.post('/payments/payhere/init', { invoiceId: inv._id, voucherCode: voucherMap[inv._id] || '' })
       const pd = data.paymentData
       const form = document.createElement('form')
       form.method = 'POST'
@@ -78,7 +93,7 @@ export default function ClientInvoices() {
                     <span className="badge badge-navy">{inv.invoiceNo}</span>
                     <span className={`badge ${statusColor[inv.status]} capitalize`}>{inv.status}</span>
                   </div>
-                  <p className="text-gray-500 text-sm">{inv.project?.title || 'General Services'}</p>
+                  <p className="text-gray-500 text-sm">{inv.project?.title ? `This invoice belongs to ${inv.project.title}` : 'General Services'}</p>
                   {inv.dueDate && (
                     <p className={`text-xs mt-1 ${inv.status==='overdue'?'text-red-500':'text-gray-400'}`}>
                       Due: {new Date(inv.dueDate).toLocaleDateString('en-LK')}
@@ -87,12 +102,22 @@ export default function ClientInvoices() {
                   {inv.notes && <p className="text-xs text-gray-400 mt-1">{inv.notes}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <p className="text-2xl font-bold text-primary font-heading">LKR {inv.total?.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-primary font-heading">LKR {Number(previewMap[inv._id]?.finalAmount ?? inv.total)?.toLocaleString()}</p>
+                  {previewMap[inv._id]?.discount ? <p className="text-xs text-green-600">Discount: LKR {Number(previewMap[inv._id].discount).toLocaleString()}</p> : null}
                   <div className="flex gap-2">
                     {inv.status === 'sent' && (
-                      <button onClick={() => handlePay(inv)} className="btn-primary btn-sm">
-                        <FiCreditCard size={13}/> Pay Now
-                      </button>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          className="form-input text-xs py-1.5"
+                          placeholder="Voucher code"
+                          value={voucherMap[inv._id] || ''}
+                          onChange={(e) => setVoucherMap((s) => ({ ...s, [inv._id]: e.target.value.toUpperCase() }))}
+                        />
+                        <button onClick={() => handlePreview(inv)} className="btn-outline btn-sm">Apply Voucher</button>
+                        <button onClick={() => handlePay(inv)} className="btn-primary btn-sm">
+                          <FiCreditCard size={13}/> Pay Now
+                        </button>
+                      </div>
                     )}
                     {inv.status === 'paid' && (
                       <span className="text-xs text-green-600 font-medium flex items-center gap-1">✓ Paid on {new Date(inv.paidAt || inv.updatedAt).toLocaleDateString('en-LK')}</span>

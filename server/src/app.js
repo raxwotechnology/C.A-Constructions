@@ -29,6 +29,8 @@ const exportRoutes = require('./routes/exportRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const contentRoutes = require('./routes/contentRoutes');
+const rewardRoutes = require('./routes/rewardRoutes');
+const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
 
@@ -91,6 +93,9 @@ app.use('/api/exports', exportRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);
+app.use('/api/rewards', rewardRoutes);
+
+ensureDefaultRules().catch(() => {});
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -7,14 +7,16 @@ const {
 } = require('../controllers/contentController');
 
 router.get('/services', getServices);
-router.post('/services', protect, authorize('admin'), createService);
-router.put('/services/:id', protect, authorize('admin'), updateService);
-router.delete('/services/:id', protect, authorize('admin'), deleteService);
+router.get('/services/admin', protect, authorize('admin', 'manager'), getServices);
+router.post('/services', protect, authorize('admin', 'manager'), createService);
+router.put('/services/:id', protect, authorize('admin', 'manager'), updateService);
+router.delete('/services/:id', protect, authorize('admin', 'manager'), deleteService);
 
 router.get('/portfolio', getPortfolioItems);
-router.post('/portfolio', protect, authorize('admin'), createPortfolioItem);
-router.put('/portfolio/:id', protect, authorize('admin'), updatePortfolioItem);
-router.delete('/portfolio/:id', protect, authorize('admin'), deletePortfolioItem);
+router.get('/portfolio/admin', protect, authorize('admin', 'manager'), getPortfolioItems);
+router.post('/portfolio', protect, authorize('admin', 'manager'), createPortfolioItem);
+router.put('/portfolio/:id', protect, authorize('admin', 'manager'), updatePortfolioItem);
+router.delete('/portfolio/:id', protect, authorize('admin', 'manager'), deletePortfolioItem);
 
 module.exports = router;
 

@@ -46,6 +46,7 @@ export default function PublicLayout() {
 
   useEffect(() => {
     setScrolled(window.scrollY > 10)
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [location.pathname])
 
   useEffect(() => {
@@ -64,9 +65,9 @@ export default function PublicLayout() {
     <div className="min-h-screen flex flex-col">
       {/* Navbar */}
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-primary/95 backdrop-blur-md shadow-navy border-b border-white/15 py-3' : 'bg-transparent border-b border-transparent py-5'
+        scrolled ? 'bg-primary/95 backdrop-blur-md shadow-navy border-b border-white/15 py-3' : 'bg-primary/95 backdrop-blur-md border-b border-white/10 py-4 md:py-5'
       }`}>
-        <div className="container-max flex items-center justify-between">
+        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Logo */}
           <NavLink to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
@@ -79,7 +80,7 @@ export default function PublicLayout() {
           </NavLink>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1 overflow-x-auto scrollbar-hide max-w-[60vw]">
             {navLinks.map(link => (
               <NavLink
                 key={link.to}
@@ -107,6 +108,9 @@ export default function PublicLayout() {
                 </NavLink>
                 <NavLink to="/messages" className={({ isActive }) => `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
                   Messages
+                </NavLink>
+                <NavLink to="/rewards" className={({ isActive }) => `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+                  Rewards
                 </NavLink>
               </>
             ) : null}
@@ -178,6 +182,7 @@ export default function PublicLayout() {
                         <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiFolder size={14} /> My Projects</NavLink>
                         <NavLink to="/payments" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Payments</NavLink>
                         <NavLink to="/messages" className="btn-ghost w-full justify-start text-sm"><FiMessageSquare size={14} /> Messages</NavLink>
+                        <NavLink to="/rewards" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Rewards</NavLink>
                         <NavLink to="/booking" className="btn-ghost w-full justify-start text-sm">Booking</NavLink>
                         <NavLink to="/feedback" className="btn-ghost w-full justify-start text-sm">Feedback</NavLink>
                         <NavLink to="/my-account" className="btn-ghost w-full justify-start text-sm">My Account</NavLink>
@@ -198,7 +203,7 @@ export default function PublicLayout() {
           </div>
 
           {/* Mobile menu toggle */}
-          <button className="md:hidden text-white p-2" onClick={() => setMenuOpen(!menuOpen)}>
+          <button className="md:hidden text-white p-2 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
             {menuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
           </button>
         </div>
@@ -207,19 +212,19 @@ export default function PublicLayout() {
         <AnimatePresence>
           {menuOpen && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-primary/98 backdrop-blur-md border-t border-white/10"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="md:hidden bg-primary/98 backdrop-blur-md border-t border-white/10 shadow-2xl"
             >
-              <div className="container-max py-4 flex flex-col gap-1">
+              <div className="w-full px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-1 max-h-[70vh] overflow-y-auto">
                 {navLinks.map(link => (
                   <NavLink
                     key={link.to}
                     to={link.to}
                     end={link.exact}
                     className={({ isActive }) =>
-                      `px-4 py-2.5 rounded-lg text-sm font-medium ${isActive ? 'bg-white/15 text-white' : 'text-white/75'}`
+                      `px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-white/15 text-white' : 'text-white/85 hover:bg-white/10'}`
                     }
                   >
                     {link.label}
@@ -227,12 +232,13 @@ export default function PublicLayout() {
                 ))}
                 {isClient ? (
                   <div className="mt-3 pt-3 border-t border-white/10 space-y-1">
-                    <NavLink to="/my-projects" className="px-4 py-2.5 rounded-lg text-sm font-medium text-white/80">My Projects</NavLink>
-                    <NavLink to="/payments" className="px-4 py-2.5 rounded-lg text-sm font-medium text-white/80">Payments</NavLink>
-                    <NavLink to="/messages" className="px-4 py-2.5 rounded-lg text-sm font-medium text-white/80">Messages</NavLink>
-                    <NavLink to="/booking" className="px-4 py-2.5 rounded-lg text-sm font-medium text-white/80">Booking</NavLink>
-                    <NavLink to="/feedback" className="px-4 py-2.5 rounded-lg text-sm font-medium text-white/80">Feedback</NavLink>
-                    <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-red-300">Sign Out</button>
+                    <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">My Projects</NavLink>
+                    <NavLink to="/payments" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Payments</NavLink>
+                    <NavLink to="/messages" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Messages</NavLink>
+                    <NavLink to="/rewards" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Rewards</NavLink>
+                    <NavLink to="/booking" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Booking</NavLink>
+                    <NavLink to="/feedback" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Feedback</NavLink>
+                    <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-red-500/10 transition-colors">Sign Out</button>
                   </div>
                 ) : (
                   <div className="flex gap-3 mt-3 pt-3 border-t border-white/10">
@@ -247,8 +253,15 @@ export default function PublicLayout() {
       </header>
 
       {/* Page content */}
-      <main className="flex-1">
-        <Outlet />
+      <main className="flex-1 bg-slate-50">
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 2 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.12 }}
+        >
+          <Outlet />
+        </motion.div>
       </main>
 
       {/* Footer */}

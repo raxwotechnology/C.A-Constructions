@@ -4,6 +4,9 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiDownload } from 'react-icons/fi'
 
+const EXPENSE_CATEGORIES = ['Salary', 'Hosting', 'Equipment', 'Marketing', 'Transport', 'Utilities', 'Other']
+const INCOME_CATEGORIES = ['Client Payment', 'Subscription', 'Service Revenue', 'Other']
+
 export default function FinanceEntries() {
   const qc = useQueryClient()
   const now = new Date()
@@ -11,15 +14,21 @@ export default function FinanceEntries() {
   const [year, setYear] = useState(now.getFullYear())
   const [typeFilter, setTypeFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [form, setForm] = useState({ type: 'income', category: '', title: '', amount: 0, note: '' })
+  const [customCategory, setCustomCategory] = useState('')
 
   const { data } = useQuery({
     queryKey: ['finance-entries', month, year, typeFilter, categoryFilter],
-    queryFn: () => api.get(`/finance/entries?month=${month}&year=${year}${typeFilter ? `&type=${typeFilter}` : ''}${categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : ''}`).then((r) => r.data),
+    queryFn: () => api.get(`/finance/entries?month=${month}&year=${year}${typeFilter ? `&type=${typeFilter}` : ''}${categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : ''}${fromDate ? `&from=${fromDate}` : ''}${toDate ? `&to=${toDate}` : ''}`).then((r) => r.data),
   })
   const entries = data?.entries || []
   const categories = data?.categories || []
   const totals = data?.totals || { income: 0, expense: 0, profit: 0 }
+
+  const activeCategories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
+  const finalCategory = form.category === 'Other' ? customCategory : form.category
 
   const addMut = useMutation({
     mutationFn: (payload) => api.post('/finance/entries', payload).then((r) => r.data),
@@ -74,21 +83,29 @@ export default function FinanceEntries() {
             <option value="income">Income</option>
             <option value="expense">Expense</option>
           </select>
-          <input className="form-input" placeholder="Category (e.g. Operations)" value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))} />
+          <select className="form-select" value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}>
+            <option value="">Select category</option>
+            {activeCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
           <input className="form-input" placeholder="Title" value={form.title} onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))} />
           <input type="number" className="form-input" placeholder="Amount" value={form.amount} onChange={(e) => setForm((s) => ({ ...s, amount: Number(e.target.value || 0) }))} />
           <input className="form-input" placeholder="Note (optional)" value={form.note} onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))} />
         </div>
-        <button className="btn-primary w-fit" onClick={() => addMut.mutate({ ...form, date: new Date(year, month - 1, 1).toISOString() })}><FiPlus size={14} /> Add Entry</button>
+        {form.category === 'Other' ? (
+          <input className="form-input max-w-md" placeholder="Enter custom category" value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} />
+        ) : null}
+        <button className="btn-primary w-fit" onClick={() => addMut.mutate({ ...form, category: finalCategory, date: new Date(year, month - 1, 1).toISOString() })}><FiPlus size={14} /> Add Entry</button>
       </div>
 
-      <div className="card card-body grid md:grid-cols-6 gap-3 items-end">
+      <div className="card card-body grid md:grid-cols-4 lg:grid-cols-8 gap-3 items-end">
         <div><label className="form-label">Month</label><input type="number" min={1} max={12} className="form-input" value={month} onChange={(e) => setMonth(Number(e.target.value || 1))} /></div>
         <div><label className="form-label">Year</label><input type="number" className="form-input" value={year} onChange={(e) => setYear(Number(e.target.value || now.getFullYear()))} /></div>
         <div><label className="form-label">Type</label><select className="form-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="">All</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
         <div><label className="form-label">Category</label><select className="form-select" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-        <button className="btn-outline" onClick={() => exportData('excel')}><FiDownload size={14} /> Excel</button>
-        <button className="btn-outline" onClick={() => exportData('pdf')}><FiDownload size={14} /> PDF</button>
+        <div><label className="form-label">From</label><input type="date" className="form-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div>
+        <div><label className="form-label">To</label><input type="date" className="form-input" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div>
+        <button className="btn-success" onClick={() => exportData('excel')}><FiDownload size={14} /> Excel</button>
+        <button className="btn-danger" onClick={() => exportData('pdf')}><FiDownload size={14} /> PDF</button>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

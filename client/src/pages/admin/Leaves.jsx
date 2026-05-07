@@ -118,7 +118,7 @@ export default function AdminLeaves() {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-800">{leave.employee?.userId?.name}</p>
-                  <p className="text-xs text-gray-400">{leave.employee?.department} · {leave.employee?.designation}</p>
+                  <p className="text-xs text-gray-400">{leave.employee?.employeeNo} · {leave.employee?.department} · {leave.employee?.designation}</p>
                 </div>
               </div>
 
@@ -156,6 +156,7 @@ export default function AdminLeaves() {
 
             <div className="mt-3 pt-3 border-t border-gray-50">
               <p className="text-xs text-gray-500"><span className="font-medium">Reason:</span> {leave.reason}</p>
+              <p className="text-xs text-gray-500 mt-1"><span className="font-medium">Leaves:</span> {leave.totalLeavesTaken || 0} taken / {leave.maxLeaves || 24} max · {leave.remainingLeaves || 0} remaining</p>
               {leave.remarks && <p className="text-xs text-gray-400 mt-0.5"><span className="font-medium">Remarks:</span> {leave.remarks}</p>}
             </div>
           </motion.div>

@@ -61,13 +61,17 @@ exports.getMyProfile = async (req, res, next) => {
 // @route   POST /api/employees
 exports.createEmployee = async (req, res, next) => {
   try {
-    const { name, email, password, role, department, designation, basicSalary, allowances, joinedDate, nic, dob, gender, address, bank, bankBranch, accountNumber, skills, manager } = req.body;
+    const {
+      name, email, password, role, department, designation, basicSalary, allowances, joinedDate,
+      idType, idNumber, nic, dob, gender, address, primaryPhone, secondaryPhone, cvUrl,
+      emergencyContact, bank, bankBranch, accountNumber, skills, manager,
+    } = req.body;
 
     // Create user account
     let user = await User.findOne({ email });
     if (!user) {
       const requestedRole = role || 'developer';
-      const allowedRoles = ['developer', 'manager', 'admin'];
+      const allowedRoles = ['developer', 'designer', 'marketing', 'manager', 'admin'];
       let safeRole = allowedRoles.includes(requestedRole) ? requestedRole : 'developer';
       if (safeRole === 'admin' && req.user.role !== 'admin') safeRole = 'developer';
       user = await User.create({ name, email, password: password || 'Raxwo@2026', role: safeRole });
@@ -87,7 +91,20 @@ exports.createEmployee = async (req, res, next) => {
     const employee = await Employee.create({
       userId: user._id, employeeNo, department, designation,
       basicSalary: basicSalary || 0, allowances: allowances || 0,
-      joinedDate, nic, dob, gender, address, bank, bankBranch, accountNumber,
+      joinedDate,
+      idType: idType || 'nic',
+      idNumber: idNumber || nic || '',
+      nic: nic || idNumber || '',
+      dob,
+      gender,
+      address,
+      primaryPhone: primaryPhone || '',
+      secondaryPhone: secondaryPhone || '',
+      cvUrl: cvUrl || '',
+      emergencyContact: emergencyContact || undefined,
+      bank,
+      bankBranch,
+      accountNumber,
       skills: skills ? skills.split(',').map(s => s.trim()) : [],
       manager,
     });

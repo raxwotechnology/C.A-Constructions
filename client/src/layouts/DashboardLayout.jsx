@@ -11,6 +11,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload,
+  FiGift,
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
@@ -36,6 +37,7 @@ const adminNav = [
     { to: '/admin/portfolio', label: 'Portfolio', icon: FiPieChart },
     { to: '/admin/financial', label: 'Financial', icon: FiDollarSign },
     { to: '/admin/finance-entries', label: 'Income & Expenses', icon: FiClipboard },
+    { to: '/admin/rewards', label: 'Rewards & Loyalty', icon: FiGift },
     { to: '/admin/exports', label: 'Exports', icon: FiDownload },
     { to: '/admin/bookings', label: 'Bookings', icon: FiBook },
     { to: '/admin/performance', label: 'Performance', icon: FiTrendingUp },
@@ -77,7 +79,22 @@ const developerNav = [
   ]},
 ]
 
-const navMap = { admin: adminNav, manager: managerNav, developer: developerNav }
+const withBasePath = (groups, basePath) =>
+  groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({
+      ...item,
+      to: item.to.startsWith('/developer') ? item.to.replace('/developer', basePath) : item.to,
+    })),
+  }))
+
+const navMap = {
+  admin: adminNav,
+  manager: managerNav,
+  developer: developerNav,
+  designer: withBasePath(developerNav, '/designer'),
+  marketing: withBasePath(developerNav, '/marketing'),
+}
 
 export default function DashboardLayout({ role }) {
   const { user, logout } = useAuthStore()
@@ -156,17 +173,17 @@ export default function DashboardLayout({ role }) {
     }
   }, [showNotif])
 
-  const Sidebar = () => (
-    <div className="h-full flex flex-col bg-gradient-hero">
+  const renderSidebar = () => (
+    <div className="h-full flex flex-col bg-white border-r border-slate-200 overflow-hidden">
       {/* Logo */}
-      <div className="p-6 border-b border-white/10">
+      <div className="p-6 border-b border-slate-200">
         <NavLink to="/" className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
             <span className="text-white font-bold font-heading">R</span>
           </div>
           <div>
-            <span className="font-heading font-bold text-white text-lg leading-none">Raxwo</span>
-            <p className="text-white/40 text-xs leading-none capitalize">{user?.role} Portal</p>
+            <span className="font-heading font-bold text-primary text-lg leading-none">Raxwo</span>
+            <p className="text-slate-400 text-xs leading-none capitalize">{user?.role} Portal</p>
           </div>
         </NavLink>
       </div>
@@ -185,8 +202,12 @@ export default function DashboardLayout({ role }) {
                   className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <item.icon size={16} />
-                  {item.label}
+                  {({ isActive }) => (
+                    <>
+                      <item.icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
+                      {item.label}
+                    </>
+                  )}
                 </NavLink>
               ))}
             </div>
@@ -195,16 +216,16 @@ export default function DashboardLayout({ role }) {
       </nav>
 
       {/* User */}
-      <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-          <div className="w-9 h-9 rounded-full bg-secondary/30 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+      <div className="p-4 border-t border-slate-200">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
+          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-[#000080] font-semibold text-sm flex-shrink-0">
             {user?.name?.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-medium truncate">{user?.name}</p>
-            <p className="text-white/40 text-xs capitalize truncate">{user?.role}</p>
+            <p className="text-slate-800 text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-slate-400 text-xs capitalize truncate">{user?.role}</p>
           </div>
-          <button onClick={handleLogout} className="text-white/50 hover:text-white transition-colors p-1" title="Logout">
+          <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Logout">
             <FiLogOut size={16} />
           </button>
         </div>
@@ -215,8 +236,8 @@ export default function DashboardLayout({ role }) {
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-64 flex-shrink-0 shadow-navy">
-        <Sidebar />
+      <aside className="hidden lg:block w-64 flex-shrink-0 bg-white shadow-card">
+        {renderSidebar()}
       </aside>
 
       {/* Mobile sidebar overlay */}
@@ -231,25 +252,25 @@ export default function DashboardLayout({ role }) {
             <motion.aside
               initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 25 }}
-              className="lg:hidden fixed left-0 top-0 bottom-0 w-64 z-50 shadow-2xl"
+              className="lg:hidden fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 shadow-2xl"
             >
-              <Sidebar />
+              {renderSidebar()}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col overflow-visible min-h-0 relative z-10">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 relative z-10">
         {/* Top bar */}
-        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200 px-4 md:px-6 py-3.5 flex items-center justify-between shadow-card flex-shrink-0 relative z-[220]">
+        <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between shadow-card flex-shrink-0 relative z-[220]">
           <button className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-primary" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <FiMenu size={22} />
           </button>
 
           <div className="flex-1 lg:flex-none" />
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Notifications */}
             <div className="relative z-[230]">
               <button
@@ -298,12 +319,13 @@ export default function DashboardLayout({ role }) {
             <div className="relative z-[240]">
               <button
                 onClick={() => setShowProfileMenu((s) => !s)}
-                className="h-10 px-2.5 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center gap-2 text-secondary font-semibold text-sm hover:bg-secondary/15 transition-colors"
+                className="h-10 px-2 sm:px-2.5 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center gap-2 text-secondary font-semibold text-sm hover:bg-secondary/15 transition-colors"
               >
                 <span className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
                   {user?.avatar ? <img src={mediaUrl(user.avatar)} alt={user?.name} className="w-full h-full rounded-lg object-cover" /> : user?.name?.charAt(0).toUpperCase()}
                 </span>
-                <FiChevronDown size={14} />
+                <span className="hidden sm:inline max-w-[8rem] truncate">{user?.name?.split(' ')[0]}</span>
+                <FiChevronDown size={14} className="hidden sm:block" />
               </button>
               <AnimatePresence>
                 {showProfileMenu && (
@@ -313,10 +335,10 @@ export default function DashboardLayout({ role }) {
                     exit={{ opacity: 0, y: 8, scale: 0.96 }}
                     className="absolute right-0 top-12 w-52 p-2 z-[270] rounded-2xl border border-slate-200 bg-white shadow-2xl"
                   >
-                    <NavLink to={user?.role === 'developer' ? '/developer/profile' : user?.role === 'manager' ? '/manager' : '/admin/settings'} className="btn-ghost w-full justify-start text-sm">
+                    <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/profile` : user?.role === 'manager' ? '/manager' : '/admin/settings'} className="btn-ghost w-full justify-start text-sm">
                       View Profile
                     </NavLink>
-                    <NavLink to={user?.role === 'developer' ? '/developer/notifications' : user?.role === 'manager' ? '/manager/profile' : '/admin/settings'} className="btn-ghost w-full justify-start text-sm">
+                    <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/notifications` : user?.role === 'manager' ? '/manager/profile' : '/admin/settings'} className="btn-ghost w-full justify-start text-sm">
                       Settings
                     </NavLink>
                     <button onClick={handleLogout} className="btn-ghost w-full justify-start text-sm text-red-500 hover:text-red-600">
@@ -330,7 +352,7 @@ export default function DashboardLayout({ role }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 relative z-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-5 relative z-0">
           <Outlet />
         </main>
       </div>

@@ -56,6 +56,8 @@ export default function AdminProjects() {
     setValue('startDate', p.startDate ? new Date(p.startDate).toISOString().slice(0, 10) : '')
     setValue('deadline', p.deadline ? new Date(p.deadline).toISOString().slice(0, 10) : '')
     setValue('progress', p.progress ?? 0)
+    setValue('projectManager', p.projectManager?._id || '')
+    setValue('assignedEmployees', (p.assignedEmployees || []).map((u) => u._id || u))
     setShowModal(true)
   }
   const closeModal = () => { setShowModal(false); setEditing(null); reset({ progress: 0 }) }
@@ -65,6 +67,9 @@ export default function AdminProjects() {
     if (!payload.projectManager) delete payload.projectManager
     if (payload.budget === null || Number.isNaN(payload.budget)) delete payload.budget
     if (payload.progress === null || Number.isNaN(payload.progress)) delete payload.progress
+    if (payload.assignedEmployees && !Array.isArray(payload.assignedEmployees)) {
+      payload.assignedEmployees = [payload.assignedEmployees].filter(Boolean)
+    }
     if (editing) updateMut.mutate({ id: editing._id, data: payload })
     else createMut.mutate(payload)
   }
@@ -155,6 +160,26 @@ export default function AdminProjects() {
                     <select {...register('status')} className="form-select">
                       {['planning','active','on_hold','completed','cancelled'].map(s=><option key={s}>{s}</option>)}
                     </select></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Project Manager</label>
+                    <select {...register('projectManager')} className="form-select">
+                      <option value="">Select manager</option>
+                      {employees.filter((e) => ['manager', 'admin'].includes(e.userId?.role)).map((e) => (
+                        <option key={e._id} value={e.userId?._id}>{e.userId?.name} ({e.userId?.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Assigned Team</label>
+                    <select {...register('assignedEmployees')} multiple className="form-select min-h-[120px]">
+                      {employees.map((e) => (
+                        <option key={e._id} value={e.userId?._id}>{e.userId?.name} - {e.designation}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-400 mt-1">Hold Ctrl/Cmd to select multiple team members.</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="form-label">Priority</label>

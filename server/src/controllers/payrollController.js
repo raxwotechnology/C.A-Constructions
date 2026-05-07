@@ -2,6 +2,7 @@ const Payroll = require('../models/Payroll');
 const Employee = require('../models/Employee');
 const Overtime = require('../models/Overtime');
 const SalaryPayment = require('../models/SalaryPayment');
+const Project = require('../models/Project');
 const crypto = require('crypto');
 const { createNotification } = require('../services/notificationService');
 
@@ -9,6 +10,27 @@ const { createNotification } = require('../services/notificationService');
 const EPF_EMPLOYEE = 0.08;
 const EPF_EMPLOYER = 0.12;
 const ETF_EMPLOYER = 0.03;
+const COMMISSION_RATE = Number(process.env.PAYROLL_COMMISSION_RATE || 0.05);
+
+const monthRange = (month, year) => ({
+  start: new Date(Number(year), Number(month) - 1, 1),
+  end: new Date(Number(year), Number(month), 0, 23, 59, 59, 999),
+});
+
+async function computeAutoCommission(employeeId, month, year) {
+  const { start, end } = monthRange(month, year);
+  const completedProjects = await Project.find({
+    status: 'completed',
+    completedAt: { $gte: start, $lte: end },
+    assignedEmployees: employeeId,
+  }).select('title budget assignedEmployees');
+  const autoCommission = completedProjects.reduce((sum, project) => {
+    const members = Math.max((project.assignedEmployees || []).length, 1);
+    const pool = Number(project.budget || 0) * COMMISSION_RATE;
+    return sum + (pool / members);
+  }, 0);
+  return { autoCommission, completedProjects };
+}
 
 // @desc    Generate monthly payroll
 // @route   POST /api/payroll/generate
@@ -24,10 +46,12 @@ exports.generatePayroll = async (req, res, next) => {
     if (exists) return res.status(400).json({ success: false, message: 'Payroll already generated for this month' });
 
     const basicSalary = employee.basicSalary;
+    const { autoCommission } = await computeAutoCommission(employeeId, month, year);
+    const totalCommissions = Number(commissions) + autoCommission;
     const otRows = await Overtime.find({ employee: employeeId, month, year });
     const overtimeTotal = otRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
     const finalOvertime = Number(overtime) + overtimeTotal;
-    const grossSalary = basicSalary + Number(allowances) + finalOvertime + Number(commissions) + Number(bonus);
+    const grossSalary = basicSalary + Number(allowances) + finalOvertime + totalCommissions + Number(bonus);
 
     // EPF/ETF calculations
     const epfEmployee = Math.round(basicSalary * EPF_EMPLOYEE);
@@ -38,7 +62,7 @@ exports.generatePayroll = async (req, res, next) => {
 
     const payroll = await Payroll.create({
       employee: employeeId, month, year,
-      basicSalary, allowances, overtime: finalOvertime, commissions, bonus, deductions, loanDeduction,
+      basicSalary, allowances, overtime: finalOvertime, commissions: totalCommissions, bonus, deductions, loanDeduction,
       epfEmployee, epfEmployer, etfEmployer,
       grossSalary, netSalary,
       generatedBy: req.user._id, notes,
@@ -76,7 +100,8 @@ exports.generateAllPayroll = async (req, res, next) => {
         const allowances = emp.allowances || 0;
         const otRows = await Overtime.find({ employee: emp._id, month, year });
         const overtime = otRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-        const grossSalary = basicSalary + allowances + overtime;
+        const { autoCommission } = await computeAutoCommission(emp._id, month, year);
+        const grossSalary = basicSalary + allowances + overtime + autoCommission;
         const epfEmployee = Math.round(basicSalary * EPF_EMPLOYEE);
         const epfEmployer = Math.round(basicSalary * EPF_EMPLOYER);
         const etfEmployer = Math.round(basicSalary * ETF_EMPLOYER);
@@ -84,7 +109,7 @@ exports.generateAllPayroll = async (req, res, next) => {
 
         const payroll = await Payroll.create({
           employee: emp._id, month, year,
-          basicSalary, allowances, overtime, grossSalary, netSalary,
+          basicSalary, allowances, overtime, commissions: autoCommission, grossSalary, netSalary,
           epfEmployee, epfEmployer, etfEmployer,
           generatedBy: req.user._id,
         });

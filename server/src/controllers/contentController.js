@@ -3,7 +3,7 @@ const PortfolioItem = require('../models/PortfolioItem');
 
 exports.getServices = async (req, res, next) => {
   try {
-    const query = req.user?.role === 'admin' ? {} : { active: true };
+    const query = ['admin', 'manager'].includes(req.user?.role) ? {} : { active: true };
     const services = await Service.find(query).sort({ order: 1, createdAt: -1 });
     res.json({ success: true, count: services.length, services });
   } catch (err) { next(err); }
@@ -48,7 +48,7 @@ exports.deleteService = async (req, res, next) => {
 
 exports.getPortfolioItems = async (req, res, next) => {
   try {
-    const query = req.user?.role === 'admin' ? {} : { active: true };
+    const query = ['admin', 'manager'].includes(req.user?.role) ? {} : { active: true };
     const items = await PortfolioItem.find(query).sort({ order: 1, createdAt: -1 });
     res.json({ success: true, count: items.length, items });
   } catch (err) { next(err); }

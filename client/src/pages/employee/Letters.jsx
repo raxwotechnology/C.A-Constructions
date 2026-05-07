@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 import { FiFileText, FiDownload } from 'react-icons/fi'
 
-const typeColor = { offer:'badge-blue', appointment:'badge-green', confirmation:'badge-purple', experience:'badge-navy', salary:'badge-yellow' }
+const typeColor = { offer:'badge-blue', appointment:'badge-green', confirmation:'badge-purple', experience:'badge-navy', salary:'badge-yellow', service_agreement:'badge-blue' }
 
 const printLetter = (content, title) => {
   const w = window.open('', '_blank')

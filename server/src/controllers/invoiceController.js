@@ -1,7 +1,9 @@
 const Invoice = require('../models/Invoice');
 const Payment = require('../models/Payment');
+const Project = require('../models/Project');
 const crypto = require('crypto');
 const { createNotification } = require('../services/notificationService');
+const { awardPoints } = require('../services/rewardService');
 
 // @desc    Get all invoices
 // @route   GET /api/invoices
@@ -33,7 +35,18 @@ exports.getInvoice = async (req, res, next) => {
 // @route   POST /api/invoices
 exports.createInvoice = async (req, res, next) => {
   try {
-    const invoice = await Invoice.create(req.body);
+    const payload = { ...req.body };
+    if (!payload.project) {
+      return res.status(400).json({ success: false, message: 'Project is required for invoice assignment' });
+    }
+    if (payload.project) {
+      const project = await Project.findById(payload.project).select('client title');
+      if (!project) return res.status(400).json({ success: false, message: 'Selected project not found' });
+      if (String(project.client) !== String(payload.client)) {
+        return res.status(400).json({ success: false, message: 'Project does not belong to selected client' });
+      }
+    }
+    const invoice = await Invoice.create(payload);
     await createNotification({
       recipient: invoice.client,
       title: 'New Invoice Created',
@@ -51,6 +64,14 @@ exports.updateInvoice = async (req, res, next) => {
   try {
     const existing = await Invoice.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    if (req.body.project) {
+      const project = await Project.findById(req.body.project).select('client');
+      if (!project) return res.status(400).json({ success: false, message: 'Selected project not found' });
+      const selectedClient = req.body.client || existing.client;
+      if (String(project.client) !== String(selectedClient)) {
+        return res.status(400).json({ success: false, message: 'Project does not belong to selected client' });
+      }
+    }
 
     const invoice = await Invoice.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
@@ -63,6 +84,14 @@ exports.updateInvoice = async (req, res, next) => {
         type: 'payment',
         link: '/invoices',
       });
+      if (req.body.status === 'paid') {
+        await awardPoints({
+          userId: invoice.client,
+          action: 'complete_invoice_payment',
+          sourceKey: `invoice-paid-admin:${invoice._id}`,
+          note: 'Points for paid invoice (manual status update)',
+        });
+      }
     }
     res.json({ success: true, invoice });
   } catch (err) { next(err); }

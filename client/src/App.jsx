@@ -43,6 +43,7 @@ import AdminFinancial from './pages/admin/Financial'
 import AdminFinanceEntries from './pages/admin/FinanceEntries'
 import AdminServices from './pages/admin/Services'
 import AdminPortfolio from './pages/admin/Portfolio'
+import AdminRewards from './pages/admin/Rewards'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
 import ManagerTeam from './pages/manager/Team'
@@ -71,6 +72,7 @@ import ClientMessages from './pages/client/Messages'
 import ClientNotifications from './pages/client/Notifications'
 import ClientBooking from './pages/client/Booking'
 import ClientFeedback from './pages/client/Feedback'
+import ClientRewards from './pages/client/Rewards'
 
 // Guard components
 const ProtectedRoute = ({ children, roles }) => {
@@ -83,7 +85,14 @@ const ProtectedRoute = ({ children, roles }) => {
 const GuestRoute = ({ children }) => {
   const { isAuthenticated, user } = useAuthStore()
   if (isAuthenticated) {
-    const redirect = { admin: '/admin', manager: '/manager', developer: '/developer', client: '/my-projects' }
+    const redirect = {
+      admin: '/admin',
+      manager: '/manager',
+      developer: '/developer',
+      designer: '/designer',
+      marketing: '/marketing',
+      client: '/my-projects',
+    }
     return <Navigate to={redirect[user?.role] || '/'} replace />
   }
   return children
@@ -113,6 +122,7 @@ export default function App() {
         <Route path="/notifications/:id" element={<ProtectedRoute roles={['client']}><NotificationDetail /></ProtectedRoute>} />
         <Route path="/my-account" element={<ProtectedRoute roles={['client']}><ClientProfile /></ProtectedRoute>} />
         <Route path="/feedback" element={<ClientFeedback />} />
+        <Route path="/rewards" element={<ProtectedRoute roles={['client']}><ClientRewards /></ProtectedRoute>} />
       </Route>
 
       {/* Auth */}
@@ -145,6 +155,7 @@ export default function App() {
         <Route path="finance-entries" element={<AdminFinanceEntries />} />
         <Route path="services" element={<AdminServices />} />
         <Route path="portfolio" element={<AdminPortfolio />} />
+        <Route path="rewards" element={<AdminRewards />} />
       </Route>
 
       {/* Manager */}
@@ -160,6 +171,38 @@ export default function App() {
 
       {/* Developer */}
       <Route path="/developer" element={<ProtectedRoute roles={['developer']}><DashboardLayout role="developer" /></ProtectedRoute>}>
+        <Route index element={<DeveloperDashboard />} />
+        <Route path="projects" element={<DeveloperProjects />} />
+        <Route path="profile" element={<DeveloperProfile />} />
+        <Route path="tasks" element={<DeveloperTasks />} />
+        <Route path="leaves" element={<DeveloperLeaves />} />
+        <Route path="payslips" element={<DeveloperPayslips />} />
+        <Route path="export" element={<DeveloperExport />} />
+        <Route path="letters" element={<DeveloperLetters />} />
+        <Route path="messages" element={<MessagesCenter />} />
+        <Route path="attendance" element={<DeveloperAttendance />} />
+        <Route path="notifications" element={<DeveloperNotifications />} />
+        <Route path="notifications/:id" element={<NotificationDetail />} />
+      </Route>
+
+      {/* Designer */}
+      <Route path="/designer" element={<ProtectedRoute roles={['designer']}><DashboardLayout role="designer" /></ProtectedRoute>}>
+        <Route index element={<DeveloperDashboard />} />
+        <Route path="projects" element={<DeveloperProjects />} />
+        <Route path="profile" element={<DeveloperProfile />} />
+        <Route path="tasks" element={<DeveloperTasks />} />
+        <Route path="leaves" element={<DeveloperLeaves />} />
+        <Route path="payslips" element={<DeveloperPayslips />} />
+        <Route path="export" element={<DeveloperExport />} />
+        <Route path="letters" element={<DeveloperLetters />} />
+        <Route path="messages" element={<MessagesCenter />} />
+        <Route path="attendance" element={<DeveloperAttendance />} />
+        <Route path="notifications" element={<DeveloperNotifications />} />
+        <Route path="notifications/:id" element={<NotificationDetail />} />
+      </Route>
+
+      {/* Marketing */}
+      <Route path="/marketing" element={<ProtectedRoute roles={['marketing']}><DashboardLayout role="marketing" /></ProtectedRoute>}>
         <Route index element={<DeveloperDashboard />} />
         <Route path="projects" element={<DeveloperProjects />} />
         <Route path="profile" element={<DeveloperProfile />} />

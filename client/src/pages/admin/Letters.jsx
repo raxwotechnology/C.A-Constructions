@@ -12,12 +12,14 @@ const LETTER_TYPES = [
   { value:'confirmation', label:'Confirmation Letter' },
   { value:'experience', label:'Experience Letter' },
   { value:'salary', label:'Salary Confirmation' },
+  { value:'service_agreement', label:'Service Agreement' },
 ]
 
 export default function AdminLetters() {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [preview, setPreview] = useState(null)
+  const [editContent, setEditContent] = useState('')
   const { register, handleSubmit, reset, watch } = useForm()
   const selectedType = watch('type')
 
@@ -41,11 +43,21 @@ export default function AdminLetters() {
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed to generate'),
   })
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }) => api.put(`/letters/${id}`, payload).then((r) => r.data),
+    onSuccess: (r) => {
+      qc.invalidateQueries(['admin-letters'])
+      setPreview(r.letter)
+      setEditContent(r.letter.content)
+      toast.success('Letter updated')
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed to update'),
+  })
 
   const onSubmit = d => generateMut.mutate({
     employeeId: d.employeeId,
     type: d.type,
-    data: { startDate: d.startDate, endDate: d.endDate, confirmationDate: d.confirmationDate, purpose: d.purpose },
+    data: { startDate: d.startDate, endDate: d.endDate, confirmationDate: d.confirmationDate, purpose: d.purpose, scope: d.scope },
   })
 
   const printLetter = (content) => {
@@ -70,7 +82,7 @@ export default function AdminLetters() {
   }
 
   const letters = data?.letters || []
-  const typeColor = { offer:'badge-blue', appointment:'badge-green', confirmation:'badge-purple', experience:'badge-navy', salary:'badge-yellow' }
+  const typeColor = { offer:'badge-blue', appointment:'badge-green', confirmation:'badge-purple', experience:'badge-navy', salary:'badge-yellow', service_agreement:'badge-blue' }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -117,7 +129,7 @@ export default function AdminLetters() {
                 <td className="text-sm text-gray-500">{new Date(l.issuedDate).toLocaleDateString('en-LK')}</td>
                 <td>
                   <div className="flex gap-1">
-                    <button onClick={() => setPreview(l)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="Preview">
+                    <button onClick={() => { setPreview(l); setEditContent(l.content) }} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="Preview">
                       <FiEye size={13}/>
                     </button>
                     <button onClick={() => printLetter(l.content)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Print/Download">
@@ -160,6 +172,8 @@ export default function AdminLetters() {
                   <input {...register('confirmationDate')} type="date" className="form-input"/></div>}
                 {selectedType === 'salary' && <div><label className="form-label">Purpose</label>
                   <input {...register('purpose')} placeholder="e.g. Bank loan application" className="form-input"/></div>}
+                {selectedType === 'service_agreement' && <div><label className="form-label">Service Scope</label>
+                  <input {...register('scope')} placeholder="Scope of service terms" className="form-input"/></div>}
                 <div className="flex gap-3">
                   <button type="button" onClick={() => { setShowModal(false); reset() }} className="btn-ghost flex-1 justify-center">Cancel</button>
                   <button type="submit" disabled={generateMut.isPending} className="btn-primary flex-1 justify-center">
@@ -190,7 +204,22 @@ export default function AdminLetters() {
                   <p className="text-2xl font-bold text-primary font-heading">Raxwo Pvt Ltd</p>
                   <p className="text-gray-500 text-sm mt-1">123 Galle Road, Colombo 03, Sri Lanka</p>
                 </div>
-                <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">{preview.content}</pre>
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={18}
+                  className="form-input font-mono text-xs leading-relaxed"
+                />
+                <div className="pt-3 flex justify-end">
+                  <button
+                    className="btn-primary btn-sm"
+                    onClick={() => updateMut.mutate({ id: preview._id, payload: { content: editContent, title: preview.title, type: preview.type } })}
+                    disabled={updateMut.isPending}
+                    type="button"
+                  >
+                    {updateMut.isPending ? <span className="spinner" /> : 'Save Changes'}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

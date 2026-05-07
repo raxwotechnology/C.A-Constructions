@@ -4,7 +4,7 @@ const letterSchema = new mongoose.Schema({
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
   type: {
     type: String,
-    enum: ['offer', 'appointment', 'confirmation', 'experience', 'salary', 'epf_confirmation', 'warning', 'termination'],
+    enum: ['offer', 'appointment', 'confirmation', 'experience', 'salary', 'service_agreement', 'epf_confirmation', 'warning', 'termination'],
     required: true
   },
   title: { type: String, required: true },

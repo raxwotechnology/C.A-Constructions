@@ -14,7 +14,7 @@ exports.getProjects = async (req, res, next) => {
     else if (client) query.client = client;
 
     // Developers see assigned projects
-    if (req.user.role === 'developer') query.assignedEmployees = req.user._id;
+    if (['developer', 'designer', 'marketing'].includes(req.user.role)) query.assignedEmployees = req.user._id;
 
     const projects = await Project.find(query)
       .populate('client', 'name email avatar')

@@ -9,6 +9,8 @@ import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity } from 're
 const DEPARTMENTS = ['Engineering','Design','Marketing','HR','Finance','Operations','Sales','Infrastructure']
 const ROLES = [
   { value: 'developer', label: 'Developer' },
+  { value: 'designer', label: 'Designer' },
+  { value: 'marketing', label: 'Marketing' },
   { value: 'manager', label: 'Manager' },
   { value: 'admin', label: 'Admin' },
 ]
@@ -52,12 +54,34 @@ export default function AdminEmployees() {
   const openCreate = () => { reset(); setEditing(null); setShowModal(true) }
   const openEdit = emp => {
     setEditing(emp)
-    ;['department','designation','basicSalary','allowances','status','epfNumber'].forEach(k => setValue(k, emp[k]))
+    ;[
+      'department', 'designation', 'basicSalary', 'allowances', 'status', 'epfNumber',
+      'idType', 'idNumber', 'dob', 'primaryPhone', 'secondaryPhone', 'address', 'cvUrl', 'maxLeavesPerYear',
+    ].forEach(k => setValue(k, emp[k]))
+    setValue('emergencyContactName', emp?.emergencyContact?.name || '')
+    setValue('emergencyContactPhone', emp?.emergencyContact?.phone || '')
+    setValue('emergencyContactRelationship', emp?.emergencyContact?.relationship || '')
     setValue('role', emp.userId?.role || 'developer')
     setShowModal(true)
   }
   const closeModal = () => { setShowModal(false); setEditing(null); reset() }
-  const onSubmit = d => editing ? updateMut.mutate({ id: editing._id, data: d }) : createMut.mutate(d)
+  const onSubmit = (d) => {
+    const payload = {
+      ...d,
+      emergencyContact: {
+        name: d.emergencyContactName || '',
+        phone: d.emergencyContactPhone || '',
+        relationship: d.emergencyContactRelationship || '',
+      },
+    }
+    if (!payload.emergencyContact.name && !payload.emergencyContact.phone && !payload.emergencyContact.relationship) {
+      delete payload.emergencyContact
+    }
+    delete payload.emergencyContactName
+    delete payload.emergencyContactPhone
+    delete payload.emergencyContactRelationship
+    return editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
+  }
 
   const statusColor = { active:'badge-green', on_leave:'badge-yellow', resigned:'badge-gray', terminated:'badge-red' }
 
@@ -194,6 +218,40 @@ export default function AdminEmployees() {
                     <input {...register('designation',{required:true})} placeholder="e.g. Senior Developer" className="form-input"/></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  <div><label className="form-label">Identity Type</label>
+                    <select {...register('idType')} className="form-select">
+                      <option value="nic">NIC</option>
+                      <option value="driving_license">Driving License</option>
+                      <option value="passport">Passport</option>
+                    </select></div>
+                  <div><label className="form-label">ID Number</label>
+                    <input {...register('idNumber')} placeholder="Enter ID number" className="form-input"/></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="form-label">Birth Date</label>
+                    <input {...register('dob')} type="date" className="form-input"/></div>
+                  <div><label className="form-label">Primary Phone</label>
+                    <input {...register('primaryPhone')} placeholder="+94..." className="form-input"/></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="form-label">Secondary Phone</label>
+                    <input {...register('secondaryPhone')} placeholder="Optional" className="form-input"/></div>
+                  <div><label className="form-label">CV URL</label>
+                    <input {...register('cvUrl')} placeholder="https://..." className="form-input"/></div>
+                </div>
+                <div>
+                  <label className="form-label">Address</label>
+                  <textarea {...register('address')} rows={2} placeholder="Employee address" className="form-input" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div><label className="form-label">Emergency Contact Name</label>
+                    <input {...register('emergencyContactName')} placeholder="Contact person" className="form-input"/></div>
+                  <div><label className="form-label">Emergency Contact Phone</label>
+                    <input {...register('emergencyContactPhone')} placeholder="+94..." className="form-input"/></div>
+                  <div><label className="form-label">Relationship</label>
+                    <input {...register('emergencyContactRelationship')} placeholder="e.g. Sister" className="form-input"/></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div><label className="form-label">Basic Salary (LKR)</label>
                     <input {...register('basicSalary',{valueAsNumber:true})} type="number" placeholder="100000" className="form-input"/></div>
                   <div><label className="form-label">Allowances (LKR)</label>
@@ -202,6 +260,10 @@ export default function AdminEmployees() {
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="form-label">EPF Number</label>
                     <input {...register('epfNumber')} placeholder="EPF12345" className="form-input"/></div>
+                  <div><label className="form-label">Max Leaves / Year</label>
+                    <input {...register('maxLeavesPerYear',{valueAsNumber:true})} type="number" placeholder="24" className="form-input"/></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   {!editing && <div><label className="form-label">Join Date *</label>
                     <input {...register('joinedDate',{required:!editing})} type="date" className="form-input"/></div>}
                   {editing && <div><label className="form-label">Status</label>

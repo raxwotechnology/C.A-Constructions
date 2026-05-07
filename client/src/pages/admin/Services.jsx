@@ -10,9 +10,10 @@ export default function AdminServices() {
   const [form, setForm] = useState({ title: '', description: '', features: '', priceText: '', imageUrl: '', active: true, order: 0 })
   const [imageFile, setImageFile] = useState(null)
 
-  const { data } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-services'],
-    queryFn: () => api.get('/content/services').then((r) => r.data),
+    queryFn: () => api.get('/content/services/admin').then((r) => r.data),
+    retry: 1,
   })
   const services = data?.services || []
 
@@ -49,6 +50,15 @@ export default function AdminServices() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header"><div><h1 className="page-title">Services Management</h1><p className="page-subtitle">Add, edit and delete public services.</p></div></div>
+      {error ? (
+        <div className="card card-body border border-red-200 bg-red-50/60">
+          <p className="font-semibold text-red-700">Failed to load services.</p>
+          <p className="text-sm text-red-700/80 mt-1">{error.response?.data?.message || error.message}</p>
+          <div className="mt-3">
+            <button className="btn-danger" onClick={() => refetch()}>Retry</button>
+          </div>
+        </div>
+      ) : null}
       <div className="card card-body space-y-3">
         <h3 className="font-bold text-primary font-heading">{editing ? 'Edit Service' : 'Add Service'}</h3>
         <div className="grid md:grid-cols-2 gap-3">
@@ -68,6 +78,9 @@ export default function AdminServices() {
         <table className="table">
           <thead><tr><th>Service</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
+            {isLoading ? (
+              <tr><td colSpan={4} className="text-center py-8 text-slate-400">Loading…</td></tr>
+            ) : null}
             {services.map((s) => (
               <tr key={s._id}>
                 <td><p className="font-semibold text-primary">{s.title}</p><p className="text-xs text-slate-500">{s.description}</p></td>
@@ -79,7 +92,7 @@ export default function AdminServices() {
                 </td>
               </tr>
             ))}
-            {services.length === 0 ? <tr><td colSpan={4} className="text-center py-8 text-slate-400">No services yet.</td></tr> : null}
+            {!isLoading && services.length === 0 && !error ? <tr><td colSpan={4} className="text-center py-8 text-slate-400">No services yet.</td></tr> : null}
           </tbody>
         </table>
       </div>

@@ -147,10 +147,10 @@ export default function AdminExports() {
         </div>
 
         <div className="flex gap-3">
-          <button type="button" className="btn-primary" disabled={downloading} onClick={() => download('pdf')}>
+          <button type="button" className="btn-danger" disabled={downloading} onClick={() => download('pdf')}>
             <FiFileText size={15} /> Export PDF <FiDownload size={14} />
           </button>
-          <button type="button" className="btn-outline" disabled={downloading} onClick={() => download('excel')}>
+          <button type="button" className="btn-success" disabled={downloading} onClick={() => download('excel')}>
             <FiFileText size={15} /> Export Excel <FiDownload size={14} />
           </button>
         </div>

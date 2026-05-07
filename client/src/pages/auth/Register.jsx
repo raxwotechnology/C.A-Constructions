@@ -16,7 +16,13 @@ export default function Register() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      const user = await registerUser({ name: data.name, email: data.email, password: data.password, role: 'client' })
+      const user = await registerUser({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: 'client',
+        referralCode: data.referralCode || '',
+      })
       toast.success('Account created! Welcome to Raxwo Portal')
       navigate('/my-projects')
     } catch (err) {
@@ -72,6 +78,11 @@ export default function Register() {
               </button>
             </div>
             {errors.password && <p className="form-error">{errors.password.message}</p>}
+          </div>
+
+          <div>
+            <label className="form-label">Referral Code (Optional)</label>
+            <input {...register('referralCode')} placeholder="RAX-CLIENT-2026" className="form-input" />
           </div>
 
           <div>

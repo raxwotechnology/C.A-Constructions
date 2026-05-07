@@ -4,6 +4,9 @@ const paymentSchema = new mongoose.Schema({
   invoice: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice', required: true },
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   amount: { type: Number, required: true },
+  originalAmount: { type: Number, default: 0 },
+  discountAmount: { type: Number, default: 0 },
+  voucherCode: { type: String, default: '' },
   currency: { type: String, default: 'LKR' },
   method: { type: String, default: 'payhere' },
   status: {

@@ -10,6 +10,13 @@ const attendanceSchema = new mongoose.Schema({
   },
   checkIn: Date,
   checkOut: Date,
+  breakTimes: [{
+    breakIn: Date,
+    breakOut: Date,
+    notes: String,
+  }],
+  isHalfDay: { type: Boolean, default: false },
+  isFullDay: { type: Boolean, default: true },
   notes: String,
   markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });

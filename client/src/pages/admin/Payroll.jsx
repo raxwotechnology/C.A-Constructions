@@ -139,6 +139,7 @@ export default function AdminPayroll() {
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="card card-body space-y-3">
           <h3 className="font-bold text-primary font-heading">Generate Payroll (Selected Employee)</h3>
+          <p className="text-xs text-slate-500">Commission is auto-calculated from completed projects assigned in selected month. You can still add manual commission below.</p>
           <div>
             <label className="form-label">Employee</label>
             <select className="form-select" value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)}>

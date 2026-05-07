@@ -7,6 +7,7 @@ const employeeSchema = new mongoose.Schema({
   designation: { type: String, required: true },
   basicSalary: { type: Number, required: true, default: 0 },
   allowances: { type: Number, default: 0 },
+  maxLeavesPerYear: { type: Number, default: 24 },
   epfNumber: { type: String, default: '' },
   etfNumber: { type: String, default: '' },
   joinedDate: { type: Date, required: true },
@@ -17,10 +18,15 @@ const employeeSchema = new mongoose.Schema({
     default: 'active'
   },
   // Personal Info
+  idType: { type: String, enum: ['nic', 'driving_license', 'passport'], default: 'nic' },
+  idNumber: { type: String, default: '' },
   nic: { type: String, default: '' },
   dob: Date,
+  primaryPhone: { type: String, default: '' },
+  secondaryPhone: { type: String, default: '' },
   gender: { type: String, enum: ['male', 'female', 'other'], default: 'male' },
   address: { type: String, default: '' },
+  cvUrl: { type: String, default: '' },
   emergencyContact: {
     name: String,
     phone: String,
