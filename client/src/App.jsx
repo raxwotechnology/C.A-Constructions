@@ -29,6 +29,7 @@ import AdminEPF from './pages/admin/EPFRecords'
 import AdminRecruitment from './pages/admin/Recruitment'
 import AdminProjects from './pages/admin/Projects'
 import AdminClients from './pages/admin/Clients'
+import AdminSubscriptions from './pages/admin/Subscriptions'
 import AdminInvoices from './pages/admin/Invoices'
 import AdminLetters from './pages/admin/Letters'
 import AdminAnalytics from './pages/admin/Analytics'
@@ -66,6 +67,7 @@ import DeveloperExport from './pages/employee/Export'
 
 // Client pages
 import ClientProjects from './pages/client/Projects'
+import ClientSubscriptions from './pages/client/Subscriptions'
 import ClientInvoices from './pages/client/Invoices'
 import ClientProfile from './pages/client/Profile'
 import ClientMessages from './pages/client/Messages'
@@ -115,6 +117,7 @@ export default function App() {
         <Route path="/careers/:id/apply" element={<Apply />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/my-projects" element={<ProtectedRoute roles={['client']}><ClientProjects /></ProtectedRoute>} />
+        <Route path="/my-subscriptions" element={<ProtectedRoute roles={['client']}><ClientSubscriptions /></ProtectedRoute>} />
         <Route path="/booking" element={<ProtectedRoute roles={['client']}><ClientBooking /></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute roles={['client']}><ClientInvoices /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute roles={['client']}><ClientMessages /></ProtectedRoute>} />
@@ -139,6 +142,7 @@ export default function App() {
         <Route path="recruitment" element={<AdminRecruitment />} />
         <Route path="recruitment/candidates/:id" element={<CandidateProfile />} />
         <Route path="projects" element={<AdminProjects />} />
+        <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="clients" element={<AdminClients />} />
         <Route path="invoices" element={<AdminInvoices />} />
         <Route path="letters" element={<AdminLetters />} />

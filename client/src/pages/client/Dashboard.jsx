@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
-import { FiFolder, FiCreditCard, FiCheckCircle, FiClock, FiTrendingUp, FiGift } from 'react-icons/fi'
+import { FiFolder, FiCreditCard, FiCheckCircle, FiClock, FiTrendingUp, FiGift, FiServer } from 'react-icons/fi'
 
 export default function ClientDashboard() {
   const { user } = useAuthStore()
@@ -20,6 +20,10 @@ export default function ClientDashboard() {
     queryKey: ['client-rewards-dashboard'],
     queryFn: () => api.get('/rewards/me').then((r) => r.data),
   })
+  const { data: subData } = useQuery({
+    queryKey: ['client-subscriptions-dashboard'],
+    queryFn: () => api.get('/subscriptions/my-summary').then(r => r.data),
+  })
 
   const projects = projData?.projects || []
   const invoices = invData?.invoices || []
@@ -28,6 +32,8 @@ export default function ClientDashboard() {
   const pendingInvoices = invoices.filter(i => i.status === 'sent').length
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((a, b) => a + (b.total || 0), 0)
   const rewardPoints = rewardsData?.reward?.totalPoints || 0
+  const activeSubs = subData?.summary?.active || 0
+  const overdueSubsAmount = subData?.summary?.remaining || 0
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -44,13 +50,14 @@ export default function ClientDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
           { label:'Active Projects', value:activeProjects, icon:FiFolder, color:'kpi-blue' },
-          { label:'Completed', value:completedProjects, icon:FiCheckCircle, color:'kpi-green' },
-          { label:'Pending Invoices', value:pendingInvoices, icon:FiClock, color:'kpi-navy' },
+          { label:'Active Subs', value:activeSubs, icon:FiServer, color:'kpi-navy' },
+          { label:'Pending Invoices', value:pendingInvoices, icon:FiClock, color:'kpi-orange' },
+          { label:'Overdue Subs', value:`LKR ${(overdueSubsAmount/1000).toFixed(0)}k`, icon:FiTrendingUp, color:'kpi-red' },
           { label:'Total Paid', value:`LKR ${(totalPaid/1000).toFixed(0)}k`, icon:FiCreditCard, color:'kpi-purple' },
-          { label:'Reward Points', value:rewardPoints, icon:FiGift, color:'kpi-blue' },
+          { label:'Reward Points', value:rewardPoints, icon:FiGift, color:'kpi-green' },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} transition={{delay:i*0.08}}
             className={`kpi-card ${s.color}`}>

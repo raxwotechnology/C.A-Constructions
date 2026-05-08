@@ -30,6 +30,7 @@ const financeRoutes = require('./routes/financeRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const contentRoutes = require('./routes/contentRoutes');
 const rewardRoutes = require('./routes/rewardRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -94,6 +95,7 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/rewards', rewardRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 ensureDefaultRules().catch(() => {});
 

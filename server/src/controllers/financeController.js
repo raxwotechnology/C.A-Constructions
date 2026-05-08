@@ -20,7 +20,7 @@ function getRange(month, year) {
 exports.addEntry = async (req, res, next) => {
   try {
     const { type, category, title, amount, date, note } = req.body;
-    const entry = await FinanceEntry.create({
+    const data = {
       type,
       category,
       title,
@@ -28,7 +28,13 @@ exports.addEntry = async (req, res, next) => {
       date: date ? new Date(date) : new Date(),
       note: note || '',
       createdBy: req.user._id,
-    });
+    };
+    // Attach bill/receipt if uploaded
+    if (req.file) {
+      data.billFile = `/uploads/bills/${req.file.filename}`;
+      data.billFileName = req.file.originalname;
+    }
+    const entry = await FinanceEntry.create(data);
     res.status(201).json({ success: true, entry });
   } catch (err) { next(err); }
 };

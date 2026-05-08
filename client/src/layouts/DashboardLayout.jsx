@@ -11,7 +11,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload,
-  FiGift,
+  FiGift, FiServer
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
@@ -33,6 +33,7 @@ const adminNav = [
   ]},
   { group: 'Business', items: [
     { to: '/admin/projects', label: 'Projects', icon: FiFolder },
+    { to: '/admin/subscriptions', label: 'Subscriptions', icon: FiServer },
     { to: '/admin/services', label: 'Services', icon: FiLayers },
     { to: '/admin/portfolio', label: 'Portfolio', icon: FiPieChart },
     { to: '/admin/financial', label: 'Financial', icon: FiDollarSign },

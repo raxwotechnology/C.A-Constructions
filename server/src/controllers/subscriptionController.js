@@ -1,0 +1,436 @@
+const Subscription = require('../models/Subscription');
+const Project = require('../models/Project');
+const User = require('../models/User');
+const { createNotification } = require('../services/notificationService');
+
+// ── helpers ────────────────────────────────────────────
+const SUBSCRIPTION_TYPE_LABELS = {
+  website_maintenance: 'Website Maintenance',
+  app_maintenance: 'App Maintenance',
+  hosting_domain: 'Hosting & Domain',
+  social_media_facebook: 'Facebook Management',
+  social_media_instagram: 'Instagram Management',
+  social_media_tiktok: 'TikTok Marketing',
+  content_management: 'Content Management',
+  technical_support: 'Technical Support',
+  bug_fixing: 'Bug Fixing',
+  seo_marketing: 'SEO & Marketing',
+  custom: 'Custom Service',
+};
+
+function calcOverdueDays(nextDueDate, gracePeriodDays = 7) {
+  const now = new Date();
+  const grace = new Date(nextDueDate);
+  grace.setDate(grace.getDate() + gracePeriodDays);
+  if (now <= grace) return 0;
+  return Math.floor((now - grace) / (1000 * 60 * 60 * 24));
+}
+
+function advanceDueDate(current, frequency) {
+  const d = new Date(current);
+  switch (frequency) {
+    case 'quarterly': d.setMonth(d.getMonth() + 3); break;
+    case 'semi_annual': d.setMonth(d.getMonth() + 6); break;
+    case 'annual': d.setFullYear(d.getFullYear() + 1); break;
+    default: d.setMonth(d.getMonth() + 1); break;
+  }
+  return d;
+}
+
+// ── GET all subscriptions ──────────────────────────────
+// Admin: all, Client: own
+exports.getSubscriptions = async (req, res, next) => {
+  try {
+    const query = req.user.role === 'client' ? { client: req.user._id } : {};
+
+    if (req.query.status) query.status = req.query.status;
+    if (req.query.type) query.subscriptionType = req.query.type;
+    if (req.query.clientId && req.user.role !== 'client') query.client = req.query.clientId;
+
+    const subs = await Subscription.find(query)
+      .populate('client', 'name email phone')
+      .populate('project', 'title status')
+      .populate('previousProjects', 'title status')
+      .sort({ createdAt: -1 });
+
+    // Compute live overdue for each
+    const enriched = subs.map((s) => {
+      const obj = s.toObject();
+      obj.overdueDays = calcOverdueDays(s.nextDueDate, s.gracePeriodDays);
+      obj.remainingBalance = Math.max(0, s.totalBilled - s.totalPaid);
+      obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
+      return obj;
+    });
+
+    res.json({ success: true, count: enriched.length, subscriptions: enriched });
+  } catch (err) { next(err); }
+};
+
+// ── GET single subscription ───────────────────────────
+exports.getSubscription = async (req, res, next) => {
+  try {
+    const sub = await Subscription.findById(req.params.id)
+      .populate('client', 'name email phone')
+      .populate('project', 'title status progress budget')
+      .populate('previousProjects', 'title status')
+      .populate('payments.recordedBy', 'name');
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+    if (req.user.role === 'client' && String(sub.client._id) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    const obj = sub.toObject();
+    obj.overdueDays = calcOverdueDays(sub.nextDueDate, sub.gracePeriodDays);
+    obj.remainingBalance = Math.max(0, sub.totalBilled - sub.totalPaid);
+    obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType;
+    res.json({ success: true, subscription: obj });
+  } catch (err) { next(err); }
+};
+
+// ── CREATE subscription (admin) ───────────────────────
+exports.createSubscription = async (req, res, next) => {
+  try {
+    const payload = { ...req.body };
+
+    // Ensure valid client
+    const client = await User.findById(payload.client);
+    if (!client || client.role !== 'client') {
+      return res.status(400).json({ success: false, message: 'Valid client required' });
+    }
+
+    // Calculate initial nextDueDate if not provided
+    if (!payload.nextDueDate) {
+      const now = new Date();
+      const billingDay = payload.billingDay || 1;
+      const next = new Date(now.getFullYear(), now.getMonth() + 1, billingDay);
+      payload.nextDueDate = next;
+    }
+
+    // Set initial totalBilled to the amount (first billing cycle)
+    payload.totalBilled = payload.amount || 0;
+
+    const sub = await Subscription.create(payload);
+
+    await createNotification({
+      recipient: sub.client,
+      title: 'New Subscription Created',
+      message: `Subscription "${sub.title}" (${SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType}) has been set up. Monthly amount: LKR ${Number(sub.amount).toLocaleString()}.`,
+      type: 'subscription',
+      link: '/my-subscriptions',
+    });
+
+    res.status(201).json({ success: true, subscription: sub });
+  } catch (err) { next(err); }
+};
+
+// ── UPDATE subscription (admin) ───────────────────────
+exports.updateSubscription = async (req, res, next) => {
+  try {
+    const existing = await Subscription.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Subscription not found' });
+
+    const updates = { ...req.body };
+    // Don't allow overwriting payments via update
+    delete updates.payments;
+
+    const sub = await Subscription.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
+      .populate('client', 'name email phone')
+      .populate('project', 'title status');
+
+    // Notify client of important changes
+    if (updates.amount && updates.amount !== existing.amount) {
+      await createNotification({
+        recipient: sub.client._id || sub.client,
+        title: 'Subscription Amount Updated',
+        message: `Your "${sub.title}" subscription amount changed from LKR ${Number(existing.amount).toLocaleString()} to LKR ${Number(sub.amount).toLocaleString()}.`,
+        type: 'subscription',
+        link: '/my-subscriptions',
+      });
+    }
+    if (updates.status && updates.status !== existing.status) {
+      await createNotification({
+        recipient: sub.client._id || sub.client,
+        title: 'Subscription Status Changed',
+        message: `Your "${sub.title}" subscription status is now "${sub.status}".`,
+        type: 'subscription',
+        link: '/my-subscriptions',
+      });
+    }
+
+    res.json({ success: true, subscription: sub });
+  } catch (err) { next(err); }
+};
+
+// ── DELETE subscription (admin) ───────────────────────
+exports.deleteSubscription = async (req, res, next) => {
+  try {
+    const sub = await Subscription.findByIdAndDelete(req.params.id);
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+    res.json({ success: true, message: 'Subscription deleted' });
+  } catch (err) { next(err); }
+};
+
+// ── RECORD PAYMENT (admin) ───────────────────────────
+exports.recordPayment = async (req, res, next) => {
+  try {
+    const { amount, method, reference, note } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Valid amount required' });
+
+    const sub = await Subscription.findById(req.params.id);
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+
+    sub.payments.push({
+      amount: Number(amount),
+      method: method || 'manual',
+      reference: reference || '',
+      note: note || '',
+      recordedBy: req.user._id,
+      paidAt: new Date(),
+    });
+
+    sub.totalPaid += Number(amount);
+
+    // If fully paid for current cycle, advance due date
+    if (sub.totalPaid >= sub.totalBilled) {
+      sub.nextDueDate = advanceDueDate(sub.nextDueDate, sub.billingFrequency);
+      sub.totalBilled += sub.amount; // Add next cycle billing
+      if (sub.status === 'overdue') sub.status = 'active';
+      sub.overdueDays = 0;
+    }
+
+    await sub.save();
+
+    await createNotification({
+      recipient: sub.client,
+      title: 'Payment Recorded',
+      message: `Payment of LKR ${Number(amount).toLocaleString()} recorded for "${sub.title}". Remaining: LKR ${Math.max(0, sub.totalBilled - sub.totalPaid).toLocaleString()}.`,
+      type: 'subscription',
+      link: '/my-subscriptions',
+    });
+
+    res.json({ success: true, subscription: sub });
+  } catch (err) { next(err); }
+};
+
+// ── ADD AGREEMENT (admin) ─────────────────────────────
+exports.addAgreement = async (req, res, next) => {
+  try {
+    const sub = await Subscription.findById(req.params.id);
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+
+    const agreement = {
+      title: req.body.title || 'Agreement',
+      type: req.body.type || 'service',
+      validFrom: req.body.validFrom,
+      validUntil: req.body.validUntil,
+      notes: req.body.notes || '',
+    };
+
+    if (req.file) {
+      agreement.fileUrl = `/uploads/agreements/${req.file.filename}`;
+      agreement.fileName = req.file.originalname;
+    }
+
+    sub.agreements.push(agreement);
+    await sub.save();
+
+    res.json({ success: true, subscription: sub });
+  } catch (err) { next(err); }
+};
+
+// ── REMOVE AGREEMENT (admin) ──────────────────────────
+exports.removeAgreement = async (req, res, next) => {
+  try {
+    const sub = await Subscription.findById(req.params.id);
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+
+    sub.agreements = sub.agreements.filter(a => String(a._id) !== req.params.agreementId);
+    await sub.save();
+
+    res.json({ success: true, subscription: sub });
+  } catch (err) { next(err); }
+};
+
+// ── BILLING OVERVIEW (admin dashboard) ────────────────
+exports.getBillingOverview = async (req, res, next) => {
+  try {
+    const subs = await Subscription.find({ status: { $in: ['active', 'overdue'] } })
+      .populate('client', 'name email')
+      .populate('project', 'title');
+
+    let totalMRR = 0;
+    let totalOverdue = 0;
+    let totalCollected = 0;
+    let overdueCount = 0;
+    const now = new Date();
+
+    const clientSummaries = {};
+
+    subs.forEach((s) => {
+      // Monthly Recurring Revenue
+      let monthlyEquiv = s.amount;
+      if (s.billingFrequency === 'quarterly') monthlyEquiv = s.amount / 3;
+      else if (s.billingFrequency === 'semi_annual') monthlyEquiv = s.amount / 6;
+      else if (s.billingFrequency === 'annual') monthlyEquiv = s.amount / 12;
+      totalMRR += monthlyEquiv;
+
+      const overdue = calcOverdueDays(s.nextDueDate, s.gracePeriodDays);
+      const remaining = Math.max(0, s.totalBilled - s.totalPaid);
+
+      if (overdue > 0) {
+        totalOverdue += remaining;
+        overdueCount++;
+      }
+      totalCollected += s.totalPaid;
+
+      const clientId = String(s.client._id);
+      if (!clientSummaries[clientId]) {
+        clientSummaries[clientId] = {
+          client: s.client,
+          subscriptions: [],
+          totalDue: 0,
+          totalPaid: 0,
+          overdueAmount: 0,
+          overdueSubs: 0,
+        };
+      }
+      clientSummaries[clientId].subscriptions.push({
+        _id: s._id,
+        title: s.title,
+        type: s.subscriptionType,
+        typeLabel: SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType,
+        amount: s.amount,
+        status: overdue > 0 ? 'overdue' : s.status,
+        overdueDays: overdue,
+        nextDueDate: s.nextDueDate,
+        remaining,
+      });
+      clientSummaries[clientId].totalDue += s.totalBilled;
+      clientSummaries[clientId].totalPaid += s.totalPaid;
+      if (overdue > 0) {
+        clientSummaries[clientId].overdueAmount += remaining;
+        clientSummaries[clientId].overdueSubs++;
+      }
+    });
+
+    // Hosting renewals coming up (next 30 days)
+    const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const hostingRenewals = await Subscription.find({
+      'hostingDetails.expiryDate': { $lte: thirtyDaysOut, $gte: now },
+      status: { $in: ['active', 'overdue'] },
+    }).populate('client', 'name email').populate('project', 'title');
+
+    // Monthly revenue for chart (last 12 months)
+    const monthlyRevenue = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      let revenue = 0;
+      subs.forEach((s) => {
+        s.payments.forEach((p) => {
+          const pd = new Date(p.paidAt);
+          if (pd >= monthStart && pd <= monthEnd) revenue += p.amount;
+        });
+      });
+      monthlyRevenue.push({
+        month: d.toLocaleString('default', { month: 'short' }),
+        year: d.getFullYear(),
+        revenue,
+      });
+    }
+
+    // Subscription type distribution
+    const typeDist = {};
+    subs.forEach((s) => {
+      const label = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
+      typeDist[label] = (typeDist[label] || 0) + 1;
+    });
+
+    res.json({
+      success: true,
+      overview: {
+        totalMRR: Math.round(totalMRR),
+        totalOverdue: Math.round(totalOverdue),
+        totalCollected: Math.round(totalCollected),
+        overdueCount,
+        activeCount: subs.filter(s => s.status === 'active').length,
+        totalSubscriptions: subs.length,
+        clientSummaries: Object.values(clientSummaries),
+        hostingRenewals,
+        monthlyRevenue,
+        typeDist: Object.entries(typeDist).map(([name, value]) => ({ name, value })),
+      },
+    });
+  } catch (err) { next(err); }
+};
+
+// ── CHECK & UPDATE OVERDUE (cron-like) ────────────────
+exports.processOverdue = async (req, res, next) => {
+  try {
+    const subs = await Subscription.find({ status: 'active' });
+    let updated = 0;
+
+    for (const sub of subs) {
+      const days = calcOverdueDays(sub.nextDueDate, sub.gracePeriodDays);
+      if (days > 0 && sub.status !== 'overdue') {
+        sub.status = 'overdue';
+        sub.overdueDays = days;
+        sub.lastOverdueCheck = new Date();
+        await sub.save();
+        updated++;
+
+        await createNotification({
+          recipient: sub.client,
+          title: '⚠️ Subscription Overdue',
+          message: `Your "${sub.title}" subscription is ${days} day(s) overdue. Please make payment to avoid service interruption.`,
+          type: 'subscription',
+          link: '/my-subscriptions',
+        });
+      } else if (days > 0) {
+        sub.overdueDays = days;
+        sub.lastOverdueCheck = new Date();
+        await sub.save();
+      }
+    }
+
+    res.json({ success: true, message: `Processed ${subs.length} subscriptions, ${updated} marked overdue` });
+  } catch (err) { next(err); }
+};
+
+// ── CLIENT: get my subscription summary ───────────────
+exports.getMySubscriptionSummary = async (req, res, next) => {
+  try {
+    const subs = await Subscription.find({ client: req.user._id })
+      .populate('project', 'title status progress')
+      .populate('previousProjects', 'title status')
+      .sort({ createdAt: -1 });
+
+    let totalDue = 0;
+    let totalPaid = 0;
+    let overdueCount = 0;
+
+    const enriched = subs.map((s) => {
+      const obj = s.toObject();
+      obj.overdueDays = calcOverdueDays(s.nextDueDate, s.gracePeriodDays);
+      obj.remainingBalance = Math.max(0, s.totalBilled - s.totalPaid);
+      obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
+      totalDue += s.totalBilled;
+      totalPaid += s.totalPaid;
+      if (obj.overdueDays > 0) overdueCount++;
+      return obj;
+    });
+
+    res.json({
+      success: true,
+      subscriptions: enriched,
+      summary: {
+        total: enriched.length,
+        active: enriched.filter(s => s.status === 'active').length,
+        overdue: overdueCount,
+        totalDue,
+        totalPaid,
+        remaining: Math.max(0, totalDue - totalPaid),
+      },
+    });
+  } catch (err) { next(err); }
+};

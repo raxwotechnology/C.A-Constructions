@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2 } from 'react-icons/fi'
@@ -136,9 +137,8 @@ export default function AdminProjects() {
         ))}
       </div>
 
-      <AnimatePresence>
-        {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
             <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
@@ -207,9 +207,9 @@ export default function AdminProjects() {
                 </div>
               </form>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

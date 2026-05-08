@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiDownload } from 'react-icons/fi'
+import { FiPlus, FiDownload, FiPaperclip } from 'react-icons/fi'
+import { mediaUrl } from '../../lib/media'
 
-const EXPENSE_CATEGORIES = ['Salary', 'Hosting', 'Equipment', 'Marketing', 'Transport', 'Utilities', 'Other']
+const EXPENSE_CATEGORIES = ['Salary', 'Hosting', 'Domain', 'Server', 'Equipment', 'Marketing', 'Transport', 'Utilities', 'Other']
 const INCOME_CATEGORIES = ['Client Payment', 'Subscription', 'Service Revenue', 'Other']
 
 export default function FinanceEntries() {
@@ -16,7 +17,7 @@ export default function FinanceEntries() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [form, setForm] = useState({ type: 'income', category: '', title: '', amount: 0, note: '' })
+  const [form, setForm] = useState({ type: 'income', category: '', title: '', amount: 0, note: '', file: null })
   const [customCategory, setCustomCategory] = useState('')
 
   const { data } = useQuery({
@@ -31,10 +32,19 @@ export default function FinanceEntries() {
   const finalCategory = form.category === 'Other' ? customCategory : form.category
 
   const addMut = useMutation({
-    mutationFn: (payload) => api.post('/finance/entries', payload).then((r) => r.data),
+    mutationFn: (payload) => {
+      const formData = new FormData()
+      Object.keys(payload).forEach(k => {
+        if (payload[k] !== null && payload[k] !== undefined) formData.append(k, payload[k])
+      })
+      if (payload.file) formData.append('bill', payload.file)
+      return api.post('/finance/entries', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }).then((r) => r.data)
+    },
     onSuccess: () => {
       toast.success('Entry added')
-      setForm({ type: 'income', category: '', title: '', amount: 0, note: '' })
+      setForm({ type: 'income', category: '', title: '', amount: 0, note: '', file: null })
       qc.invalidateQueries({ queryKey: ['finance-entries'] })
       qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
       qc.invalidateQueries({ queryKey: ['finance-overview'] })
@@ -78,7 +88,7 @@ export default function FinanceEntries() {
 
       <div className="card card-body space-y-3">
         <h3 className="font-bold text-primary font-heading">Add Entry</h3>
-        <div className="grid md:grid-cols-5 gap-3">
+        <div className="grid md:grid-cols-6 gap-3">
           <select className="form-select" value={form.type} onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}>
             <option value="income">Income</option>
             <option value="expense">Expense</option>
@@ -90,6 +100,7 @@ export default function FinanceEntries() {
           <input className="form-input" placeholder="Title" value={form.title} onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))} />
           <input type="number" className="form-input" placeholder="Amount" value={form.amount} onChange={(e) => setForm((s) => ({ ...s, amount: Number(e.target.value || 0) }))} />
           <input className="form-input" placeholder="Note (optional)" value={form.note} onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))} />
+          <input type="file" className="form-input file:mr-2 file:py-1 file:px-2 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={(e) => setForm((s) => ({ ...s, file: e.target.files[0] }))} />
         </div>
         {form.category === 'Other' ? (
           <input className="form-input max-w-md" placeholder="Enter custom category" value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} />
@@ -116,7 +127,7 @@ export default function FinanceEntries() {
 
       <div className="table-container">
         <table className="table">
-          <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Title</th><th>Amount</th><th>Note</th></tr></thead>
+          <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Title</th><th>Amount</th><th>Note</th><th>Bill/Receipt</th></tr></thead>
           <tbody>
             {entries.map((e) => (
               <tr key={e._id}>
@@ -126,9 +137,10 @@ export default function FinanceEntries() {
                 <td>{e.title}</td>
                 <td>LKR {Number(e.amount || 0).toLocaleString()}</td>
                 <td>{e.note || '—'}</td>
+                <td>{e.billFile ? <a href={mediaUrl(e.billFile)} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline flex items-center gap-1"><FiPaperclip size={14}/> View</a> : '—'}</td>
               </tr>
             ))}
-            {entries.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">No entries found.</td></tr> : null}
+            {entries.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">No entries found.</td></tr> : null}
           </tbody>
         </table>
       </div>

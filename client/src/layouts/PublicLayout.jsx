@@ -13,6 +13,7 @@ import {
   FiCalendar,
   FiGift,
   FiUsers,
+  FiServer,
 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -122,10 +123,10 @@ export default function PublicLayout() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navbar */}
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      <header ref={topbarRef} className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled ? 'bg-primary/95 backdrop-blur-md shadow-navy border-b border-white/15 py-3' : 'bg-primary/95 backdrop-blur-md border-b border-white/10 py-4 md:py-5'
       }`}>
-        <div ref={topbarRef} className="w-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
+        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
           {/* Logo */}
           <NavLink to="/" className="flex items-center gap-3 group flex-shrink-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
@@ -261,6 +262,7 @@ export default function PublicLayout() {
                           <>
                             <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiHome size={14} /> Dashboard</NavLink>
                             <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiFolder size={14} /> My Projects</NavLink>
+                            <NavLink to="/my-subscriptions" className="btn-ghost w-full justify-start text-sm"><FiServer size={14} /> Subscriptions</NavLink>
                             <NavLink to="/payments" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Payments</NavLink>
                             <NavLink to="/booking" className="btn-ghost w-full justify-start text-sm"><FiCalendar size={14} /> Booking</NavLink>
                             <NavLink to="/messages" className="btn-ghost w-full justify-start text-sm"><FiMessageSquare size={14} /> Messages</NavLink>
@@ -334,6 +336,7 @@ export default function PublicLayout() {
                   <div className="mt-3 pt-3 border-t border-white/10 space-y-1">
                     <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Dashboard</NavLink>
                     <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">My Projects</NavLink>
+                    <NavLink to="/my-subscriptions" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Subscriptions</NavLink>
                     <NavLink to="/payments" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Payments</NavLink>
                     <NavLink to="/messages" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Messages</NavLink>
                     <NavLink to="/rewards" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Rewards</NavLink>

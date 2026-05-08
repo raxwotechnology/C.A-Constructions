@@ -60,3 +60,51 @@ exports.uploadImageLocal = multer({
   },
   limits: { fileSize: 4 * 1024 * 1024 }
 }).single('image');
+
+// ── Agreement upload (PDF, DOC, DOCX, images) ──────────
+const agreementStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../uploads/agreements');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `agreement-${unique}${path.extname(file.originalname)}`);
+  }
+});
+
+exports.uploadAgreement = multer({
+  storage: agreementStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Only PDF, DOC, DOCX, JPG, PNG files are allowed'), false);
+  },
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+}).single('agreement');
+
+// ── Bill / Receipt upload (PDF, images) ─────────────────
+const billStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../uploads/bills');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `bill-${unique}${path.extname(file.originalname)}`);
+  }
+});
+
+exports.uploadBill = multer({
+  storage: billStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Only PDF, JPG, PNG, WEBP files are allowed'), false);
+  },
+  limits: { fileSize: 8 * 1024 * 1024 } // 8MB
+}).single('bill');
