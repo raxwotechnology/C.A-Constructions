@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { getDashboard, getNotifications, markRead, markSingleRead, getNotificationById, broadcastAnnouncement, sendBirthdayNotifications } = require('../controllers/analyticsController');
+const {
+  getDashboard, getAdvancedAnalytics, getAIPredictions,
+  getNotifications, markRead, markSingleRead, getNotificationById,
+  broadcastAnnouncement, sendBirthdayNotifications
+} = require('../controllers/analyticsController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/dashboard', protect, authorize('admin', 'manager'), getDashboard);
+router.get('/advanced', protect, authorize('admin', 'manager'), getAdvancedAnalytics);
+router.get('/ai-predict', protect, authorize('admin', 'manager'), getAIPredictions);
 router.get('/notifications', protect, getNotifications);
 router.put('/notifications/read', protect, markRead);
 router.get('/notifications/:id', protect, getNotificationById);

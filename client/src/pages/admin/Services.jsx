@@ -12,7 +12,7 @@ export default function AdminServices() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-services'],
-    queryFn: () => api.get('/content/services/admin').then((r) => r.data),
+    queryFn: () => api.get('/content/services').then((r) => r.data),
     retry: 1,
   })
   const services = data?.services || []
@@ -49,7 +49,7 @@ export default function AdminServices() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="page-header"><div><h1 className="page-title">Services Management</h1><p className="page-subtitle">Add, edit and delete public services.</p></div></div>
+      <div className="page-header"><div><h1 className="page-title">Services & Products</h1><p className="page-subtitle">Manage public-facing services and product offerings.</p></div></div>
       {error ? (
         <div className="card card-body border border-red-200 bg-red-50/60">
           <p className="font-semibold text-red-700">Failed to load services.</p>

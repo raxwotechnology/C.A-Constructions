@@ -2,13 +2,17 @@ const mongoose = require('mongoose');
 
 const payrollSchema = new mongoose.Schema({
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-  month: { type: Number, required: true }, // 1-12
+  month: { type: Number, required: true },
   year: { type: Number, required: true },
   basicSalary: { type: Number, required: true },
   allowances: { type: Number, default: 0 },
   overtime: { type: Number, default: 0 },
+  overtimeHours: { type: Number, default: 0 },
   commissions: { type: Number, default: 0 },
+  projectCommissions: { type: Number, default: 0 },
   bonus: { type: Number, default: 0 },
+  targetBonus: { type: Number, default: 0 },
+  advancePayment: { type: Number, default: 0 },
   deductions: { type: Number, default: 0 },
   loanDeduction: { type: Number, default: 0 },
   // EPF/ETF - Sri Lanka statutory
@@ -17,6 +21,12 @@ const payrollSchema = new mongoose.Schema({
   etfEmployer: { type: Number, default: 0 },   // 3% of basic
   grossSalary: { type: Number, required: true },
   netSalary: { type: Number, required: true },
+  // Payment Method
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'bank_transfer', 'cheque', 'payhere'],
+    default: 'bank_transfer'
+  },
   status: {
     type: String,
     enum: ['draft', 'approved', 'paid'],
@@ -25,6 +35,7 @@ const payrollSchema = new mongoose.Schema({
   paidAt: Date,
   payslipUrl: String,
   generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   notes: String,
 }, { timestamps: true });
 

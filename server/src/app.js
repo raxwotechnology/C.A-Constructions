@@ -31,6 +31,9 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const contentRoutes = require('./routes/contentRoutes');
 const rewardRoutes = require('./routes/rewardRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const auditRoutes = require('./routes/auditRoutes');
+const branchRoutes = require('./routes/branchRoutes');
+const quotationRoutes = require('./routes/quotationRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -41,7 +44,11 @@ const allowedOrigins = [
   process.env.CLIENT_URL || 'https://manage.raxwo.net',
   'https://manage.raxwo.net',
   'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
   'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
 ];
 app.use(cors({
   origin: (origin, callback) => {
@@ -96,6 +103,9 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/branches', branchRoutes);
+app.use('/api/quotations', quotationRoutes);
 
 ensureDefaultRules().catch(() => {});
 

@@ -45,13 +45,41 @@ exports.generatePayroll = async (req, res, next) => {
     const exists = await Payroll.findOne({ employee: employeeId, month, year });
     if (exists) return res.status(400).json({ success: false, message: 'Payroll already generated for this month' });
 
-    const basicSalary = employee.basicSalary;
+    const basicSalary = employee.basicSalary || 0;
+
+    // ── Auto-pull project salary allocations for this employee ──
+    const { start, end } = monthRange(month, year);
+    const assignedProjects = await Project.find({
+      $or: [
+        { assignedEmployees: employee.userId },
+        { 'salaryAllocations.employee': employeeId }
+      ],
+      status: { $in: ['active', 'completed'] },
+      startDate: { $lte: end },
+    });
+
+    let projectSalaryAlloc = 0;
+    let projectCommissionAlloc = 0;
+    assignedProjects.forEach(proj => {
+      const alloc = (proj.salaryAllocations || []).find(
+        a => String(a.employee) === String(employeeId)
+      );
+      if (alloc) {
+        projectSalaryAlloc += Number(alloc.amount || 0);
+        projectCommissionAlloc += Number(alloc.commission || 0);
+      }
+    });
+
+    // Manual commission + auto commission from completed projects
     const { autoCommission } = await computeAutoCommission(employeeId, month, year);
-    const totalCommissions = Number(commissions) + autoCommission;
+    const totalCommissions = Number(commissions) + autoCommission + projectCommissionAlloc;
+
+    // OT records
     const otRows = await Overtime.find({ employee: employeeId, month, year });
     const overtimeTotal = otRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
     const finalOvertime = Number(overtime) + overtimeTotal;
-    const grossSalary = basicSalary + Number(allowances) + finalOvertime + totalCommissions + Number(bonus);
+
+    const grossSalary = basicSalary + projectSalaryAlloc + Number(allowances) + finalOvertime + totalCommissions + Number(bonus);
 
     // EPF/ETF calculations
     const epfEmployee = Math.round(basicSalary * EPF_EMPLOYEE);
@@ -62,13 +90,15 @@ exports.generatePayroll = async (req, res, next) => {
 
     const payroll = await Payroll.create({
       employee: employeeId, month, year,
-      basicSalary, allowances, overtime: finalOvertime, commissions: totalCommissions, bonus, deductions, loanDeduction,
+      basicSalary, allowances: Number(allowances) + projectSalaryAlloc,
+      overtime: finalOvertime, commissions: totalCommissions, bonus, deductions, loanDeduction,
       epfEmployee, epfEmployer, etfEmployer,
       grossSalary, netSalary,
       generatedBy: req.user._id, notes,
     });
 
     await payroll.populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
+
 
     await createNotification({
       recipient: payroll.employee.userId?._id,

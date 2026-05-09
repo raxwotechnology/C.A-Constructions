@@ -45,6 +45,10 @@ import AdminFinanceEntries from './pages/admin/FinanceEntries'
 import AdminServices from './pages/admin/Services'
 import AdminPortfolio from './pages/admin/Portfolio'
 import AdminRewards from './pages/admin/Rewards'
+import AdminAIAnalyzer from './pages/admin/AIAnalyzer'
+import AdminBranches from './pages/admin/Branches'
+import AdminAuditLogs from './pages/admin/AuditLogs'
+import AdminQuotations from './pages/admin/Quotations'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
 import ManagerTeam from './pages/manager/Team'
@@ -160,6 +164,10 @@ export default function App() {
         <Route path="services" element={<AdminServices />} />
         <Route path="portfolio" element={<AdminPortfolio />} />
         <Route path="rewards" element={<AdminRewards />} />
+        <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
+        <Route path="branches" element={<AdminBranches />} />
+        <Route path="audit-logs" element={<AdminAuditLogs />} />
+        <Route path="quotations" element={<AdminQuotations />} />
       </Route>
 
       {/* Manager */}

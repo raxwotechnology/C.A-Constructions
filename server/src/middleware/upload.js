@@ -108,3 +108,26 @@ exports.uploadBill = multer({
   },
   limits: { fileSize: 8 * 1024 * 1024 } // 8MB
 }).single('bill');
+// ── Generic document upload (PDF + images, 5MB) ─────────
+const docStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../uploads/documents');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `doc-${unique}${path.extname(file.originalname)}`);
+  }
+});
+
+exports.uploadFile = multer({
+  storage: docStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Unsupported file type'), false);
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
+}).single('file');

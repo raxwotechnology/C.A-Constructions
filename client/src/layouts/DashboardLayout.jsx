@@ -11,7 +11,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload,
-  FiGift, FiServer
+  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
@@ -33,8 +33,9 @@ const adminNav = [
   ]},
   { group: 'Business', items: [
     { to: '/admin/projects', label: 'Projects', icon: FiFolder },
+    { to: '/admin/quotations', label: 'Quotations', icon: FiFileText },
     { to: '/admin/subscriptions', label: 'Subscriptions', icon: FiServer },
-    { to: '/admin/services', label: 'Services', icon: FiLayers },
+    { to: '/admin/services', label: 'Services & Products', icon: FiLayers },
     { to: '/admin/portfolio', label: 'Portfolio', icon: FiPieChart },
     { to: '/admin/financial', label: 'Financial', icon: FiDollarSign },
     { to: '/admin/finance-entries', label: 'Income & Expenses', icon: FiClipboard },
@@ -47,6 +48,9 @@ const adminNav = [
     { to: '/admin/feedback', label: 'Feedback', icon: FiMessageSquare },
   ]},
   { group: 'System', items: [
+    { to: '/admin/ai-analyzer', label: 'AI Analyzer', icon: FiZap },
+    { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
+    { to: '/admin/audit-logs', label: 'Audit Logs', icon: FiShield },
     { to: '/admin/settings', label: 'Settings', icon: FiSettings },
     { to: '/admin/messages', label: 'Messages', icon: FiMessageSquare },
   ]},

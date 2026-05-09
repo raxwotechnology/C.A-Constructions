@@ -12,7 +12,7 @@ export default function AdminPortfolio() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-portfolio-items'],
-    queryFn: () => api.get('/content/portfolio/admin').then((r) => r.data),
+    queryFn: () => api.get('/content/portfolio').then((r) => r.data),
     retry: 1,
   })
   const items = data?.items || []

@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiUpload, FiFile, FiLink, FiCheck } from 'react-icons/fi'
 
 const DEPARTMENTS = ['Engineering','Design','Marketing','HR','Finance','Operations','Sales','Infrastructure']
 const ROLES = [
@@ -16,6 +16,44 @@ const ROLES = [
   { value: 'admin', label: 'Admin' },
 ]
 
+const MAX_FILE_MB = 5
+const FileUploadField = ({ label, accept, hint, file, setFile, existingUrl, icon: Icon = FiFile }) => {
+  const ref = useRef()
+  const handleChange = e => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (f.size > MAX_FILE_MB * 1024 * 1024) { toast.error(`Max file size is ${MAX_FILE_MB}MB`); return }
+    setFile(f)
+  }
+  return (
+    <div>
+      <label className="form-label">{label}</label>
+      <div
+        onClick={() => ref.current?.click()}
+        className={`flex items-center gap-3 p-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+          file ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-secondary hover:bg-blue-50/30'
+        }`}
+      >
+        {file ? <FiCheck size={16} className="text-green-600 flex-shrink-0"/> : <Icon size={16} className="text-gray-400 flex-shrink-0"/>}
+        <div className="min-w-0 flex-1">
+          {file
+            ? <p className="text-sm font-medium text-green-700 truncate">{file.name}</p>
+            : existingUrl
+              ? <p className="text-xs text-blue-600 truncate">Uploaded ✓ — click to replace</p>
+              : <p className="text-sm text-gray-400">Click to upload {hint}</p>
+          }
+          {!file && <p className="text-xs text-gray-300 mt-0.5">Max {MAX_FILE_MB}MB · {accept}</p>}
+        </div>
+        {existingUrl && !file && (
+          <a href={existingUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+            className="text-xs text-blue-500 hover:underline flex-shrink-0">View</a>
+        )}
+      </div>
+      <input ref={ref} type="file" accept={accept} className="hidden" onChange={handleChange}/>
+    </div>
+  )
+}
+
 export default function AdminEmployees() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -23,6 +61,9 @@ export default function AdminEmployees() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [activityEmp, setActivityEmp] = useState(null)
+  const [cvFile, setCvFile] = useState(null)
+  const [agreementFile, setAgreementFile] = useState(null)
+  const [nicFile, setNicFile] = useState(null)
   const { register, handleSubmit, reset, setValue } = useForm()
 
   const { data, isLoading } = useQuery({
@@ -52,36 +93,55 @@ export default function AdminEmployees() {
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
-  const openCreate = () => { reset(); setEditing(null); setShowModal(true) }
+  const openCreate = () => { reset(); setEditing(null); setCvFile(null); setAgreementFile(null); setNicFile(null); setShowModal(true) }
   const openEdit = emp => {
     setEditing(emp)
     ;[
       'department', 'designation', 'basicSalary', 'allowances', 'status', 'epfNumber',
-      'idType', 'idNumber', 'dob', 'primaryPhone', 'secondaryPhone', 'address', 'cvUrl', 'maxLeavesPerYear',
+      'idType', 'idNumber', 'dob', 'primaryPhone', 'secondaryPhone', 'address', 'maxLeavesPerYear', 'portfolioUrl', 'gender',
     ].forEach(k => setValue(k, emp[k]))
     setValue('emergencyContactName', emp?.emergencyContact?.name || '')
     setValue('emergencyContactPhone', emp?.emergencyContact?.phone || '')
     setValue('emergencyContactRelationship', emp?.emergencyContact?.relationship || '')
     setValue('role', emp.userId?.role || 'developer')
+    setCvFile(null); setAgreementFile(null); setNicFile(null)
     setShowModal(true)
   }
-  const closeModal = () => { setShowModal(false); setEditing(null); reset() }
-  const onSubmit = (d) => {
-    const payload = {
-      ...d,
-      emergencyContact: {
-        name: d.emergencyContactName || '',
-        phone: d.emergencyContactPhone || '',
-        relationship: d.emergencyContactRelationship || '',
-      },
+  const closeModal = () => { setShowModal(false); setEditing(null); reset(); setCvFile(null); setAgreementFile(null); setNicFile(null) }
+  const uploadFile = async (file, field) => {
+    if (!file) return null
+    const fd = new FormData()
+    fd.append('file', file)
+    const { data } = await api.post('/uploads/file', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return data?.fileUrl || data?.url || null
+  }
+
+  const onSubmit = async (d) => {
+    try {
+      const [cvUrl, agreementUrl, nicPhotoUrl] = await Promise.all([
+        uploadFile(cvFile, 'cvUrl'),
+        uploadFile(agreementFile, 'agreementUrl'),
+        uploadFile(nicFile, 'nicPhotoUrl'),
+      ])
+      const payload = {
+        ...d,
+        emergencyContact: {
+          name: d.emergencyContactName || '',
+          phone: d.emergencyContactPhone || '',
+          relationship: d.emergencyContactRelationship || '',
+        },
+        ...(cvUrl && { cvUrl }),
+        ...(agreementUrl && { agreementUrl }),
+        ...(nicPhotoUrl && { nicPhotoUrl }),
+      }
+      if (!payload.emergencyContact.name && !payload.emergencyContact.phone) delete payload.emergencyContact
+      delete payload.emergencyContactName
+      delete payload.emergencyContactPhone
+      delete payload.emergencyContactRelationship
+      return editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
+    } catch(err) {
+      toast.error('File upload failed. Please try again.')
     }
-    if (!payload.emergencyContact.name && !payload.emergencyContact.phone && !payload.emergencyContact.relationship) {
-      delete payload.emergencyContact
-    }
-    delete payload.emergencyContactName
-    delete payload.emergencyContactPhone
-    delete payload.emergencyContactRelationship
-    return editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
   const statusColor = { active:'badge-green', on_leave:'badge-yellow', resigned:'badge-gray', terminated:'badge-red' }
@@ -236,8 +296,49 @@ export default function AdminEmployees() {
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="form-label">Secondary Phone</label>
                     <input {...register('secondaryPhone')} placeholder="Optional" className="form-input"/></div>
-                  <div><label className="form-label">CV URL</label>
-                    <input {...register('cvUrl')} placeholder="https://..." className="form-input"/></div>
+                  <div><label className="form-label">Gender</label>
+                    <select {...register('gender')} className="form-select">
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select></div>
+                </div>
+                <div><label className="form-label">Portfolio / LinkedIn URL</label>
+                  <div className="relative">
+                    <FiLink size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                    <input {...register('portfolioUrl')} placeholder="https://linkedin.com/in/... or portfolio link" className="form-input pl-9"/>
+                  </div>
+                </div>
+                {/* Document Uploads */}
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Uploads</p>
+                  <FileUploadField
+                    label="CV / Resume (PDF, max 5MB)"
+                    accept=".pdf"
+                    hint="PDF only"
+                    file={cvFile}
+                    setFile={setCvFile}
+                    existingUrl={editing?.cvUrl}
+                    icon={FiFile}
+                  />
+                  <FileUploadField
+                    label="Employment Agreement (PDF)"
+                    accept=".pdf"
+                    hint="PDF only"
+                    file={agreementFile}
+                    setFile={setAgreementFile}
+                    existingUrl={editing?.agreementUrl}
+                    icon={FiFile}
+                  />
+                  <FileUploadField
+                    label="NIC Photo (PDF or Image)"
+                    accept=".pdf,image/*"
+                    hint="PDF or image"
+                    file={nicFile}
+                    setFile={setNicFile}
+                    existingUrl={editing?.nicPhotoUrl}
+                    icon={FiUpload}
+                  />
                 </div>
                 <div>
                   <label className="form-label">Address</label>
