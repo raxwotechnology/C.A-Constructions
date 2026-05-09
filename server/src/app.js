@@ -34,6 +34,13 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const branchRoutes = require('./routes/branchRoutes');
 const quotationRoutes = require('./routes/quotationRoutes');
+const advanceRoutes = require('./routes/advanceRoutes');
+const loanRoutes = require('./routes/loanRoutes');
+const pettyCashRoutes = require('./routes/pettyCashRoutes');
+const clientRoutes = require('./routes/clientRoutes');
+const workLogRoutes = require('./routes/workLogRoutes');
+const bonusRoutes = require('./routes/bonusRoutes');
+const agreementRoutes = require('./routes/agreementRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -106,6 +113,13 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/quotations', quotationRoutes);
+app.use('/api/advances', advanceRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/petty-cash', pettyCashRoutes);
+app.use('/api/clients', clientRoutes);
+app.use('/api/work-logs', workLogRoutes);
+app.use('/api/bonuses', bonusRoutes);
+app.use('/api/agreements', agreementRoutes);
 
 ensureDefaultRules().catch(() => {});
 

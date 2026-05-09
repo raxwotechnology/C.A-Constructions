@@ -1,0 +1,286 @@
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm, useFieldArray } from 'react-hook-form'
+import { motion } from 'framer-motion'
+import api from '../../lib/api'
+import toast from 'react-hot-toast'
+import { FiPlus, FiX, FiEdit2, FiShield, FiStar } from 'react-icons/fi'
+
+const LEAVE_TYPE_OPTIONS = [
+  { value: 'annual',      label: 'Annual Leave',       icon: '🌴' },
+  { value: 'medical',     label: 'Medical Leave',      icon: '🏥' },
+  { value: 'casual',      label: 'Casual Leave',       icon: '☀️' },
+  { value: 'half_day',    label: 'Half Day',           icon: '🌗' },
+  { value: 'short_leave', label: 'Short Leave (hrs)',  icon: '⏱️' },
+  { value: 'maternity',   label: 'Maternity Leave',    icon: '👶' },
+  { value: 'paternity',   label: 'Paternity Leave',    icon: '👨‍👧' },
+]
+
+export default function LeavePolicies() {
+  const qc = useQueryClient()
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['leave-policies'],
+    queryFn: () => api.get('/leaves/policies').then(r => r.data)
+  })
+
+  const { data: branchData } = useQuery({
+    queryKey: ['branches-list'],
+    queryFn: () => api.get('/branches').then(r => r.data)
+  })
+  const branches = branchData?.branches || []
+
+  const { data: empData } = useQuery({
+    queryKey: ['employees-list'],
+    queryFn: () => api.get('/employees').then(r => r.data)
+  })
+  const employees = empData?.employees || []
+
+  const { register, handleSubmit, reset, control } = useForm({
+    defaultValues: {
+      name: '',
+      employmentType: 'all',
+      branch: '',
+      employee: '',
+      isDefault: false,
+      quotas: LEAVE_TYPE_OPTIONS.map(t => ({
+        leaveType: t.value,
+        quota: t.value === 'annual' ? 14 : t.value === 'medical' ? 7 : t.value === 'casual' ? 7 : t.value === 'half_day' ? 6 : t.value === 'short_leave' ? 12 : t.value === 'maternity' ? 84 : 3,
+        carryForward: false,
+        carryForwardCap: 0,
+        requireDocument: t.value === 'medical',
+        requireReason: t.value === 'medical',
+      }))
+    }
+  })
+
+  const { fields } = useFieldArray({ control, name: 'quotas' })
+
+  const createMut = useMutation({
+    mutationFn: d => api.post('/leaves/policies', d),
+    onSuccess: () => { qc.invalidateQueries(['leave-policies']); toast.success('Policy created'); closeModal() },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/leaves/policies/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries(['leave-policies']); toast.success('Policy updated'); closeModal() },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditing(null)
+    reset()
+  }
+
+  const openCreate = () => {
+    reset({
+      name: '',
+      employmentType: 'all',
+      branch: '',
+      employee: '',
+      isDefault: false,
+      quotas: LEAVE_TYPE_OPTIONS.map(t => ({
+        leaveType: t.value,
+        quota: t.value === 'annual' ? 14 : t.value === 'medical' ? 7 : t.value === 'casual' ? 7 : t.value === 'half_day' ? 6 : t.value === 'short_leave' ? 12 : t.value === 'maternity' ? 84 : 3,
+        carryForward: false, carryForwardCap: 0,
+        requireDocument: t.value === 'medical',
+        requireReason: t.value === 'medical',
+      }))
+    })
+    setEditing(null)
+    setShowModal(true)
+  }
+
+  const openEdit = (policy) => {
+    const quotaMap = {}
+    policy.quotas.forEach(q => { quotaMap[q.leaveType] = q })
+    reset({
+      name: policy.name,
+      employmentType: policy.employmentType || 'all',
+      branch: policy.branch?._id || policy.branch || '',
+      employee: policy.employee?._id || policy.employee || '',
+      isDefault: policy.isDefault,
+      quotas: LEAVE_TYPE_OPTIONS.map(t => ({
+        leaveType: t.value,
+        quota: quotaMap[t.value]?.quota ?? 0,
+        carryForward: quotaMap[t.value]?.carryForward ?? false,
+        carryForwardCap: quotaMap[t.value]?.carryForwardCap ?? 0,
+        requireDocument: quotaMap[t.value]?.requireDocument ?? (t.value === 'medical'),
+        requireReason: quotaMap[t.value]?.requireReason ?? (t.value === 'medical'),
+      }))
+    })
+    setEditing(policy)
+    setShowModal(true)
+  }
+
+  const onSubmit = (data) => {
+    editing ? updateMut.mutate({ id: editing._id, data }) : createMut.mutate(data)
+  }
+
+  const policies = data?.policies || []
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Leave Policies</h1>
+          <p className="page-subtitle">Configure leave quotas and entitlements by employment type or branch</p>
+        </div>
+        <button onClick={openCreate} className="btn-primary"><FiPlus size={15}/> New Policy</button>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></div>
+      ) : policies.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-xl border border-slate-200 text-slate-400">
+          <FiShield size={40} className="mx-auto mb-3 opacity-30"/>
+          <p>No leave policies configured yet.</p>
+          <p className="text-sm mt-1">The system will use default quotas until a policy is set.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {policies.map(p => (
+            <motion.div key={p._id} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
+              className="card card-body relative">
+              {p.isDefault && (
+                <div className="absolute top-3 right-3">
+                  <span className="badge badge-green gap-1"><FiStar size={10}/> Default</span>
+                </div>
+              )}
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 bg-secondary/10 rounded-xl flex items-center justify-center">
+                  <FiShield className="text-secondary" size={18}/>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">{p.name}</h3>
+                  <p className="text-xs text-slate-500">
+                    {p.employee ? `Employee: ${p.employee.userId?.name}` : `${p.employmentType} · ${p.branch?.name || 'All Branches'}`}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {p.quotas.map(q => {
+                  const t = LEAVE_TYPE_OPTIONS.find(x => x.value === q.leaveType)
+                  return (
+                    <div key={q.leaveType} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500">{t?.icon} {t?.label || q.leaveType}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-800">{q.quota} {q.leaveType === 'short_leave' ? 'sessions' : 'days'}</span>
+                        {q.carryForward && <span className="badge badge-blue text-xs py-0">CF</span>}
+                        {q.requireDocument && <span className="badge badge-yellow text-xs py-0">Doc</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <button onClick={() => openEdit(p)} className="btn-ghost btn-sm w-full mt-4 justify-center">
+                <FiEdit2 size={12}/> Edit Policy
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 999999 }}>
+          <motion.div
+            initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col"
+          >
+            <div className="flex items-center justify-between p-6 border-b shrink-0">
+              <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Policy' : 'New Leave Policy'}</h3>
+              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <form id="policy-form" onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Policy Name *</label>
+                    <input {...register('name', {required:true})} className="form-input" placeholder="e.g. Permanent Staff"/>
+                  </div>
+                  <div>
+                    <label className="form-label">Employment Type</label>
+                    <select {...register('employmentType')} className="form-select">
+                      <option value="all">All Employment Types</option>
+                      <option value="permanent">Permanent</option>
+                      <option value="contract">Contract</option>
+                      <option value="probation">Probation</option>
+                      <option value="intern">Intern</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Branch (Optional)</label>
+                    <select {...register('branch')} className="form-select">
+                      <option value="">All Branches</option>
+                      {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Employee (Optional override)</label>
+                    <select {...register('employee')} className="form-select">
+                      <option value="">No specific employee</option>
+                      {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name || 'Unknown'}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" id="isDefault" {...register('isDefault')} className="w-4 h-4 accent-secondary"/>
+                  <label htmlFor="isDefault" className="text-sm font-medium text-slate-700">Set as default policy (will not override employee-specific policies)</label>
+                </div>
+
+                <div>
+                  <p className="form-label mb-3">Leave Type Quotas</p>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="grid grid-cols-7 gap-0 bg-slate-50 border-b text-xs font-bold text-slate-500 uppercase tracking-wider px-4 py-2">
+                      <span className="col-span-2">Type</span>
+                      <span>Days/Qty</span>
+                      <span>Carry Fwd</span>
+                      <span>CF Cap</span>
+                      <span>Needs Doc</span>
+                      <span>Needs Reason</span>
+                    </div>
+                    {fields.map((field, idx) => {
+                      const type = LEAVE_TYPE_OPTIONS[idx]
+                      return (
+                        <div key={field.id} className={`grid grid-cols-7 gap-0 px-4 py-3 items-center text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                          <input type="hidden" {...register(`quotas.${idx}.leaveType`)}/>
+                          <span className="col-span-2 font-medium text-slate-700">{type?.icon} {type?.label}</span>
+                          <input {...register(`quotas.${idx}.quota`, { valueAsNumber: true })} type="number" min="0" className="form-input py-1 text-sm w-16"/>
+                          <label className="flex items-center justify-center">
+                            <input type="checkbox" {...register(`quotas.${idx}.carryForward`)} className="w-4 h-4 accent-secondary"/>
+                          </label>
+                          <input {...register(`quotas.${idx}.carryForwardCap`, { valueAsNumber: true })} type="number" min="0" className="form-input py-1 text-sm w-16"/>
+                          <label className="flex items-center justify-center">
+                            <input type="checkbox" {...register(`quotas.${idx}.requireDocument`)} className="w-4 h-4 accent-amber-500"/>
+                          </label>
+                          <label className="flex items-center justify-center">
+                            <input type="checkbox" {...register(`quotas.${idx}.requireReason`)} className="w-4 h-4 accent-secondary"/>
+                          </label>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="p-6 border-t bg-slate-50 rounded-b-2xl shrink-0 flex gap-3">
+              <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button type="submit" form="policy-form" disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
+                {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : editing ? 'Save Changes' : 'Create Policy'}
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}

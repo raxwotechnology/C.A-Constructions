@@ -116,8 +116,10 @@ exports.generatePayroll = async (req, res, next) => {
 // @route   POST /api/payroll/generate-all
 exports.generateAllPayroll = async (req, res, next) => {
   try {
-    const { month, year } = req.body;
-    const employees = await Employee.find({ status: 'active' });
+    const { month, year, branch } = req.body;
+    const query = { status: 'active' };
+    if (branch) query.branch = branch;
+    const employees = await Employee.find(query);
     const results = [];
     const errors = [];
 
@@ -156,12 +158,21 @@ exports.generateAllPayroll = async (req, res, next) => {
 // @route   GET /api/payroll
 exports.getPayrolls = async (req, res, next) => {
   try {
-    const { month, year, employee, status } = req.query;
+    const { month, year, employee, status, branch } = req.query;
     let query = {};
     if (month) query.month = month;
     if (year) query.year = year;
-    if (employee) query.employee = employee;
     if (status) query.status = status;
+    if (employee) {
+      query.employee = employee;
+    } else if (branch) {
+      const emps = await Employee.find({ branch }).select('_id');
+      if (emps.length > 0) {
+        query.employee = { $in: emps.map(e => e._id) };
+      } else {
+        query.employee = null; // No employees for this branch
+      }
+    }
 
     const payrolls = await Payroll.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
@@ -181,13 +192,121 @@ exports.getMyPayrolls = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Approve payroll
+// @desc    Review payroll (draft → reviewed)
+// @route   PUT /api/payroll/:id/review
+exports.reviewPayroll = async (req, res, next) => {
+  try {
+    const payroll = await Payroll.findByIdAndUpdate(
+      req.params.id,
+      { status: 'reviewed', reviewedBy: req.user._id, reviewedAt: new Date() },
+      { new: true }
+    ).populate({ path: 'employee', populate: { path: 'userId', select: '_id name' } });
+    if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
+
+    // Notify admins that this payroll is ready to approve
+    const User = require('../models/User');
+    const admins = await User.find({ role: 'admin' }).select('_id');
+    await Promise.all(admins.map(a => createNotification({
+      recipient: a._id,
+      title: 'Payroll Ready for Approval',
+      message: `Payroll for ${payroll.employee?.userId?.name} (${payroll.month}/${payroll.year}) has been reviewed and is awaiting approval.`,
+      type: 'payroll',
+      link: '/admin/payroll',
+    })));
+
+    res.json({ success: true, payroll });
+  } catch (err) { next(err); }
+};
+
+// @desc    Approve payroll (reviewed → approved)
 // @route   PUT /api/payroll/:id/approve
 exports.approvePayroll = async (req, res, next) => {
   try {
-    const payroll = await Payroll.findByIdAndUpdate(req.params.id, { status: 'approved' }, { new: true });
+    const payroll = await Payroll.findByIdAndUpdate(
+      req.params.id,
+      { status: 'approved', approvedBy: req.user._id, approvedAt: new Date() },
+      { new: true }
+    ).populate({ path: 'employee', populate: { path: 'userId', select: '_id name' } });
     if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
+
+    // Notify employee: payroll approved, payment incoming
+    if (payroll.employee?.userId?._id) {
+      await createNotification({
+        recipient: payroll.employee.userId._id,
+        title: 'Payroll Approved 🎉',
+        message: `Your payroll for ${payroll.month}/${payroll.year} has been approved. Net salary: LKR ${Number(payroll.netSalary || 0).toLocaleString()}. Payment is being processed.`,
+        type: 'payroll',
+        link: '/developer/payslips',
+      });
+    }
+
     res.json({ success: true, payroll });
+  } catch (err) { next(err); }
+};
+
+// @desc    Update payroll (draft/reviewed only)
+// @route   PUT /api/payroll/:id
+exports.updatePayroll = async (req, res, next) => {
+  try {
+    const existing = await Payroll.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Payroll not found' });
+    if (existing.status === 'paid') return res.status(400).json({ success: false, message: 'Cannot edit a paid payroll' });
+
+    const {
+      allowances, otHours, otRate, otMultiplier, bonus, bonusNote,
+      commissions, advanceDeduction, loanDeduction, notes, paymentMethod,
+      otherAdditions, otherDeductions,
+    } = req.body;
+
+    const basic = existing.basicSalary;
+    const mult = Number(otMultiplier || existing.otMultiplier || 1.5);
+    const rate = Number(otRate || existing.otRate || 0);
+    const hours = Number(otHours ?? existing.otHours ?? 0);
+    const otPay = parseFloat((hours * rate * mult).toFixed(2));
+
+    const addOthers = (otherAdditions || existing.otherAdditions || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+    const dedOthers = (otherDeductions || existing.otherDeductions || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+
+    const grossSalary = basic
+      + Number(allowances ?? existing.allowances ?? 0)
+      + otPay
+      + Number(bonus ?? existing.bonus ?? 0)
+      + Number(commissions ?? existing.commissions ?? 0)
+      + addOthers;
+
+    const epfEmployee = Math.round(basic * EPF_EMPLOYEE);
+    const epfEmployer = Math.round(basic * EPF_EMPLOYER);
+    const etfEmployer = Math.round(basic * ETF_EMPLOYER);
+
+    const totalDeductions = epfEmployee
+      + Number(advanceDeduction ?? existing.advanceDeduction ?? 0)
+      + Number(loanDeduction ?? existing.loanDeduction ?? 0)
+      + dedOthers;
+
+    const netSalary = grossSalary - totalDeductions;
+
+    const updated = await Payroll.findByIdAndUpdate(
+      req.params.id,
+      {
+        allowances: allowances ?? existing.allowances,
+        otHours: hours, otRate: rate, otMultiplier: mult, otPay,
+        bonus: bonus ?? existing.bonus,
+        bonusNote: bonusNote ?? existing.bonusNote,
+        commissions: commissions ?? existing.commissions,
+        advanceDeduction: advanceDeduction ?? existing.advanceDeduction,
+        loanDeduction: loanDeduction ?? existing.loanDeduction,
+        notes: notes ?? existing.notes,
+        paymentMethod: paymentMethod ?? existing.paymentMethod,
+        otherAdditions: otherAdditions ?? existing.otherAdditions,
+        otherDeductions: otherDeductions ?? existing.otherDeductions,
+        epfEmployee, epfEmployer, etfEmployer,
+        grossSalary, totalDeductions, netSalary,
+        status: 'draft', // reset to draft after edit
+      },
+      { new: true }
+    ).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
+
+    res.json({ success: true, payroll: updated });
   } catch (err) { next(err); }
 };
 

@@ -1,0 +1,237 @@
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
+import api from '../../lib/api'
+import toast from 'react-hot-toast'
+import FilterBar from '../../components/ui/FilterBar'
+import ExportBar from '../../components/ui/ExportBar'
+import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck } from 'react-icons/fi'
+
+const CATEGORIES = ['office_supplies','travel','meals','utilities','maintenance','other','fund_top_up']
+const CAT_LABEL = { office_supplies:'Office Supplies', travel:'Travel', meals:'Meals', utilities:'Utilities', maintenance:'Maintenance', other:'Other', fund_top_up:'Fund Top-Up' }
+
+const EMPTY = { type:'out', amount:'', date: new Date().toISOString().split('T')[0], description:'', category:'other', paidTo:'', paymentType:'cash', referenceNumber:'' }
+
+export default function AdminPettyCash() {
+  const qc = useQueryClient()
+  const [showModal, setShowModal] = useState(false)
+  const [form, setForm] = useState(EMPTY)
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [catFilter, setCatFilter] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
+
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+
+  const params = new URLSearchParams()
+  if (typeFilter) params.set('type', typeFilter)
+  if (catFilter) params.set('category', catFilter)
+  if (branchFilter) params.set('branch', branchFilter)
+  if (startDate) params.set('startDate', startDate)
+  if (endDate) params.set('endDate', endDate)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['petty-cash', typeFilter, catFilter, startDate, endDate, branchFilter],
+    queryFn: () => api.get(`/petty-cash?${params}`).then(r => r.data),
+  })
+
+  const createMut = useMutation({
+    mutationFn: p => api.post('/petty-cash', p),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); toast.success('Transaction recorded'); setShowModal(false); setForm(EMPTY) },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const deleteMut = useMutation({
+    mutationFn: id => api.delete(`/petty-cash/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); toast.success('Deleted') },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+
+  const transactions = (data?.transactions || []).filter(t =>
+    !search || t.description?.toLowerCase().includes(search.toLowerCase()) || t.paidTo?.toLowerCase().includes(search.toLowerCase())
+  )
+  const summary = data?.summary || { totalIn: 0, totalOut: 0, currentBalance: 0 }
+
+  const exportColumns = [
+    { header: 'Date', accessor: r => new Date(r.date).toLocaleDateString('en-LK') },
+    { header: 'Type', accessor: r => r.type.toUpperCase() },
+    { header: 'Category', accessor: r => CAT_LABEL[r.category] || r.category },
+    { header: 'Description', accessor: 'description' },
+    { header: 'Paid To', accessor: r => r.paidTo || '—' },
+    { header: 'Amount (LKR)', accessor: r => r.amount },
+    { header: 'Payment', accessor: 'paymentType' },
+    { header: 'Ref No', accessor: r => r.referenceNumber || '—' },
+    { header: 'Recorded By', accessor: r => r.recordedBy?.name || '—' },
+  ]
+
+  return (
+    <div className="space-y-5 animate-fade-in">
+      <div className="page-header flex-wrap gap-3">
+        <div>
+          <h1 className="page-title">Petty Cash</h1>
+          <p className="page-subtitle">{transactions.length} transactions · Balance: <strong className={summary.currentBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}>LKR {summary.currentBalance.toLocaleString()}</strong></p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <ExportBar data={transactions} columns={exportColumns} title="Petty Cash Register" filters={{ Type: typeFilter || 'All', Category: catFilter || 'All', Branch: branchFilter || 'All', From: startDate, To: endDate }} />
+          <button onClick={() => { setForm({ ...EMPTY, type: 'in', category: 'fund_top_up', branch: '' }); setShowModal(true) }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
+            <FiTrendingUp size={14}/> Add Funds
+          </button>
+          <button onClick={() => { setForm(EMPTY); setShowModal(true) }} className="btn-primary gap-2">
+            <FiPlus size={14}/> Record Expense
+          </button>
+        </div>
+      </div>
+
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="kpi-card kpi-green">
+          <p className="text-xs text-slate-500 uppercase font-medium">Total In</p>
+          <p className="text-xl font-bold text-emerald-700">LKR {summary.totalIn.toLocaleString()}</p>
+        </div>
+        <div className="kpi-card kpi-red">
+          <p className="text-xs text-slate-500 uppercase font-medium">Total Out</p>
+          <p className="text-xl font-bold text-red-700">LKR {summary.totalOut.toLocaleString()}</p>
+        </div>
+        <div className={`kpi-card ${summary.currentBalance >= 0 ? 'kpi-blue' : 'kpi-red'}`}>
+          <p className="text-xs text-slate-500 uppercase font-medium">Current Balance</p>
+          <p className={`text-xl font-bold ${summary.currentBalance >= 0 ? 'text-blue-700' : 'text-red-700'}`}>LKR {summary.currentBalance.toLocaleString()}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <FilterBar
+          search={search} onSearchChange={setSearch}
+          startDate={startDate} onStartChange={setStartDate}
+          endDate={endDate} onEndChange={setEndDate}
+          searchPlaceholder="Search description or payee..."
+          extraFilters={
+            <>
+              <select className="form-select py-2 text-sm" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+                <option value="">All Types</option>
+                <option value="in">IN (Fund Top-Up)</option>
+                <option value="out">OUT (Expense)</option>
+              </select>
+              <select className="form-select py-2 text-sm" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
+                <option value="">All Categories</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+              </select>
+              <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+                <option value="">All Branches</option>
+                {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+              </select>
+            </>
+          }
+        />
+      </div>
+
+      {/* Transactions table */}
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            <tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Paid To</th><th className="text-right">Amount</th><th>Payment</th><th>By</th><th></th></tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={9} className="text-center py-12"><div className="w-7 h-7 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></td></tr>
+            ) : transactions.length === 0 ? (
+              <tr><td colSpan={9} className="text-center py-12 text-slate-400">No transactions found.</td></tr>
+            ) : transactions.map(t => (
+              <tr key={t._id}>
+                <td className="text-sm text-slate-600 whitespace-nowrap">{new Date(t.date).toLocaleDateString('en-LK')}</td>
+                <td>
+                  <span className={`badge gap-1 ${t.type === 'in' ? 'badge-green' : 'badge-red'}`}>
+                    {t.type === 'in' ? <FiTrendingUp size={11}/> : <FiTrendingDown size={11}/>}
+                    {t.type.toUpperCase()}
+                  </span>
+                </td>
+                <td className="text-sm text-slate-600">{CAT_LABEL[t.category] || t.category}</td>
+                <td className="font-medium text-slate-800 max-w-[180px] truncate">{t.description}</td>
+                <td className="text-sm text-slate-500">{t.paidTo || '—'}</td>
+                <td className={`text-right font-semibold text-sm ${t.type === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {t.type === 'in' ? '+' : '-'} LKR {Number(t.amount).toLocaleString()}
+                </td>
+                <td className="text-xs text-slate-400 capitalize">{t.paymentType?.replace('_',' ')}</td>
+                <td className="text-xs text-slate-400">{t.recordedBy?.name || '—'}</td>
+                <td>
+                  <button onClick={() => { if (window.confirm('Delete this transaction?')) deleteMut.mutate(t._id) }}
+                    className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg transition-colors">
+                    <FiTrash2 size={13}/>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="font-bold text-primary font-heading">{form.type === 'in' ? 'Add Funds to Petty Cash' : 'Record Expense'}</h3>
+              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16}/></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="form-label">Transaction Type</label>
+                <div className="flex gap-3">
+                  {[{v:'out',l:'Expense (OUT)'},{v:'in',l:'Fund Top-Up (IN)'}].map(o => (
+                    <label key={o.v} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="radio" checked={form.type===o.v} onChange={() => setForm(s=>({...s, type:o.v, category: o.v==='in'?'fund_top_up':'other'}))} className="accent-secondary"/> {o.l}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="form-label">Date *</label>
+                  <input type="date" className="form-input" value={form.date} onChange={e=>setForm(s=>({...s,date:e.target.value}))}/></div>
+                <div><label className="form-label">Amount (LKR) *</label>
+                  <input type="number" className="form-input" value={form.amount} onChange={e=>setForm(s=>({...s,amount:e.target.value}))} placeholder="0.00"/></div>
+              </div>
+              <div><label className="form-label">Description *</label>
+                <input className="form-input" value={form.description} onChange={e=>setForm(s=>({...s,description:e.target.value}))} placeholder="What is this for?"/></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="form-label">Category</label>
+                  <select className="form-select" value={form.category} onChange={e=>setForm(s=>({...s,category:e.target.value}))}>
+                    {CATEGORIES.map(c=><option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+                  </select></div>
+                <div><label className="form-label">Payment Method</label>
+                  <select className="form-select" value={form.paymentType} onChange={e=>setForm(s=>({...s,paymentType:e.target.value}))}>
+                    <option value="cash">Cash</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {form.type === 'out' ? (
+                  <div><label className="form-label">Paid To</label>
+                    <input className="form-input" value={form.paidTo} onChange={e=>setForm(s=>({...s,paidTo:e.target.value}))} placeholder="Person or vendor name"/></div>
+                ) : <div />}
+                <div><label className="form-label">Branch (Optional)</label>
+                  <select className="form-select" value={form.branch || ''} onChange={e=>setForm(s=>({...s,branch:e.target.value}))}>
+                    <option value="">No Branch</option>
+                    {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                  </select></div>
+              </div>
+              <div><label className="form-label">Reference No.</label>
+                <input className="form-input" value={form.referenceNumber} onChange={e=>setForm(s=>({...s,referenceNumber:e.target.value}))} placeholder="Optional receipt / ref number"/></div>
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t">
+              <button onClick={() => setShowModal(false)} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={() => { if (!form.amount || !form.description) { toast.error('Amount and description required'); return } createMut.mutate(form) }}
+                disabled={createMut.isPending}
+                className={`flex-1 justify-center flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-medium transition-colors ${form.type==='in'?'bg-emerald-600 hover:bg-emerald-700':'bg-secondary hover:bg-secondary/90'}`}>
+                {createMut.isPending ? <span className="spinner"/> : <FiCheck size={14}/>}
+                {form.type === 'in' ? 'Add Funds' : 'Record Expense'}
+              </button>
+            </div>
+          </motion.div>
+        </div>, document.body
+      )}
+    </div>
+  )
+}

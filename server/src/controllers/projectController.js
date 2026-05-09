@@ -1,52 +1,65 @@
 const Project = require('../models/Project');
+const Invoice = require('../models/Invoice');
+const path = require('path');
+const fs = require('fs');
 const { createNotification } = require('../services/notificationService');
 
-// @desc    Get all projects
-// @route   GET /api/projects
+const POPULATE = [
+  { path: 'client', select: 'name email avatar phone' },
+  { path: 'projectManager', select: 'name email avatar' },
+  { path: 'assignedEmployees', select: 'name email avatar' },
+  { path: 'branch', select: 'name' },
+  { path: 'invoice', select: 'invoiceNo total totalPaid totalAdvances remainingBalance status dueDate payments' },
+  { path: 'tasks.assignedTo', select: 'name email avatar' },
+  { path: 'notes.createdBy', select: 'name' },
+];
+
+// ── GET all projects ──────────────────────────────────────────────────────────
 exports.getProjects = async (req, res, next) => {
   try {
-    const { status, client } = req.query;
+    const { status, client, branch } = req.query;
     let query = {};
     if (status) query.status = status;
+    if (branch) query.branch = branch;
 
-    // Clients only see their projects
     if (req.user.role === 'client') query.client = req.user._id;
     else if (client) query.client = client;
-
-    // Developers see assigned projects
     if (['developer', 'designer', 'marketing'].includes(req.user.role)) query.assignedEmployees = req.user._id;
+
+    // Auto-mark overdue
+    const now = new Date();
+    await Project.updateMany(
+      { status: 'active', deadline: { $lt: now } },
+      { status: 'overdue' }
+    );
 
     const projects = await Project.find(query)
       .populate('client', 'name email avatar')
-      .populate('projectManager', 'name email avatar')
-      .populate('assignedEmployees', 'name email avatar')
+      .populate('branch', 'name')
+      .populate('invoice', 'invoiceNo total remainingBalance status')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, count: projects.length, projects });
   } catch (err) { next(err); }
 };
 
-// @desc    Get single project
-// @route   GET /api/projects/:id
+// ── GET single project ────────────────────────────────────────────────────────
 exports.getProject = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.id)
-      .populate('client', 'name email avatar')
-      .populate('projectManager', 'name email avatar')
-      .populate('assignedEmployees', 'name email avatar')
-      .populate('tasks.assignedTo', 'name email avatar');
+    const project = await Project.findById(req.params.id).populate(POPULATE);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
     res.json({ success: true, project });
   } catch (err) { next(err); }
 };
 
-// @desc    Create project
-// @route   POST /api/projects
+// ── CREATE project ────────────────────────────────────────────────────────────
 exports.createProject = async (req, res, next) => {
   try {
     const payload = { ...req.body };
     if (!payload.client) delete payload.client;
     if (!payload.projectManager) delete payload.projectManager;
+    if (!payload.branch) delete payload.branch;
+    if (!payload.invoice) delete payload.invoice;
     if (!Array.isArray(payload.assignedEmployees)) payload.assignedEmployees = [];
     payload.assignedEmployees = payload.assignedEmployees.filter(Boolean);
 
@@ -57,50 +70,34 @@ exports.createProject = async (req, res, next) => {
         recipient: project.client,
         title: 'New Project Created',
         message: `Your project "${project.title}" has been created and is in ${project.status} stage.`,
-        type: 'project',
-        link: '/my-projects',
+        type: 'project', link: '/my-projects',
       });
     }
-    res.status(201).json({ success: true, project });
+    const populated = await Project.findById(project._id).populate(POPULATE);
+    res.status(201).json({ success: true, project: populated });
   } catch (err) { next(err); }
 };
 
-// @desc    Update project
-// @route   PUT /api/projects/:id
+// ── UPDATE project ────────────────────────────────────────────────────────────
 exports.updateProject = async (req, res, next) => {
   try {
     const payload = { ...req.body };
     if (payload.client === '') delete payload.client;
     if (payload.projectManager === '') delete payload.projectManager;
+    if (payload.invoice === '') delete payload.invoice;
     if (Array.isArray(payload.assignedEmployees)) payload.assignedEmployees = payload.assignedEmployees.filter(Boolean);
 
-    const project = await Project.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
+    const project = await Project.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true }).populate(POPULATE);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-    // Notify client + assigned developers on updates
     if (project.client) {
-      await createNotification({
-        recipient: project.client,
-        title: 'Project Updated',
-        message: `Project "${project.title}" has been updated.`,
-        type: 'project',
-        link: '/my-projects',
-      });
+      await createNotification({ recipient: project.client, title: 'Project Updated', message: `Project "${project.title}" has been updated.`, type: 'project', link: '/my-projects' });
     }
-    await Promise.all((project.assignedEmployees || []).map((u) => createNotification({
-      recipient: u,
-      title: 'Project Updated',
-      message: `Project "${project.title}" has been updated.`,
-      type: 'project',
-      link: '/developer/projects',
-    })));
-
     res.json({ success: true, project });
   } catch (err) { next(err); }
 };
 
-// @desc    Delete project
-// @route   DELETE /api/projects/:id
+// ── DELETE project ────────────────────────────────────────────────────────────
 exports.deleteProject = async (req, res, next) => {
   try {
     await Project.findByIdAndDelete(req.params.id);
@@ -108,46 +105,106 @@ exports.deleteProject = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Add task to project
-// @route   POST /api/projects/:id/tasks
+// ── ADD NOTE ──────────────────────────────────────────────────────────────────
+exports.addNote = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
+    project.notes.push({
+      content: req.body.content,
+      createdBy: req.user._id,
+      createdByName: req.user.name,
+    });
+    await project.save();
+    const populated = await Project.findById(project._id).populate(POPULATE);
+    res.status(201).json({ success: true, project: populated });
+  } catch (err) { next(err); }
+};
+
+// ── ADD LINK ──────────────────────────────────────────────────────────────────
+exports.addLink = async (req, res, next) => {
+  try {
+    const { label, url } = req.body;
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
+    project.links.push({ label, url, addedBy: req.user._id });
+    await project.save();
+    const populated = await Project.findById(project._id).populate(POPULATE);
+    res.json({ success: true, project: populated });
+  } catch (err) { next(err); }
+};
+
+// ── REMOVE LINK ───────────────────────────────────────────────────────────────
+exports.removeLink = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
+    project.links = project.links.filter(l => String(l._id) !== req.params.linkId);
+    await project.save();
+    const populated = await Project.findById(project._id).populate(POPULATE);
+    res.json({ success: true, project: populated });
+  } catch (err) { next(err); }
+};
+
+// ── UPLOAD DOCUMENT ───────────────────────────────────────────────────────────
+exports.uploadDocument = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+    project.documents.push({
+      name: req.body.name || req.file.originalname,
+      url: `/uploads/documents/${req.file.filename}`,
+      fileType: req.file.mimetype,
+      uploadedBy: req.user._id,
+      uploadedByName: req.user.name,
+    });
+    await project.save();
+    const populated = await Project.findById(project._id).populate(POPULATE);
+    res.status(201).json({ success: true, project: populated });
+  } catch (err) { next(err); }
+};
+
+// ── REMOVE DOCUMENT ───────────────────────────────────────────────────────────
+exports.removeDocument = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
+    project.documents = project.documents.filter(d => String(d._id) !== req.params.docId);
+    await project.save();
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+// ── TASKS ─────────────────────────────────────────────────────────────────────
 exports.addTask = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.id);
-    if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
     project.tasks.push(req.body);
     await project.save();
     res.status(201).json({ success: true, project });
   } catch (err) { next(err); }
 };
 
-// @desc    Update task status
-// @route   PUT /api/projects/:id/tasks/:taskId
 exports.updateTask = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.id);
-    if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
     const task = project.tasks.id(req.params.taskId);
     if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
     Object.assign(task, req.body);
     if (req.body.status === 'done') task.completedAt = new Date();
     await project.save();
-
     if (task.assignedTo) {
-      await createNotification({
-        recipient: task.assignedTo,
-        title: 'Task Updated',
-        message: `Task "${task.title}" status: ${task.status}`,
-        type: 'project',
-        link: '/developer/tasks',
-      });
+      await createNotification({ recipient: task.assignedTo, title: 'Task Updated', message: `Task "${task.title}" status: ${task.status}`, type: 'project', link: '/developer/tasks' });
     }
-
     res.json({ success: true, project });
   } catch (err) { next(err); }
 };
 
-// @desc    Get dashboard stats
-// @route   GET /api/projects/stats
+// ── STATS ─────────────────────────────────────────────────────────────────────
 exports.getStats = async (req, res, next) => {
   try {
     const total = await Project.countDocuments();

@@ -10,10 +10,14 @@ const Performance = require('../models/Performance');
 // @route   GET /api/employees
 exports.getEmployees = async (req, res, next) => {
   try {
-    const { department, status, search } = req.query;
+    const { department, status, search, branch, employmentType, includeFormer } = req.query;
     let query = {};
     if (department) query.department = department;
+    if (branch) query.branch = branch;
+    if (employmentType) query.employmentType = employmentType;
     if (status) query.status = status;
+    // By default hide former/terminated employees unless explicitly requested
+    if (!status && !includeFormer) query.status = { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] };
 
     let employees = await Employee.find(query)
       .populate('userId', 'name email phone avatar role')
@@ -134,13 +138,89 @@ exports.updateEmployee = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Delete employee
+// @desc    Soft delete employee (status = former, retains all data)
 // @route   DELETE /api/employees/:id
 exports.deleteEmployee = async (req, res, next) => {
   try {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
+    const employee = await Employee.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'former',
+        $push: {
+          historyLog: {
+            action: 'terminated',
+            note: req.body.reason || 'Employee removed',
+            performedBy: req.user._id,
+            date: new Date(),
+          },
+        },
+      },
+      { new: true }
+    );
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    res.json({ success: true, message: 'Employee deleted' });
+    res.json({ success: true, message: 'Employee marked as former. All data retained.' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Convert intern to permanent employee
+// @route   PUT /api/employees/:id/convert-intern
+exports.convertIntern = async (req, res, next) => {
+  try {
+    const { newStartDate } = req.body;
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    if (employee.employmentType !== 'intern') {
+      return res.status(400).json({ success: false, message: 'Employee is not an intern' });
+    }
+    const updated = await Employee.findByIdAndUpdate(
+      req.params.id,
+      {
+        employmentType: 'permanent',
+        status: 'active',
+        joinedDate: newStartDate ? new Date(newStartDate) : new Date(),
+        'internship.convertedAt': new Date(),
+        'internship.convertedBy': req.user._id,
+        $push: {
+          historyLog: {
+            action: 'converted_to_permanent',
+            note: `Converted from intern to permanent on ${new Date().toLocaleDateString()}`,
+            performedBy: req.user._id,
+            date: new Date(),
+          },
+        },
+      },
+      { new: true }
+    ).populate('userId', 'name email role');
+    res.json({ success: true, employee: updated, message: 'Intern converted to permanent employee' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Remove intern (soft delete — data retained)
+// @route   PUT /api/employees/:id/remove-intern
+exports.removeIntern = async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    if (employee.employmentType !== 'intern') {
+      return res.status(400).json({ success: false, message: 'Employee is not an intern' });
+    }
+    const updated = await Employee.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'intern_ended',
+        'internship.removalReason': req.body.reason || 'Internship ended',
+        $push: {
+          historyLog: {
+            action: 'intern_removed',
+            note: req.body.reason || 'Internship period ended',
+            performedBy: req.user._id,
+            date: new Date(),
+          },
+        },
+      },
+      { new: true }
+    );
+    res.json({ success: true, employee: updated, message: 'Intern removed. All attendance, payroll, and project data retained.' });
   } catch (err) { next(err); }
 };
 

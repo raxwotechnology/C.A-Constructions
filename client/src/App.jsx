@@ -28,7 +28,10 @@ import AdminPayroll from './pages/admin/Payroll'
 import AdminEPF from './pages/admin/EPFRecords'
 import AdminRecruitment from './pages/admin/Recruitment'
 import AdminProjects from './pages/admin/Projects'
+import ProjectDetail from './pages/admin/ProjectDetail'
+import Agreements from './pages/admin/Agreements'
 import AdminClients from './pages/admin/Clients'
+import AdminClientProfile from './pages/admin/ClientProfile'
 import AdminSubscriptions from './pages/admin/Subscriptions'
 import AdminInvoices from './pages/admin/Invoices'
 import AdminLetters from './pages/admin/Letters'
@@ -49,6 +52,12 @@ import AdminAIAnalyzer from './pages/admin/AIAnalyzer'
 import AdminBranches from './pages/admin/Branches'
 import AdminAuditLogs from './pages/admin/AuditLogs'
 import AdminQuotations from './pages/admin/Quotations'
+import AdminPettyCash from './pages/admin/PettyCash'
+import AdminAdvances from './pages/admin/Advances'
+import AdminLoans from './pages/admin/Loans'
+import WorkLogs from './pages/admin/WorkLogs'
+import FinancialReports from './pages/admin/FinancialReports'
+import LeavePolicies from './pages/admin/LeavePolicies'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
 import ManagerTeam from './pages/manager/Team'
@@ -146,8 +155,10 @@ export default function App() {
         <Route path="recruitment" element={<AdminRecruitment />} />
         <Route path="recruitment/candidates/:id" element={<CandidateProfile />} />
         <Route path="projects" element={<AdminProjects />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="clients" element={<AdminClients />} />
+        <Route path="clients/:id" element={<AdminClientProfile />} />
         <Route path="invoices" element={<AdminInvoices />} />
         <Route path="letters" element={<AdminLetters />} />
         <Route path="analytics" element={<AdminAnalytics />} />
@@ -168,6 +179,13 @@ export default function App() {
         <Route path="branches" element={<AdminBranches />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
         <Route path="quotations" element={<AdminQuotations />} />
+        <Route path="agreements" element={<Agreements />} />
+        <Route path="petty-cash" element={<AdminPettyCash />} />
+        <Route path="advances" element={<AdminAdvances />} />
+        <Route path="loans" element={<AdminLoans />} />
+        <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="financial-reports" element={<FinancialReports />} />
+        <Route path="leave-policies" element={<LeavePolicies />} />
       </Route>
 
       {/* Manager */}
@@ -178,6 +196,7 @@ export default function App() {
         <Route path="reports" element={<ManagerReports />} />
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="profile" element={<ManagerProfile />} />
+        <Route path="work-logs" element={<WorkLogs />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
       </Route>
 
@@ -193,6 +212,7 @@ export default function App() {
         <Route path="letters" element={<DeveloperLetters />} />
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
+        <Route path="work-logs" element={<WorkLogs />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
       </Route>
@@ -209,6 +229,7 @@ export default function App() {
         <Route path="letters" element={<DeveloperLetters />} />
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
+        <Route path="work-logs" element={<WorkLogs />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
       </Route>
@@ -225,6 +246,7 @@ export default function App() {
         <Route path="letters" element={<DeveloperLetters />} />
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
+        <Route path="work-logs" element={<WorkLogs />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
       </Route>

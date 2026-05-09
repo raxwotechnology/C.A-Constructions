@@ -1,321 +1,462 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
+import FilterBar from '../../components/ui/FilterBar'
+import ExportBar from '../../components/ui/ExportBar'
+import SideDrawer from '../../components/ui/SideDrawer'
 import {
-  ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
-  BarChart, Bar, CartesianGrid, XAxis, YAxis, AreaChart, Area
+  ResponsiveContainer, BarChart, Bar, LineChart, Line,
+  CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell,
 } from 'recharts'
-import { FiClock, FiUser, FiCalendar, FiDownload, FiSearch, FiFilter } from 'react-icons/fi'
+import {
+  FiPlus, FiEdit2, FiX, FiCheck, FiUsers, FiClock,
+  FiAlertTriangle, FiCalendar, FiEye,
+} from 'react-icons/fi'
 
-const COLORS = { present: '#22c55e', absent: '#ef4444', leave: '#f59e0b', half_day: '#2563eb', short_leave: '#8b5cf6' }
-const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const STATUS_OPTIONS = ['present', 'present_short', 'absent', 'leave', 'half_day', 'short_leave', 'late']
+const STATUS_COLOR = {
+  present: 'badge-green', present_short: 'badge-blue', absent: 'badge-red',
+  leave: 'badge-yellow', half_day: 'badge-blue', short_leave: 'badge-purple', late: 'badge-yellow',
+}
+const PIE_COLORS = ['#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4', '#f97316']
+
+const fmt = (d) => d ? new Date(d).toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' }) : '—'
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-LK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+
+const EMPTY_FORM = {
+  employeeId: '', date: new Date().toISOString().split('T')[0],
+  status: 'present', checkIn: '', checkOut: '',
+  isHalfDay: false, isFullDay: true, notes: '',
+}
 
 export default function AdminAttendance() {
   const qc = useQueryClient()
   const now = new Date()
-  const [employeeId, setEmployeeId] = useState('')
-  const [status, setStatus] = useState('present')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [checkIn, setCheckIn] = useState('')
-  const [checkOut, setCheckOut] = useState('')
-  const [breakIn, setBreakIn] = useState('')
-  const [breakOut, setBreakOut] = useState('')
-  const [isHalfDay, setIsHalfDay] = useState(false)
-  const [isShortLeave, setIsShortLeave] = useState(false)
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
-  const [searchTerm, setSearchTerm] = useState('')
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [empFilter, setEmpFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [editingRecord, setEditingRecord] = useState(null)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [viewRecord, setViewRecord] = useState(null)
 
-  const { data: employeesData } = useQuery({
-    queryKey: ['attendance-employees'],
-    queryFn: () => api.get('/employees?status=active').then(r => r.data),
+  // ── Data fetching ────────────────────────────────────────────────────────────
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+
+  const { data: attData, isLoading } = useQuery({
+    queryKey: ['admin-attendance', month, year, empFilter, statusFilter, branchFilter],
+    queryFn: () => api.get(`/attendance?month=${month}&year=${year}${empFilter ? `&employeeId=${empFilter}` : ''}${statusFilter ? `&status=${statusFilter}` : ''}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
   })
-
-  const { data: recordsData } = useQuery({
-    queryKey: ['attendance-records'],
-    queryFn: () => api.get('/attendance').then(r => r.data),
-  })
-
   const { data: analyticsData } = useQuery({
-    queryKey: ['attendance-analytics', month, year],
-    queryFn: () => api.get(`/attendance/analytics?month=${month}&year=${year}`).then(r => r.data),
+    queryKey: ['attendance-analytics', month, year, branchFilter],
+    queryFn: () => api.get(`/attendance/analytics?month=${month}&year=${year}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
+  })
+  const { data: empData } = useQuery({
+    queryKey: ['employees-list-mini'],
+    queryFn: () => api.get('/employees').then(r => r.data),
   })
 
-  const markMutation = useMutation({
-    mutationFn: () => api.post('/attendance', {
-      employeeId, status,
-      date: new Date(date).toISOString(),
-      checkIn: checkIn || undefined,
-      checkOut: checkOut || undefined,
-      breakTimes: (breakIn || breakOut) ? [{ breakIn: breakIn || undefined, breakOut: breakOut || undefined }] : [],
-      isHalfDay: isHalfDay || (status === 'half_day'),
-      isShortLeave: isShortLeave || (status === 'short_leave'),
-      isFullDay: !isHalfDay && status !== 'half_day' && !isShortLeave && status !== 'short_leave',
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['attendance-records'] }); toast.success('Attendance marked') },
+  const records = useMemo(() => {
+    const all = attData?.records || []
+    if (!search) return all
+    const s = search.toLowerCase()
+    return all.filter(r =>
+      r.employee?.userId?.name?.toLowerCase().includes(s) ||
+      r.employee?.employeeNo?.toLowerCase().includes(s)
+    )
+  }, [attData, search])
+
+  const employees = empData?.employees || []
+  const analytics = analyticsData || {}
+
+  // ── Mutations ────────────────────────────────────────────────────────────────
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['admin-attendance'] })
+    qc.invalidateQueries({ queryKey: ['attendance-analytics'] })
+  }
+
+  const saveMut = useMutation({
+    mutationFn: (payload) => editingRecord
+      ? api.put(`/attendance/${editingRecord._id}`, payload)
+      : api.post('/attendance', payload),
+    onSuccess: () => {
+      toast.success(editingRecord ? 'Record updated' : 'Record added')
+      invalidate(); closeModal()
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
-  const employees = employeesData?.employees || []
-  const allRecords = recordsData?.records || []
+  const closeModal = () => { setShowModal(false); setEditingRecord(null); setForm(EMPTY_FORM) }
 
-  const filteredRecords = allRecords.filter(r => {
-    const nameMatch = !searchTerm || r.employee?.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const statusMatch = !statusFilter || r.status === statusFilter
-    return nameMatch && statusMatch
-  })
+  const openCreate = () => {
+    setEditingRecord(null)
+    setForm(EMPTY_FORM)
+    setShowModal(true)
+  }
 
-  const todayStr = new Date().toDateString()
-  const todayRecords = allRecords.filter(r => new Date(r.date).toDateString() === todayStr)
-  const presentToday = todayRecords.filter(r => r.status === 'present').length
-  const absentToday = todayRecords.filter(r => r.status === 'absent').length
-  const leaveToday = todayRecords.filter(r => r.status === 'leave').length
-  const halfDayToday = todayRecords.filter(r => r.isHalfDay || r.status === 'half_day').length
+  const openEdit = (rec) => {
+    setEditingRecord(rec)
+    setForm({
+      employeeId: rec.employee?._id || rec.employee,
+      date: new Date(rec.date).toISOString().split('T')[0],
+      status: rec.status || 'present',
+      checkIn: rec.checkIn ? new Date(rec.checkIn).toTimeString().slice(0, 5) : '',
+      checkOut: rec.checkOut ? new Date(rec.checkOut).toTimeString().slice(0, 5) : '',
+      isHalfDay: rec.isHalfDay || false,
+      isFullDay: rec.isFullDay !== false,
+      notes: rec.notes || '',
+    })
+    setShowModal(true)
+  }
 
-  const pieData = [
-    { name: 'Present', value: analyticsData?.byStatus?.present || 0 },
-    { name: 'Absent', value: analyticsData?.byStatus?.absent || 0 },
-    { name: 'Leave', value: analyticsData?.byStatus?.leave || 0 },
-    { name: 'Half Day', value: analyticsData?.byStatus?.half_day || 0 },
-    { name: 'Short Leave', value: analyticsData?.byStatus?.short_leave || 0 },
-  ].filter(d => d.value > 0)
+  const handleSubmit = () => {
+    const payload = {
+      employeeId: form.employeeId,
+      date: form.date,
+      status: form.status,
+      isHalfDay: form.isHalfDay,
+      isFullDay: form.isFullDay,
+      notes: form.notes,
+    }
+    if (form.checkIn) {
+      const [h, m] = form.checkIn.split(':')
+      const d = new Date(form.date)
+      d.setHours(Number(h), Number(m), 0, 0)
+      payload.checkIn = d.toISOString()
+    }
+    if (form.checkOut) {
+      const [h, m] = form.checkOut.split(':')
+      const d = new Date(form.date)
+      d.setHours(Number(h), Number(m), 0, 0)
+      payload.checkOut = d.toISOString()
+    }
+    saveMut.mutate(payload)
+  }
 
-  const selectedEmp = employees.find(e => e._id === employeeId)
-  const autoCheckIn = selectedEmp ? '09:00' : ''
+  // ── Analytics derived ────────────────────────────────────────────────────────
+  const pieData = Object.entries(analytics.byStatus || {}).map(([k, v]) => ({ name: k.replace('_', ' '), value: v }))
+  const dailyTrend = analytics.dailyTrend || []
+  const byEmployee = analytics.byEmployee || []
+
+  // ── Export columns ───────────────────────────────────────────────────────────
+  const exportColumns = [
+    { header: 'Employee', accessor: r => r.employee?.userId?.name || '—' },
+    { header: 'Emp No', accessor: r => r.employee?.employeeNo || '—' },
+    { header: 'Date', accessor: r => fmtDate(r.date) },
+    { header: 'Status', accessor: r => r.isHalfDay ? 'half_day' : r.status },
+    { header: 'Clock In', accessor: r => fmt(r.checkIn) },
+    { header: 'Clock Out', accessor: r => fmt(r.checkOut) },
+    { header: 'Worked (h)', accessor: r => r.totalWorkedHours || '—' },
+    { header: 'Notes', accessor: r => r.notes || '' },
+  ]
 
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Attendance</h1>
-          <p className="page-subtitle">Track employee attendance, clock-in/out and analytics.</p>
+          <p className="page-subtitle">{records.length} records · {new Date(year, month - 1).toLocaleString('default', { month: 'long' })} {year}</p>
         </div>
-        <button className="btn-outline btn-sm" onClick={() => {}}>
-          <FiDownload size={14}/> Export
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <ExportBar data={records} columns={exportColumns} title="Attendance Report"
+            filters={{ Month: `${month}/${year}`, Status: statusFilter || 'All', Employee: empFilter || 'All', Branch: branchFilter || 'All' }} />
+          <button onClick={openCreate} className="btn-primary gap-2"><FiPlus size={14} /> Add Record</button>
+        </div>
       </div>
 
-      {/* Today's Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'Present Today', value: presentToday, color: 'kpi-green', text: 'text-green-600' },
-          { label: 'Absent Today', value: absentToday, color: 'kpi-orange', text: 'text-orange-600' },
-          { label: 'On Leave', value: leaveToday, color: 'kpi-blue', text: 'text-blue-600' },
-          { label: 'Half Day', value: halfDayToday, color: 'kpi-purple', text: 'text-purple-600' },
-        ].map(c => (
-          <div key={c.label} className={`kpi-card ${c.color}`}>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{c.label}</p>
-            <p className={`text-3xl font-bold font-heading ${c.text}`}>{c.value}</p>
-          </div>
-        ))}
+      {/* Analytics cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="kpi-card kpi-green">
+          <p className="text-xs text-slate-500 uppercase font-medium">Present</p>
+          <p className="text-2xl font-bold text-emerald-700">{analytics.byStatus?.present || 0}</p>
+        </div>
+        <div className="kpi-card kpi-red">
+          <p className="text-xs text-slate-500 uppercase font-medium">Absent</p>
+          <p className="text-2xl font-bold text-red-700">{analytics.byStatus?.absent || 0}</p>
+        </div>
+        <div className="kpi-card kpi-yellow">
+          <p className="text-xs text-slate-500 uppercase font-medium">Leave</p>
+          <p className="text-2xl font-bold text-amber-700">{analytics.byStatus?.leave || 0}</p>
+        </div>
+        <div className="kpi-card kpi-blue">
+          <p className="text-xs text-slate-500 uppercase font-medium">Half Day</p>
+          <p className="text-2xl font-bold text-blue-700">{analytics.byStatus?.half_day || 0}</p>
+        </div>
       </div>
 
-      {/* Mark Attendance Form */}
-      <div className="card card-body">
-        <h3 className="font-bold text-primary font-heading mb-4">Mark Attendance</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <div>
-            <label className="form-label">Employee *</label>
-            <select className="form-select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
-              <option value="">Select employee</option>
-              {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.userId?.name} ({emp.employeeNo})</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="form-label">Date *</label>
-            <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">Status *</label>
-            <select className="form-select" value={status} onChange={e => { setStatus(e.target.value); setIsHalfDay(e.target.value === 'half_day'); setIsShortLeave(e.target.value === 'short_leave') }}>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="leave">On Leave</option>
-              <option value="half_day">Half Day</option>
-              <option value="short_leave">Short Leave ⭐</option>
-            </select>
-          </div>
-          <div>
-            <label className="form-label">Clock In</label>
-            <input type="time" className="form-input" value={checkIn} onChange={e => setCheckIn(e.target.value)} placeholder="09:00" />
-          </div>
-          <div>
-            <label className="form-label">Clock Out</label>
-            <input type="time" className="form-input" value={checkOut} onChange={e => setCheckOut(e.target.value)} placeholder="18:00" />
-          </div>
-          <div>
-            <label className="form-label">Break Start</label>
-            <input type="time" className="form-input" value={breakIn} onChange={e => setBreakIn(e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">Break End</label>
-            <input type="time" className="form-input" value={breakOut} onChange={e => setBreakOut(e.target.value)} />
-          </div>
-          <div className="flex items-end">
-            <button
-              className="btn-primary w-full justify-center"
-              onClick={() => markMutation.mutate()}
-              disabled={!employeeId || markMutation.isPending}
-            >
-              {markMutation.isPending ? <span className="spinner"/> : <><FiClock size={14}/> Mark Attendance</>}
-            </button>
-          </div>
-        </div>
-        {checkIn && checkOut && (
-          <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-            <p className="text-sm text-blue-700 font-medium">
-              ⏱️ Hours Worked: {(() => {
-                const [ih, im] = checkIn.split(':').map(Number)
-                const [oh, om] = checkOut.split(':').map(Number)
-                const diff = (oh * 60 + om) - (ih * 60 + im)
-                const brkMins = (breakIn && breakOut) ? (() => {
-                  const [bih, bim] = breakIn.split(':').map(Number)
-                  const [boh, bom] = breakOut.split(':').map(Number)
-                  return (boh * 60 + bom) - (bih * 60 + bim)
-                })() : 0
-                const net = diff - brkMins
-                return `${Math.floor(net/60)}h ${net%60}m (${brkMins > 0 ? `${brkMins}m break` : 'no break'})`
-              })()}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Analytics Charts */}
-      <div className="card card-body">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <h3 className="font-bold text-primary font-heading">Attendance Analytics</h3>
-          <div className="flex gap-3">
-            <div>
-              <select className="form-select py-1.5 text-xs" value={month} onChange={e => setMonth(Number(e.target.value))}>
-                {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <input type="number" className="form-input py-1.5 text-xs w-20" value={year} onChange={e => setYear(Number(e.target.value))} />
-            </div>
-          </div>
-        </div>
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div>
-            <h4 className="text-sm font-semibold text-gray-600 mb-3">Status Distribution</h4>
-            {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" outerRadius={85} innerRadius={50} paddingAngle={3}>
-                    {pieData.map((entry, i) => <Cell key={i} fill={Object.values(COLORS)[i % 5]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '10px', fontSize: '12px' }} />
-                  <Legend iconType="circle" iconSize={8} formatter={v => <span style={{ fontSize: 11, color: '#6B7280' }}>{v}</span>} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <div className="h-56 flex items-center justify-center text-gray-400 text-sm">No data for this period</div>}
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-gray-600 mb-3">Top Attendance Contributors</h4>
-            {(analyticsData?.byEmployee || []).length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={(analyticsData?.byEmployee || []).slice(0, 8)} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} width={80} />
-                  <Tooltip contentStyle={{ borderRadius: '10px', fontSize: '12px' }} />
-                  <Bar dataKey="present" name="Present" fill="#22c55e" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="half_day" name="Half Day" fill="#2563eb" radius={[0, 4, 4, 0]} />
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Daily trend */}
+        <div className="card card-body lg:col-span-2">
+          <h3 className="font-bold text-primary font-heading mb-3 text-sm">Daily Attendance Trend</h3>
+          {dailyTrend.length === 0
+            ? <div className="text-center py-10 text-slate-400 text-sm">No data for this period</div>
+            : <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={dailyTrend} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="present" name="Present" fill="#22c55e" radius={[2, 2, 0, 0]} stackId="a" />
+                  <Bar dataKey="half_day" name="Half Day" fill="#3b82f6" radius={[2, 2, 0, 0]} stackId="a" />
+                  <Bar dataKey="leave" name="Leave" fill="#f59e0b" radius={[2, 2, 0, 0]} stackId="a" />
+                  <Bar dataKey="absent" name="Absent" fill="#ef4444" radius={[2, 2, 0, 0]} stackId="a" />
                 </BarChart>
               </ResponsiveContainer>
-            ) : <div className="h-56 flex items-center justify-center text-gray-400 text-sm">No employee data yet</div>}
-          </div>
+          }
+        </div>
+
+        {/* Status pie */}
+        <div className="card card-body">
+          <h3 className="font-bold text-primary font-heading mb-3 text-sm">Status Breakdown</h3>
+          {pieData.length === 0
+            ? <div className="text-center py-10 text-slate-400 text-sm">No data</div>
+            : <>
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" outerRadius={65} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-1 mt-2">
+                  {pieData.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between text-xs text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span className="capitalize">{d.name}</span>
+                      </div>
+                      <span className="font-semibold">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+          }
         </div>
       </div>
 
-      {/* Records Table */}
-      <div className="card card-body">
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <h3 className="font-bold text-primary font-heading flex-1">Attendance Records</h3>
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-            <input placeholder="Search employee..." className="form-input pl-9 py-2 text-sm w-48" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-          <select className="form-select py-2 text-sm w-36" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="">All Status</option>
-            <option value="present">Present</option>
-            <option value="absent">Absent</option>
-            <option value="leave">Leave</option>
-            <option value="half_day">Half Day</option>
-            <option value="short_leave">Short Leave</option>
-          </select>
-        </div>
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Emp ID</th>
-                <th>Date</th>
-                <th>Clock In</th>
-                <th>Clock Out</th>
-                <th>Hours Worked</th>
-                <th>Break</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRecords.slice(0, 50).map(row => {
-                const cin = row.checkIn ? new Date(row.checkIn) : null
-                const cout = row.checkOut ? new Date(row.checkOut) : null
-                const totalMins = cin && cout ? Math.round((cout - cin) / 60000) : 0
-                const brk = row.breakTimes?.[0]
-                const brkMins = brk?.breakIn && brk?.breakOut ? Math.round((new Date(brk.breakOut) - new Date(brk.breakIn)) / 60000) : 0
-                const netMins = totalMins - brkMins
-                return (
-                  <tr key={row._id}>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-xs font-semibold">
-                          {row.employee?.userId?.name?.charAt(0)}
-                        </div>
-                        <span className="font-medium text-gray-800">{row.employee?.userId?.name}</span>
-                      </div>
-                    </td>
-                    <td><span className="badge badge-navy">{row.employee?.employeeNo || '—'}</span></td>
-                    <td className="text-gray-500">{new Date(row.date).toLocaleDateString('en-LK')}</td>
-                    <td className="font-medium text-gray-700">{cin ? cin.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                    <td className="font-medium text-gray-700">{cout ? cout.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                    <td>
-                      {netMins > 0 ? (
-                        <span className={`text-sm font-semibold ${netMins >= 480 ? 'text-green-600' : 'text-orange-500'}`}>
-                          {Math.floor(netMins/60)}h {netMins%60}m
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="text-gray-500 text-xs">{brkMins > 0 ? `${brkMins}m` : '—'}</td>
-                    <td>
-                      <span className={`badge capitalize ${
-                        row.status === 'present' ? 'badge-green' :
-                        row.status === 'absent' ? 'badge-red' :
-                        row.isHalfDay || row.status === 'half_day' ? 'badge-blue' :
-                        row.isShortLeave || row.status === 'short_leave' ? 'badge-purple' :
-                        'badge-yellow'
-                      }`}>
-                        {row.isShortLeave ? 'Short Leave' : row.isHalfDay ? 'Half Day' : row.status}
-                      </span>
-                    </td>
+      {/* Employee summary table */}
+      {byEmployee.length > 0 && (
+        <div className="card card-body">
+          <h3 className="font-bold text-primary font-heading mb-3 text-sm">Employee Summary — {new Date(year, month - 1).toLocaleString('default', { month: 'long' })} {year}</h3>
+          <div className="overflow-x-auto">
+            <table className="table text-sm">
+              <thead>
+                <tr><th>Employee</th><th>Present</th><th>Half Day</th><th>Leave</th><th>Absent</th></tr>
+              </thead>
+              <tbody>
+                {byEmployee.slice(0, 10).map(e => (
+                  <tr key={e.employeeId}>
+                    <td className="font-medium">{e.name} <span className="text-xs text-slate-400">#{e.employeeNo}</span></td>
+                    <td><span className="badge badge-green">{e.present}</span></td>
+                    <td><span className="badge badge-blue">{e.half_day}</span></td>
+                    <td><span className="badge badge-yellow">{e.leave}</span></td>
+                    <td><span className="badge badge-red">{e.absent}</span></td>
                   </tr>
-                )
-              })}
-              {filteredRecords.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">
-                  <FiCalendar size={32} className="mx-auto mb-2 opacity-30"/>No attendance records found.
-                </td></tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
+
+      {/* Month selector + Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex items-center gap-2">
+          <FiCalendar size={14} className="text-slate-400" />
+          <select className="form-select py-2 text-sm" value={month} onChange={e => setMonth(Number(e.target.value))}>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>{new Date(2000, i).toLocaleString('default', { month: 'long' })}</option>
+            ))}
+          </select>
+          <input type="number" className="form-input py-2 text-sm w-24" value={year} onChange={e => setYear(Number(e.target.value))} />
+        </div>
+        <FilterBar
+          search={search} onSearchChange={setSearch}
+          searchPlaceholder="Search employee..."
+          extraFilters={
+            <>
+              <select className="form-select py-2 text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <option value="">All Statuses</option>
+                {STATUS_OPTIONS.map(s => <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>)}
+              </select>
+              <select className="form-select py-2 text-sm" value={empFilter} onChange={e => setEmpFilter(e.target.value)}>
+                <option value="">All Employees</option>
+                {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
+              </select>
+              <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+                <option value="">All Branches</option>
+                {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+              </select>
+            </>
+          }
+        />
       </div>
+
+      {/* Records table */}
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Employee</th><th>Date</th><th>Status</th>
+              <th>Clock In</th><th>Clock Out</th><th>Worked</th><th>Notes</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={8} className="text-center py-12">
+                <div className="w-7 h-7 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" />
+              </td></tr>
+            ) : records.length === 0 ? (
+              <tr><td colSpan={8} className="text-center py-12 text-slate-400">No records found for this period.</td></tr>
+            ) : records.map(r => (
+              <tr key={r._id}>
+                <td>
+                  <div className="font-medium text-slate-800">{r.employee?.userId?.name || '—'}</div>
+                  <div className="text-xs text-slate-400">{r.employee?.employeeNo}</div>
+                </td>
+                <td className="text-slate-600 text-sm whitespace-nowrap">{fmtDate(r.date)}</td>
+                <td>
+                  <span className={`badge capitalize ${STATUS_COLOR[r.isHalfDay ? 'half_day' : r.status] || 'badge-gray'}`}>
+                    {r.isHalfDay ? 'Half Day' : (r.status || '').replace('_', ' ')}
+                  </span>
+                </td>
+                <td className="text-slate-600 text-sm">{fmt(r.checkIn)}</td>
+                <td className="text-slate-600 text-sm">{fmt(r.checkOut)}</td>
+                <td className="text-slate-600 text-sm font-medium">
+                  {r.totalWorkedHours ? `${r.totalWorkedHours}h` : '—'}
+                </td>
+                <td className="text-slate-500 text-xs max-w-[120px] truncate">{r.notes || '—'}</td>
+                <td>
+                  <div className="flex gap-1">
+                    <button onClick={() => setViewRecord(r)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-secondary" title="View">
+                      <FiEye size={13} />
+                    </button>
+                    <button onClick={() => openEdit(r)} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-secondary" title="Edit">
+                      <FiEdit2 size={13} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="font-bold text-primary font-heading">{editingRecord ? 'Edit Attendance Record' : 'Add Attendance Record'}</h3>
+              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              {!editingRecord && (
+                <div>
+                  <label className="form-label">Employee *</label>
+                  <select className="form-select" value={form.employeeId} onChange={e => setForm(s => ({ ...s, employeeId: e.target.value }))}>
+                    <option value="">Select employee</option>
+                    {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Date *</label>
+                  <input type="date" className="form-input" value={form.date} onChange={e => setForm(s => ({ ...s, date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Status</label>
+                  <select className="form-select" value={form.status} onChange={e => setForm(s => ({ ...s, status: e.target.value }))}>
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Clock In</label>
+                  <input type="time" className="form-input" value={form.checkIn} onChange={e => setForm(s => ({ ...s, checkIn: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Clock Out</label>
+                  <input type="time" className="form-input" value={form.checkOut} onChange={e => setForm(s => ({ ...s, checkOut: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={form.isHalfDay} onChange={e => setForm(s => ({ ...s, isHalfDay: e.target.checked }))} className="rounded" />
+                  Half Day
+                </label>
+              </div>
+              <div>
+                <label className="form-label">Notes</label>
+                <textarea className="form-input resize-none" rows={2} value={form.notes} onChange={e => setForm(s => ({ ...s, notes: e.target.value }))} placeholder="Optional notes..." />
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t">
+              <button onClick={closeModal} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={handleSubmit} disabled={saveMut.isPending} className="btn-primary flex-1 justify-center gap-2">
+                {saveMut.isPending ? <span className="spinner" /> : <FiCheck size={14} />}
+                {editingRecord ? 'Save Changes' : 'Add Record'}
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {/* View drawer */}
+      <SideDrawer open={!!viewRecord} onClose={() => setViewRecord(null)} title="Attendance Detail" width="sm">
+        {viewRecord && (
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-3 pb-4 border-b">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg">
+                {viewRecord.employee?.userId?.name?.charAt(0) || '?'}
+              </div>
+              <div>
+                <p className="font-bold text-slate-800">{viewRecord.employee?.userId?.name || '—'}</p>
+                <p className="text-xs text-slate-400">{viewRecord.employee?.employeeNo}</p>
+              </div>
+            </div>
+            {[
+              ['Date', fmtDate(viewRecord.date)],
+              ['Status', (viewRecord.isHalfDay ? 'Half Day' : viewRecord.status)?.replace('_', ' ')],
+              ['Clock In', fmt(viewRecord.checkIn)],
+              ['Clock Out', fmt(viewRecord.checkOut)],
+              ['Total Worked', viewRecord.totalWorkedHours ? `${viewRecord.totalWorkedHours} hours` : '—'],
+              ['Notes', viewRecord.notes || '—'],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between py-2 border-b border-gray-50 text-sm">
+                <span className="text-slate-500">{label}</span>
+                <span className="font-medium text-slate-800 capitalize">{value}</span>
+              </div>
+            ))}
+            {(viewRecord.breakTimes || []).length > 0 && (
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase mb-2">Break Times</p>
+                {viewRecord.breakTimes.map((b, i) => (
+                  <div key={i} className="text-sm text-slate-600 py-1">
+                    Break {i + 1}: {fmt(b.breakIn)} – {fmt(b.breakOut)}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => { openEdit(viewRecord); setViewRecord(null) }} className="btn-outline w-full justify-center mt-4">
+              <FiEdit2 size={14} /> Edit Record
+            </button>
+          </div>
+        )}
+      </SideDrawer>
     </div>
   )
 }

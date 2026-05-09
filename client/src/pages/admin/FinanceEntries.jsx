@@ -19,10 +19,14 @@ export default function FinanceEntries() {
   const [toDate, setToDate] = useState('')
   const [form, setForm] = useState({ type: 'income', category: '', title: '', amount: 0, note: '', file: null })
   const [customCategory, setCustomCategory] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
+
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
 
   const { data } = useQuery({
-    queryKey: ['finance-entries', month, year, typeFilter, categoryFilter],
-    queryFn: () => api.get(`/finance/entries?month=${month}&year=${year}${typeFilter ? `&type=${typeFilter}` : ''}${categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : ''}${fromDate ? `&from=${fromDate}` : ''}${toDate ? `&to=${toDate}` : ''}`).then((r) => r.data),
+    queryKey: ['finance-entries', month, year, typeFilter, categoryFilter, fromDate, toDate, branchFilter],
+    queryFn: () => api.get(`/finance/entries?month=${month}&year=${year}${typeFilter ? `&type=${typeFilter}` : ''}${categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : ''}${fromDate ? `&from=${fromDate}` : ''}${toDate ? `&to=${toDate}` : ''}${branchFilter ? `&branch=${branchFilter}` : ''}`).then((r) => r.data),
   })
   const entries = data?.entries || []
   const categories = data?.categories || []
@@ -62,6 +66,9 @@ export default function FinanceEntries() {
       })
       if (categoryFilter) params.set('category', categoryFilter)
       if (typeFilter) params.set('type', typeFilter)
+      if (branchFilter) params.set('branch', branchFilter)
+      if (fromDate) params.set('from', fromDate)
+      if (toDate) params.set('to', toDate)
       const res = await api.get(`/finance/export?${params.toString()}`, { responseType: 'blob' })
       const blob = new Blob([res.data], { type: res.headers['content-type'] })
       const a = document.createElement('a')
@@ -100,6 +107,10 @@ export default function FinanceEntries() {
           <input className="form-input" placeholder="Title" value={form.title} onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))} />
           <input type="number" className="form-input" placeholder="Amount" value={form.amount} onChange={(e) => setForm((s) => ({ ...s, amount: Number(e.target.value || 0) }))} />
           <input className="form-input" placeholder="Note (optional)" value={form.note} onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))} />
+          <select className="form-select" value={form.branch || ''} onChange={(e) => setForm((s) => ({ ...s, branch: e.target.value }))}>
+            <option value="">No branch</option>
+            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+          </select>
           <input type="file" className="form-input file:mr-2 file:py-1 file:px-2 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={(e) => setForm((s) => ({ ...s, file: e.target.files[0] }))} />
         </div>
         {form.category === 'Other' ? (
@@ -113,6 +124,7 @@ export default function FinanceEntries() {
         <div><label className="form-label">Year</label><input type="number" className="form-input" value={year} onChange={(e) => setYear(Number(e.target.value || now.getFullYear()))} /></div>
         <div><label className="form-label">Type</label><select className="form-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="">All</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
         <div><label className="form-label">Category</label><select className="form-select" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+        <div><label className="form-label">Branch</label><select className="form-select" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}><option value="">All Branches</option>{branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}</select></div>
         <div><label className="form-label">From</label><input type="date" className="form-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div>
         <div><label className="form-label">To</label><input type="date" className="form-input" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div>
         <button className="btn-success" onClick={() => exportData('excel')}><FiDownload size={14} /> Excel</button>

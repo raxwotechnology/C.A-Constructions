@@ -13,6 +13,7 @@ export default function AdminPayroll() {
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
+  const [branchFilter, setBranchFilter] = useState('')
   const [selectedEmployee, setSelectedEmployee] = useState('')
   const [allowances, setAllowances] = useState(0)
   const [commissions, setCommissions] = useState(0)
@@ -25,13 +26,16 @@ export default function AdminPayroll() {
   const [otNote, setOtNote] = useState('')
   const [previewPayroll, setPreviewPayroll] = useState(null)
 
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+
   const { data, isLoading } = useQuery({
-    queryKey: ['payroll', month, year],
-    queryFn: () => api.get(`/payroll?month=${month}&year=${year}`).then(r => r.data),
+    queryKey: ['payroll', month, year, branchFilter],
+    queryFn: () => api.get(`/payroll?month=${month}&year=${year}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
   })
   const { data: empData } = useQuery({
-    queryKey: ['employees-all'],
-    queryFn: () => api.get('/employees?status=active').then(r => r.data),
+    queryKey: ['employees-all', branchFilter],
+    queryFn: () => api.get(`/employees?status=active${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
   })
 
   const payrolls = data?.payrolls || []
@@ -45,7 +49,7 @@ export default function AdminPayroll() {
   }, [selectedEmp])
 
   const generateAllMut = useMutation({
-    mutationFn: () => api.post('/payroll/generate-all', { month, year }),
+    mutationFn: () => api.post('/payroll/generate-all', { month, year, branch: branchFilter }),
     onSuccess: r => { qc.invalidateQueries(['payroll']); toast.success(`Generated ${r.data.generated} payslips`) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -59,9 +63,13 @@ export default function AdminPayroll() {
     onSuccess: () => { toast.success('OT added'); setOtAmount(0); setOtHours(0); setOtNote('') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
+  const reviewMut = useMutation({
+    mutationFn: id => api.put(`/payroll/${id}/review`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll'] }); toast.success('Marked as reviewed') },
+  })
   const approveMut = useMutation({
     mutationFn: id => api.put(`/payroll/${id}/approve`),
-    onSuccess: () => { qc.invalidateQueries(['payroll']); toast.success('Approved') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll'] }); toast.success('Approved') },
   })
   const payMut = useMutation({
     mutationFn: id => api.put(`/payroll/${id}/pay`),
@@ -85,7 +93,7 @@ export default function AdminPayroll() {
   const totalNet = payrolls.reduce((a, b) => a + b.netSalary, 0)
   const totalEpf = payrolls.reduce((a, b) => a + b.epfEmployee + b.epfEmployer, 0)
   const totalEtf = payrolls.reduce((a, b) => a + b.etfEmployer, 0)
-  const statusColor = { draft: 'badge-yellow', approved: 'badge-blue', paid: 'badge-green' }
+  const statusColor = { draft: 'badge-yellow', reviewed: 'badge-purple', approved: 'badge-blue', paid: 'badge-green' }
 
   // Preview salary calculation
   const previewCalc = useMemo(() => {
@@ -124,6 +132,13 @@ export default function AdminPayroll() {
           <label className="form-label text-xs">Year</label>
           <select value={year} onChange={e => setYear(Number(e.target.value))} className="form-select">
             {[2024,2025,2026,2027].map(y => <option key={y}>{y}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="form-label text-xs">Branch</label>
+          <select className="form-select" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+            <option value="">All Branches</option>
+            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
         </div>
         <div className="ml-auto text-sm text-gray-500">{payrolls.length} payslips · {MONTHS[month-1]} {year}</div>
@@ -170,7 +185,7 @@ export default function AdminPayroll() {
             <div><label className="form-label">Allowances</label><input type="number" className="form-input" value={allowances} onChange={e => setAllowances(Number(e.target.value||0))}/></div>
             <div><label className="form-label">Manual Commission</label><input type="number" className="form-input" value={commissions} onChange={e => setCommissions(Number(e.target.value||0))}/></div>
             <div><label className="form-label">Bonus</label><input type="number" className="form-input" value={bonus} onChange={e => setBonus(Number(e.target.value||0))}/></div>
-            <div><label className="form-label">Other Deductions</label><input type="number" className="form-input" value={deductions} onChange={e => setDeductions(Number(e.target.value||0))}/></div>
+          <div><label className="form-label">Advance Deduction</label><input type="number" className="form-input" value={deductions} onChange={e => setDeductions(Number(e.target.value||0))}/></div>
             <div className="col-span-2"><label className="form-label">Loan Deduction</label><input type="number" className="form-input" value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value||0))}/></div>
           </div>
           <button className="btn-primary" disabled={!selectedEmp || generateOneMut.isPending} onClick={() => generateOneMut.mutate()}>
@@ -253,7 +268,14 @@ export default function AdminPayroll() {
                 <td>
                   <div className="flex gap-1 items-center">
                     {p.status === 'draft' && (
-                      <button onClick={() => approveMut.mutate(p._id)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Approve"><FiCheck size={14}/></button>
+                      <button onClick={() => reviewMut.mutate(p._id)} className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg" title="Mark Reviewed">
+                        <FiCheck size={14}/>
+                      </button>
+                    )}
+                    {p.status === 'reviewed' && (
+                      <button onClick={() => approveMut.mutate(p._id)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Approve">
+                        <FiCheck size={14}/>
+                      </button>
                     )}
                     {p.status === 'approved' && (
                       <>

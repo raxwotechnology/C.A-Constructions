@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiUpload, FiFile, FiLink, FiCheck } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiUpload, FiFile, FiLink, FiCheck, FiEye } from 'react-icons/fi'
+import EmployeeDetail from './EmployeeDetail'
 
 const DEPARTMENTS = ['Engineering','Design','Marketing','HR','Finance','Operations','Sales','Infrastructure']
 const ROLES = [
@@ -64,11 +65,21 @@ export default function AdminEmployees() {
   const [cvFile, setCvFile] = useState(null)
   const [agreementFile, setAgreementFile] = useState(null)
   const [nicFile, setNicFile] = useState(null)
+  const [nicBackFile, setNicBackFile] = useState(null)
+  const [profilePhotoFile, setProfilePhotoFile] = useState(null)
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState(null)
+  const [viewEmp, setViewEmp] = useState(null)
   const { register, handleSubmit, reset, setValue } = useForm()
 
+  const [empTypeFilter, setEmpTypeFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
+
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', deptFilter],
-    queryFn: () => api.get(`/employees${deptFilter ? `?department=${deptFilter}` : ''}`).then(r => r.data),
+    queryKey: ['employees', deptFilter, empTypeFilter, branchFilter],
+    queryFn: () => api.get(`/employees?${deptFilter?`department=${deptFilter}&`:''}${empTypeFilter?`employmentType=${empTypeFilter}&`:''}${branchFilter?`branch=${branchFilter}`:''}`).then(r => r.data),
   })
 
   const employees = (data?.employees || []).filter(e =>
@@ -98,16 +109,30 @@ export default function AdminEmployees() {
     setEditing(emp)
     ;[
       'department', 'designation', 'basicSalary', 'allowances', 'status', 'epfNumber',
-      'idType', 'idNumber', 'dob', 'primaryPhone', 'secondaryPhone', 'address', 'maxLeavesPerYear', 'portfolioUrl', 'gender',
+      'idType', 'idNumber', 'dob', 'primaryPhone', 'secondaryPhone', 'address',
+      'maxLeavesPerYear', 'portfolioUrl', 'gender', 'employmentType', 'branch'
     ].forEach(k => setValue(k, emp[k]))
     setValue('emergencyContactName', emp?.emergencyContact?.name || '')
     setValue('emergencyContactPhone', emp?.emergencyContact?.phone || '')
     setValue('emergencyContactRelationship', emp?.emergencyContact?.relationship || '')
     setValue('role', emp.userId?.role || 'developer')
-    setCvFile(null); setAgreementFile(null); setNicFile(null)
+    // Internship fields
+    if (emp.internship) {
+      setValue('internship.startDate', emp.internship.startDate?.split('T')[0] || '')
+      setValue('internship.endDate', emp.internship.endDate?.split('T')[0] || '')
+      setValue('internship.durationWeeks', emp.internship.durationWeeks || '')
+      setValue('internship.university', emp.internship.university || '')
+      setValue('internship.supervisorName', emp.internship.supervisorName || '')
+    }
+    setCvFile(null); setAgreementFile(null); setNicFile(null); setNicBackFile(null)
+    setProfilePhotoFile(null); setProfilePhotoPreview(editing?.profilePhoto || null)
     setShowModal(true)
   }
-  const closeModal = () => { setShowModal(false); setEditing(null); reset(); setCvFile(null); setAgreementFile(null); setNicFile(null) }
+  const closeModal = () => {
+    setShowModal(false); setEditing(null); reset()
+    setCvFile(null); setAgreementFile(null); setNicFile(null); setNicBackFile(null)
+    setProfilePhotoFile(null); setProfilePhotoPreview(null)
+  }
   const uploadFile = async (file, field) => {
     if (!file) return null
     const fd = new FormData()
@@ -118,10 +143,12 @@ export default function AdminEmployees() {
 
   const onSubmit = async (d) => {
     try {
-      const [cvUrl, agreementUrl, nicPhotoUrl] = await Promise.all([
-        uploadFile(cvFile, 'cvUrl'),
-        uploadFile(agreementFile, 'agreementUrl'),
-        uploadFile(nicFile, 'nicPhotoUrl'),
+      const [cvUrl, agreementUrl, nicPhotoUrl, nicPhotoBackUrl, profilePhoto] = await Promise.all([
+        uploadFile(cvFile),
+        uploadFile(agreementFile),
+        uploadFile(nicFile),
+        uploadFile(nicBackFile),
+        uploadFile(profilePhotoFile),
       ])
       const payload = {
         ...d,
@@ -133,6 +160,8 @@ export default function AdminEmployees() {
         ...(cvUrl && { cvUrl }),
         ...(agreementUrl && { agreementUrl }),
         ...(nicPhotoUrl && { nicPhotoUrl }),
+        ...(nicPhotoBackUrl && { nicPhotoBackUrl }),
+        ...(profilePhoto && { profilePhoto }),
       }
       if (!payload.emergencyContact.name && !payload.emergencyContact.phone) delete payload.emergencyContact
       delete payload.emergencyContactName
@@ -162,7 +191,7 @@ export default function AdminEmployees() {
         <button onClick={openCreate} className="btn-primary"><FiPlus size={16}/> Add Employee</button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search employees..." className="form-input pl-10"/>
@@ -170,6 +199,17 @@ export default function AdminEmployees() {
         <select value={deptFilter} onChange={e=>setDeptFilter(e.target.value)} className="form-select sm:w-48">
           <option value="">All Departments</option>
           {DEPARTMENTS.map(d=><option key={d}>{d}</option>)}
+        </select>
+        <select value={empTypeFilter} onChange={e=>setEmpTypeFilter(e.target.value)} className="form-select sm:w-44">
+          <option value="">All Types</option>
+          <option value="permanent">Permanent</option>
+          <option value="intern">Intern</option>
+          <option value="contract">Contract</option>
+          <option value="part_time">Part Time</option>
+        </select>
+        <select value={branchFilter} onChange={e=>setBranchFilter(e.target.value)} className="form-select sm:w-44">
+          <option value="">All Branches</option>
+          {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
         </select>
       </div>
 
@@ -192,16 +232,23 @@ export default function AdminEmployees() {
               <tr key={emp._id}>
                 <td>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
-                      {emp.userId?.name?.charAt(0).toUpperCase()}
-                    </div>
+                    {emp.profilePhoto
+                      ? <img src={emp.profilePhoto} alt={emp.userId?.name}
+                          className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-white shadow"/>
+                      : <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
+                          {emp.userId?.name?.charAt(0).toUpperCase()}
+                        </div>
+                    }
                     <div>
                       <p className="font-medium text-gray-800">{emp.userId?.name}</p>
                       <p className="text-xs text-gray-400">{emp.userId?.email}</p>
                     </div>
                   </div>
                 </td>
-                <td><span className="badge badge-navy">{emp.employeeNo}</span></td>
+                <td>
+                  <span className="badge badge-navy">{emp.employeeNo}</span>
+                  {emp.employmentType === 'intern' && <span className="badge badge-yellow ml-1">Intern</span>}
+                </td>
                 <td>{emp.department}</td>
                 <td>{emp.designation}</td>
                 <td className="font-medium">LKR {emp.basicSalary?.toLocaleString()}</td>
@@ -209,16 +256,18 @@ export default function AdminEmployees() {
                 <td><span className={`badge ${statusColor[emp.status]||'badge-gray'} capitalize`}>{emp.status}</span></td>
                 <td>
                   <div className="flex gap-1">
+                    <button onClick={() => setViewEmp(emp)}
+                      className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
+                      <FiEye size={14}/>
+                    </button>
                     <button
                       onClick={() => setActivityEmp(emp)}
                       className="p-1.5 text-gray-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
-                      title="View activity"
-                      type="button"
-                    >
+                      title="View activity" type="button">
                       <FiActivity size={14}/>
                     </button>
                     <button onClick={()=>openEdit(emp)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
-                    <button onClick={()=>{if(window.confirm('Remove?'))deleteMut.mutate(emp._id)}} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
+                    <button onClick={()=>{if(window.confirm('Remove this employee? All data is retained.'))deleteMut.mutate(emp._id)}} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
                   </div>
                 </td>
               </tr>
@@ -309,6 +358,35 @@ export default function AdminEmployees() {
                     <input {...register('portfolioUrl')} placeholder="https://linkedin.com/in/... or portfolio link" className="form-input pl-9"/>
                   </div>
                 </div>
+                {/* Profile Photo Upload */}
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="relative flex-shrink-0">
+                    {profilePhotoPreview
+                      ? <img src={profilePhotoPreview} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md"/>
+                      : <div className="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-2xl font-bold border-4 border-white shadow-md">
+                          <FiUser size={28}/>
+                        </div>
+                    }
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-700 mb-1">Profile Photo</p>
+                    <p className="text-xs text-slate-400 mb-2">JPG, PNG or WEBP · Max 5MB</p>
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-lg text-xs font-medium transition-colors">
+                      <FiUpload size={12}/> {profilePhotoPreview ? 'Change Photo' : 'Upload Photo'}
+                      <input type="file" accept="image/*" className="hidden" onChange={e => {
+                        const f = e.target.files?.[0]
+                        if (!f) return
+                        if (f.size > 5 * 1024 * 1024) { toast.error('Max 5MB'); return }
+                        setProfilePhotoFile(f)
+                        setProfilePhotoPreview(URL.createObjectURL(f))
+                      }}/>
+                    </label>
+                    {profilePhotoPreview && (
+                      <button type="button" onClick={() => { setProfilePhotoFile(null); setProfilePhotoPreview(null) }}
+                        className="ml-2 text-xs text-red-400 hover:text-red-600">Remove</button>
+                    )}
+                  </div>
+                </div>
                 {/* Document Uploads */}
                 <div className="space-y-3">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Uploads</p>
@@ -330,15 +408,26 @@ export default function AdminEmployees() {
                     existingUrl={editing?.agreementUrl}
                     icon={FiFile}
                   />
-                  <FileUploadField
-                    label="NIC Photo (PDF or Image)"
-                    accept=".pdf,image/*"
-                    hint="PDF or image"
-                    file={nicFile}
-                    setFile={setNicFile}
-                    existingUrl={editing?.nicPhotoUrl}
-                    icon={FiUpload}
-                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FileUploadField
+                      label="NIC / Licence — Front"
+                      accept=".pdf,image/*"
+                      hint="PDF or image"
+                      file={nicFile}
+                      setFile={setNicFile}
+                      existingUrl={editing?.nicPhotoUrl}
+                      icon={FiUpload}
+                    />
+                    <FileUploadField
+                      label="NIC / Licence — Back"
+                      accept=".pdf,image/*"
+                      hint="PDF or image"
+                      file={nicBackFile}
+                      setFile={setNicBackFile}
+                      existingUrl={editing?.nicPhotoBackUrl}
+                      icon={FiUpload}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="form-label">Address</label>
@@ -365,6 +454,43 @@ export default function AdminEmployees() {
                     <input {...register('maxLeavesPerYear',{valueAsNumber:true})} type="number" placeholder="24" className="form-input"/></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Employment Type</label>
+                    <select {...register('employmentType')} className="form-select">
+                      <option value="permanent">Permanent</option>
+                      <option value="intern">Intern</option>
+                      <option value="contract">Contract</option>
+                      <option value="part_time">Part Time</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Branch</label>
+                    <select {...register('branch')} className="form-select">
+                      <option value="">Select Branch</option>
+                      {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {/* Internship sub-form — shown when type = intern */}
+                {/* We use a watch wrapper — simple visibility via CSS trick */}
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Internship Details (fill if Intern type)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="form-label text-xs">Start Date</label>
+                      <input {...register('internship.startDate')} type="date" className="form-input"/></div>
+                    <div><label className="form-label text-xs">End Date</label>
+                      <input {...register('internship.endDate')} type="date" className="form-input"/></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="form-label text-xs">Duration (weeks)</label>
+                      <input {...register('internship.durationWeeks',{valueAsNumber:true})} type="number" className="form-input" placeholder="12"/></div>
+                    <div><label className="form-label text-xs">University / Institute</label>
+                      <input {...register('internship.university')} className="form-input" placeholder="e.g. SLIIT"/></div>
+                  </div>
+                  <div><label className="form-label text-xs">Supervisor Name</label>
+                    <input {...register('internship.supervisorName')} className="form-input" placeholder="Internal supervisor"/></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   {!editing && <div><label className="form-label">Join Date *</label>
                     <input {...register('joinedDate',{required:!editing})} type="date" className="form-input"/></div>}
                   {editing && <div><label className="form-label">Status</label>
@@ -372,6 +498,7 @@ export default function AdminEmployees() {
                       {['active','on_leave','resigned','terminated'].map(s=><option key={s} value={s}>{s}</option>)}
                     </select></div>}
                 </div>
+
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">Cancel</button>
                   <button type="submit" disabled={createMut.isPending||updateMut.isPending} className="btn-primary flex-1 justify-center">
@@ -474,6 +601,14 @@ export default function AdminEmployees() {
             </motion.div>
         </div>,
         document.body
+      )}
+
+      {viewEmp && (
+        <EmployeeDetail
+          employee={viewEmp}
+          onClose={() => setViewEmp(null)}
+          onEdit={() => { openEdit(viewEmp); setViewEmp(null) }}
+        />
       )}
     </div>
   )

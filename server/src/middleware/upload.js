@@ -131,3 +131,15 @@ exports.uploadFile = multer({
   },
   limits: { fileSize: 5 * 1024 * 1024 }
 }).single('file');
+
+// ── Medical / Leave document upload ─────────────────────
+exports.uploadDocument = multer({
+  storage: docStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Only PDF, JPG, PNG files are allowed'), false);
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
+}).single('document');

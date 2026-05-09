@@ -17,9 +17,15 @@ function getRange(month, year) {
   return { $gte: start, $lte: end };
 }
 
+async function getEmpIds(branchId) {
+  if (!branchId) return null;
+  const emps = await Employee.find({ branch: branchId }).select('_id');
+  return emps.map(e => e._id);
+}
+
 exports.addEntry = async (req, res, next) => {
   try {
-    const { type, category, title, amount, date, note } = req.body;
+    const { type, category, title, amount, date, note, branch, paymentMethod } = req.body;
     const data = {
       type,
       category,
@@ -27,9 +33,10 @@ exports.addEntry = async (req, res, next) => {
       amount: Number(amount || 0),
       date: date ? new Date(date) : new Date(),
       note: note || '',
+      paymentMethod: paymentMethod || 'Cash',
       createdBy: req.user._id,
+      branch: branch || null,
     };
-    // Attach bill/receipt if uploaded
     if (req.file) {
       data.billFile = `/uploads/bills/${req.file.filename}`;
       data.billFileName = req.file.originalname;
@@ -41,10 +48,11 @@ exports.addEntry = async (req, res, next) => {
 
 exports.getEntries = async (req, res, next) => {
   try {
-    const { type, category, month, year, from, to } = req.query;
+    const { type, category, month, year, from, to, branch } = req.query;
     const q = {};
     if (type) q.type = type;
     if (category) q.category = category;
+    if (branch) q.branch = branch;
     const dateRange = getRange(month, year);
     if (from || to) {
       q.date = {};
@@ -69,6 +77,7 @@ exports.getEntries = async (req, res, next) => {
 
 exports.getOverview = async (req, res, next) => {
   try {
+    const { branch } = req.query;
     const now = new Date();
     const month = Number(req.query.month || (now.getMonth() + 1));
     const year = Number(req.query.year || now.getFullYear());
@@ -77,17 +86,21 @@ exports.getOverview = async (req, res, next) => {
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
 
+    const branchMatch = branch ? { branch } : {};
+    const empIds = await getEmpIds(branch);
+    const empMatch = empIds ? { employee: { $in: empIds } } : {};
+
     const [paidInvoices, paidPayrolls, entries, revenueByMonth, incomeExpenseByCategory] = await Promise.all([
-      Invoice.find({ status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
-      Payroll.find({ status: 'paid', paidAt: range }).select('netSalary month year'),
-      FinanceEntry.find({ date: range }).sort({ date: -1 }),
+      Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
+      Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year'),
+      FinanceEntry.find({ ...branchMatch, date: range }).sort({ date: -1 }),
       Invoice.aggregate([
-        { $match: { status: 'paid', paidAt: { $gte: yearStart, $lte: yearEnd } } },
+        { $match: { ...branchMatch, status: 'paid', paidAt: { $gte: yearStart, $lte: yearEnd } } },
         { $group: { _id: { $month: '$paidAt' }, total: { $sum: '$total' }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
       FinanceEntry.aggregate([
-        { $match: { date: range } },
+        { $match: { ...branchMatch, date: range } },
         { $group: { _id: { category: '$category', type: '$type' }, total: { $sum: '$amount' } } },
         { $sort: { total: -1 } },
       ]),
@@ -178,7 +191,7 @@ function htmlFromRows(title, headers, rows) {
 
 exports.exportData = async (req, res, next) => {
   try {
-    const { dataset = 'financial_overview', format = 'excel', month, year, category, type, employeeId } = req.query;
+    const { dataset = 'financial_overview', format = 'excel', month, year, category, type, employeeId, branch } = req.query;
     const lowerDataset = String(dataset).toLowerCase();
     const lowerFormat = String(format).toLowerCase();
     let headers = [];
@@ -186,8 +199,14 @@ exports.exportData = async (req, res, next) => {
     const employee = employeeId ? await Employee.findById(employeeId).populate('userId', 'name email role') : null;
     const employeeUserId = employee?.userId?._id;
 
+    const branchMatch = branch ? { branch } : {};
+    const empIds = await getEmpIds(branch);
+    const empMatch = empIds ? { employee: { $in: empIds } } : {};
+    const branchEmpMatch = branch ? { branch } : {};
+
     if (lowerDataset === 'salary_payments') {
       const payrolls = await Payroll.find({
+        ...empMatch,
         ...(month ? { month: Number(month) } : {}),
         ...(year ? { year: Number(year) } : {}),
         ...(employeeId ? { employee: employeeId } : {}),
@@ -206,6 +225,7 @@ exports.exportData = async (req, res, next) => {
       ]);
     } else if (lowerDataset === 'epf_etf') {
       const payrolls = await Payroll.find({
+        ...empMatch,
         ...(month ? { month: Number(month) } : {}),
         ...(year ? { year: Number(year) } : {}),
         ...(employeeId ? { employee: employeeId } : {}),
@@ -216,6 +236,7 @@ exports.exportData = async (req, res, next) => {
       ]);
     } else if (lowerDataset === 'employee_details') {
       const employees = await Employee.find({
+        ...branchEmpMatch,
         ...(category ? { department: category } : {}),
       }).populate('userId', 'name email phone role');
       headers = ['Name', 'Email', 'Phone', 'Role', 'EmployeeNo', 'Department', 'Designation', 'Basic Salary', 'Status'];
@@ -224,6 +245,7 @@ exports.exportData = async (req, res, next) => {
       ]);
     } else if (lowerDataset === 'incomes' || lowerDataset === 'expenses') {
       const entries = await FinanceEntry.find({
+        ...branchMatch,
         type: lowerDataset === 'incomes' ? 'income' : 'expense',
         ...(category ? { category } : {}),
         ...(month && year ? { date: getRange(month, year) } : {}),
@@ -232,6 +254,7 @@ exports.exportData = async (req, res, next) => {
       rows = entries.map((e) => [new Date(e.date).toLocaleDateString(), e.category, e.title, e.amount, e.note || '']);
     } else if (lowerDataset === 'attendance_reports') {
       const records = await Attendance.find({
+        ...empMatch,
         ...(employeeId ? { employee: employeeId } : {}),
         ...(month && year ? { date: getRange(month, year) } : {}),
       }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } }).sort({ date: -1 });
@@ -246,6 +269,7 @@ exports.exportData = async (req, res, next) => {
       ]);
     } else if (lowerDataset === 'leave_reports') {
       const records = await Leave.find({
+        ...empMatch,
         ...(employeeId ? { employee: employeeId } : {}),
         ...(month && year ? { startDate: getRange(month, year) } : {}),
       }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } }).sort({ createdAt: -1 });
@@ -261,6 +285,7 @@ exports.exportData = async (req, res, next) => {
       ]);
     } else if (lowerDataset === 'project_history') {
       const projects = await Project.find({
+        ...branchMatch,
         ...(employeeUserId ? { assignedEmployees: employeeUserId } : {}),
       }).populate('assignedEmployees', 'name email').sort({ updatedAt: -1 });
       headers = ['Project', 'Status', 'Progress', 'Deadline', 'Assigned Employees', 'Updated At'];
@@ -274,6 +299,7 @@ exports.exportData = async (req, res, next) => {
       ]);
     } else if (lowerDataset === 'revenue_invoices') {
       const invoices = await Invoice.find({
+        ...branchMatch,
         ...(month && year ? { createdAt: getRange(month, year) } : {}),
       }).populate('client', 'name email').populate('project', 'title').sort({ createdAt: -1 });
       headers = ['Invoice No', 'Client', 'Project', 'Status', 'Total', 'Due Date', 'Paid At'];
@@ -291,9 +317,9 @@ exports.exportData = async (req, res, next) => {
       const m = Number(month || (now.getMonth() + 1));
       const y = Number(year || now.getFullYear());
       const range = getRange(m, y);
-      const paidInvoices = await Invoice.find({ status: 'paid', paidAt: range }).populate('client', 'name email');
-      const paidPayrolls = await Payroll.find({ status: 'paid', paidAt: range }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
-      const entries = await FinanceEntry.find({ ...(type ? { type } : {}), ...(category ? { category } : {}), date: range });
+      const paidInvoices = await Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).populate('client', 'name email');
+      const paidPayrolls = await Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
+      const entries = await FinanceEntry.find({ ...branchMatch, ...(type ? { type } : {}), ...(category ? { category } : {}), date: range });
       const revenue = paidInvoices.reduce((s, i) => s + Number(i.total || 0), 0);
       const salaryPayout = paidPayrolls.reduce((s, p) => s + Number(p.netSalary || 0), 0);
       const incomeEntries = entries.filter((e) => e.type === 'income').reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -384,3 +410,60 @@ exports.exportData = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// GET /api/finance/profit-loss
+exports.getProfitLoss = async (req, res, next) => {
+  try {
+    const { from, to, branch, paymentMethod } = req.query;
+    const startDate = from ? new Date(from) : new Date(new Date().getFullYear(), 0, 1);
+    const endDate = to ? new Date(to) : new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    const branchMatch = branch ? { branch } : {};
+    const empIds = await getEmpIds(branch);
+    const empMatch = empIds ? { employee: { $in: empIds } } : {};
+    const pmMatch = paymentMethod ? { paymentMethod } : {};
+
+    const [incomeEntries, expenseEntries, invoicePayments, payrollRuns] = await Promise.all([
+      FinanceEntry.find({ ...branchMatch, ...pmMatch, type: 'income', date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
+      FinanceEntry.find({ ...branchMatch, ...pmMatch, type: 'expense', date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
+      Invoice.find({ ...branchMatch, status: 'paid', paidAt: { $gte: startDate, $lte: endDate } }).populate('client', 'name email').sort({ paidAt: -1 }),
+      Payroll.find({ ...empMatch, status: 'paid', paidAt: { $gte: startDate, $lte: endDate } }).populate({ path: 'employee', populate: { path: 'userId', select: 'name' } }).sort({ paidAt: -1 }),
+    ]);
+
+    const totalIncomeEntries = incomeEntries.reduce((s, e) => s + e.amount, 0);
+    const totalExpenseEntries = expenseEntries.reduce((s, e) => s + e.amount, 0);
+    const totalInvoiceRevenue = invoicePayments.reduce((s, i) => s + i.total, 0);
+    const totalSalaryExpense = payrollRuns.reduce((s, p) => s + p.netSalary, 0);
+
+    const totalIncome = totalIncomeEntries + totalInvoiceRevenue;
+    const totalExpense = totalExpenseEntries + totalSalaryExpense;
+    const netProfit = totalIncome - totalExpense;
+
+    // By payment method breakdown
+    const byMethod = {};
+    [...incomeEntries, ...expenseEntries].forEach(e => {
+      const m = e.paymentMethod || 'Cash';
+      if (!byMethod[m]) byMethod[m] = { income: 0, expense: 0 };
+      byMethod[m][e.type] = (byMethod[m][e.type] || 0) + e.amount;
+    });
+
+    // By category breakdown
+    const incomeCategoryMap = {};
+    incomeEntries.forEach(e => { incomeCategoryMap[e.category] = (incomeCategoryMap[e.category] || 0) + e.amount; });
+    const expenseCategoryMap = {};
+    expenseEntries.forEach(e => { expenseCategoryMap[e.category] = (expenseCategoryMap[e.category] || 0) + e.amount; });
+
+    res.json({
+      success: true,
+      period: { from: startDate, to: endDate },
+      summary: { totalIncome, totalExpense, netProfit, totalInvoiceRevenue, totalSalaryExpense, totalIncomeEntries, totalExpenseEntries },
+      incomeEntries,
+      expenseEntries,
+      invoicePayments,
+      payrollRuns,
+      byMethod: Object.entries(byMethod).map(([method, vals]) => ({ method, ...vals })),
+      incomeCategoryBreakdown: Object.entries(incomeCategoryMap).map(([cat, amt]) => ({ category: cat, amount: amt })).sort((a, b) => b.amount - a.amount),
+      expenseCategoryBreakdown: Object.entries(expenseCategoryMap).map(([cat, amt]) => ({ category: cat, amount: amt })).sort((a, b) => b.amount - a.amount),
+    });
+  } catch (err) { next(err); }
+};

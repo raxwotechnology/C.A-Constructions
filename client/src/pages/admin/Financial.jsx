@@ -20,14 +20,18 @@ export default function AdminFinancial() {
   const [year, setYear] = useState(now.getFullYear())
   const [category, setCategory] = useState('')
   const [dataset, setDataset] = useState('financial_overview')
+  const [branchFilter, setBranchFilter] = useState('')
+
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
 
   const { data } = useQuery({
-    queryKey: ['finance-overview', month, year],
-    queryFn: () => api.get(`/finance/overview?month=${month}&year=${year}`).then((r) => r.data),
+    queryKey: ['finance-overview', month, year, branchFilter],
+    queryFn: () => api.get(`/finance/overview?month=${month}&year=${year}${branchFilter ? `&branch=${branchFilter}` : ''}`).then((r) => r.data),
   })
   const { data: entriesData } = useQuery({
-    queryKey: ['finance-entries-category', month, year],
-    queryFn: () => api.get(`/finance/entries?month=${month}&year=${year}`).then((r) => r.data),
+    queryKey: ['finance-entries-category', month, year, branchFilter],
+    queryFn: () => api.get(`/finance/entries?month=${month}&year=${year}${branchFilter ? `&branch=${branchFilter}` : ''}`).then((r) => r.data),
   })
 
   const summary = data?.summary || {}
@@ -46,6 +50,7 @@ export default function AdminFinancial() {
         year: String(year),
       })
       if (category) params.set('category', category)
+      if (branchFilter) params.set('branch', branchFilter)
       const res = await api.get(`/finance/export?${params.toString()}`, { responseType: 'blob' })
       const blob = new Blob([res.data], { type: res.headers['content-type'] })
       const a = document.createElement('a')
@@ -94,6 +99,13 @@ export default function AdminFinancial() {
           <select className="form-select" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">All</option>
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="form-label">Branch (optional)</label>
+          <select className="form-select" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+            <option value="">All Branches</option>
+            {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
         </div>
       </div>

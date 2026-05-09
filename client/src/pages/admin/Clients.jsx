@@ -1,33 +1,42 @@
-import { useQuery } from '@tanstack/react-query'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiUsers, FiMail, FiPhone, FiFolder, FiPlus, FiEdit2, FiX } from 'react-icons/fi'
+import { FiUsers, FiMail, FiPhone, FiFolder, FiPlus, FiEdit2, FiX, FiTrash2 } from 'react-icons/fi'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 
 export default function AdminClients() {
   const qc = useQueryClient()
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', referralCode: '' })
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', referralCode: '', branch: '' })
   const [editingClient, setEditingClient] = useState(null)
-  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', isActive: true })
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', isActive: true, branch: '' })
+  const [branchFilter, setBranchFilter] = useState('')
+
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+  
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-clients'],
-    queryFn: () => api.get('/auth/users').then(r => r.data),
+    queryKey: ['admin-clients', branchFilter],
+    queryFn: () => api.get(`/clients${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
   })
+  
   const { data: projData } = useQuery({
     queryKey: ['admin-projects'],
     queryFn: () => api.get('/projects').then(r => r.data),
   })
+
   const addClientMut = useMutation({
     mutationFn: (payload) => api.post('/auth/clients', payload).then((r) => r.data),
     onSuccess: () => {
       toast.success('Client added')
-      setForm({ name: '', email: '', phone: '', password: '', referralCode: '' })
+      setForm({ name: '', email: '', phone: '', password: '', referralCode: '', branch: '' })
       qc.invalidateQueries({ queryKey: ['admin-clients'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to add client'),
   })
+
   const updateClientMut = useMutation({
     mutationFn: ({ id, payload }) => api.put(`/auth/users/${id}`, payload).then((r) => r.data),
     onSuccess: () => {
@@ -38,19 +47,33 @@ export default function AdminClients() {
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to update client'),
   })
 
-  const clients = (data?.users || []).filter(u => u.role === 'client')
+  const deleteMut = useMutation({
+    mutationFn: (id) => api.delete(`/auth/users/${id}`).then(r => r.data),
+    onSuccess: () => {
+      toast.success('Client deleted')
+      qc.invalidateQueries({ queryKey: ['admin-clients'] })
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed to delete client'),
+  })
+
+  const clients = data?.clients || []
 
   const getClientProjects = (clientId) =>
     (projData?.projects || []).filter(p => p.client?._id === clientId || p.client === clientId)
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="page-header">
+      <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Clients</h1>
           <p className="page-subtitle">{clients.length} registered clients</p>
         </div>
+        <select className="form-select w-full sm:w-48" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+          <option value="">All Branches</option>
+          {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+        </select>
       </div>
+      
       <div className="card card-body">
         <h3 className="font-bold text-primary font-heading mb-3">Add Client Manually</h3>
         <div className="grid md:grid-cols-6 gap-3">
@@ -59,6 +82,10 @@ export default function AdminClients() {
           <input className="form-input" placeholder="Phone" value={form.phone} onChange={(e) => setForm((s) => ({ ...s, phone: e.target.value }))} />
           <input className="form-input" placeholder="Password (optional)" type="password" value={form.password} onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))} />
           <input className="form-input" placeholder="Referral code (optional)" value={form.referralCode} onChange={(e) => setForm((s) => ({ ...s, referralCode: e.target.value.toUpperCase() }))} />
+          <select className="form-select" value={form.branch} onChange={e => setForm(s => ({ ...s, branch: e.target.value }))}>
+            <option value="">No branch</option>
+            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+          </select>
           <button className="btn-primary justify-center" onClick={() => addClientMut.mutate(form)} disabled={!form.name || !form.email || addClientMut.isPending}>
             <FiPlus size={14} /> Add Client
           </button>
@@ -74,11 +101,13 @@ export default function AdminClients() {
             return (
               <div key={client._id} className="card card-body card-hover">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary font-bold text-lg">
-                    {client.name?.charAt(0).toUpperCase()}
+                  <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary font-bold text-lg cursor-pointer hover:bg-secondary/20" onClick={() => navigate(`/admin/clients/${client._id}`)}>
+                    {(client.profile?.companyName || client.name)?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-primary font-heading">{client.name}</h3>
+                    <h3 className="font-bold text-primary font-heading cursor-pointer hover:text-secondary" onClick={() => navigate(`/admin/clients/${client._id}`)}>
+                      {client.profile?.companyName || client.name}
+                    </h3>
                     <span className={`badge ${client.isActive ? 'badge-green' : 'badge-gray'} text-xs`}>
                       {client.isActive ? 'Active' : 'Inactive'}
                     </span>
@@ -113,20 +142,24 @@ export default function AdminClients() {
                 <p className="text-xs text-gray-400 mt-3">
                   Joined {new Date(client.createdAt).toLocaleDateString('en-LK')}
                 </p>
-                <div className="mt-3">
-                  <button
-                    className="btn-ghost btn-sm"
-                    onClick={() => {
+                <div className="mt-3 flex gap-2">
+                  <button className="btn-primary btn-sm flex-1 justify-center" onClick={() => navigate(`/admin/clients/${client._id}`)}>
+                    View CRM Profile
+                  </button>
+                  <button className="btn-ghost btn-sm" onClick={() => {
                       setEditingClient(client)
                       setEditForm({
                         name: client.name || '',
                         email: client.email || '',
                         phone: client.phone || '',
                         isActive: Boolean(client.isActive),
+                        branch: client.branch?._id || client.branch || '',
                       })
-                    }}
-                  >
-                    <FiEdit2 size={13} /> Edit Client
+                    }}>
+                    <FiEdit2 size={13} /> Edit Login
+                  </button>
+                  <button className="btn-ghost btn-sm text-red-500 hover:bg-red-50" onClick={() => { if(window.confirm('Delete client?')) deleteMut.mutate(client._id) }}>
+                    <FiTrash2 size={13} />
                   </button>
                 </div>
               </div>
@@ -146,7 +179,7 @@ export default function AdminClients() {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
               <div className="p-5 border-b flex items-center justify-between">
-                <h3 className="text-lg font-bold text-primary font-heading">Edit Client</h3>
+                <h3 className="text-lg font-bold text-primary font-heading">Edit Client Login Info</h3>
                 <button className="p-2 hover:bg-slate-100 rounded-lg" onClick={() => setEditingClient(null)}><FiX /></button>
               </div>
               <div className="p-5 space-y-3">
@@ -156,6 +189,10 @@ export default function AdminClients() {
                 <select className="form-select" value={editForm.isActive ? 'active' : 'inactive'} onChange={(e) => setEditForm((s) => ({ ...s, isActive: e.target.value === 'active' }))}>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
+                </select>
+                <select className="form-select" value={editForm.branch} onChange={e => setEditForm(s => ({ ...s, branch: e.target.value }))}>
+                  <option value="">No branch</option>
+                  {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
                 </select>
                 <div className="flex gap-3">
                   <button className="btn-ghost flex-1 justify-center" onClick={() => setEditingClient(null)}>Cancel</button>

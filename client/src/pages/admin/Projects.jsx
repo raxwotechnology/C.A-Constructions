@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -13,10 +14,12 @@ const priorityColor = { low:'badge-gray', medium:'badge-yellow', high:'badge-red
 
 export default function AdminProjects() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   // Salary allocations state
   const [salaryAllocations, setSalaryAllocations] = useState([]) // [{employeeId, employeeName, salary, commission}]
   const [selectedTeam, setSelectedTeam] = useState([]) // array of employee._id
@@ -29,8 +32,8 @@ export default function AdminProjects() {
   const watchedEmployees = watch('assignedEmployees') || []
 
   const { data: projData, isLoading } = useQuery({
-    queryKey: ['admin-projects'],
-    queryFn: () => api.get('/projects').then(r => r.data),
+    queryKey: ['admin-projects', branchFilter],
+    queryFn: () => api.get(`/projects${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
   })
   const { data: empData } = useQuery({
     queryKey: ['employees-list'],
@@ -159,6 +162,10 @@ export default function AdminProjects() {
           <option value="">All Status</option>
           {['planning','active','on_hold','completed','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
         </select>
+        <select className="form-select" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+          <option value="">All Branches</option>
+          {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+        </select>
       </div>
 
       {/* Project Cards */}
@@ -182,8 +189,10 @@ export default function AdminProjects() {
                 <button onClick={() => { if(window.confirm('Delete project?')) deleteMut.mutate(p._id) }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
               </div>
             </div>
-            <h3 className="font-bold text-primary font-heading mb-1">{p.title}</h3>
-            <p className="text-gray-500 text-sm line-clamp-2 mb-3">{p.description}</p>
+            <div className="cursor-pointer" onClick={() => navigate(`/admin/projects/${p._id}`)}>
+              <h3 className="font-bold text-primary font-heading mb-1 hover:text-secondary transition-colors">{p.title}</h3>
+              <p className="text-gray-500 text-sm line-clamp-2 mb-3">{p.description}</p>
+            </div>
 
             {/* Budget & Allocation */}
             {p.budget > 0 && (

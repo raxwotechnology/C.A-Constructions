@@ -4,20 +4,34 @@ const leaveSchema = new mongoose.Schema({
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
   leaveType: {
     type: String,
-    enum: ['annual', 'sick', 'casual', 'maternity', 'paternity', 'unpaid'],
-    required: true
+    enum: ['annual', 'medical', 'casual', 'half_day', 'short_leave', 'no_pay', 'sick', 'maternity', 'paternity', 'unpaid'],
+    required: true,
   },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   days: { type: Number, required: true },
-  reason: { type: String, required: true },
+
+  // Half-day options
+  halfDayPeriod: { type: String, enum: ['AM', 'PM'] },
+
+  // Short leave options
+  shortLeaveDuration: { type: Number }, // hours: 1, 2, or 3
+  shortLeaveStart: { type: String },    // HH:MM
+  shortLeaveEnd: { type: String },      // HH:MM
+
+  reason: { type: String, default: '' },
+  documentUrl: { type: String, default: '' }, // required for medical
+
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
+    default: 'pending',
   },
+  insufficientBalance: { type: Boolean, default: false }, // flagged if balance = 0
+
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   approvedAt: Date,
+  rejectedReason: String,
   remarks: String,
 }, { timestamps: true });
 

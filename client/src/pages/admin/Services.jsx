@@ -12,7 +12,7 @@ export default function AdminServices() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-services'],
-    queryFn: () => api.get('/content/services').then((r) => r.data),
+    queryFn: () => api.get('/content/services/admin').then((r) => r.data),
     retry: 1,
   })
   const services = data?.services || []

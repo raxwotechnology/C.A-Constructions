@@ -102,7 +102,9 @@ exports.changePassword = async (req, res, next) => {
 // @route   GET /api/auth/users
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const { branch } = req.query;
+    const query = branch ? { branch } : {};
+    const users = await User.find(query).sort({ createdAt: -1 }).populate('branch', 'name');
     res.json({ success: true, count: users.length, users });
   } catch (err) { next(err); }
 };
@@ -123,13 +125,14 @@ exports.toggleUserStatus = async (req, res, next) => {
 // @route   PUT /api/auth/users/:id
 exports.updateUserByAdmin = async (req, res, next) => {
   try {
-    const { name, email, phone, isActive, role } = req.body;
+    const { name, email, phone, isActive, role, branch } = req.body;
     const payload = {
       ...(name !== undefined ? { name } : {}),
       ...(email !== undefined ? { email } : {}),
       ...(phone !== undefined ? { phone } : {}),
       ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
       ...(role !== undefined ? { role } : {}),
+      ...(branch !== undefined ? { branch: branch || null } : {}),
     };
     const user = await User.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -141,7 +144,7 @@ exports.updateUserByAdmin = async (req, res, next) => {
 // @route   POST /api/auth/clients
 exports.createClient = async (req, res, next) => {
   try {
-    const { name, email, phone, password, referralCode } = req.body;
+    const { name, email, phone, password, referralCode, branch } = req.body;
     if (!name || !email) {
       return res.status(400).json({ success: false, message: 'Name and email are required' });
     }
@@ -153,6 +156,7 @@ exports.createClient = async (req, res, next) => {
       phone: phone || '',
       password: password || 'Client@2026',
       role: 'client',
+      branch: branch || null,
     });
     await getOrCreateReward(user._id);
     await awardPoints({

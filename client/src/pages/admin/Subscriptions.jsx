@@ -57,10 +57,14 @@ export default function AdminSubscriptions() {
   const [showAgreementForm, setShowAgreementForm] = useState(false)
   const [selectedSub, setSelectedSub] = useState(null)
   const [statusFilter, setStatusFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   const [search, setSearch] = useState('')
 
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+
   const emptyForm = {
-    client: '', project: '', title: '', description: '', subscriptionType: 'custom',
+    client: '', project: '', branch: '', title: '', description: '', subscriptionType: 'custom',
     amount: '', billingFrequency: 'monthly', billingDay: 1, gracePeriodDays: 7,
     status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active'
   }
@@ -72,16 +76,16 @@ export default function AdminSubscriptions() {
 
   /* Queries */
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-subscriptions', statusFilter],
-    queryFn: () => api.get(`/subscriptions${statusFilter ? `?status=${statusFilter}` : ''}`).then(r => r.data)
+    queryKey: ['admin-subscriptions', statusFilter, branchFilter],
+    queryFn: () => api.get(`/subscriptions?${statusFilter ? `status=${statusFilter}&` : ''}${branchFilter ? `branch=${branchFilter}` : ''}`).then(r => r.data)
   })
   const { data: clientsData } = useQuery({
     queryKey: ['admin-clients-list'],
     queryFn: () => api.get('/auth/users').then(r => r.data)
   })
   const { data: overviewData } = useQuery({
-    queryKey: ['admin-billing-overview'],
-    queryFn: () => api.get('/subscriptions/billing-overview').then(r => r.data)
+    queryKey: ['admin-billing-overview', branchFilter],
+    queryFn: () => api.get(`/subscriptions/billing-overview${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data)
   })
 
   const subs = data?.subscriptions || []
@@ -138,7 +142,7 @@ export default function AdminSubscriptions() {
   const openEdit = (sub) => {
     setSelectedSub(sub)
     setForm({
-      client: sub.client?._id || '', project: sub.project?._id || '',
+      client: sub.client?._id || '', project: sub.project?._id || '', branch: sub.branch?._id || '',
       title: sub.title, description: sub.description || '',
       subscriptionType: sub.subscriptionType, amount: sub.amount,
       billingFrequency: sub.billingFrequency, billingDay: sub.billingDay,
@@ -222,6 +226,10 @@ export default function AdminSubscriptions() {
             <option value="paused">Paused</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          <select className="form-select w-full sm:w-40" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+            <option value="">All Branches</option>
+            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+          </select>
         </div>
         <div className="table-container">
           <table className="table">
@@ -302,6 +310,13 @@ export default function AdminSubscriptions() {
                   {clients.map(c => <option key={c._id} value={c._id}>{c.name} ({c.email})</option>)}
                 </select>
                 {clients.length === 0 && <p className="text-xs text-amber-500 mt-1">No client accounts found. Create a client first.</p>}
+              </div>
+              <div>
+                <label className="form-label">Branch (Optional)</label>
+                <select className="form-select" value={form.branch} onChange={e => f('branch')(e.target.value)}>
+                  <option value="">No Branch</option>
+                  {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
               </div>
               <div>
                 <label className="form-label">Service Type *</label>

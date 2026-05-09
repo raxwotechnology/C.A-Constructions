@@ -7,8 +7,13 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiCalendar } from 'react-icons/fi'
 
-const SERVICE_TYPES = ['ERP','POS','Hosting','Website','Maintenance','Custom','Other']
-const STATUS_COLOR = { draft:'badge-gray', sent:'badge-blue', confirmed:'badge-green', rejected:'badge-red', expired:'badge-yellow', converted:'badge-purple' }
+const STATUS_COLOR = {
+  draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', confirmed:'badge-green',
+  rejected:'badge-red', expired:'badge-yellow', converted:'badge-purple'
+}
+
+const STATUS_LIFECYCLE = ['draft','sent','accepted','rejected','expired']
+const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
 
 export default function AdminQuotations() {
   const qc = useQueryClient()
@@ -49,7 +54,7 @@ export default function AdminQuotations() {
   })
   const { data: clientData } = useQuery({
     queryKey: ['clients-list'],
-    queryFn: () => api.get('/auth/users').then(r => r.data),
+    queryFn: () => api.get('/clients').then(r => r.data),
     enabled: showModal,
   })
 
@@ -63,14 +68,14 @@ export default function AdminQuotations() {
     onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Updated'); closeModal() },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
-  const confirmMut = useMutation({
-    mutationFn: id => api.put(`/quotations/${id}/confirm`),
-    onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Quotation confirmed') },
+  const statusMut = useMutation({
+    mutationFn: ({ id, status }) => api.put(`/quotations/${id}`, { status }),
+    onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Status updated') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const convertMut = useMutation({
     mutationFn: id => api.post(`/quotations/${id}/convert-to-invoice`),
-    onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Converted to invoice!') },
+    onSuccess: (data) => { qc.invalidateQueries(['quotations']); qc.invalidateQueries(['admin-invoices']); toast.success(`Invoice ${data.data?.invoice?.invoiceNo || ''} created!`) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
@@ -79,7 +84,7 @@ export default function AdminQuotations() {
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
-  const clients = (clientData?.users || []).filter(u => u.role === 'client')
+  const clients = (clientData?.clients || clientData?.users || []).filter(u => !u.role || u.role === 'client')
   const quotations = (quotData?.quotations || []).filter(q =>
     !search || q.title?.toLowerCase().includes(search.toLowerCase()) ||
     q.client?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -87,7 +92,22 @@ export default function AdminQuotations() {
   )
 
   const closeModal = () => { setShowModal(false); setEditing(null); reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }) }
-  const openCreate = () => { reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }); setEditing(null); setShowModal(true) }
+  const openCreate = () => { reset({ quotationDate: new Date().toISOString().split('T')[0], items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }); setEditing(null); setShowModal(true) }
+  const openEdit = (q) => {
+    reset({
+      client: q.client?._id || q.client,
+      title: q.title || '',
+      serviceType: q.serviceType || 'Other',
+      quotationDate: q.quotationDate ? new Date(q.quotationDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      validUntil: q.validUntil ? new Date(q.validUntil).toISOString().split('T')[0] : '',
+      taxRate: q.taxRate || 0,
+      notes: q.notes || '',
+      terms: q.terms || '',
+      items: (q.items && q.items.length > 0) ? q.items.map(i => ({ description: i.description || '', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, total: i.total || 0 })) : [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
+    })
+    setEditing(q)
+    setShowModal(true)
+  }
 
   const onSubmit = d => {
     const items = (d.items || []).map(item => ({
@@ -134,7 +154,7 @@ export default function AdminQuotations() {
         <table className="table">
           <thead>
             <tr>
-              <th>Quotation No.</th><th>Client</th><th>Title</th><th>Service</th>
+              <th>Quotation No.</th><th>Client</th><th>Title</th>
               <th>Total</th><th>Valid Until</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
@@ -154,21 +174,26 @@ export default function AdminQuotations() {
                   <div className="font-medium text-gray-800">{q.client?.name || '—'}</div>
                   <div className="text-xs text-gray-400">{q.client?.email}</div>
                 </td>
-                <td className="font-medium text-gray-800">{q.title}</td>
-                <td><span className="badge badge-blue capitalize">{q.serviceType}</span></td>
+                <td className="font-medium text-gray-800 max-w-[180px] truncate">{q.title || '—'}</td>
                 <td className="font-bold text-gray-800">LKR {(q.total || 0).toLocaleString()}</td>
                 <td className="text-gray-500 text-xs">{q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-LK') : '—'}</td>
                 <td><span className={`badge capitalize ${STATUS_COLOR[q.status] || 'badge-gray'}`}>{q.status}</span></td>
                 <td>
                   <div className="flex gap-1">
                     {q.status === 'draft' && (
-                      <button onClick={() => confirmMut.mutate(q._id)} title="Confirm" className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"><FiCheck size={13}/></button>
+                      <button onClick={() => statusMut.mutate({ id: q._id, status: 'sent' })} title="Mark Sent" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-bold">Sent</button>
                     )}
-                    {q.status === 'confirmed' && (
+                    {q.status === 'sent' && (
+                      <>
+                        <button onClick={() => statusMut.mutate({ id: q._id, status: 'accepted' })} title="Mark Accepted" className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"><FiCheck size={13}/></button>
+                        <button onClick={() => statusMut.mutate({ id: q._id, status: 'rejected' })} title="Mark Rejected" className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><FiX size={13}/></button>
+                      </>
+                    )}
+                    {(q.status === 'accepted' || q.status === 'confirmed') && (
                       <button onClick={() => { if(window.confirm('Convert to invoice?')) convertMut.mutate(q._id) }} title="Convert to Invoice" className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><FiArrowRight size={13}/></button>
                     )}
                     {['draft','sent'].includes(q.status) && (
-                      <button onClick={() => setEditing(q)} title="Edit" className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
+                      <button onClick={() => openEdit(q)} title="Edit" className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
                     )}
                     <button onClick={() => { if(window.confirm('Delete?')) deleteMut.mutate(q._id) }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
                   </div>
@@ -191,7 +216,7 @@ export default function AdminQuotations() {
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="form-label">Client *</label>
-                  <select {...register('client', { required: true })} className="form-select">
+                  <select {...register('client', { required: true })} className={`form-select ${watch('client') === '' ? 'border-red-400' : ''}`}>
                     <option value="">Select client</option>
                     {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                   </select></div>
@@ -200,9 +225,11 @@ export default function AdminQuotations() {
                     {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select></div>
               </div>
-              <div><label className="form-label">Quotation Title *</label>
-                <input {...register('title', { required: true })} className="form-input" placeholder="e.g. ERP System Development Proposal"/></div>
+              <div><label className="form-label">Subject / Title</label>
+                <input {...register('title')} className="form-input" placeholder="e.g. ERP System Development Proposal (optional)"/></div>
               <div className="grid grid-cols-2 gap-4">
+                <div><label className="form-label">Quotation Date</label>
+                  <input {...register('quotationDate')} type="date" className="form-input"/></div>
                 <div><label className="form-label">Valid Until</label>
                   <input {...register('validUntil')} type="date" className="form-input"/></div>
                 <div><label className="form-label">Tax Rate (%)</label>
@@ -220,7 +247,7 @@ export default function AdminQuotations() {
                   {fields.map((field, idx) => (
                     <div key={field.id} className="grid grid-cols-12 gap-2 items-start">
                       <div className="col-span-4">
-                        <input {...register(`items.${idx}.description`)} className="form-input text-sm py-2" placeholder="Description"/>
+                        <input {...register(`items.${idx}.description`, { required: true })} className="form-input text-sm py-2" placeholder="Description *"/>
                       </div>
                       <div className="col-span-2">
                         <input {...register(`items.${idx}.quantity`, { valueAsNumber: true })} type="number" min="1" className="form-input text-sm py-2" placeholder="Qty"/>

@@ -17,14 +17,18 @@ export default function AdminAnalytics() {
   const thisYear = now.getFullYear()
   const [startDate, setStartDate] = useState(`${thisYear}-01-01`)
   const [endDate, setEndDate] = useState(`${thisYear}-12-31`)
+  const [branchFilter, setBranchFilter] = useState('')
+
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
-    queryKey: ['admin-dashboard'],
-    queryFn: () => api.get('/analytics/dashboard').then(r => r.data),
+    queryKey: ['admin-dashboard', branchFilter],
+    queryFn: () => api.get(`/analytics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
   })
   const { data: advData, isLoading: advLoading } = useQuery({
-    queryKey: ['advanced-analytics', startDate, endDate],
-    queryFn: () => api.get(`/analytics/advanced?startDate=${startDate}&endDate=${endDate}`).then(r => r.data),
+    queryKey: ['advanced-analytics', startDate, endDate, branchFilter],
+    queryFn: () => api.get(`/analytics/advanced?startDate=${startDate}&endDate=${endDate}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
   })
 
   const kpis = dashData?.kpis || {}
@@ -79,7 +83,11 @@ export default function AdminAnalytics() {
           <p className="page-subtitle">Business intelligence with date range filtering</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <FiCalendar size={14} className="text-gray-400"/>
+          <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="form-select py-1.5 text-xs w-auto">
+            <option value="">All Branches</option>
+            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+          </select>
+          <FiCalendar size={14} className="text-gray-400 ml-2"/>
           <input type="date" className="form-input py-1.5 text-xs w-36" value={startDate} onChange={e => setStartDate(e.target.value)}/>
           <span className="text-gray-400 text-xs">to</span>
           <input type="date" className="form-input py-1.5 text-xs w-36" value={endDate} onChange={e => setEndDate(e.target.value)}/>

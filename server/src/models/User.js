@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   lastLogin: Date,
+  branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null },
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {

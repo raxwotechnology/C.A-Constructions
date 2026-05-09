@@ -38,6 +38,7 @@ const subscriptionSchema = new mongoose.Schema({
   // Core relations
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+  branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   previousProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
 
   // Subscription info

@@ -1,0 +1,323 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import api from '../../lib/api'
+import toast from 'react-hot-toast'
+import { FiDownload, FiTrendingUp, FiTrendingDown, FiDollarSign, FiPieChart, FiFilter } from 'react-icons/fi'
+
+const PAYMENT_METHODS = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other']
+
+function fmt(n) { return `LKR ${Number(n || 0).toLocaleString()}` }
+
+function KPI({ label, value, sub, color = 'blue', trend }) {
+  const colors = {
+    blue: 'bg-blue-50 border-blue-100 text-blue-800',
+    green: 'bg-emerald-50 border-emerald-100 text-emerald-800',
+    red: 'bg-red-50 border-red-100 text-red-800',
+    purple: 'bg-purple-50 border-purple-100 text-purple-800',
+  }
+  return (
+    <div className={`rounded-xl border p-4 ${colors[color]}`}>
+      <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-1">{label}</p>
+      <p className="text-2xl font-black">{value}</p>
+      {sub && <p className="text-xs mt-1 opacity-60">{sub}</p>}
+    </div>
+  )
+}
+
+function BarRow({ label, amount, max, color = 'bg-secondary' }) {
+  const pct = max > 0 ? Math.min(100, (amount / max) * 100) : 0
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <span className="w-36 truncate text-slate-600 shrink-0">{label}</span>
+      <div className="flex-1 bg-slate-100 rounded-full h-2">
+        <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="w-28 text-right font-medium text-slate-800 shrink-0">{fmt(amount)}</span>
+    </div>
+  )
+}
+
+export default function FinancialReports() {
+  const now = new Date()
+  const thisYear = now.getFullYear()
+  const [from, setFrom] = useState(`${thisYear}-01-01`)
+  const [to, setTo] = useState(now.toISOString().split('T')[0])
+  const [branchFilter, setBranchFilter] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const [activeTab, setActiveTab] = useState('pl')
+
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+
+  const params = new URLSearchParams({ from, to })
+  if (branchFilter) params.set('branch', branchFilter)
+  if (paymentMethod) params.set('paymentMethod', paymentMethod)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['finance-pl', from, to, branchFilter, paymentMethod],
+    queryFn: () => api.get(`/finance/profit-loss?${params.toString()}`).then(r => r.data),
+  })
+
+  const summary = data?.summary || {}
+  const incomeCat = data?.incomeCategoryBreakdown || []
+  const expenseCat = data?.expenseCategoryBreakdown || []
+  const byMethod = data?.byMethod || []
+  const invoicePayments = data?.invoicePayments || []
+  const payrollRuns = data?.payrollRuns || []
+  const incomeEntries = data?.incomeEntries || []
+  const expenseEntries = data?.expenseEntries || []
+  const maxIncome = Math.max(...incomeCat.map(c => c.amount), 1)
+  const maxExpense = Math.max(...expenseCat.map(c => c.amount), 1)
+
+  const exportReport = async (format) => {
+    try {
+      const p = new URLSearchParams({ dataset: 'financial_overview', format, from, to })
+      if (branchFilter) p.set('branch', branchFilter)
+      if (paymentMethod) p.set('paymentMethod', paymentMethod)
+      const res = await api.get(`/finance/export?${p.toString()}`, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: res.headers['content-type'] })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `financial_report.${format === 'excel' ? 'xlsx' : 'pdf'}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(a.href)
+      toast.success(`Report exported`)
+    } catch { toast.error('Export failed') }
+  }
+
+  const tabs = [
+    { id: 'pl', label: 'Profit & Loss' },
+    { id: 'income', label: 'Income Breakdown' },
+    { id: 'expense', label: 'Expense Breakdown' },
+    { id: 'invoices', label: 'Invoice Payments' },
+    { id: 'payroll', label: 'Salary Expense' },
+    { id: 'method', label: 'By Payment Method' },
+  ]
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="page-header flex-wrap gap-3">
+        <div>
+          <h1 className="page-title">Financial Reports</h1>
+          <p className="page-subtitle">Profit & Loss, Income & Expense breakdown by branch, category, and payment method.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => exportReport('excel')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Excel</button>
+          <button onClick={() => exportReport('pdf')} className="btn-outline btn-sm gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"><FiDownload size={13}/> PDF</button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="card card-body">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="form-label">From</label>
+            <input type="date" className="form-input" value={from} onChange={e => setFrom(e.target.value)}/>
+          </div>
+          <div>
+            <label className="form-label">To</label>
+            <input type="date" className="form-input" value={to} onChange={e => setTo(e.target.value)}/>
+          </div>
+          <div>
+            <label className="form-label">Branch</label>
+            <select className="form-select" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+              <option value="">All Branches</option>
+              {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Payment Method</label>
+            <select className="form-select" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+              <option value="">All Methods</option>
+              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      {isLoading ? (
+        <div className="flex justify-center py-12"><div className="w-10 h-10 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin"/></div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KPI label="Total Income" value={fmt(summary.totalIncome)} sub={`Invoice: ${fmt(summary.totalInvoiceRevenue)} + Other: ${fmt(summary.totalIncomeEntries)}`} color="green"/>
+            <KPI label="Total Expenses" value={fmt(summary.totalExpense)} sub={`Payroll: ${fmt(summary.totalSalaryExpense)} + Other: ${fmt(summary.totalExpenseEntries)}`} color="red"/>
+            <KPI label="Net Profit" value={fmt(summary.netProfit)} color={summary.netProfit >= 0 ? 'green' : 'red'}
+              sub={summary.totalIncome > 0 ? `${((summary.netProfit / summary.totalIncome) * 100).toFixed(1)}% margin` : ''}/>
+            <KPI label="Invoice Revenue" value={fmt(summary.totalInvoiceRevenue)} sub={`${invoicePayments.length} paid invoices`} color="blue"/>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar bg-white rounded-t-xl">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === t.id ? 'border-secondary text-secondary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="card card-body">
+            {/* P&L Tab */}
+            {activeTab === 'pl' && (
+              <div className="space-y-6">
+                <h3 className="font-bold text-primary text-lg">Profit & Loss Statement</h3>
+                <div className="space-y-1 text-sm max-w-2xl">
+                  <div className="flex justify-between py-2 border-b border-slate-100 font-bold text-slate-500 uppercase text-xs tracking-wider">
+                    <span>Item</span><span>Amount</span>
+                  </div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Revenue (Paid Invoices)</span><span className="font-semibold">{fmt(summary.totalInvoiceRevenue)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Other Income Entries</span><span className="font-semibold">{fmt(summary.totalIncomeEntries)}</span></div>
+                  <div className="flex justify-between py-2.5 border-t border-slate-200 font-bold text-emerald-800 text-base"><span>TOTAL INCOME</span><span>{fmt(summary.totalIncome)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700 mt-2"><span>Salary / Payroll Expense</span><span className="font-semibold">{fmt(summary.totalSalaryExpense)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700"><span>Other Expense Entries</span><span className="font-semibold">{fmt(summary.totalExpenseEntries)}</span></div>
+                  <div className="flex justify-between py-2.5 border-t border-slate-200 font-bold text-red-800 text-base"><span>TOTAL EXPENSES</span><span>{fmt(summary.totalExpense)}</span></div>
+                  <div className={`flex justify-between py-3 mt-2 border-t-2 border-slate-300 font-black text-xl ${summary.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    <span>NET PROFIT / LOSS</span><span>{fmt(summary.netProfit)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Income Breakdown */}
+            {activeTab === 'income' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Income by Category</h3>
+                <div className="space-y-3">
+                  {incomeCat.map(c => <BarRow key={c.category} label={c.category} amount={c.amount} max={maxIncome} color="bg-emerald-500"/>)}
+                  {incomeCat.length === 0 && <p className="text-slate-400 text-sm">No income entries for this period.</p>}
+                </div>
+                <div className="mt-6">
+                  <h4 className="font-bold text-slate-700 mb-3">All Income Transactions</h4>
+                  <div className="table-container">
+                    <table className="table">
+                      <thead><tr><th>Date</th><th>Category</th><th>Title</th><th>Method</th><th>Amount</th></tr></thead>
+                      <tbody>
+                        {incomeEntries.map(e => (
+                          <tr key={e._id}>
+                            <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
+                            <td>{e.category}</td>
+                            <td className="font-medium text-slate-800">{e.title}</td>
+                            <td><span className="badge badge-gray text-xs">{e.paymentMethod || 'Cash'}</span></td>
+                            <td className="text-emerald-600 font-semibold">{fmt(e.amount)}</td>
+                          </tr>
+                        ))}
+                        {incomeEntries.length === 0 && <tr><td colSpan={5} className="text-center py-4 text-slate-400">No income entries.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Expense Breakdown */}
+            {activeTab === 'expense' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Expense by Category</h3>
+                <div className="space-y-3">
+                  {expenseCat.map(c => <BarRow key={c.category} label={c.category} amount={c.amount} max={maxExpense} color="bg-red-400"/>)}
+                  {expenseCat.length === 0 && <p className="text-slate-400 text-sm">No expense entries for this period.</p>}
+                </div>
+                <div className="mt-6">
+                  <h4 className="font-bold text-slate-700 mb-3">All Expense Transactions</h4>
+                  <div className="table-container">
+                    <table className="table">
+                      <thead><tr><th>Date</th><th>Category</th><th>Title</th><th>Method</th><th>Amount</th></tr></thead>
+                      <tbody>
+                        {expenseEntries.map(e => (
+                          <tr key={e._id}>
+                            <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
+                            <td>{e.category}</td>
+                            <td className="font-medium text-slate-800">{e.title}</td>
+                            <td><span className="badge badge-gray text-xs">{e.paymentMethod || 'Cash'}</span></td>
+                            <td className="text-red-600 font-semibold">{fmt(e.amount)}</td>
+                          </tr>
+                        ))}
+                        {expenseEntries.length === 0 && <tr><td colSpan={5} className="text-center py-4 text-slate-400">No expense entries.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Invoice Payments */}
+            {activeTab === 'invoices' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Invoice Payment Report ({invoicePayments.length})</h3>
+                <div className="table-container">
+                  <table className="table">
+                    <thead><tr><th>Invoice No</th><th>Client</th><th>Paid At</th><th>Total</th></tr></thead>
+                    <tbody>
+                      {invoicePayments.map(i => (
+                        <tr key={i._id}>
+                          <td className="font-medium text-slate-800">{i.invoiceNo}</td>
+                          <td>{i.client?.name || '—'}</td>
+                          <td className="text-slate-500 text-sm">{i.paidAt ? new Date(i.paidAt).toLocaleDateString() : '—'}</td>
+                          <td className="text-emerald-600 font-semibold">{fmt(i.total)}</td>
+                        </tr>
+                      ))}
+                      {invoicePayments.length === 0 && <tr><td colSpan={4} className="text-center py-4 text-slate-400">No paid invoices.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Salary Expense */}
+            {activeTab === 'payroll' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Salary Expense Report ({payrollRuns.length})</h3>
+                <div className="table-container">
+                  <table className="table">
+                    <thead><tr><th>Employee</th><th>Period</th><th>Basic</th><th>Net Pay</th><th>EPF (Emp)</th><th>ETF</th></tr></thead>
+                    <tbody>
+                      {payrollRuns.map(p => (
+                        <tr key={p._id}>
+                          <td className="font-medium text-slate-800">{p.employee?.userId?.name || '—'}</td>
+                          <td className="text-slate-500 text-sm">{p.month}/{p.year}</td>
+                          <td>{fmt(p.basicSalary)}</td>
+                          <td className="text-red-600 font-semibold">{fmt(p.netSalary)}</td>
+                          <td className="text-slate-500 text-sm">{fmt(p.epfEmployee)}</td>
+                          <td className="text-slate-500 text-sm">{fmt(p.etfEmployer)}</td>
+                        </tr>
+                      ))}
+                      {payrollRuns.length === 0 && <tr><td colSpan={6} className="text-center py-4 text-slate-400">No paid payrolls.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* By Payment Method */}
+            {activeTab === 'method' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Breakdown by Payment Method</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {byMethod.map(m => (
+                    <div key={m.method} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                      <p className="font-bold text-slate-700 mb-3">{m.method}</p>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between"><span className="text-emerald-600">Income</span><span className="font-semibold">{fmt(m.income || 0)}</span></div>
+                        <div className="flex justify-between"><span className="text-red-600">Expense</span><span className="font-semibold">{fmt(m.expense || 0)}</span></div>
+                        <div className="flex justify-between pt-2 border-t border-slate-100 font-bold">
+                          <span className={m.income - m.expense >= 0 ? 'text-emerald-700' : 'text-red-700'}>Net</span>
+                          <span className={m.income - m.expense >= 0 ? 'text-emerald-700' : 'text-red-700'}>{fmt((m.income || 0) - (m.expense || 0))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {byMethod.length === 0 && <p className="text-slate-400 text-sm col-span-full">No payment data for this period.</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}

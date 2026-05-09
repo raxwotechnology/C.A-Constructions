@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import api from '../../lib/api'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { FiUsers, FiFolder, FiDollarSign, FiClock, FiBriefcase, FiCalendar, FiUserPlus, FiBarChart2, FiServer, FiCreditCard, FiShield, FiMapPin, FiFileText, FiTrendingUp, FiAlertTriangle, FiCheckCircle, FiArrowRight, FiZap, FiActivity } from 'react-icons/fi'
+import { FiUsers, FiFolder, FiDollarSign, FiClock, FiBriefcase, FiCalendar, FiUserPlus, FiBarChart2, FiServer, FiCreditCard, FiShield, FiMapPin, FiFileText, FiTrendingUp, FiAlertTriangle, FiCheckCircle, FiArrowRight, FiZap, FiActivity, FiRefreshCw, FiUser } from 'react-icons/fi'
 
 const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316']
 const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -17,9 +18,13 @@ const QuickLink = ({ to, icon: Icon, label, color }) => (
 )
 
 export default function AdminDashboard() {
+  const [branchFilter, setBranchFilter] = useState('')
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
+  const branches = branchData?.branches || []
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-dashboard'],
-    queryFn: () => api.get('/analytics/dashboard').then(r => r.data),
+    queryKey: ['admin-dashboard', branchFilter],
+    queryFn: () => api.get(`/analytics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
     refetchInterval: 60000,
   })
 
@@ -55,21 +60,48 @@ export default function AdminDashboard() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">Complete business overview — {new Date().toLocaleDateString('en-LK', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="form-select w-auto h-9 py-1 text-sm mr-2">
+            <option value="">All Branches</option>
+            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+          </select>
           <Link to="/admin/employees" className="btn-outline btn-sm"><FiUserPlus size={13}/> Add Employee</Link>
           <Link to="/admin/projects" className="btn-primary btn-sm"><FiFolder size={13}/> New Project</Link>
         </div>
       </div>
 
-      {/* ── KPI Row 1 — Financials ── */}
+      {/* ── KPI Row 1 — Financials (Today / Month) ── */}
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💰 Financials</p>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💰 Income & Expense Metrics</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label:'Revenue YTD', value:`LKR ${fmt(kpis.totalRevenue)}`, sub:'Paid invoices', icon:FiDollarSign, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
-            { label:'Expenses YTD', value:`LKR ${fmt(kpis.totalExpenses)}`, sub:'Recorded expenses', icon:FiActivity, accent:'#ef4444', bg:'bg-red-50 text-red-600' },
-            { label:'Net Profit', value:`LKR ${fmt(Math.abs(netProfit))}`, sub:profitPositive?'Profit':'Loss', icon:FiTrendingUp, accent:profitPositive?'#22c55e':'#ef4444', bg:profitPositive?'bg-green-50 text-green-600':'bg-red-50 text-red-600' },
-            { label:'Subscription MRR', value:`LKR ${fmt(kpis.subscriptionRevenue)}`, sub:`${kpis.activeSubscriptions||0} active`, icon:FiServer, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600' },
+            { label:'Revenue (Month)', value:`LKR ${fmt(kpis.revenueMonth||0)}`, sub:`Today: ${fmt(kpis.revenueToday||0)}`, icon:FiTrendingUp, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
+            { label:'Expenses (Month)', value:`LKR ${fmt(kpis.expenseMonth||0)}`, sub:`Today: ${fmt(kpis.expenseToday||0)}`, icon:FiActivity, accent:'#ef4444', bg:'bg-red-50 text-red-600' },
+            { label:'Net Profit (Month)', value:`LKR ${fmt((kpis.revenueMonth||0) - (kpis.expenseMonth||0))}`, sub: 'Monthly margin', icon:FiDollarSign, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
+            { label:'Pending Invoices', value:`LKR ${fmt(kpis.outstandingInvoiceTotal||0)}`, sub:`${kpis.pendingInvoices||0} unpaid invoices`, icon:FiCreditCard, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:kpis.pendingInvoices>0 },
+          ].map((c,i) => (
+            <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className={`card card-body relative overflow-hidden ${c.alert?'border-orange-200':''}`}>
+              <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
+              <div className="flex items-start justify-between pl-2">
+                <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
+                  <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
+                  <p className="text-xs text-gray-400">{c.sub}</p></div>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── KPI Row 1.5 — Cash & Balances ── */}
+      <div>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🏦 Cash & Bank Balances</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label:'Bank Balance', value:`LKR ${fmt(kpis.bankBalance||0)}`, sub:'From reconciled txns', icon:FiBriefcase, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
+            { label:'Cash in Hand', value:`LKR ${fmt(kpis.cashBalance||0)}`, sub:'Physical cash', icon:FiDollarSign, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
+            { label:'Petty Cash', value:`LKR ${fmt(kpis.pettyCashBalance||0)}`, sub:'Office funds', icon:FiFolder, accent:'#f59e0b', bg:'bg-yellow-50 text-yellow-600' },
+            { label:'Subscription MRR', value:`LKR ${fmt(kpis.subscriptionRevenue||0)}`, sub:`${kpis.activeSubscriptions||0} active`, icon:FiServer, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600' },
           ].map((c,i) => (
             <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className="card card-body relative overflow-hidden">
               <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
@@ -107,7 +139,31 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── KPI Row 3 — Projects & Clients ── */}
+      {/* ── KPI Row 3 — HR Finance ── */}
+      <div>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💳 HR Finance</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label:'Active Interns', value:kpis.internCount||0, sub:`${kpis.expiredInterns||0} expiring soon`, icon:FiUser, accent:'#f59e0b', bg:'bg-amber-50 text-amber-600', alert:(kpis.expiredInterns||0)>0, to:'/admin/employees' },
+            { label:'Outstanding Advances', value:`LKR ${fmt(kpis.outstandingAdvances||0)}`, sub:'Active advance balances', icon:FiCreditCard, accent:'#ef4444', bg:'bg-red-50 text-red-600', alert:(kpis.outstandingAdvances||0)>0, to:'/admin/advances' },
+            { label:'Outstanding Loans', value:`LKR ${fmt(kpis.outstandingLoans||0)}`, sub:'Active loan balances', icon:FiRefreshCw, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:(kpis.outstandingLoans||0)>0, to:'/admin/loans' },
+            { label:'Draft Payrolls', value:kpis.draftPayrolls||0, sub:'Awaiting review/approval', icon:FiDollarSign, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600', alert:(kpis.draftPayrolls||0)>0, to:'/admin/payroll' },
+          ].map((c,i) => (
+            <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}}
+              className={`card card-body relative overflow-hidden ${c.alert?'border-orange-200':''}`}>
+              <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
+              <Link to={c.to} className="flex items-start justify-between pl-2">
+                <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
+                  <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
+                  <p className="text-xs text-gray-400">{c.sub}</p></div>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── KPI Row 4 — Projects & Clients ── */}
       <div>
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">📁 Projects & Clients</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -224,7 +280,7 @@ export default function AdminDashboard() {
             <h3 className="font-bold text-primary font-heading">Recent Projects</h3>
             <Link to="/admin/projects" className="text-secondary text-xs font-medium hover:underline">View all</Link>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 mb-6">
             {(recent.recentProjects||[]).slice(0,5).map(p => (
               <div key={p._id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
                 <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center flex-shrink-0">
@@ -239,6 +295,24 @@ export default function AdminDashboard() {
             ))}
             {!(recent.recentProjects||[]).length && <p className="text-gray-400 text-sm text-center py-6">No projects yet</p>}
           </div>
+
+          <div className="flex items-center justify-between mb-4 pt-2 border-t border-slate-100">
+            <h3 className="font-bold text-primary font-heading">Follow-up Reminders</h3>
+          </div>
+          <div className="space-y-2">
+            {(recent.followUps||[]).map(f => (
+              <Link key={f.notes._id} to={`/admin/clients/${f.userId}`} className="flex items-start gap-3 p-2.5 rounded-xl bg-orange-50/50 hover:bg-orange-50 border border-orange-100 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                  <FiCalendar className="text-orange-600" size={13}/>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{f.companyName || 'Client'}</p>
+                  <p className="text-xs text-orange-600 line-clamp-1">{f.notes.notes}</p>
+                </div>
+              </Link>
+            ))}
+            {!(recent.followUps||[]).length && <p className="text-gray-400 text-sm text-center py-4">No pending follow-ups today</p>}
+          </div>
         </div>
       </div>
 
@@ -248,6 +322,27 @@ export default function AdminDashboard() {
         <div className="card card-body">
           <h3 className="font-bold text-primary font-heading mb-4 flex items-center gap-2"><FiAlertTriangle size={15} className="text-orange-500"/> Alerts & Pending Items</h3>
           <div className="space-y-2.5">
+            {kpis.insufficientLeaves > 0 && (
+              <Link to="/admin/leaves" className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors">
+                <FiAlertTriangle size={15} className="text-amber-600 flex-shrink-0"/>
+                <div className="flex-1"><p className="text-sm font-semibold text-amber-800">{kpis.insufficientLeaves} Leave{kpis.insufficientLeaves!==1?'s':''} with Insufficient Balance</p><p className="text-xs text-amber-600">Requires management override</p></div>
+                <FiArrowRight size={13} className="text-amber-500"/>
+              </Link>
+            )}
+            {kpis.expiredInterns > 0 && (
+              <Link to="/admin/employees" className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors">
+                <FiUser size={15} className="text-amber-600 flex-shrink-0"/>
+                <div className="flex-1"><p className="text-sm font-semibold text-amber-800">{kpis.expiredInterns} Intern{kpis.expiredInterns!==1?'s':''} Expiring Within 7 Days</p><p className="text-xs text-amber-600">Convert or remove before deadline</p></div>
+                <FiArrowRight size={13} className="text-amber-500"/>
+              </Link>
+            )}
+            {kpis.draftPayrolls > 0 && (
+              <Link to="/admin/payroll" className="flex items-center gap-3 p-3 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors">
+                <FiDollarSign size={15} className="text-purple-600 flex-shrink-0"/>
+                <div className="flex-1"><p className="text-sm font-semibold text-purple-800">{kpis.draftPayrolls} Draft Payroll{kpis.draftPayrolls!==1?'s':''} Pending Review</p><p className="text-xs text-purple-600">Review and approve before pay date</p></div>
+                <FiArrowRight size={13} className="text-purple-500"/>
+              </Link>
+            )}
             {kpis.pendingLeaves > 0 && (
               <Link to="/admin/leaves" className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-xl hover:bg-yellow-100 transition-colors">
                 <FiClock size={15} className="text-yellow-600 flex-shrink-0"/>
@@ -292,6 +387,8 @@ export default function AdminDashboard() {
             <QuickLink to="/admin/employees" icon={FiUserPlus} label="Add Employee" color="hover:bg-blue-50 hover:border-blue-200 border-gray-100"/>
             <QuickLink to="/admin/projects" icon={FiFolder} label="New Project" color="hover:bg-purple-50 hover:border-purple-200 border-gray-100"/>
             <QuickLink to="/admin/payroll" icon={FiDollarSign} label="Run Payroll" color="hover:bg-green-50 hover:border-green-200 border-gray-100"/>
+            <QuickLink to="/admin/advances" icon={FiCreditCard} label="Advances" color="hover:bg-red-50 hover:border-red-200 border-gray-100"/>
+            <QuickLink to="/admin/loans" icon={FiRefreshCw} label="Loans" color="hover:bg-orange-50 hover:border-orange-200 border-gray-100"/>
             <QuickLink to="/admin/leaves" icon={FiCalendar} label="Leave Requests" color="hover:bg-yellow-50 hover:border-yellow-200 border-gray-100"/>
             <QuickLink to="/admin/quotations" icon={FiFileText} label="New Quotation" color="hover:bg-orange-50 hover:border-orange-200 border-gray-100"/>
             <QuickLink to="/admin/attendance" icon={FiClock} label="Mark Attendance" color="hover:bg-cyan-50 hover:border-cyan-200 border-gray-100"/>
