@@ -121,6 +121,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/work-logs', workLogRoutes);
 app.use('/api/bonuses', bonusRoutes);
 app.use('/api/agreements', agreementRoutes);
+app.use('/api/bank-accounts', require('./routes/bankAccountRoutes'));
 
 ensureDefaultRules().catch(() => {});
 

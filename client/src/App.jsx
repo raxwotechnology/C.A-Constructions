@@ -58,6 +58,7 @@ import AdminLoans from './pages/admin/Loans'
 import WorkLogs from './pages/admin/WorkLogs'
 import FinancialReports from './pages/admin/FinancialReports'
 import LeavePolicies from './pages/admin/LeavePolicies'
+import AdminBankManagement from './pages/admin/BankManagement'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
 import ManagerTeam from './pages/manager/Team'
@@ -186,6 +187,7 @@ export default function App() {
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="financial-reports" element={<FinancialReports />} />
         <Route path="leave-policies" element={<LeavePolicies />} />
+        <Route path="bank-management" element={<AdminBankManagement />} />
       </Route>
 
       {/* Manager */}

@@ -35,8 +35,11 @@ const EMPTY_FORM = {
 export default function AdminAttendance() {
   const qc = useQueryClient()
   const now = new Date()
+  const [filterMode, setFilterMode] = useState('month') // 'month' | 'range'
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [empFilter, setEmpFilter] = useState('')
@@ -51,8 +54,16 @@ export default function AdminAttendance() {
   const branches = branchData?.branches || []
 
   const { data: attData, isLoading } = useQuery({
-    queryKey: ['admin-attendance', month, year, empFilter, statusFilter, branchFilter],
-    queryFn: () => api.get(`/attendance?month=${month}&year=${year}${empFilter ? `&employeeId=${empFilter}` : ''}${statusFilter ? `&status=${statusFilter}` : ''}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
+    queryKey: ['admin-attendance', month, year, empFilter, statusFilter, branchFilter, filterMode, dateFrom, dateTo],
+    queryFn: () => {
+      const p = new URLSearchParams()
+      if (filterMode === 'month') { p.set('month', month); p.set('year', year) }
+      else { if (dateFrom) p.set('startDate', dateFrom); if (dateTo) p.set('endDate', dateTo) }
+      if (empFilter) p.set('employeeId', empFilter)
+      if (statusFilter) p.set('status', statusFilter)
+      if (branchFilter) p.set('branch', branchFilter)
+      return api.get(`/attendance?${p.toString()}`).then(r => r.data)
+    },
   })
   const { data: analyticsData } = useQuery({
     queryKey: ['attendance-analytics', month, year, branchFilter],
@@ -270,37 +281,55 @@ export default function AdminAttendance() {
         </div>
       )}
 
-      {/* Month selector + Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex items-center gap-2">
-          <FiCalendar size={14} className="text-slate-400" />
-          <select className="form-select py-2 text-sm" value={month} onChange={e => setMonth(Number(e.target.value))}>
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>{new Date(2000, i).toLocaleString('default', { month: 'long' })}</option>
-            ))}
-          </select>
-          <input type="number" className="form-input py-2 text-sm w-24" value={year} onChange={e => setYear(Number(e.target.value))} />
+      {/* Period Selector — Month or Date Range */}
+      <div className="card card-body">
+        <div className="flex flex-wrap gap-3 items-center">
+          {/* Mode toggle */}
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
+            <button onClick={() => setFilterMode('month')} className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'month' ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Month View</button>
+            <button onClick={() => setFilterMode('range')} className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'range' ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Date Range</button>
+          </div>
+
+          {filterMode === 'month' ? (
+            <div className="flex items-center gap-2">
+              <FiCalendar size={14} className="text-slate-400" />
+              <select className="form-select py-2 text-sm" value={month} onChange={e => setMonth(Number(e.target.value))}>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>{new Date(2000, i).toLocaleString('default', { month: 'long' })}</option>
+                ))}
+              </select>
+              <input type="number" className="form-input py-2 text-sm w-24" value={year} onChange={e => setYear(Number(e.target.value))} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <FiCalendar size={14} className="text-slate-400" />
+              <input type="date" className="form-input py-1.5 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+              <span className="text-slate-400 text-sm">to</span>
+              <input type="date" className="form-input py-1.5 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            </div>
+          )}
+
+          <FilterBar
+            search={search} onSearchChange={setSearch}
+            searchPlaceholder="Search employee..."
+            extraFilters={
+              <>
+                <select className="form-select py-2 text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                  <option value="">All Statuses</option>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>)}
+                </select>
+                <select className="form-select py-2 text-sm" value={empFilter} onChange={e => setEmpFilter(e.target.value)}>
+                  <option value="">All Employees</option>
+                  {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
+                </select>
+                <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+              </>
+            }
+          />
         </div>
-        <FilterBar
-          search={search} onSearchChange={setSearch}
-          searchPlaceholder="Search employee..."
-          extraFilters={
-            <>
-              <select className="form-select py-2 text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                <option value="">All Statuses</option>
-                {STATUS_OPTIONS.map(s => <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>)}
-              </select>
-              <select className="form-select py-2 text-sm" value={empFilter} onChange={e => setEmpFilter(e.target.value)}>
-                <option value="">All Employees</option>
-                {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
-              </select>
-              <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
-                <option value="">All Branches</option>
-                {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-              </select>
-            </>
-          }
-        />
       </div>
 
       {/* Records table */}

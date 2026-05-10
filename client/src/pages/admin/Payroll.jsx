@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo } from 'react-icons/fi'
+import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo, FiAlertCircle } from 'react-icons/fi'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -20,6 +20,9 @@ export default function AdminPayroll() {
   const [bonus, setBonus] = useState(0)
   const [deductions, setDeductions] = useState(0)
   const [loanDeduction, setLoanDeduction] = useState(0)
+  const [leaveDeduction, setLeaveDeduction] = useState(0)
+  const [autoLoadedSummary, setAutoLoadedSummary] = useState(null)
+  const [loadingEmpSummary, setLoadingEmpSummary] = useState(false)
   const [otEmployeeId, setOtEmployeeId] = useState('')
   const [otAmount, setOtAmount] = useState(0)
   const [otHours, setOtHours] = useState(0)
@@ -42,11 +45,24 @@ export default function AdminPayroll() {
   const activeEmployees = empData?.employees || []
   const selectedEmp = useMemo(() => activeEmployees.find(e => e._id === selectedEmployee), [activeEmployees, selectedEmployee])
 
-  // Auto-fill from employee project allocations
-  const projectAlloc = useMemo(() => {
-    if (!selectedEmp) return { salary: 0, commission: 0 }
-    return { salary: 0, commission: 0 } // will be auto-calculated server-side
-  }, [selectedEmp])
+  // Auto-load employee loan/advance summary when employee is selected
+  const handleSelectEmployee = async (empId) => {
+    setSelectedEmployee(empId)
+    setAutoLoadedSummary(null)
+    if (!empId) return
+    setLoadingEmpSummary(true)
+    try {
+      const { data } = await api.get(`/loans/employee-summary/${empId}`)
+      const s = data.summary
+      setAutoLoadedSummary(s)
+      // Auto-fill deductions based on active loans (salary-type only)
+      const salaryLoans = s.activeLoans?.filter(l => l.deductionType !== 'separate') || []
+      const autoLoanDeduct = salaryLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0)
+      setLoanDeduction(autoLoanDeduct)
+      setAllowances(s.allowances || 0)
+    } catch { /* ignore */ }
+    setLoadingEmpSummary(false)
+  }
 
   const generateAllMut = useMutation({
     mutationFn: () => api.post('/payroll/generate-all', { month, year, branch: branchFilter }),
@@ -54,7 +70,7 @@ export default function AdminPayroll() {
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const generateOneMut = useMutation({
-    mutationFn: () => api.post('/payroll/generate', { month, year, employeeId: selectedEmployee, allowances, commissions, bonus, deductions, loanDeduction }),
+    mutationFn: () => api.post('/payroll/generate', { month, year, employeeId: selectedEmployee, allowances, commissions, bonus, deductions, loanDeduction, leaveDeduction }),
     onSuccess: () => { qc.invalidateQueries(['payroll']); toast.success('Payroll generated') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -103,9 +119,9 @@ export default function AdminPayroll() {
     const epfEmp = Math.round(basic * 0.08)
     const epfEmpl = Math.round(basic * 0.12)
     const etf = Math.round(basic * 0.03)
-    const net = gross - epfEmp - Number(deductions) - Number(loanDeduction)
+    const net = gross - epfEmp - Number(deductions) - Number(loanDeduction) - Number(leaveDeduction)
     return { basic, gross, epfEmp, epfEmpl, etf, net }
-  }, [selectedEmp, allowances, commissions, bonus, deductions, loanDeduction])
+  }, [selectedEmp, allowances, commissions, bonus, deductions, loanDeduction, leaveDeduction])
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -151,11 +167,28 @@ export default function AdminPayroll() {
           <p className="text-xs text-gray-400">Project salary allocations are auto-included server-side. OT from attendance is also auto-fetched.</p>
           <div>
             <label className="form-label">Employee</label>
-            <select className="form-select" value={selectedEmployee} onChange={e => setSelectedEmployee(e.target.value)}>
+            <select className="form-select" value={selectedEmployee} onChange={e => handleSelectEmployee(e.target.value)}>
               <option value="">Select employee</option>
               {activeEmployees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
             </select>
           </div>
+
+          {/* Auto-loaded employee summary */}
+          {loadingEmpSummary && <div className="text-center py-3 text-slate-400 text-sm animate-pulse">Loading employee data…</div>}
+          {autoLoadedSummary && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+              <p className="font-bold text-slate-600 uppercase tracking-wide mb-1.5 flex items-center gap-1"><FiUser size={12} /> Auto-loaded: {autoLoadedSummary.name}</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-600">
+                <span>Basic Salary:</span><span className="font-semibold">LKR {autoLoadedSummary.basicSalary?.toLocaleString()}</span>
+                <span>Advance Balance:</span><span className={autoLoadedSummary.totalAdvanceBalance > 0 ? 'text-orange-600 font-medium' : ''}>{autoLoadedSummary.totalAdvanceBalance > 0 ? `LKR ${autoLoadedSummary.totalAdvanceBalance?.toLocaleString()}` : 'None'}</span>
+                <span>Active Loans:</span><span className={autoLoadedSummary.activeLoansCount > 0 ? 'text-red-600 font-medium' : 'text-emerald-600'}>{autoLoadedSummary.activeLoansCount} loan(s)</span>
+                <span>Monthly Deductions:</span><span className="font-semibold text-red-500">LKR {autoLoadedSummary.totalMonthlyLoanDeductions?.toLocaleString()}</span>
+              </div>
+              {autoLoadedSummary.totalMonthlyLoanDeductions > 0 && (
+                <p className="mt-1 text-blue-600 flex items-center gap-1"><FiAlertCircle size={11} /> Loan deduction auto-filled below</p>
+              )}
+            </div>
+          )}
 
           {/* Live preview when employee selected */}
           {selectedEmp && previewCalc && (
@@ -182,11 +215,12 @@ export default function AdminPayroll() {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="form-label">Allowances</label><input type="number" className="form-input" value={allowances} onChange={e => setAllowances(Number(e.target.value||0))}/></div>
-            <div><label className="form-label">Manual Commission</label><input type="number" className="form-input" value={commissions} onChange={e => setCommissions(Number(e.target.value||0))}/></div>
-            <div><label className="form-label">Bonus</label><input type="number" className="form-input" value={bonus} onChange={e => setBonus(Number(e.target.value||0))}/></div>
-          <div><label className="form-label">Advance Deduction</label><input type="number" className="form-input" value={deductions} onChange={e => setDeductions(Number(e.target.value||0))}/></div>
-            <div className="col-span-2"><label className="form-label">Loan Deduction</label><input type="number" className="form-input" value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value||0))}/></div>
+            <div><label className="form-label">Allowances</label><input type="number" className="form-input" value={allowances} onChange={e => setAllowances(Number(e.target.value || 0))} /></div>
+            <div><label className="form-label">Manual Commission</label><input type="number" className="form-input" value={commissions} onChange={e => setCommissions(Number(e.target.value || 0))} /></div>
+            <div><label className="form-label">Bonus</label><input type="number" className="form-input" value={bonus} onChange={e => setBonus(Number(e.target.value || 0))} /></div>
+            <div><label className="form-label">Advance Deduction</label><input type="number" className="form-input" value={deductions} onChange={e => setDeductions(Number(e.target.value || 0))} /></div>
+            <div><label className="form-label">Loan Deduction <span className="text-xs text-blue-500">(auto-filled)</span></label><input type="number" className="form-input" value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} /></div>
+            <div><label className="form-label">Leave Deduction</label><input type="number" className="form-input" value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" /></div>
           </div>
           <button className="btn-primary" disabled={!selectedEmp || generateOneMut.isPending} onClick={() => generateOneMut.mutate()}>
             <FiPlay size={14}/> {generateOneMut.isPending ? 'Generating…' : 'Generate Payslip'}
