@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiUpload, FiFile, FiLink, FiCheck, FiEye } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiUpload, FiFile, FiLink, FiCheck, FiEye, FiAlertCircle } from 'react-icons/fi'
 import EmployeeDetail from './EmployeeDetail'
 
 const DEPARTMENTS = ['Engineering','Design','Marketing','HR','Finance','Operations','Sales','Infrastructure']
@@ -69,7 +69,8 @@ export default function AdminEmployees() {
   const [profilePhotoFile, setProfilePhotoFile] = useState(null)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null)
   const [viewEmp, setViewEmp] = useState(null)
-  const { register, handleSubmit, reset, setValue } = useForm()
+  const { register, handleSubmit, reset, setValue, control } = useForm()
+  const watchedType = useWatch({ control, name: 'employmentType', defaultValue: 'permanent' })
 
   const [empTypeFilter, setEmpTypeFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -247,7 +248,22 @@ export default function AdminEmployees() {
                 </td>
                 <td>
                   <span className="badge badge-navy">{emp.employeeNo}</span>
-                  {emp.employmentType === 'intern' && <span className="badge badge-yellow ml-1">Intern</span>}
+                  {emp.employmentType === 'intern' && (
+                    <span className="badge badge-yellow ml-1">Intern</span>
+                  )}
+                  {emp.employmentType === 'contract' && (
+                    <span className="badge badge-purple ml-1">Contract</span>
+                  )}
+                  {emp.employmentType === 'part_time' && (
+                    <span className="badge badge-gray ml-1">Part-time</span>
+                  )}
+                  {/* Internship days remaining warning */}
+                  {emp.employmentType === 'intern' && emp.internshipDaysRemaining !== null && (
+                    <div className={`text-xs mt-1 font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-400'}`}>
+                      {emp.internshipDaysRemaining <= 14 && <FiAlertCircle size={11} />}
+                      {emp.internshipDaysRemaining} days left
+                    </div>
+                  )}
                 </td>
                 <td>{emp.department}</td>
                 <td>{emp.designation}</td>
@@ -471,25 +487,53 @@ export default function AdminEmployees() {
                     </select>
                   </div>
                 </div>
-                {/* Internship sub-form — shown when type = intern */}
-                {/* We use a watch wrapper — simple visibility via CSS trick */}
-                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
-                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Internship Details (fill if Intern type)</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><label className="form-label text-xs">Start Date</label>
-                      <input {...register('internship.startDate')} type="date" className="form-input"/></div>
-                    <div><label className="form-label text-xs">End Date</label>
-                      <input {...register('internship.endDate')} type="date" className="form-input"/></div>
+                {/* Internship Details — Only when type = intern */}
+                {watchedType === 'intern' && (
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">🎓 Internship Details</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="form-label text-xs">Start Date</label>
+                        <input {...register('internship.startDate')} type="date" className="form-input" /></div>
+                      <div><label className="form-label text-xs">End Date</label>
+                        <input {...register('internship.endDate')} type="date" className="form-input" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="form-label text-xs">Duration (weeks)</label>
+                        <input {...register('internship.durationWeeks', { valueAsNumber: true })} type="number" className="form-input" placeholder="12" /></div>
+                      <div><label className="form-label text-xs">University / Institute</label>
+                        <input {...register('internship.university')} className="form-input" placeholder="e.g. SLIIT" /></div>
+                    </div>
+                    <div><label className="form-label text-xs">Supervisor Name</label>
+                      <input {...register('internship.supervisorName')} className="form-input" placeholder="Internal supervisor" /></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><label className="form-label text-xs">Duration (weeks)</label>
-                      <input {...register('internship.durationWeeks',{valueAsNumber:true})} type="number" className="form-input" placeholder="12"/></div>
-                    <div><label className="form-label text-xs">University / Institute</label>
-                      <input {...register('internship.university')} className="form-input" placeholder="e.g. SLIIT"/></div>
+                )}
+
+                {/* Contract Details — Only when type = contract */}
+                {watchedType === 'contract' && (
+                  <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 space-y-3">
+                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">📄 Contract Details</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="form-label text-xs">Contract Start</label>
+                        <input {...register('contract.startDate')} type="date" className="form-input" /></div>
+                      <div><label className="form-label text-xs">Contract End</label>
+                        <input {...register('contract.endDate')} type="date" className="form-input" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="form-label text-xs">Contract Type</label>
+                        <input {...register('contract.contractType')} className="form-input" placeholder="e.g. Fixed Term, Project Based" /></div>
+                      <div><label className="form-label text-xs">Renewal Date</label>
+                        <input {...register('contract.renewalDate')} type="date" className="form-input" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="form-label text-xs">Notice Period (days)</label>
+                        <input {...register('contract.noticePeriodDays', { valueAsNumber: true })} type="number" className="form-input" defaultValue={30} /></div>
+                      <div><label className="form-label text-xs">Probation Period (days)</label>
+                        <input {...register('contract.probationPeriodDays', { valueAsNumber: true })} type="number" className="form-input" defaultValue={90} /></div>
+                    </div>
+                    <div><label className="form-label text-xs">Contract Notes</label>
+                      <textarea {...register('contract.notes')} rows={2} className="form-input" placeholder="Additional notes..." /></div>
                   </div>
-                  <div><label className="form-label text-xs">Supervisor Name</label>
-                    <input {...register('internship.supervisorName')} className="form-input" placeholder="Internal supervisor"/></div>
-                </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   {!editing && <div><label className="form-label">Join Date *</label>
                     <input {...register('joinedDate',{required:!editing})} type="date" className="form-input"/></div>}

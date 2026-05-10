@@ -74,6 +74,17 @@ const employeeSchema = new mongoose.Schema({
     removalReason: String,
   },
 
+  // ── Contract ──────────────────────────────────────────────────────────────
+  contract: {
+    startDate: Date,
+    endDate: Date,
+    contractType: { type: String, default: '' }, // e.g. 'Fixed Term', 'Project Based'
+    noticePeriodDays: { type: Number, default: 30 },
+    probationPeriodDays: { type: Number, default: 90 },
+    renewalDate: Date,
+    notes: { type: String, default: '' },
+  },
+
   // ── Personal Info ───────────────────────────────────────────────────────────
   profilePhoto: { type: String, default: '' },
   additionalPhoto: { type: String, default: '' },

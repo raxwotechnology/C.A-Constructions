@@ -5,132 +5,174 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
-import { FiPlus, FiX, FiCheck, FiRefreshCw } from 'react-icons/fi'
+import { FiPlus, FiX, FiCheck, FiRefreshCw, FiEdit2, FiAlertCircle, FiDollarSign, FiCalendar } from 'react-icons/fi'
 
-const EMPTY = { employeeId:'', totalAmount:'', monthlyInstallment:'', startDate: new Date().toISOString().split('T')[0], reason:'' }
-const PAY_EMPTY = { amount:'', date: new Date().toISOString().split('T')[0], note:'' }
+const EMPTY = { employeeId: '', totalAmount: '', monthlyInstallment: '', startDate: new Date().toISOString().split('T')[0], reason: '', deductionType: 'salary', taxRate: 0 }
+const PAY_EMPTY = { amount: '', date: new Date().toISOString().split('T')[0], note: '', method: 'salary_deduction' }
 
 export default function AdminLoans() {
   const qc = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
+  const [editTarget, setEditTarget] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const [payTarget, setPayTarget] = useState(null)
   const [payForm, setPayForm] = useState(PAY_EMPTY)
   const [statusFilter, setStatusFilter] = useState('')
-
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [empSummary, setEmpSummary] = useState(null)
+  const [loadingSummary, setLoadingSummary] = useState(false)
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
 
+  const params = new URLSearchParams()
+  if (statusFilter) params.set('status', statusFilter)
+  if (branchFilter) params.set('branch', branchFilter)
+  if (dateFrom) params.set('from', dateFrom)
+  if (dateTo) params.set('to', dateTo)
+
   const { data: loanData, isLoading } = useQuery({
-    queryKey: ['loans', statusFilter, branchFilter],
-    queryFn: () => api.get(`/loans?${statusFilter?`status=${statusFilter}&`:''}${branchFilter?`branch=${branchFilter}`:''}`).then(r=>r.data),
+    queryKey: ['loans', statusFilter, branchFilter, dateFrom, dateTo],
+    queryFn: () => api.get(`/loans?${params.toString()}`).then(r => r.data),
   })
-  const { data: empData } = useQuery({ queryKey: ['employees-mini', branchFilter], queryFn: () => api.get(`/employees?${branchFilter?`branch=${branchFilter}`:''}`).then(r=>r.data) })
+  const { data: empData } = useQuery({ queryKey: ['employees-mini', branchFilter], queryFn: () => api.get(`/employees?${branchFilter ? `branch=${branchFilter}` : ''}`).then(r => r.data) })
 
   const loans = loanData?.loans || []
   const employees = empData?.employees || []
-  const totalOutstanding = loans.filter(l=>l.status==='active').reduce((s,l)=>s+(l.outstandingBalance||0),0)
+  const totalOutstanding = loans.filter(l => l.status === 'active').reduce((s, l) => s + (l.outstandingBalance || 0), 0)
+
+  const loadEmployeeSummary = async (empId) => {
+    if (!empId) { setEmpSummary(null); return }
+    setLoadingSummary(true)
+    try {
+      const { data } = await api.get(`/loans/employee-summary/${empId}`)
+      setEmpSummary(data.summary)
+    } catch { setEmpSummary(null) }
+    setLoadingSummary(false)
+  }
 
   const createMut = useMutation({
     mutationFn: p => api.post('/loans', p),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['loans']}); toast.success('Loan recorded'); setShowCreate(false); setForm(EMPTY) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Loan recorded'); setShowCreate(false); setForm(EMPTY); setEmpSummary(null) },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const updateMut = useMutation({
+    mutationFn: ({ id, ...p }) => api.put(`/loans/${id}`, p),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Loan updated'); setEditTarget(null) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const payMut = useMutation({
-    mutationFn: ({id,...p}) => api.post(`/loans/${id}/pay`, p),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['loans']}); toast.success('Payment recorded'); setPayTarget(null); setPayForm(PAY_EMPTY) },
+    mutationFn: ({ id, ...p }) => api.post(`/loans/${id}/pay`, p),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Payment recorded'); setPayTarget(null); setPayForm(PAY_EMPTY) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/loans/${id}`),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['loans']}); toast.success('Deleted') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Deleted') },
   })
 
-  const exportCols = [
-    { header:'Employee', accessor: r=>r.employee?.userId?.name||'—' },
-    { header:'Total Amount', accessor:'totalAmount' },
-    { header:'Monthly', accessor:'monthlyInstallment' },
-    { header:'Total Installments', accessor:'totalInstallments' },
-    { header:'Paid', accessor:'installmentsPaid' },
-    { header:'Outstanding', accessor:'outstandingBalance' },
-    { header:'Status', accessor:'status' },
-  ]
-
   const calcInstallments = () => {
-    if (form.totalAmount && form.monthlyInstallment) return Math.ceil(Number(form.totalAmount)/Number(form.monthlyInstallment))
+    if (form.totalAmount && form.monthlyInstallment) return Math.ceil(Number(form.totalAmount) / Number(form.monthlyInstallment))
     return 0
   }
+
+  const exportCols = [
+    { header: 'Employee', accessor: r => r.employee?.userId?.name || '—' },
+    { header: 'Total Amount', accessor: 'totalAmount' },
+    { header: 'Monthly', accessor: 'monthlyInstallment' },
+    { header: 'Deduction Type', accessor: 'deductionType' },
+    { header: 'Total Installments', accessor: 'totalInstallments' },
+    { header: 'Paid', accessor: 'installmentsPaid' },
+    { header: 'Outstanding', accessor: 'outstandingBalance' },
+    { header: 'Status', accessor: 'status' },
+  ]
 
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Loans</h1>
-          <p className="page-subtitle">{loans.filter(l=>l.status==='active').length} active · Outstanding: <strong className="text-red-600">LKR {totalOutstanding.toLocaleString()}</strong></p>
+          <p className="page-subtitle">{loans.filter(l => l.status === 'active').length} active · Outstanding: <strong className="text-red-600">LKR {totalOutstanding.toLocaleString()}</strong></p>
         </div>
         <div className="flex gap-2">
           <ExportBar data={loans} columns={exportCols} title="Loans Report" />
-          <button onClick={()=>{setForm(EMPTY);setShowCreate(true)}} className="btn-primary gap-2"><FiPlus size={14}/>New Loan</button>
+          <button onClick={() => { setForm(EMPTY); setEmpSummary(null); setShowCreate(true) }} className="btn-primary gap-2"><FiPlus size={14} />New Loan</button>
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
         <div className="kpi-card kpi-red"><p className="text-xs text-slate-500 uppercase font-medium">Outstanding</p><p className="text-xl font-bold text-red-700">LKR {totalOutstanding.toLocaleString()}</p></div>
-        <div className="kpi-card kpi-green"><p className="text-xs text-slate-500 uppercase font-medium">Total Paid</p><p className="text-xl font-bold text-emerald-700">LKR {loans.reduce((s,l)=>s+(l.totalPaid||0),0).toLocaleString()}</p></div>
-        <div className="kpi-card kpi-blue"><p className="text-xs text-slate-500 uppercase font-medium">Active Cases</p><p className="text-xl font-bold text-blue-700">{loans.filter(l=>l.status==='active').length}</p></div>
+        <div className="kpi-card kpi-green"><p className="text-xs text-slate-500 uppercase font-medium">Total Paid</p><p className="text-xl font-bold text-emerald-700">LKR {loans.reduce((s, l) => s + (l.totalPaid || 0), 0).toLocaleString()}</p></div>
+        <div className="kpi-card kpi-blue"><p className="text-xs text-slate-500 uppercase font-medium">Active Cases</p><p className="text-xl font-bold text-blue-700">{loans.filter(l => l.status === 'active').length}</p></div>
       </div>
 
-      <div className="flex gap-3">
-        <select className="form-select py-2 text-sm w-auto" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <select className="form-select py-2 text-sm w-auto" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>
           <option value="active">Active</option>
           <option value="cleared">Cleared</option>
         </select>
-        <select className="form-select py-2 text-sm w-auto" value={branchFilter} onChange={e=>setBranchFilter(e.target.value)}>
+        <select className="form-select py-2 text-sm w-auto" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
           <option value="">All Branches</option>
-          {branches.map(b=><option key={b._id} value={b._id}>{b.name}</option>)}
+          {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
         </select>
+        <div className="flex items-center gap-2">
+          <FiCalendar size={14} className="text-slate-400" />
+          <input type="date" className="form-input py-1.5 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          <span className="text-slate-400 text-sm">to</span>
+          <input type="date" className="form-input py-1.5 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+        </div>
       </div>
 
       <div className="table-container">
         <table className="table">
-          <thead><tr><th>Employee</th><th>Total</th><th>Monthly</th><th>Progress</th><th>Outstanding</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Employee</th><th>Total</th><th>Monthly</th><th>Type</th><th>Tax</th><th>Progress</th><th>Outstanding</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {isLoading ? <tr><td colSpan={7} className="text-center py-10"><div className="w-7 h-7 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></td></tr>
-            : loans.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-slate-400">No loan records.</td></tr>
-            : loans.map(l=>(
-              <tr key={l._id}>
-                <td>
-                  <p className="font-medium text-slate-800">{l.employee?.userId?.name||'—'}</p>
-                  <p className="text-xs text-slate-400">{l.employee?.employeeNo}</p>
-                </td>
-                <td className="font-medium">LKR {(l.totalAmount||0).toLocaleString()}</td>
-                <td className="text-sm text-slate-600">LKR {(l.monthlyInstallment||0).toLocaleString()}</td>
-                <td>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{width:`${Math.min(100,(l.totalPaid||0)/(l.totalAmount||1)*100)}%`}}/>
-                    </div>
-                    <span className="text-xs text-slate-500">{l.installmentsPaid||0}/{l.totalInstallments||0}</span>
-                  </div>
-                </td>
-                <td className={`font-bold ${l.outstandingBalance>0?'text-red-600':'text-emerald-600'}`}>LKR {(l.outstandingBalance||0).toLocaleString()}</td>
-                <td><span className={`badge ${l.status==='cleared'?'badge-green':'badge-yellow'}`}>{l.status}</span></td>
-                <td>
-                  <div className="flex gap-1">
-                    {l.status==='active' && (
-                      <button onClick={()=>{setPayTarget(l);setPayForm({...PAY_EMPTY,amount:l.monthlyInstallment})}} title="Record Payment"
-                        className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg"><FiRefreshCw size={13}/></button>
-                    )}
-                    <button onClick={()=>{if(window.confirm('Delete?'))deleteMut.mutate(l._id)}}
-                      className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiX size={13}/></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {isLoading ? <tr><td colSpan={9} className="text-center py-10"><div className="w-7 h-7 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></td></tr>
+              : loans.length === 0 ? <tr><td colSpan={9} className="text-center py-10 text-slate-400">No loan records.</td></tr>
+                : loans.map(l => (
+                  <tr key={l._id}>
+                    <td>
+                      <p className="font-medium text-slate-800">{l.employee?.userId?.name || '—'}</p>
+                      <p className="text-xs text-slate-400">{l.employee?.employeeNo}</p>
+                    </td>
+                    <td className="font-medium">LKR {(l.totalAmount || 0).toLocaleString()}</td>
+                    <td className="text-sm text-slate-600">LKR {(l.monthlyInstallment || 0).toLocaleString()}</td>
+                    <td>
+                      <span className={`badge ${l.deductionType === 'salary' ? 'badge-blue' : 'badge-purple'} capitalize`}>
+                        {l.deductionType === 'salary' ? 'Salary Deduct' : 'Separate'}
+                      </span>
+                    </td>
+                    <td className="text-xs text-slate-500">{l.taxRate > 0 ? `${l.taxRate}%` : '—'}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (l.totalPaid || 0) / (l.totalAmount || 1) * 100)}%` }} />
+                        </div>
+                        <span className="text-xs text-slate-500">{l.installmentsPaid || 0}/{l.totalInstallments || 0}</span>
+                      </div>
+                    </td>
+                    <td className={`font-bold ${l.outstandingBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>LKR {(l.outstandingBalance || 0).toLocaleString()}</td>
+                    <td><span className={`badge ${l.status === 'cleared' ? 'badge-green' : 'badge-yellow'}`}>{l.status}</span></td>
+                    <td>
+                      <div className="flex gap-1">
+                        {l.status === 'active' && (
+                          <>
+                            <button onClick={() => { setEditTarget(l); setForm({ monthlyInstallment: l.monthlyInstallment, reason: l.reason, deductionType: l.deductionType || 'salary', taxRate: l.taxRate || 0, startDate: l.startDate?.split('T')[0] || '' }) }}
+                              title="Edit" className="p-1.5 hover:bg-blue-50 text-slate-300 hover:text-blue-500 rounded-lg"><FiEdit2 size={13} /></button>
+                            <button onClick={() => { setPayTarget(l); setPayForm({ ...PAY_EMPTY, amount: l.monthlyInstallment }) }} title="Record Payment"
+                              className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg"><FiRefreshCw size={13} /></button>
+                          </>
+                        )}
+                        <button onClick={() => { if (window.confirm('Delete?')) deleteMut.mutate(l._id) }}
+                          className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiX size={13} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
           </tbody>
         </table>
       </div>
@@ -138,41 +180,127 @@ export default function AdminLoans() {
       {/* Create Modal */}
       {showCreate && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
-          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white rounded-t-2xl">
               <h3 className="font-bold text-primary font-heading">New Loan</h3>
-              <button onClick={()=>setShowCreate(false)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16}/></button>
+              <button onClick={() => { setShowCreate(false); setEmpSummary(null) }} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div><label className="form-label">Employee *</label>
-                <select className="form-select" value={form.employeeId} onChange={e=>setForm(s=>({...s,employeeId:e.target.value}))}>
+              <div>
+                <label className="form-label">Employee *</label>
+                <select className="form-select" value={form.employeeId} onChange={e => { setForm(s => ({ ...s, employeeId: e.target.value })); loadEmployeeSummary(e.target.value) }}>
                   <option value="">Select employee</option>
-                  {employees.map(e=><option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
+                  {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
                 </select>
               </div>
+
+              {/* Employee Financial Summary */}
+              {loadingSummary && <div className="text-center py-4 text-slate-400 text-sm">Loading employee info…</div>}
+              {empSummary && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">📋 Employee Financial Summary</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                    <span className="text-slate-500">Basic Salary:</span><span className="font-semibold text-slate-800">LKR {empSummary.basicSalary?.toLocaleString()}</span>
+                    <span className="text-slate-500">Allowances:</span><span className="font-medium text-slate-700">LKR {empSummary.allowances?.toLocaleString()}</span>
+                    <span className="text-slate-500">Advance Balance:</span><span className={`font-medium ${empSummary.totalAdvanceBalance > 0 ? 'text-orange-600' : 'text-slate-700'}`}>LKR {empSummary.totalAdvanceBalance?.toLocaleString()}</span>
+                    <span className="text-slate-500">Active Loans:</span><span className={`font-medium ${empSummary.activeLoansCount > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{empSummary.activeLoansCount} loan(s)</span>
+                    <span className="text-slate-500">Loan Outstanding:</span><span className={`font-semibold ${empSummary.totalLoanBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>LKR {empSummary.totalLoanBalance?.toLocaleString()}</span>
+                    <span className="text-slate-500">Monthly Deductions:</span><span className="font-medium text-red-500">LKR {empSummary.totalMonthlyLoanDeductions?.toLocaleString()}</span>
+                  </div>
+                  {empSummary.activeLoans?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-slate-200">
+                      <p className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><FiAlertCircle size={12} className="text-orange-500" /> Active Loans:</p>
+                      {empSummary.activeLoans.map(al => (
+                        <div key={al._id} className="text-xs text-slate-600 flex justify-between">
+                          <span>{al.reason || 'Loan'}</span>
+                          <span className="text-red-500 font-medium">LKR {al.outstandingBalance?.toLocaleString()} remaining</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="form-label">Total Amount (LKR) *</label>
-                  <input type="number" className="form-input" value={form.totalAmount} onChange={e=>setForm(s=>({...s,totalAmount:e.target.value}))}/></div>
+                  <input type="number" className="form-input" value={form.totalAmount} onChange={e => setForm(s => ({ ...s, totalAmount: e.target.value }))} /></div>
                 <div><label className="form-label">Monthly Installment *</label>
-                  <input type="number" className="form-input" value={form.monthlyInstallment} onChange={e=>setForm(s=>({...s,monthlyInstallment:e.target.value}))}/></div>
+                  <input type="number" className="form-input" value={form.monthlyInstallment} onChange={e => setForm(s => ({ ...s, monthlyInstallment: e.target.value }))} /></div>
               </div>
-              {calcInstallments()>0 && (
+
+              {calcInstallments() > 0 && (
                 <div className="bg-blue-50 text-blue-700 rounded-xl p-3 text-sm">
                   Estimated <strong>{calcInstallments()} installments</strong> to clear this loan.
                 </div>
               )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="form-label">Start Date</label>
-                  <input type="date" className="form-input" value={form.startDate} onChange={e=>setForm(s=>({...s,startDate:e.target.value}))}/></div>
+                  <input type="date" className="form-input" value={form.startDate} onChange={e => setForm(s => ({ ...s, startDate: e.target.value }))} /></div>
+                <div><label className="form-label">Tax Rate (%)</label>
+                  <input type="number" className="form-input" min="0" max="50" value={form.taxRate} onChange={e => setForm(s => ({ ...s, taxRate: e.target.value }))} placeholder="0" /></div>
               </div>
+
+              <div>
+                <label className="form-label">Deduction Type</label>
+                <div className="flex gap-3">
+                  {[{ v: 'salary', label: '💼 Deduct from Salary', desc: 'Automatically deducted in payroll' }, { v: 'separate', label: '💰 Separate Repayment', desc: 'Employee repays independently' }].map(opt => (
+                    <label key={opt.v} className={`flex-1 cursor-pointer p-3 rounded-xl border-2 transition-all ${form.deductionType === opt.v ? 'border-secondary bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <input type="radio" className="hidden" value={opt.v} checked={form.deductionType === opt.v} onChange={e => setForm(s => ({ ...s, deductionType: e.target.value }))} />
+                      <p className="text-sm font-semibold">{opt.label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{opt.desc}</p>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div><label className="form-label">Reason</label>
-                <input className="form-input" value={form.reason} onChange={e=>setForm(s=>({...s,reason:e.target.value}))} placeholder="Optional"/></div>
+                <input className="form-input" value={form.reason} onChange={e => setForm(s => ({ ...s, reason: e.target.value }))} placeholder="Optional" /></div>
             </div>
             <div className="flex gap-3 px-6 py-4 border-t">
-              <button onClick={()=>setShowCreate(false)} className="btn-ghost flex-1 justify-center">Cancel</button>
-              <button onClick={()=>{if(!form.employeeId||!form.totalAmount||!form.monthlyInstallment){toast.error('Required fields missing');return}createMut.mutate(form)}}
+              <button onClick={() => { setShowCreate(false); setEmpSummary(null) }} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={() => { if (!form.employeeId || !form.totalAmount || !form.monthlyInstallment) { toast.error('Required fields missing'); return } createMut.mutate(form) }}
                 disabled={createMut.isPending} className="btn-primary flex-1 justify-center gap-2">
-                {createMut.isPending?<span className="spinner"/>:<FiCheck size={14}/>} Record Loan
+                {createMut.isPending ? <span className="spinner" /> : <FiCheck size={14} />} Record Loan
+              </button>
+            </div>
+          </motion.div>
+        </div>, document.body
+      )}
+
+      {/* Edit Modal */}
+      {editTarget && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="font-bold text-primary font-heading">Edit Loan — {editTarget.employee?.userId?.name}</h3>
+              <button onClick={() => setEditTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 rounded-xl p-3 text-sm">
+                <p className="font-medium text-slate-700">Total Amount: LKR {editTarget.totalAmount?.toLocaleString()}</p>
+                <p className="text-slate-500 text-xs mt-0.5">Outstanding: LKR {editTarget.outstandingBalance?.toLocaleString()}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="form-label">Monthly Installment</label>
+                  <input type="number" className="form-input" value={form.monthlyInstallment} onChange={e => setForm(s => ({ ...s, monthlyInstallment: e.target.value }))} /></div>
+                <div><label className="form-label">Tax Rate (%)</label>
+                  <input type="number" className="form-input" value={form.taxRate} onChange={e => setForm(s => ({ ...s, taxRate: e.target.value }))} /></div>
+              </div>
+              <div>
+                <label className="form-label">Deduction Type</label>
+                <select className="form-select" value={form.deductionType} onChange={e => setForm(s => ({ ...s, deductionType: e.target.value }))}>
+                  <option value="salary">Deduct from Salary</option>
+                  <option value="separate">Separate Repayment</option>
+                </select>
+              </div>
+              <div><label className="form-label">Reason</label>
+                <input className="form-input" value={form.reason} onChange={e => setForm(s => ({ ...s, reason: e.target.value }))} /></div>
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t">
+              <button onClick={() => setEditTarget(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={() => updateMut.mutate({ id: editTarget._id, ...form })} disabled={updateMut.isPending} className="btn-primary flex-1 justify-center gap-2">
+                {updateMut.isPending ? <span className="spinner" /> : <FiCheck size={14} />} Save Changes
               </button>
             </div>
           </motion.div>
@@ -182,29 +310,39 @@ export default function AdminLoans() {
       {/* Payment Modal */}
       {payTarget && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
-          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="font-bold text-primary font-heading">Record Loan Payment</h3>
-              <button onClick={()=>setPayTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16}/></button>
+              <button onClick={() => setPayTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-slate-50 rounded-xl p-3 text-sm space-y-1">
                 <p className="font-medium">{payTarget.employee?.userId?.name}</p>
-                <p className="text-slate-500">Outstanding: <strong className="text-red-600">LKR {(payTarget.outstandingBalance||0).toLocaleString()}</strong></p>
-                <p className="text-slate-500">Installment: LKR {(payTarget.monthlyInstallment||0).toLocaleString()}</p>
+                <p className="text-slate-500">Outstanding: <strong className="text-red-600">LKR {(payTarget.outstandingBalance || 0).toLocaleString()}</strong></p>
+                <p className="text-slate-500">Installment: LKR {(payTarget.monthlyInstallment || 0).toLocaleString()}</p>
+                <span className={`badge ${payTarget.deductionType === 'salary' ? 'badge-blue' : 'badge-purple'} text-xs`}>
+                  {payTarget.deductionType === 'salary' ? 'Salary Deduction' : 'Separate Repayment'}
+                </span>
               </div>
               <div><label className="form-label">Amount *</label>
-                <input type="number" className="form-input" value={payForm.amount} onChange={e=>setPayForm(s=>({...s,amount:e.target.value}))}/></div>
+                <input type="number" className="form-input" value={payForm.amount} onChange={e => setPayForm(s => ({ ...s, amount: e.target.value }))} /></div>
+              <div><label className="form-label">Payment Method</label>
+                <select className="form-select" value={payForm.method} onChange={e => setPayForm(s => ({ ...s, method: e.target.value }))}>
+                  <option value="salary_deduction">Salary Deduction</option>
+                  <option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                </select>
+              </div>
               <div><label className="form-label">Date</label>
-                <input type="date" className="form-input" value={payForm.date} onChange={e=>setPayForm(s=>({...s,date:e.target.value}))}/></div>
+                <input type="date" className="form-input" value={payForm.date} onChange={e => setPayForm(s => ({ ...s, date: e.target.value }))} /></div>
               <div><label className="form-label">Note</label>
-                <input className="form-input" value={payForm.note} onChange={e=>setPayForm(s=>({...s,note:e.target.value}))} placeholder="e.g. From May payroll"/></div>
+                <input className="form-input" value={payForm.note} onChange={e => setPayForm(s => ({ ...s, note: e.target.value }))} placeholder="e.g. From May payroll" /></div>
             </div>
             <div className="flex gap-3 px-6 py-4 border-t">
-              <button onClick={()=>setPayTarget(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
-              <button onClick={()=>{if(!payForm.amount){toast.error('Amount required');return}payMut.mutate({id:payTarget._id,...payForm})}}
+              <button onClick={() => setPayTarget(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={() => { if (!payForm.amount) { toast.error('Amount required'); return } payMut.mutate({ id: payTarget._id, ...payForm }) }}
                 disabled={payMut.isPending} className="btn-primary flex-1 justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
-                {payMut.isPending?<span className="spinner"/>:<FiCheck size={14}/>} Record Payment
+                {payMut.isPending ? <span className="spinner" /> : <FiCheck size={14} />} Record Payment
               </button>
             </div>
           </motion.div>

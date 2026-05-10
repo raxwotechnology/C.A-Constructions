@@ -11,6 +11,9 @@ const leaveTypeQuotaSchema = new mongoose.Schema({
   carryForwardCap: { type: Number, default: 0 }, // max days to carry forward (0 = unlimited)
   requireDocument: { type: Boolean, default: false },
   requireReason: { type: Boolean, default: false },
+  // Salary deduction when this leave type quota is exceeded
+  deductSalaryOnExcess: { type: Boolean, default: false },
+  deductionPerExtraDay: { type: Number, default: 0 }, // LKR per extra day
 }, { _id: false });
 
 const leavePolicySchema = new mongoose.Schema({
@@ -21,6 +24,9 @@ const leavePolicySchema = new mongoose.Schema({
   leaveYear: { type: String, default: 'jan-dec' }, // or 'apr-mar' etc
   quotas: [leaveTypeQuotaSchema],
   isDefault: { type: Boolean, default: false },
+  // Global salary deduction for ALL excess leaves (overridden by per-type settings)
+  salaryDeductionEnabled: { type: Boolean, default: false },
+  deductionPerExtraLeaveDay: { type: Number, default: 0 }, // LKR per extra day (global fallback)
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 

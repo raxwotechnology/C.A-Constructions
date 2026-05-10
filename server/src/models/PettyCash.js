@@ -17,7 +17,7 @@ const pettyCashSchema = new mongoose.Schema({
   paidTo: { type: String, default: '' },          // person or vendor (for OUT)
   paymentType: {
     type: String,
-    enum: ['cash', 'bank_transfer'],
+    enum: ['cash', 'bank_transfer', 'card'],
     default: 'cash',
   },
   bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },

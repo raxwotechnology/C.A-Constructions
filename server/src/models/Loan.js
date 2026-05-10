@@ -7,6 +7,17 @@ const loanSchema = new mongoose.Schema({
   startDate: { type: Date, required: true },
   reason: { type: String, default: '' },
 
+  // Deduction type: salary = auto-deduct from payroll, separate = employee repays independently
+  deductionType: {
+    type: String,
+    enum: ['salary', 'separate'],
+    default: 'salary',
+  },
+
+  // Tax fields
+  taxRate: { type: Number, default: 0 },    // percentage
+  taxAmount: { type: Number, default: 0 },  // calculated amount
+
   totalPaid: { type: Number, default: 0 },
   outstandingBalance: { type: Number, default: 0 },
   installmentsPaid: { type: Number, default: 0 },
@@ -21,6 +32,7 @@ const loanSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     date: { type: Date, default: Date.now },
     payrollId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payroll' },
+    method: { type: String, enum: ['cash', 'bank_transfer', 'salary_deduction'], default: 'salary_deduction' },
     note: String,
   }],
   recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
