@@ -40,9 +40,19 @@ export default function AdminPayroll() {
     queryKey: ['employees-all', branchFilter],
     queryFn: () => api.get(`/employees?status=active${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
   })
+  const { data: otData } = useQuery({
+    queryKey: ['overtime', month, year, otEmployeeId],
+    queryFn: () => api.get(`/payroll/overtime?month=${month}&year=${year}${otEmployeeId ? `&employeeId=${otEmployeeId}` : ''}`).then(r => r.data),
+  })
+  const { data: previewOtData } = useQuery({
+    queryKey: ['overtime', month, year, selectedEmployee],
+    queryFn: () => api.get(`/payroll/overtime?month=${month}&year=${year}&employeeId=${selectedEmployee}`).then(r => r.data),
+    enabled: !!selectedEmployee
+  })
 
   const payrolls = data?.payrolls || []
   const activeEmployees = empData?.employees || []
+  const otRecords = otData?.records || []
   const selectedEmp = useMemo(() => activeEmployees.find(e => e._id === selectedEmployee), [activeEmployees, selectedEmployee])
 
   // Auto-load employee loan/advance summary when employee is selected
@@ -76,7 +86,11 @@ export default function AdminPayroll() {
   })
   const addOtMut = useMutation({
     mutationFn: () => api.post('/payroll/overtime', { employeeId: otEmployeeId, month, year, amount: Number(otAmount), hours: Number(otHours), note: otNote }),
-    onSuccess: () => { toast.success('OT added'); setOtAmount(0); setOtHours(0); setOtNote('') },
+    onSuccess: () => { 
+      toast.success('OT added'); 
+      setOtAmount(0); setOtHours(0); setOtNote('');
+      qc.invalidateQueries(['overtime']);
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const reviewMut = useMutation({
@@ -115,13 +129,14 @@ export default function AdminPayroll() {
   const previewCalc = useMemo(() => {
     if (!selectedEmp) return null
     const basic = selectedEmp.basicSalary || 0
-    const gross = basic + Number(allowances) + Number(commissions) + Number(bonus)
+    const otTotal = (previewOtData?.records || []).reduce((sum, r) => sum + Number(r.amount), 0)
+    const gross = basic + Number(allowances) + Number(commissions) + Number(bonus) + otTotal
     const epfEmp = Math.round(basic * 0.08)
     const epfEmpl = Math.round(basic * 0.12)
     const etf = Math.round(basic * 0.03)
     const net = gross - epfEmp - Number(deductions) - Number(loanDeduction) - Number(leaveDeduction)
-    return { basic, gross, epfEmp, epfEmpl, etf, net }
-  }, [selectedEmp, allowances, commissions, bonus, deductions, loanDeduction, leaveDeduction])
+    return { basic, otTotal, gross, epfEmp, epfEmpl, etf, net }
+  }, [selectedEmp, allowances, commissions, bonus, deductions, loanDeduction, leaveDeduction, previewOtData])
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -198,6 +213,7 @@ export default function AdminPayroll() {
                 <span>Department:</span><span className="font-medium">{selectedEmp.department}</span>
                 <span>Designation:</span><span className="font-medium">{selectedEmp.designation}</span>
                 <span>Basic Salary:</span><span className="font-medium">LKR {previewCalc.basic.toLocaleString()}</span>
+                <span>Overtime (Auto):</span><span className={previewCalc.otTotal > 0 ? "font-bold text-orange-600" : "font-medium"}>LKR {previewCalc.otTotal.toLocaleString()}</span>
                 <span>Allowances:</span><span className="font-medium">LKR {Number(allowances).toLocaleString()}</span>
                 <span>Commissions:</span><span className="font-medium">LKR {Number(commissions).toLocaleString()}</span>
                 <span>Bonus:</span><span className="font-medium">LKR {Number(bonus).toLocaleString()}</span>
@@ -246,6 +262,28 @@ export default function AdminPayroll() {
           <button className="btn-outline" disabled={!otEmployeeId || addOtMut.isPending} onClick={() => addOtMut.mutate()}>
             <FiPlus size={14}/> Add OT Record
           </button>
+          
+          {/* List Overtime records for the selected month/employee */}
+          <div className="mt-4 border-t border-slate-100 pt-3 space-y-2">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Added Overtime Records</h4>
+            {otRecords.length === 0 ? (
+              <p className="text-xs text-slate-400 py-2">No OT records found.</p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {otRecords.map(ot => (
+                  <div key={ot._id} className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex justify-between items-center text-sm">
+                    <div>
+                      <p className="font-semibold text-slate-700">{ot.employee?.userId?.name}</p>
+                      <p className="text-xs text-slate-500">{ot.hours} hrs {ot.note ? `— ${ot.note}` : ''}</p>
+                    </div>
+                    <div className="font-bold text-orange-600">
+                      LKR {ot.amount.toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
