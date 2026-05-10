@@ -77,14 +77,26 @@ exports.getEntries = async (req, res, next) => {
 
 exports.getOverview = async (req, res, next) => {
   try {
-    const { branch } = req.query;
+    const { branch, from, to } = req.query;
     const now = new Date();
-    const month = Number(req.query.month || (now.getMonth() + 1));
-    const year = Number(req.query.year || now.getFullYear());
-    const range = getRange(month, year);
+    
+    let range;
+    let yearForChart;
+    if (from && to) {
+      const startDate = new Date(from);
+      const endDate = new Date(to);
+      endDate.setHours(23, 59, 59, 999);
+      range = { $gte: startDate, $lte: endDate };
+      yearForChart = startDate.getFullYear();
+    } else {
+      const month = Number(req.query.month || (now.getMonth() + 1));
+      const year = Number(req.query.year || now.getFullYear());
+      range = getRange(month, year);
+      yearForChart = year;
+    }
 
-    const yearStart = new Date(year, 0, 1);
-    const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+    const yearStart = new Date(yearForChart, 0, 1);
+    const yearEnd = new Date(yearForChart, 11, 31, 23, 59, 59, 999);
 
     const branchMatch = branch ? { branch } : {};
     const empIds = await getEmpIds(branch);
@@ -153,7 +165,7 @@ exports.getOverview = async (req, res, next) => {
 
     res.json({
       success: true,
-      period: { month, year },
+      period: { from, to, month: req.query.month, year: req.query.year },
       summary: { revenue, salaryPayout, incomeEntries, expenseEntries, totalIncome, totalExpense, profit },
       details: {
         paidInvoicesCount: paidInvoices.length,
@@ -191,7 +203,7 @@ function htmlFromRows(title, headers, rows) {
 
 exports.exportData = async (req, res, next) => {
   try {
-    const { dataset = 'financial_overview', format = 'excel', month, year, category, type, employeeId, branch } = req.query;
+    const { dataset = 'financial_overview', format = 'excel', month, year, from, to, category, type, employeeId, branch } = req.query;
     const lowerDataset = String(dataset).toLowerCase();
     const lowerFormat = String(format).toLowerCase();
     let headers = [];
@@ -248,7 +260,7 @@ exports.exportData = async (req, res, next) => {
         ...branchMatch,
         type: lowerDataset === 'incomes' ? 'income' : 'expense',
         ...(category ? { category } : {}),
-        ...(month && year ? { date: getRange(month, year) } : {}),
+        ...(from && to ? { date: { $gte: new Date(from), $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } } : (month && year ? { date: getRange(month, year) } : {})),
       }).sort({ date: -1 });
       headers = ['Date', 'Category', 'Title', 'Amount', 'Note'];
       rows = entries.map((e) => [new Date(e.date).toLocaleDateString(), e.category, e.title, e.amount, e.note || '']);
@@ -256,7 +268,7 @@ exports.exportData = async (req, res, next) => {
       const records = await Attendance.find({
         ...empMatch,
         ...(employeeId ? { employee: employeeId } : {}),
-        ...(month && year ? { date: getRange(month, year) } : {}),
+        ...(from && to ? { date: { $gte: new Date(from), $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } } : (month && year ? { date: getRange(month, year) } : {})),
       }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } }).sort({ date: -1 });
       headers = ['Employee', 'Date', 'Status', 'Check In', 'Check Out', 'Notes'];
       rows = records.map((r) => [
@@ -271,7 +283,7 @@ exports.exportData = async (req, res, next) => {
       const records = await Leave.find({
         ...empMatch,
         ...(employeeId ? { employee: employeeId } : {}),
-        ...(month && year ? { startDate: getRange(month, year) } : {}),
+        ...(from && to ? { startDate: { $gte: new Date(from), $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } } : (month && year ? { startDate: getRange(month, year) } : {})),
       }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } }).sort({ createdAt: -1 });
       headers = ['Employee', 'Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason'];
       rows = records.map((r) => [
@@ -300,7 +312,7 @@ exports.exportData = async (req, res, next) => {
     } else if (lowerDataset === 'revenue_invoices') {
       const invoices = await Invoice.find({
         ...branchMatch,
-        ...(month && year ? { createdAt: getRange(month, year) } : {}),
+        ...(from && to ? { createdAt: { $gte: new Date(from), $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } } : (month && year ? { createdAt: getRange(month, year) } : {})),
       }).populate('client', 'name email').populate('project', 'title').sort({ createdAt: -1 });
       headers = ['Invoice No', 'Client', 'Project', 'Status', 'Total', 'Due Date', 'Paid At'];
       rows = invoices.map((i) => [
@@ -314,9 +326,14 @@ exports.exportData = async (req, res, next) => {
       ]);
     } else {
       const now = new Date();
-      const m = Number(month || (now.getMonth() + 1));
-      const y = Number(year || now.getFullYear());
-      const range = getRange(m, y);
+      let range;
+      if (from && to) {
+        range = { $gte: new Date(from), $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) };
+      } else {
+        const m = Number(month || (now.getMonth() + 1));
+        const y = Number(year || now.getFullYear());
+        range = getRange(m, y);
+      }
       const paidInvoices = await Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).populate('client', 'name email');
       const paidPayrolls = await Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
       const entries = await FinanceEntry.find({ ...branchMatch, ...(type ? { type } : {}), ...(category ? { category } : {}), date: range });

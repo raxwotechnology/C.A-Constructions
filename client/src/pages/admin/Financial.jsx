@@ -16,8 +16,9 @@ const DATASETS = [
 
 export default function AdminFinancial() {
   const now = new Date()
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear] = useState(now.getFullYear())
+  const thisYear = now.getFullYear()
+  const [from, setFrom] = useState(`${thisYear}-01-01`)
+  const [to, setTo] = useState(now.toISOString().split('T')[0])
   const [category, setCategory] = useState('')
   const [dataset, setDataset] = useState('financial_overview')
   const [branchFilter, setBranchFilter] = useState('')
@@ -26,12 +27,12 @@ export default function AdminFinancial() {
   const branches = branchData?.branches || []
 
   const { data } = useQuery({
-    queryKey: ['finance-overview', month, year, branchFilter],
-    queryFn: () => api.get(`/finance/overview?month=${month}&year=${year}${branchFilter ? `&branch=${branchFilter}` : ''}`).then((r) => r.data),
+    queryKey: ['finance-overview', from, to, branchFilter],
+    queryFn: () => api.get(`/finance/overview?from=${from}&to=${to}${branchFilter ? `&branch=${branchFilter}` : ''}`).then((r) => r.data),
   })
   const { data: entriesData } = useQuery({
-    queryKey: ['finance-entries-category', month, year, branchFilter],
-    queryFn: () => api.get(`/finance/entries?month=${month}&year=${year}${branchFilter ? `&branch=${branchFilter}` : ''}`).then((r) => r.data),
+    queryKey: ['finance-entries-category', from, to, branchFilter],
+    queryFn: () => api.get(`/finance/entries?from=${from}&to=${to}${branchFilter ? `&branch=${branchFilter}` : ''}`).then((r) => r.data),
   })
 
   const summary = data?.summary || {}
@@ -46,8 +47,8 @@ export default function AdminFinancial() {
       const params = new URLSearchParams({
         dataset,
         format,
-        month: String(month),
-        year: String(year),
+        from,
+        to,
       })
       if (category) params.set('category', category)
       if (branchFilter) params.set('branch', branchFilter)
@@ -81,12 +82,12 @@ export default function AdminFinancial() {
 
       <div className="card card-body grid md:grid-cols-4 gap-3 items-end">
         <div>
-          <label className="form-label">Month</label>
-          <input type="number" min={1} max={12} className="form-input" value={month} onChange={(e) => setMonth(Number(e.target.value || 1))} />
+          <label className="form-label">From</label>
+          <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
         <div>
-          <label className="form-label">Year</label>
-          <input type="number" className="form-input" value={year} onChange={(e) => setYear(Number(e.target.value || now.getFullYear()))} />
+          <label className="form-label">To</label>
+          <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
         <div>
           <label className="form-label">Dataset Category</label>
