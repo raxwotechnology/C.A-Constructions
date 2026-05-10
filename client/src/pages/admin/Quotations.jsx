@@ -189,8 +189,8 @@ export default function AdminQuotations() {
                         <button onClick={() => statusMut.mutate({ id: q._id, status: 'rejected' })} title="Mark Rejected" className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><FiX size={13}/></button>
                       </>
                     )}
-                    {(q.status === 'accepted' || q.status === 'confirmed') && (
-                      <button onClick={() => { if(window.confirm('Convert to invoice?')) convertMut.mutate(q._id) }} title="Convert to Invoice" className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><FiArrowRight size={13}/></button>
+                    {!['converted', 'rejected', 'expired'].includes(q.status) && (
+                      <button onClick={() => { if(window.confirm('Convert this quotation to an invoice?')) convertMut.mutate(q._id) }} title="Convert to Invoice" className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><FiArrowRight size={13}/></button>
                     )}
                     {['draft','sent'].includes(q.status) && (
                       <button onClick={() => openEdit(q)} title="Edit" className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>

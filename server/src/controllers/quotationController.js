@@ -85,10 +85,7 @@ exports.convertToInvoice = async (req, res, next) => {
   try {
     const quotation = await Quotation.findById(req.params.id).populate('client', 'name email');
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
-    if (!['confirmed', 'accepted'].includes(quotation.status)) {
-      return res.status(400).json({ success: false, message: 'Quotation must be accepted/confirmed first' });
-    }
-    if (quotation.convertedToInvoice) {
+    if (quotation.status === 'converted' || quotation.convertedToInvoice) {
       return res.status(400).json({ success: false, message: 'Already converted to invoice' });
     }
 

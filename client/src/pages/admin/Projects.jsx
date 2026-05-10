@@ -224,6 +224,10 @@ export default function AdminProjects() {
               )}
             </div>
             {p.deadline && <p className="text-xs text-gray-400 mt-1">Due: {new Date(p.deadline).toLocaleDateString('en-LK')}</p>}
+
+            <button onClick={() => navigate(`/admin/projects/${p._id}`)} className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-secondary font-medium text-sm rounded-xl transition-colors border border-slate-100 flex justify-center items-center gap-1.5">
+              <FiInfo size={14}/> View Full Details
+            </button>
           </motion.div>
         ))}
       </div>
