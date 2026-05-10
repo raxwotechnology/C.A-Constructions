@@ -146,6 +146,16 @@ exports.getMyBalances = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// ─── @route GET /api/leaves/balance/:employeeId (admin) ───────────────────────
+exports.getEmployeeLeaveBalance = async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.employeeId);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const balances = await getEmployeeBalances(employee._id);
+    res.json({ success: true, balances, employeeId: employee._id });
+  } catch (err) { next(err); }
+};
+
 // ─── @route POST /api/leaves/assign ───────────────────────────────────────────
 exports.assignLeave = async (req, res, next) => {
   try {

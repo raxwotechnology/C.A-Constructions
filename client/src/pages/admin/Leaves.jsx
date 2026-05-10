@@ -13,6 +13,7 @@ export default function AdminLeaves() {
   const [remarks, setRemarks] = useState({})
   const [rejectionReasons, setRejectionReasons] = useState({})
   const [showAssign, setShowAssign] = useState(false)
+  const [selectedEmpId, setSelectedEmpId] = useState('')
   const [assignForm, setAssignForm] = useState({
     employeeId: '',
     leaveType: 'annual',
@@ -56,10 +57,19 @@ export default function AdminLeaves() {
       qc.invalidateQueries(['leaves'])
       toast.success('Leave assigned')
       setShowAssign(false)
+      setSelectedEmpId('')
       setAssignForm({ employeeId: '', leaveType: 'annual', startDate: '', endDate: '', reason: '', remarks: '' })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
   })
+
+  // Fetch leave balance for selected employee
+  const { data: balanceData, isFetching: balanceFetching } = useQuery({
+    queryKey: ['leave-balance', selectedEmpId],
+    queryFn: () => api.get(`/leaves/balance/${selectedEmpId}`).then(r => r.data),
+    enabled: !!selectedEmpId,
+  })
+  const balances = balanceData?.balances || {}
 
   const handleAction = (id, status) => {
     if (status === 'rejected' && !rejectionReasons[id]) {
@@ -204,7 +214,11 @@ export default function AdminLeaves() {
                 <label className="form-label">Employee *</label>
                 <select
                   value={assignForm.employeeId}
-                  onChange={(e) => setAssignForm((s) => ({ ...s, employeeId: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setSelectedEmpId(val)
+                    setAssignForm((s) => ({ ...s, employeeId: val }))
+                  }}
                   className="form-select"
                 >
                   <option value="">Select employee…</option>
@@ -215,6 +229,59 @@ export default function AdminLeaves() {
                   ))}
                 </select>
               </div>
+
+              {/* ── Leave Balance Panel ─────────────────────────────────── */}
+              {selectedEmpId && (
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200">
+                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Leave Balance</p>
+                    {balanceFetching && <span className="text-xs text-slate-400 animate-pulse">Loading…</span>}
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {Object.entries(balances).length === 0 && !balanceFetching && (
+                      <p className="text-center py-4 text-xs text-slate-400">No leave policy assigned to this employee.</p>
+                    )}
+                    {Object.entries(balances).map(([type, bal]) => {
+                      const isSelected = assignForm.leaveType === type
+                      const pct = bal.quota > 0 ? Math.min(100, (bal.taken / bal.quota) * 100) : 0
+                      const danger = bal.remaining <= 0
+                      const warn = bal.remaining > 0 && bal.remaining <= 3
+                      return (
+                        <div key={type}
+                          className={`flex items-center gap-3 px-4 py-2.5 transition-colors cursor-pointer ${
+                            isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                          }`}
+                          onClick={() => setAssignForm(s => ({ ...s, leaveType: type }))}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-xs font-semibold capitalize ${
+                                isSelected ? 'text-blue-700' : 'text-slate-700'
+                              }`}>{type.replace('_', ' ')}</span>
+                              <span className={`text-xs font-bold ${
+                                danger ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-600'
+                              }`}>
+                                {bal.remaining} / {bal.quota} left
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  danger ? 'bg-red-500' : warn ? 'bg-amber-400' : 'bg-emerald-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
