@@ -7,20 +7,22 @@ const {
 } = require('../controllers/invoiceController');
 const { protect, authorize } = require('../middleware/auth');
 
+// PayHere
+router.get('/payments/history',           protect, getPaymentHistory);
+router.post('/payments/payhere/init',     protect, initiatePayment);
+router.post('/payments/payhere/callback', payhereCallback);
+
 // Core CRUD
 router.get('/',    protect, getInvoices);
-router.get('/:id', protect, getInvoice);
 router.post('/',   protect, authorize('admin', 'manager'), createInvoice);
+
+// These dynamic routes must come AFTER static routes like /payments/history
+router.get('/:id', protect, getInvoice);
 router.put('/:id', protect, authorize('admin', 'manager'), updateInvoice);
 router.delete('/:id', protect, authorize('admin'), deleteInvoice);
 
 // Payment actions on invoice
 router.post('/:id/payments',  protect, authorize('admin', 'manager'), recordPayment);
 router.post('/:id/advances',  protect, authorize('admin', 'manager'), recordAdvance);
-
-// PayHere
-router.post('/payments/payhere/init',     protect, initiatePayment);
-router.post('/payments/payhere/callback', payhereCallback);
-router.get('/payments/history',           protect, getPaymentHistory);
 
 module.exports = router;
