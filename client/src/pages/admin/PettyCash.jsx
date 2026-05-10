@@ -6,7 +6,10 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import FilterBar from '../../components/ui/FilterBar'
 import ExportBar from '../../components/ui/ExportBar'
-import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck } from 'react-icons/fi'
+import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart } from 'react-icons/fi'
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
+
+const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316']
 
 const CATEGORIES = ['office_supplies','travel','meals','utilities','maintenance','other','fund_top_up']
 const CAT_LABEL = { office_supplies:'Office Supplies', travel:'Travel', meals:'Meals', utilities:'Utilities', maintenance:'Maintenance', other:'Other', fund_top_up:'Fund Top-Up' }
@@ -26,6 +29,8 @@ export default function AdminPettyCash() {
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
+  const { data: bankData } = useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get('/bank-accounts').then(r => r.data) })
+  const bankAccounts = bankData?.accounts || []
 
   const params = new URLSearchParams()
   if (typeFilter) params.set('type', typeFilter)
@@ -67,6 +72,14 @@ export default function AdminPettyCash() {
     { header: 'Recorded By', accessor: r => r.recordedBy?.name || '—' },
   ]
 
+  // Financial Overview data prep
+  const expenseByCategory = CATEGORIES.map(c => {
+    const total = transactions.filter(t => t.type === 'out' && t.category === c).reduce((sum, t) => sum + t.amount, 0)
+    return { name: CAT_LABEL[c], value: total }
+  }).filter(d => d.value > 0)
+
+  const ttStyle = { borderRadius: '10px', fontSize: '12px', border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="page-header flex-wrap gap-3">
@@ -86,7 +99,7 @@ export default function AdminPettyCash() {
       </div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="kpi-card kpi-green">
           <p className="text-xs text-slate-500 uppercase font-medium">Total In</p>
           <p className="text-xl font-bold text-emerald-700">LKR {summary.totalIn.toLocaleString()}</p>
@@ -96,10 +109,29 @@ export default function AdminPettyCash() {
           <p className="text-xl font-bold text-red-700">LKR {summary.totalOut.toLocaleString()}</p>
         </div>
         <div className={`kpi-card ${summary.currentBalance >= 0 ? 'kpi-blue' : 'kpi-red'}`}>
-          <p className="text-xs text-slate-500 uppercase font-medium">Current Balance</p>
+          <p className="text-xs text-slate-500 uppercase font-medium">Physical Cash Balance</p>
           <p className={`text-xl font-bold ${summary.currentBalance >= 0 ? 'text-blue-700' : 'text-red-700'}`}>LKR {summary.currentBalance.toLocaleString()}</p>
         </div>
       </div>
+
+      {/* Financial Overview Chart */}
+      {expenseByCategory.length > 0 && (
+        <div className="card card-body bg-slate-50/50 border border-slate-100">
+          <h3 className="font-bold text-primary font-heading mb-0.5 flex items-center gap-2"><FiPieChart className="text-secondary"/> Financial Overview</h3>
+          <p className="text-xs text-slate-400 mb-4">Expense breakdown by category for the selected period</p>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={expenseByCategory} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>
+                  {expenseByCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <RechartsTooltip formatter={(v) => `LKR ${v.toLocaleString()}`} contentStyle={ttStyle} />
+                <Legend iconType="circle" iconSize={8} formatter={v => <span className="text-xs text-slate-500">{v}</span>} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
@@ -203,9 +235,21 @@ export default function AdminPettyCash() {
                 <div><label className="form-label">Payment Method</label>
                   <select className="form-select" value={form.paymentType} onChange={e=>setForm(s=>({...s,paymentType:e.target.value}))}>
                     <option value="cash">Cash</option>
+                    <option value="card">Card</option>
                     <option value="bank_transfer">Bank Transfer</option>
-                  </select></div>
+                  </select>
+                </div>
               </div>
+              
+              {form.paymentType === 'bank_transfer' && (
+                <div>
+                  <label className="form-label text-blue-600">Paying From Bank Account</label>
+                  <select className="form-select border-blue-200" value={form.bankAccount || ''} onChange={e=>setForm(s=>({...s,bankAccount:e.target.value}))}>
+                    <option value="">Select Bank Account</option>
+                    {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} — {b.accountNumber}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 {form.type === 'out' ? (
                   <div><label className="form-label">Paid To</label>
