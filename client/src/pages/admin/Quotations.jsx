@@ -5,7 +5,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiCalendar } from 'react-icons/fi'
+import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiCalendar, FiPrinter } from 'react-icons/fi'
 
 const STATUS_COLOR = {
   draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', confirmed:'badge-green',
@@ -19,6 +19,7 @@ export default function AdminQuotations() {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [viewing, setViewing] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -180,6 +181,7 @@ export default function AdminQuotations() {
                 <td><span className={`badge capitalize ${STATUS_COLOR[q.status] || 'badge-gray'}`}>{q.status}</span></td>
                 <td>
                   <div className="flex gap-1">
+                    <button onClick={() => setViewing(q)} title="View Quotation" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><FiFileText size={13}/></button>
                     {q.status === 'draft' && (
                       <button onClick={() => statusMut.mutate({ id: q._id, status: 'sent' })} title="Mark Sent" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-bold">Sent</button>
                     )}
@@ -287,6 +289,111 @@ export default function AdminQuotations() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {/* View/Print Modal */}
+      {viewing && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b bg-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-slate-800">Quotation {viewing.quotationNo}</h3>
+                <span className={`badge capitalize ${STATUS_COLOR[viewing.status] || 'badge-gray'}`}>{viewing.status}</span>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => {
+                  const printContent = document.getElementById('quotation-print-area').innerHTML;
+                  const originalContent = document.body.innerHTML;
+                  document.body.innerHTML = printContent;
+                  window.print();
+                  document.body.innerHTML = originalContent;
+                  window.location.reload();
+                }} className="btn-outline btn-sm print:hidden"><FiPrinter size={14}/> Print</button>
+                <button onClick={() => setViewing(null)} className="p-2 hover:bg-slate-200 rounded-lg print:hidden"><FiX/></button>
+              </div>
+            </div>
+            
+            <div className="p-6 md:p-8 overflow-y-auto flex-1 text-sm text-slate-700 bg-white" id="quotation-print-area">
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h1 className="text-3xl font-black text-slate-900 tracking-tight">QUOTATION</h1>
+                  <p className="text-slate-500 mt-1 font-medium">{viewing.title}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Date Issued</p>
+                  <p className="font-medium text-slate-800 mb-2">{new Date(viewing.quotationDate || viewing.createdAt).toLocaleDateString('en-LK')}</p>
+                  <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Valid Until</p>
+                  <p className="font-medium text-slate-800">{viewing.validUntil ? new Date(viewing.validUntil).toLocaleDateString('en-LK') : '—'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div>
+                  <p className="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Quotation For</p>
+                  <p className="font-bold text-slate-800 text-base">{viewing.client?.name || 'Walk-in Client'}</p>
+                  <p className="text-slate-600 mt-1">{viewing.client?.email || ''}</p>
+                  {viewing.client?.phone && <p className="text-slate-600">{viewing.client.phone}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Prepared By</p>
+                  <p className="font-bold text-slate-800 text-base">Raxwo ERP System</p>
+                  <p className="text-slate-600 mt-1">{viewing.generatedBy?.name}</p>
+                </div>
+              </div>
+
+              <table className="w-full text-left mb-8">
+                <thead>
+                  <tr className="border-b-2 border-slate-200 text-slate-500">
+                    <th className="py-3 font-semibold w-1/2">Description</th>
+                    <th className="py-3 font-semibold text-center">Qty</th>
+                    <th className="py-3 font-semibold text-right">Unit Price</th>
+                    <th className="py-3 font-semibold text-right">Discount</th>
+                    <th className="py-3 font-semibold text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {viewing.items?.map((item, i) => (
+                    <tr key={i}>
+                      <td className="py-4 font-medium text-slate-800">{item.description}</td>
+                      <td className="py-4 text-center">{item.quantity}</td>
+                      <td className="py-4 text-right">{(item.unitPrice || 0).toLocaleString()}</td>
+                      <td className="py-4 text-right">{item.discount > 0 ? `${item.discount}%` : '-'}</td>
+                      <td className="py-4 text-right font-semibold text-slate-800">{(item.total || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="flex justify-end mb-8">
+                <div className="w-64 space-y-3">
+                  <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>LKR {(viewing.subtotal || 0).toLocaleString()}</span></div>
+                  {viewing.taxRate > 0 && <div className="flex justify-between text-slate-600"><span>Tax ({viewing.taxRate}%)</span><span>LKR {(viewing.tax || 0).toLocaleString()}</span></div>}
+                  <div className="flex justify-between text-lg font-bold text-slate-900 pt-3 border-t-2 border-slate-200">
+                    <span>Total Amount</span>
+                    <span>LKR {(viewing.total || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+                {viewing.notes && (
+                  <div>
+                    <h4 className="font-bold text-slate-800 mb-2 uppercase text-xs tracking-wider">Notes</h4>
+                    <p className="text-slate-600 text-sm whitespace-pre-wrap">{viewing.notes}</p>
+                  </div>
+                )}
+                {viewing.terms && (
+                  <div>
+                    <h4 className="font-bold text-slate-800 mb-2 uppercase text-xs tracking-wider">Terms & Conditions</h4>
+                    <p className="text-slate-600 text-sm whitespace-pre-wrap">{viewing.terms}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </motion.div>
         </div>,
         document.body
