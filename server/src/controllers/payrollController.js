@@ -36,7 +36,7 @@ async function computeAutoCommission(employeeId, month, year) {
 // @route   POST /api/payroll/generate
 exports.generatePayroll = async (req, res, next) => {
   try {
-    const { month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0, deductions = 0, loanDeduction = 0, notes } = req.body;
+    const { month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0, deductions = 0, loanDeduction = 0, leaveDeduction = 0, notes } = req.body;
 
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
@@ -85,13 +85,14 @@ exports.generatePayroll = async (req, res, next) => {
     const epfEmployee = Math.round(basicSalary * EPF_EMPLOYEE);
     const epfEmployer = Math.round(basicSalary * EPF_EMPLOYER);
     const etfEmployer = Math.round(basicSalary * ETF_EMPLOYER);
-    const totalDeductions = Number(deductions) + Number(loanDeduction) + epfEmployee;
+    const totalDeductions = Number(deductions) + Number(loanDeduction) + Number(leaveDeduction) + epfEmployee;
     const netSalary = grossSalary - totalDeductions;
 
     const payroll = await Payroll.create({
       employee: employeeId, month, year,
       basicSalary, allowances: Number(allowances) + projectSalaryAlloc,
       overtime: finalOvertime, commissions: totalCommissions, bonus, deductions, loanDeduction,
+      leaveDeduction: Number(leaveDeduction), leaveDeductionDays: 0,
       epfEmployee, epfEmployer, etfEmployer,
       grossSalary, netSalary,
       generatedBy: req.user._id, notes,
