@@ -7,9 +7,10 @@ import toast from 'react-hot-toast'
 import {
   FiUser, FiX, FiCheck, FiCreditCard, FiFileText,
   FiClock, FiAlertTriangle, FiRefreshCw, FiTrash2,
+  FiCalendar, FiTrendingUp, FiDollarSign, FiFolder, FiActivity,
 } from 'react-icons/fi'
 
-const TABS = ['Overview', 'Bank & Pay', 'Internship', 'Documents', 'History']
+const TABS = ['Dashboard', 'Overview', 'Bank & Pay', 'Internship', 'Documents', 'History']
 
 const Field = ({ label, value }) => (
   <div className="py-2 border-b border-gray-50 text-sm flex justify-between gap-2">
@@ -20,11 +21,44 @@ const Field = ({ label, value }) => (
 
 export default function EmployeeDetail({ employee, onClose, onEdit }) {
   const qc = useQueryClient()
-  const [tab, setTab] = useState('Overview')
+  const [tab, setTab] = useState('Dashboard')
   const [convertDate, setConvertDate] = useState(new Date().toISOString().split('T')[0])
   const [removeReason, setRemoveReason] = useState('')
   const [showConvert, setShowConvert] = useState(false)
   const [showRemove, setShowRemove] = useState(false)
+
+  const empId = employee?._id
+
+  // ── Dashboard data fetches ──────────────────────────────────────────────────
+  const now = new Date()
+  const curMonth = now.getMonth() + 1
+  const curYear = now.getFullYear()
+
+  const { data: attData } = useQuery({
+    queryKey: ['emp-detail-att', empId, curMonth, curYear],
+    queryFn: () => api.get(`/attendance?employeeId=${empId}&month=${curMonth}&year=${curYear}`).then(r => r.data),
+    enabled: !!empId && tab === 'Dashboard',
+  })
+  const { data: leaveData } = useQuery({
+    queryKey: ['emp-detail-leaves', empId],
+    queryFn: () => api.get(`/leaves?employeeId=${empId}&limit=5`).then(r => r.data),
+    enabled: !!empId && tab === 'Dashboard',
+  })
+  const { data: payrollData } = useQuery({
+    queryKey: ['emp-detail-payroll', empId],
+    queryFn: () => api.get(`/payroll?employeeId=${empId}&limit=3`).then(r => r.data),
+    enabled: !!empId && tab === 'Dashboard',
+  })
+  const { data: projectData } = useQuery({
+    queryKey: ['emp-detail-projects', empId],
+    queryFn: () => api.get(`/projects?employeeId=${empId}&limit=5`).then(r => r.data),
+    enabled: !!empId && tab === 'Dashboard',
+  })
+  const { data: loanSummary } = useQuery({
+    queryKey: ['emp-detail-loans', empId],
+    queryFn: () => api.get(`/loans/employee-summary/${empId}`).then(r => r.data),
+    enabled: !!empId && (tab === 'Dashboard' || tab === 'Bank & Pay'),
+  })
 
   const isIntern = employee?.employmentType === 'intern'
 
@@ -110,6 +144,146 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
 
+          {/* ─── DASHBOARD ──────────────────────────────────────────────── */}
+          {tab === 'Dashboard' && (() => {
+            const records = attData?.records || []
+            const presentCount = records.filter(r => !r.isHalfDay && r.status === 'present').length
+            const halfDayCount = records.filter(r => r.isHalfDay).length
+            const absentCount = records.filter(r => r.status === 'absent').length
+            const leaveCount = records.filter(r => r.status === 'leave').length
+
+            const leaves = leaveData?.leaves || []
+            const approvedLeaves = leaves.filter(l => l.status === 'approved').length
+            const pendingLeaves = leaves.filter(l => l.status === 'pending').length
+
+            const payrolls = payrollData?.payrolls || []
+            const lastPayroll = payrolls[0]
+
+            const projects = (projectData?.projects || []).filter(p =>
+              (p.assignedEmployees || []).some(ae => String(ae._id || ae) === String(empId))
+            )
+            const activeProjects = projects.filter(p => p.status === 'active').length
+            const completedProjects = projects.filter(p => p.status === 'completed').length
+
+            const ls = loanSummary?.summary
+
+            return (
+              <div className="space-y-5">
+                {/* KPI strip */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+                    <p className="text-xs text-emerald-600 font-medium">Present</p>
+                    <p className="text-2xl font-extrabold text-emerald-700">{presentCount}</p>
+                    <p className="text-xs text-emerald-500">{halfDayCount} half-days</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
+                    <p className="text-xs text-red-600 font-medium">Absent</p>
+                    <p className="text-2xl font-extrabold text-red-700">{absentCount}</p>
+                    <p className="text-xs text-red-500">{leaveCount} on leave</p>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+                    <p className="text-xs text-blue-600 font-medium">Projects</p>
+                    <p className="text-2xl font-extrabold text-blue-700">{completedProjects}</p>
+                    <p className="text-xs text-blue-500">{activeProjects} active</p>
+                  </div>
+                  <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 text-center">
+                    <p className="text-xs text-purple-600 font-medium">Leaves</p>
+                    <p className="text-2xl font-extrabold text-purple-700">{approvedLeaves}</p>
+                    <p className="text-xs text-purple-500">{pendingLeaves} pending</p>
+                  </div>
+                </div>
+
+                {/* Last Payroll */}
+                {lastPayroll && (
+                  <div className="bg-slate-800 text-white rounded-xl p-4">
+                    <p className="text-xs text-slate-400 font-medium mb-2 flex items-center gap-1"><FiDollarSign size={11} /> Last Payroll — {lastPayroll.month}/{lastPayroll.year}</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-slate-400 text-xs">Basic</p>
+                        <p className="font-semibold">LKR {(lastPayroll.basicSalary || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 text-xs">Gross</p>
+                        <p className="font-semibold">LKR {(lastPayroll.grossSalary || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 text-xs">EPF (Emp)</p>
+                        <p className="font-semibold text-orange-300">- LKR {(lastPayroll.epfEmployee || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 text-xs">Net Pay</p>
+                        <p className="font-bold text-emerald-400 text-base">LKR {(lastPayroll.netSalary || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    {lastPayroll.loanDeduction > 0 && (
+                      <p className="text-xs text-orange-300 mt-2">Loan deducted: LKR {lastPayroll.loanDeduction.toLocaleString()}</p>
+                    )}
+                    {lastPayroll.leaveDeduction > 0 && (
+                      <p className="text-xs text-red-300 mt-1">Leave deducted: LKR {lastPayroll.leaveDeduction.toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Loan/Advance summary */}
+                {ls && (ls.activeLoansCount > 0 || ls.totalAdvanceBalance > 0) && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-1.5">
+                    <p className="text-xs font-bold text-orange-700 uppercase">Financial Obligations</p>
+                    {ls.totalAdvanceBalance > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Advance Balance</span>
+                        <span className="font-semibold text-orange-700">LKR {ls.totalAdvanceBalance.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {ls.activeLoansCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Active Loans</span>
+                        <span className="font-semibold text-red-600">{ls.activeLoansCount} — LKR {ls.totalMonthlyLoanDeductions.toLocaleString()}/mo</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Active projects list */}
+                {projects.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><FiFolder size={11} /> Assigned Projects</p>
+                    <div className="space-y-2">
+                      {projects.slice(0, 4).map(p => (
+                        <div key={p._id} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                          <span className="text-sm font-medium text-slate-700 truncate">{p.name || p.title}</span>
+                          <span className={`badge text-xs ml-2 flex-shrink-0 capitalize ${
+                            p.status === 'active' ? 'badge-green' :
+                            p.status === 'completed' ? 'badge-blue' : 'badge-gray'
+                          }`}>{p.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent leaves */}
+                {leaves.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><FiCalendar size={11} /> Recent Leave Requests</p>
+                    <div className="space-y-2">
+                      {leaves.slice(0, 4).map(l => (
+                        <div key={l._id} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                          <div>
+                            <p className="text-xs font-medium text-slate-700 capitalize">{l.leaveType?.replace('_', ' ')} — {l.totalDays}d</p>
+                            <p className="text-xs text-slate-400">{l.startDate ? new Date(l.startDate).toLocaleDateString('en-LK') : ''}</p>
+                          </div>
+                          <span className={`badge text-xs capitalize ${
+                            l.status === 'approved' ? 'badge-green' :
+                            l.status === 'rejected' ? 'badge-red' : 'badge-yellow'
+                          }`}>{l.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
           {/* ─── OVERVIEW ─────────────────────────────────────────────────── */}
           {tab === 'Overview' && (
             <div className="space-y-4">
@@ -153,7 +327,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
             </div>
           )}
 
-          {/* ─── BANK & PAY ───────────────────────────────────────────────── */}
+          {/* ─── BANK & PAY ─────────────────────────────────────────────────── */}
           {tab === 'Bank & Pay' && (
             <div className="space-y-3">
               <div>
@@ -171,8 +345,18 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Advance / Loan Balance</p>
-                <Field label="Advance Balance" value={e.advanceBalance ? `LKR ${e.advanceBalance.toLocaleString()}` : 'None'} />
-                <Field label="Loan Balance" value={e.loanBalance ? `LKR ${e.loanBalance.toLocaleString()}` : 'None'} />
+                {loanSummary?.summary ? (
+                  <div className="p-3 bg-orange-50 border border-orange-100 rounded-xl space-y-1.5">
+                    <Field label="Advance Balance" value={loanSummary.summary.totalAdvanceBalance > 0 ? `LKR ${loanSummary.summary.totalAdvanceBalance.toLocaleString()}` : 'None'} />
+                    <Field label="Active Loans" value={`${loanSummary.summary.activeLoansCount} loan(s)`} />
+                    <Field label="Monthly Deduction" value={loanSummary.summary.totalMonthlyLoanDeductions > 0 ? `LKR ${loanSummary.summary.totalMonthlyLoanDeductions.toLocaleString()}` : 'None'} />
+                  </div>
+                ) : (
+                  <>
+                    <Field label="Advance Balance" value={e.advanceBalance ? `LKR ${e.advanceBalance.toLocaleString()}` : 'None'} />
+                    <Field label="Loan Balance" value={e.loanBalance ? `LKR ${e.loanBalance.toLocaleString()}` : 'None'} />
+                  </>
+                )}
               </div>
             </div>
           )}
