@@ -46,6 +46,8 @@ export default function LeavePolicies() {
       branch: '',
       employee: '',
       isDefault: false,
+      salaryDeductionEnabled: false,
+      deductionPerExtraLeaveDay: 0,
       quotas: LEAVE_TYPE_OPTIONS.map(t => ({
         leaveType: t.value,
         quota: t.value === 'annual' ? 14 : t.value === 'medical' ? 7 : t.value === 'casual' ? 7 : t.value === 'half_day' ? 6 : t.value === 'short_leave' ? 12 : t.value === 'maternity' ? 84 : 3,
@@ -53,6 +55,8 @@ export default function LeavePolicies() {
         carryForwardCap: 0,
         requireDocument: t.value === 'medical',
         requireReason: t.value === 'medical',
+        deductSalaryOnExcess: false,
+        deductionPerExtraDay: 0,
       }))
     }
   })
@@ -84,12 +88,16 @@ export default function LeavePolicies() {
       branch: '',
       employee: '',
       isDefault: false,
+      salaryDeductionEnabled: false,
+      deductionPerExtraLeaveDay: 0,
       quotas: LEAVE_TYPE_OPTIONS.map(t => ({
         leaveType: t.value,
         quota: t.value === 'annual' ? 14 : t.value === 'medical' ? 7 : t.value === 'casual' ? 7 : t.value === 'half_day' ? 6 : t.value === 'short_leave' ? 12 : t.value === 'maternity' ? 84 : 3,
         carryForward: false, carryForwardCap: 0,
         requireDocument: t.value === 'medical',
         requireReason: t.value === 'medical',
+        deductSalaryOnExcess: false,
+        deductionPerExtraDay: 0,
       }))
     })
     setEditing(null)
@@ -105,6 +113,8 @@ export default function LeavePolicies() {
       branch: policy.branch?._id || policy.branch || '',
       employee: policy.employee?._id || policy.employee || '',
       isDefault: policy.isDefault,
+      salaryDeductionEnabled: policy.salaryDeductionEnabled || false,
+      deductionPerExtraLeaveDay: policy.deductionPerExtraLeaveDay || 0,
       quotas: LEAVE_TYPE_OPTIONS.map(t => ({
         leaveType: t.value,
         quota: quotaMap[t.value]?.quota ?? 0,
@@ -112,6 +122,8 @@ export default function LeavePolicies() {
         carryForwardCap: quotaMap[t.value]?.carryForwardCap ?? 0,
         requireDocument: quotaMap[t.value]?.requireDocument ?? (t.value === 'medical'),
         requireReason: quotaMap[t.value]?.requireReason ?? (t.value === 'medical'),
+        deductSalaryOnExcess: quotaMap[t.value]?.deductSalaryOnExcess ?? false,
+        deductionPerExtraDay: quotaMap[t.value]?.deductionPerExtraDay ?? 0,
       }))
     })
     setEditing(policy)
@@ -173,11 +185,17 @@ export default function LeavePolicies() {
                         <span className="font-semibold text-slate-800">{q.quota} {q.leaveType === 'short_leave' ? 'sessions' : 'days'}</span>
                         {q.carryForward && <span className="badge badge-blue text-xs py-0">CF</span>}
                         {q.requireDocument && <span className="badge badge-yellow text-xs py-0">Doc</span>}
+                        {q.deductSalaryOnExcess && <span className="badge badge-red text-xs py-0">Deduct</span>}
                       </div>
                     </div>
                   )
                 })}
               </div>
+              {p.salaryDeductionEnabled && (
+                <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-orange-600 flex items-center gap-1">
+                  ⚠️ Global deduction: LKR {p.deductionPerExtraLeaveDay}/extra day
+                </div>
+              )}
               <button onClick={() => openEdit(p)} className="btn-ghost btn-sm w-full mt-4 justify-center">
                 <FiEdit2 size={12}/> Edit Policy
               </button>
@@ -239,18 +257,20 @@ export default function LeavePolicies() {
                 <div>
                   <p className="form-label mb-3">Leave Type Quotas</p>
                   <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="grid grid-cols-7 gap-0 bg-slate-50 border-b text-xs font-bold text-slate-500 uppercase tracking-wider px-4 py-2">
+                    <div className="grid grid-cols-9 gap-0 bg-slate-50 border-b text-xs font-bold text-slate-500 uppercase tracking-wider px-4 py-2">
                       <span className="col-span-2">Type</span>
                       <span>Days/Qty</span>
                       <span>Carry Fwd</span>
                       <span>CF Cap</span>
                       <span>Needs Doc</span>
                       <span>Needs Reason</span>
+                      <span>Deduct Excess</span>
+                      <span>LKR/Day</span>
                     </div>
                     {fields.map((field, idx) => {
                       const type = LEAVE_TYPE_OPTIONS[idx]
                       return (
-                        <div key={field.id} className={`grid grid-cols-7 gap-0 px-4 py-3 items-center text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                        <div key={field.id} className={`grid grid-cols-9 gap-0 px-4 py-3 items-center text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
                           <input type="hidden" {...register(`quotas.${idx}.leaveType`)}/>
                           <span className="col-span-2 font-medium text-slate-700">{type?.icon} {type?.label}</span>
                           <input {...register(`quotas.${idx}.quota`, { valueAsNumber: true })} type="number" min="0" className="form-input py-1 text-sm w-16"/>
@@ -264,9 +284,31 @@ export default function LeavePolicies() {
                           <label className="flex items-center justify-center">
                             <input type="checkbox" {...register(`quotas.${idx}.requireReason`)} className="w-4 h-4 accent-secondary"/>
                           </label>
+                          <label className="flex items-center justify-center" title="Deduct salary when this leave type is overused">
+                            <input type="checkbox" {...register(`quotas.${idx}.deductSalaryOnExcess`)} className="w-4 h-4 accent-red-500"/>
+                          </label>
+                          <input {...register(`quotas.${idx}.deductionPerExtraDay`, { valueAsNumber: true })} type="number" min="0" className="form-input py-1 text-sm w-16" placeholder="0"/>
                         </div>
                       )
                     })}
+                  </div>
+                </div>
+
+                {/* Global salary deduction */}
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-orange-800">⚠️ Global Salary Deduction</p>
+                      <p className="text-xs text-orange-600 mt-0.5">Deduct from salary for ANY leave taken beyond quota (overridden by per-type settings above)</p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" {...register('salaryDeductionEnabled')} className="w-4 h-4 accent-orange-500" />
+                      <span className="text-sm font-medium text-orange-700">Enable</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label className="form-label text-xs">Deduction Amount per Extra Day (LKR)</label>
+                    <input {...register('deductionPerExtraLeaveDay', { valueAsNumber: true })} type="number" min="0" className="form-input w-40" placeholder="e.g. 1500" />
                   </div>
                 </div>
               </form>
