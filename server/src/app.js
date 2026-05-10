@@ -44,6 +44,7 @@ const agreementRoutes = require('./routes/agreementRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
