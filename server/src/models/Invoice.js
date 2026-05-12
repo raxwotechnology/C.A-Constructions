@@ -17,6 +17,7 @@ const paymentEntrySchema = new mongoose.Schema({
   notes:       { type: String, default: '' },
   recordedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   isAdvance:   { type: Boolean, default: false },  // true = advance before invoice fully issued
+  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
 }, { timestamps: true });
 
 const invoiceSchema = new mongoose.Schema({

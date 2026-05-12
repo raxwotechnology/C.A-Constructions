@@ -58,7 +58,7 @@ exports.getDashboard = async (req, res, next) => {
       totalApplications, newApplications,
       pendingLeaves, insufficientLeaves,
       totalSubscriptions, activeSubscriptions, overdueSubscriptions,
-      pendingInvoices, draftPayrolls,
+      pendingInvoices, draftPayrolls, adminCount,
     ] = await Promise.all([
       Employee.countDocuments(empMatch),
       Employee.countDocuments({ ...empMatch, status: 'active' }),
@@ -78,6 +78,7 @@ exports.getDashboard = async (req, res, next) => {
       Subscription.countDocuments({ ...subMatch, status: 'overdue' }),
       Invoice.countDocuments({ ...invMatch, status: 'unpaid' }),
       Payroll.countDocuments({ ...relatedEmpMatch, status: 'draft' }),
+      User.countDocuments({ role: 'admin' }),
     ]);
 
     // Outstanding advance & loan balances
@@ -220,7 +221,7 @@ exports.getDashboard = async (req, res, next) => {
     res.json({
       success: true,
       kpis: {
-        totalEmployees, activeEmployees, internCount,
+        totalEmployees, activeEmployees, internCount, adminCount,
         totalProjects, activeProjects, completedProjects, pendingProjects,
         totalUsers, clientCount,
         totalApplications, newApplications,

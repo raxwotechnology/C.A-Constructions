@@ -21,6 +21,7 @@ const loanSchema = new mongoose.Schema({
   totalPaid: { type: Number, default: 0 },
   outstandingBalance: { type: Number, default: 0 },
   installmentsPaid: { type: Number, default: 0 },
+  repaymentMonths: { type: Number, default: 0 },
   totalInstallments: { type: Number, default: 0 }, // auto-calculated
 
   status: {
@@ -33,6 +34,7 @@ const loanSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now },
     payrollId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payroll' },
     method: { type: String, enum: ['cash', 'bank_transfer', 'salary_deduction'], default: 'salary_deduction' },
+    bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
     note: String,
   }],
   recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -7,8 +7,25 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Project = require('../models/Project');
+const { createAuditLog } = require('./auditController');
+const { verifyActionPassword } = require('../utils/actionPassword');
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function financeEntrySnapshot(e) {
+  if (!e) return null;
+  return {
+    type: e.type,
+    category: e.category,
+    title: e.title,
+    amount: e.amount,
+    date: e.date,
+    note: e.note,
+    paymentMethod: e.paymentMethod,
+    branch: e.branch ? String(e.branch) : null,
+    bankAccount: e.bankAccount ? String(e.bankAccount) : null,
+  };
+}
 
 function getRange(month, year) {
   if (!month || !year) return {};
@@ -34,6 +51,7 @@ exports.addEntry = async (req, res, next) => {
       date: date ? new Date(date) : new Date(),
       note: note || '',
       paymentMethod: paymentMethod || 'Cash',
+      bankAccount: req.body.bankAccount || null,
       createdBy: req.user._id,
       branch: branch || null,
     };
@@ -42,17 +60,179 @@ exports.addEntry = async (req, res, next) => {
       data.billFileName = req.file.originalname;
     }
     const entry = await FinanceEntry.create(data);
+
+    // Sync with Bank Account
+    if (data.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(data.paymentMethod)) {
+      const BankAccount = require('../models/BankAccount');
+      const account = await BankAccount.findById(data.bankAccount);
+      if (account) {
+        const isCredit = type === 'income';
+        account.currentBalance = (account.currentBalance || 0) + (isCredit ? data.amount : -data.amount);
+        account.transactions.push({
+          type: isCredit ? 'deposit' : 'withdrawal',
+          amount: data.amount,
+          balanceAfter: account.currentBalance,
+          description: `Finance Entry: ${title} (${category})`,
+          date: data.date,
+          recordedBy: req.user._id,
+        });
+        await account.save();
+      }
+    }
+
+    await createAuditLog({
+      user: req.user,
+      action: 'create',
+      module: 'financial',
+      entityId: String(entry._id),
+      entityName: entry.title,
+      description: `Finance entry created: ${entry.title} (${entry.type}, LKR ${entry.amount})`,
+      changes: { before: null, after: financeEntrySnapshot(entry.toObject ? entry.toObject() : entry) },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
+
     res.status(201).json({ success: true, entry });
+  } catch (err) { next(err); }
+};
+
+exports.updateEntry = async (req, res, next) => {
+  try {
+    const entry = await FinanceEntry.findById(req.params.id);
+    if (!entry) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const beforeSnap = financeEntrySnapshot(entry.toObject ? entry.toObject() : entry);
+
+    // Reverse old bank transaction if it existed
+    if (entry.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(entry.paymentMethod)) {
+      const BankAccount = require('../models/BankAccount');
+      const oldAccount = await BankAccount.findById(entry.bankAccount);
+      if (oldAccount) {
+        const isCredit = entry.type === 'income';
+        oldAccount.currentBalance = (oldAccount.currentBalance || 0) - (isCredit ? entry.amount : -entry.amount);
+        oldAccount.transactions.push({
+          type: isCredit ? 'withdrawal' : 'deposit',
+          amount: entry.amount,
+          balanceAfter: oldAccount.currentBalance,
+          description: `Finance Reversal (Edit): ${entry.title}`,
+          date: new Date(),
+          recordedBy: req.user._id,
+        });
+        await oldAccount.save();
+      }
+    }
+
+    const { type, category, title, amount, date, note, branch, paymentMethod, bankAccount } = req.body;
+    entry.type = type || entry.type;
+    entry.category = category || entry.category;
+    entry.title = title || entry.title;
+    entry.amount = amount !== undefined ? Number(amount) : entry.amount;
+    if (date) entry.date = new Date(date);
+    entry.note = note !== undefined ? note : entry.note;
+    entry.branch = branch || null;
+    entry.paymentMethod = paymentMethod || entry.paymentMethod;
+    entry.bankAccount = bankAccount || null;
+
+    if (req.file) {
+      entry.billFile = `/uploads/bills/${req.file.filename}`;
+      entry.billFileName = req.file.originalname;
+    }
+
+    await entry.save();
+
+    // Apply new bank transaction
+    if (entry.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(entry.paymentMethod)) {
+      const BankAccount = require('../models/BankAccount');
+      const newAccount = await BankAccount.findById(entry.bankAccount);
+      if (newAccount) {
+        const isCredit = entry.type === 'income';
+        newAccount.currentBalance = (newAccount.currentBalance || 0) + (isCredit ? entry.amount : -entry.amount);
+        newAccount.transactions.push({
+          type: isCredit ? 'deposit' : 'withdrawal',
+          amount: entry.amount,
+          balanceAfter: newAccount.currentBalance,
+          description: `Finance Entry (Edited): ${entry.title}`,
+          date: entry.date,
+          recordedBy: req.user._id,
+        });
+        await newAccount.save();
+      }
+    }
+
+    const afterSnap = financeEntrySnapshot(entry.toObject ? entry.toObject() : entry);
+    await createAuditLog({
+      user: req.user,
+      action: 'update',
+      module: 'financial',
+      entityId: String(entry._id),
+      entityName: entry.title,
+      description: `Finance entry updated: ${entry.title} (${entry.type}, LKR ${entry.amount})`,
+      changes: { before: beforeSnap, after: afterSnap },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
+
+    res.json({ success: true, entry });
+  } catch (err) { next(err); }
+};
+
+exports.deleteEntry = async (req, res, next) => {
+  try {
+    const pw = req.body?.password ?? req.query?.password;
+    const check = await verifyActionPassword(req.user._id, pw);
+    if (!check.ok) return res.status(check.status).json({ success: false, message: check.message });
+
+    const entry = await FinanceEntry.findById(req.params.id);
+    if (!entry) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const beforeSnap = financeEntrySnapshot(entry.toObject ? entry.toObject() : entry);
+
+    // Reverse bank transaction
+    if (entry.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(entry.paymentMethod)) {
+      const BankAccount = require('../models/BankAccount');
+      const account = await BankAccount.findById(entry.bankAccount);
+      if (account) {
+        const isCredit = entry.type === 'income';
+        account.currentBalance = (account.currentBalance || 0) - (isCredit ? entry.amount : -entry.amount);
+        account.transactions.push({
+          type: isCredit ? 'withdrawal' : 'deposit',
+          amount: entry.amount,
+          balanceAfter: account.currentBalance,
+          description: `Finance Reversal (Deleted): ${entry.title}`,
+          date: new Date(),
+          recordedBy: req.user._id,
+        });
+        await account.save();
+      }
+    }
+
+    await entry.deleteOne();
+
+    await createAuditLog({
+      user: req.user,
+      action: 'delete',
+      module: 'financial',
+      entityId: String(entry._id),
+      entityName: beforeSnap.title,
+      description: `Finance entry deleted: ${beforeSnap.title} (${beforeSnap.type}, LKR ${beforeSnap.amount})`,
+      changes: { before: beforeSnap, after: null },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+      severity: 'warning',
+    });
+
+    res.json({ success: true, message: 'Deleted' });
   } catch (err) { next(err); }
 };
 
 exports.getEntries = async (req, res, next) => {
   try {
-    const { type, category, month, year, from, to, branch } = req.query;
+    const { type, category, month, year, from, to, branch, paymentMethod } = req.query;
     const q = {};
     if (type) q.type = type;
     if (category) q.category = category;
     if (branch) q.branch = branch;
+    if (paymentMethod) q.paymentMethod = paymentMethod;
     const dateRange = getRange(month, year);
     if (from || to) {
       q.date = {};
@@ -62,7 +242,11 @@ exports.getEntries = async (req, res, next) => {
       q.date = dateRange;
     }
 
-    const entries = await FinanceEntry.find(q).sort({ date: -1, createdAt: -1 }).populate('createdBy', 'name email');
+    const entries = await FinanceEntry.find(q)
+      .sort({ date: -1, createdAt: -1 })
+      .populate('createdBy', 'name email')
+      .populate('bankAccount', 'bankName accountNumber')
+      .populate('branch', 'name');
     const totals = entries.reduce((acc, e) => {
       if (e.type === 'income') acc.income += Number(e.amount || 0);
       if (e.type === 'expense') acc.expense += Number(e.amount || 0);
@@ -105,7 +289,10 @@ exports.getOverview = async (req, res, next) => {
     const [paidInvoices, paidPayrolls, entries, revenueByMonth, incomeExpenseByCategory] = await Promise.all([
       Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
       Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year'),
-      FinanceEntry.find({ ...branchMatch, date: range }).sort({ date: -1 }),
+      FinanceEntry.find({ ...branchMatch, date: range })
+        .sort({ date: -1 })
+        .populate('bankAccount', 'bankName accountNumber')
+        .populate('branch', 'name'),
       Invoice.aggregate([
         { $match: { ...branchMatch, status: 'paid', paidAt: { $gte: yearStart, $lte: yearEnd } } },
         { $group: { _id: { $month: '$paidAt' }, total: { $sum: '$total' }, count: { $sum: 1 } } },
@@ -182,6 +369,9 @@ exports.getOverview = async (req, res, next) => {
           amount: Number(e.amount || 0),
           date: e.date,
           note: e.note || '',
+          paymentMethod: e.paymentMethod || '—',
+          bankName: e.bankAccount?.bankName || '',
+          branchName: e.branch?.name || '',
         })),
       },
       charts,

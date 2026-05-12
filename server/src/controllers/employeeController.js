@@ -1,6 +1,7 @@
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Project = require('../models/Project');
+const { createAuditLog } = require('./auditController');
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Payroll = require('../models/Payroll');
@@ -69,6 +70,12 @@ exports.createEmployee = async (req, res, next) => {
       name, email, password, role, department, designation, basicSalary, allowances, joinedDate,
       idType, idNumber, nic, dob, gender, address, primaryPhone, secondaryPhone, cvUrl,
       emergencyContact, bank, bankBranch, accountNumber, skills, manager,
+      // file upload fields
+      profilePhoto, nicPhotoUrl, nicPhotoBackUrl, agreementUrl,
+      // employment extras
+      employmentType, branch, epfNumber, etfNumber, maxLeavesPerYear,
+      portfolioUrl, secondaryAddress, permanentAddress, currentAddress,
+      internship, contract, epfEtfEnrolled,
     } = req.body;
 
     // Create user account
@@ -111,9 +118,30 @@ exports.createEmployee = async (req, res, next) => {
       accountNumber,
       skills: skills ? skills.split(',').map(s => s.trim()) : [],
       manager,
+      // uploaded file URLs
+      ...(profilePhoto   && { profilePhoto }),
+      ...(nicPhotoUrl    && { nicPhotoUrl }),
+      ...(nicPhotoBackUrl && { nicPhotoBackUrl }),
+      ...(agreementUrl   && { agreementUrl }),
+      // employment extras
+      ...(employmentType  && { employmentType }),
+      ...(branch          && { branch }),
+      ...(epfNumber       && { epfNumber }),
+      ...(etfNumber       && { etfNumber }),
+      ...(maxLeavesPerYear && { maxLeavesPerYear }),
+      ...(portfolioUrl    && { portfolioUrl }),
+      ...(permanentAddress && { permanentAddress }),
+      ...(currentAddress  && { currentAddress }),
+      ...(internship      && { internship }),
+      ...(contract        && { contract }),
+      epfEtfEnrolled: !!epfEtfEnrolled,
     });
 
     const populated = await employee.populate('userId', 'name email phone avatar role');
+    await createAuditLog({
+      user: req.user, action: 'create', module: 'employees', entityId: employee._id, entityName: name,
+      description: `Created new employee profile for ${name} (${employeeNo})`,
+    });
     res.status(201).json({ success: true, employee: populated });
   } catch (err) { next(err); }
 };
@@ -134,6 +162,12 @@ exports.updateEmployee = async (req, res, next) => {
     const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
       .populate('userId', 'name email phone avatar role');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    
+    await createAuditLog({
+      user: req.user, action: 'update', module: 'employees', entityId: employee._id, entityName: employee.employeeNo,
+      description: `Updated employee profile ${employee.employeeNo}`,
+    });
+
     res.json({ success: true, employee });
   } catch (err) { next(err); }
 };
@@ -158,6 +192,12 @@ exports.deleteEmployee = async (req, res, next) => {
       { new: true }
     );
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    
+    await createAuditLog({
+      user: req.user, action: 'delete', module: 'employees', entityId: employee._id, entityName: employee.employeeNo,
+      description: `Marked employee ${employee.employeeNo} as former`,
+    });
+
     res.json({ success: true, message: 'Employee marked as former. All data retained.' });
   } catch (err) { next(err); }
 };

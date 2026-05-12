@@ -5,12 +5,32 @@ const SalaryPayment = require('../models/SalaryPayment');
 const Project = require('../models/Project');
 const crypto = require('crypto');
 const { createNotification } = require('../services/notificationService');
+const EpfRecord = require('../models/EpfRecord');
+const Loan = require('../models/Loan');
+const AuditLog = require('../models/AuditLog');
+
+// Internal audit logging helper (does not throw)
+const createAuditLog = async ({ user, action, module, entityId, entityName, description, severity = 'info' }) => {
+  try {
+    await AuditLog.create({
+      user: user?._id || user,
+      userName: user?.name || 'System',
+      userRole: user?.role || 'system',
+      action, module,
+      entityId: entityId ? String(entityId) : '',
+      entityName: entityName || '',
+      description: description || '',
+      severity,
+    });
+  } catch (_) { /* never crash on audit log failure */ }
+};
 
 // EPF/ETF rates (Sri Lanka)
 const EPF_EMPLOYEE = 0.08;
 const EPF_EMPLOYER = 0.12;
 const ETF_EMPLOYER = 0.03;
 const COMMISSION_RATE = Number(process.env.PAYROLL_COMMISSION_RATE || 0.05);
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 const monthRange = (month, year) => ({
   start: new Date(Number(year), Number(month) - 1, 1),
@@ -36,14 +56,29 @@ async function computeAutoCommission(employeeId, month, year) {
 // @route   POST /api/payroll/generate
 exports.generatePayroll = async (req, res, next) => {
   try {
-    const { month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0, deductions = 0, loanDeduction = 0, leaveDeduction = 0, notes } = req.body;
+    const { month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0, deductions = 0, loanDeduction: manualLoan = 0, leaveDeduction = 0, notes } = req.body;
 
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
+    // Auto-calculate Loan Deduction
+    const activeLoans = await Loan.find({ employee: employeeId, status: 'active', deductionType: 'salary' });
+    const autoLoanDeduct = activeLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0);
+    const loanDeduction = manualLoan || autoLoanDeduct;
+    const deductedLoans = activeLoans.map(l => l._id);
+
+    // Auto-calculate Overtime
+    const otRecords = await Overtime.find({ employee: employeeId, month, year });
+    const autoOtPay = otRecords.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const autoOtHours = otRecords.reduce((sum, r) => sum + (r.hours || 0), 0);
+    const otPay = overtime || autoOtPay;
+    const otHours = autoOtHours;
+
     // Check if payroll already exists
     const exists = await Payroll.findOne({ employee: employeeId, month, year });
-    if (exists) return res.status(400).json({ success: false, message: 'Payroll already generated for this month' });
+    if (exists && exists.status === 'paid') {
+      return res.status(400).json({ success: false, message: 'Cannot regenerate a payroll that is already marked as PAID' });
+    }
 
     const basicSalary = employee.basicSalary || 0;
 
@@ -81,22 +116,31 @@ exports.generatePayroll = async (req, res, next) => {
 
     const grossSalary = basicSalary + projectSalaryAlloc + Number(allowances) + finalOvertime + totalCommissions + Number(bonus);
 
-    // EPF/ETF calculations
-    const epfEmployee = Math.round(basicSalary * EPF_EMPLOYEE);
-    const epfEmployer = Math.round(basicSalary * EPF_EMPLOYER);
-    const etfEmployer = Math.round(basicSalary * ETF_EMPLOYER);
+    // EPF/ETF calculations — only for enrolled employees
+    const epfEmployee = employee.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYEE) : 0;
+    const epfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYER) : 0;
+    const etfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * ETF_EMPLOYER) : 0;
     const totalDeductions = Number(deductions) + Number(loanDeduction) + Number(leaveDeduction) + epfEmployee;
     const netSalary = grossSalary - totalDeductions;
 
-    const payroll = await Payroll.create({
+    const payload = {
       employee: employeeId, month, year,
       basicSalary, allowances: Number(allowances) + projectSalaryAlloc,
-      overtime: finalOvertime, commissions: totalCommissions, bonus, deductions, loanDeduction,
+      overtime: finalOvertime, commissions: totalCommissions, bonus, deductions: Number(deductions), loanDeduction,
+      deductedLoans,
       leaveDeduction: Number(leaveDeduction), leaveDeductionDays: 0,
       epfEmployee, epfEmployer, etfEmployer,
-      grossSalary, netSalary,
+      grossSalary, totalDeductions, netSalary,
       generatedBy: req.user._id, notes,
-    });
+      status: 'draft',
+    };
+
+    let payroll;
+    if (exists) {
+      payroll = await Payroll.findByIdAndUpdate(exists._id, payload, { new: true });
+    } else {
+      payroll = await Payroll.create(payload);
+    }
 
     await payroll.populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
 
@@ -107,6 +151,12 @@ exports.generatePayroll = async (req, res, next) => {
       message: `Your payroll for ${month}/${year} has been generated (status: draft). EPF (employee): LKR ${Number(payroll.epfEmployee || 0).toLocaleString()}, EPF (employer): LKR ${Number(payroll.epfEmployer || 0).toLocaleString()}, ETF (employer): LKR ${Number(payroll.etfEmployer || 0).toLocaleString()}.`,
       type: 'payroll',
       link: '/developer/payslips',
+    });
+
+    
+    await createAuditLog({
+      user: req.user, action: 'create', module: 'payroll', entityId: payroll._id, entityName: `Payroll ${month}/${year}`,
+      description: `Generated payroll for employee ${employeeId}`,
     });
 
     res.status(201).json({ success: true, payroll });
@@ -127,30 +177,59 @@ exports.generateAllPayroll = async (req, res, next) => {
     for (const emp of employees) {
       try {
         const exists = await Payroll.findOne({ employee: emp._id, month, year });
-        if (exists) { errors.push({ employeeId: emp._id, message: 'Already exists' }); continue; }
+        if (exists && exists.status === 'paid') { errors.push({ employeeId: emp._id, message: 'Already paid' }); continue; }
 
         const basicSalary = emp.basicSalary;
         const allowances = emp.allowances || 0;
+        
+        // Auto-calculate Loan Deduction
+        const activeLoans = await Loan.find({ employee: emp._id, status: 'active', deductionType: 'salary' });
+        const loanDeduction = activeLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0);
+        const deductedLoans = activeLoans.map(l => l._id);
+
+        // Auto-calculate Overtime
         const otRows = await Overtime.find({ employee: emp._id, month, year });
         const overtime = otRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+        const otHours = otRows.reduce((sum, row) => sum + Number(row.hours || 0), 0);
+
         const { autoCommission } = await computeAutoCommission(emp._id, month, year);
         const grossSalary = basicSalary + allowances + overtime + autoCommission;
-        const epfEmployee = Math.round(basicSalary * EPF_EMPLOYEE);
-        const epfEmployer = Math.round(basicSalary * EPF_EMPLOYER);
-        const etfEmployer = Math.round(basicSalary * ETF_EMPLOYER);
-        const netSalary = grossSalary - epfEmployee;
+        
+        const epfEmployee = emp.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYEE) : 0;
+        const epfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYER) : 0;
+        const etfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * ETF_EMPLOYER) : 0;
+        
+        const totalDeductions = loanDeduction + epfEmployee;
+        const netSalary = grossSalary - totalDeductions;
 
-        const payroll = await Payroll.create({
+        const payload = {
           employee: emp._id, month, year,
-          basicSalary, allowances, overtime, commissions: autoCommission, grossSalary, netSalary,
+          basicSalary, allowances, 
+          otHours, overtime, 
+          commissions: autoCommission, 
+          loanDeduction, deductedLoans,
           epfEmployee, epfEmployer, etfEmployer,
+          grossSalary, totalDeductions, netSalary,
           generatedBy: req.user._id,
-        });
+          status: 'draft',
+        };
+
+        let payroll;
+        if (exists) {
+          payroll = await Payroll.findByIdAndUpdate(exists._id, payload, { new: true });
+        } else {
+          payroll = await Payroll.create(payload);
+        }
         results.push(payroll);
       } catch (e) {
         errors.push({ employeeId: emp._id, message: e.message });
       }
     }
+    
+    await createAuditLog({
+      user: req.user, action: 'create', module: 'payroll',
+      description: `Generated payroll batch for ${results.length} employees (${month}/${year})`,
+    });
     res.status(201).json({ success: true, generated: results.length, errors, results });
   } catch (err) { next(err); }
 };
@@ -177,6 +256,7 @@ exports.getPayrolls = async (req, res, next) => {
 
     const payrolls = await Payroll.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
+      .populate('deductedLoans')
       .sort({ year: -1, month: -1 });
     res.json({ success: true, count: payrolls.length, payrolls });
   } catch (err) { next(err); }
@@ -188,7 +268,7 @@ exports.getMyPayrolls = async (req, res, next) => {
   try {
     const employee = await Employee.findOne({ userId: req.user._id });
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    const payrolls = await Payroll.find({ employee: employee._id }).sort({ year: -1, month: -1 });
+    const payrolls = await Payroll.find({ employee: employee._id }).populate('deductedLoans').sort({ year: -1, month: -1 });
     res.json({ success: true, payrolls });
   } catch (err) { next(err); }
 };
@@ -275,9 +355,10 @@ exports.updatePayroll = async (req, res, next) => {
       + Number(commissions ?? existing.commissions ?? 0)
       + addOthers;
 
-    const epfEmployee = Math.round(basic * EPF_EMPLOYEE);
-    const epfEmployer = Math.round(basic * EPF_EMPLOYER);
-    const etfEmployer = Math.round(basic * ETF_EMPLOYER);
+    const employee = await Employee.findById(existing.employee);
+    const epfEmployee = employee?.epfEtfEnrolled ? Math.round(basic * EPF_EMPLOYEE) : 0;
+    const epfEmployer = employee?.epfEtfEnrolled ? Math.round(basic * EPF_EMPLOYER) : 0;
+    const etfEmployer = employee?.epfEtfEnrolled ? Math.round(basic * ETF_EMPLOYER) : 0;
 
     const totalDeductions = epfEmployee
       + Number(advanceDeduction ?? existing.advanceDeduction ?? 0)
@@ -312,10 +393,9 @@ exports.updatePayroll = async (req, res, next) => {
 };
 
 // @desc    Mark payroll as paid
-// @route   PUT /api/payroll/:id/pay
 exports.markPaid = async (req, res, next) => {
   try {
-    const payroll = await Payroll.findByIdAndUpdate(req.params.id, { status: 'paid', paidAt: new Date() }, { new: true })
+    const payroll = await Payroll.findByIdAndUpdate(req.params.id, { status: 'paid', paidAt: new Date(), bankAccount: req.body.bankAccount || undefined, paymentMethod: req.body.paymentMethod || undefined }, { new: true })
       .populate({ path: 'employee', populate: { path: 'userId', select: '_id name email' } });
     if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
 
@@ -327,45 +407,154 @@ exports.markPaid = async (req, res, next) => {
       link: '/developer/payslips',
     });
 
+    // Sync with EpfRecord
+    await EpfRecord.findOneAndUpdate(
+      { employee: payroll.employee?._id, month: payroll.month, year: payroll.year },
+      { isPaid: true, paidAt: new Date(), paidBy: req.user._id }
+    );
+
+    // Sync with Loan Payments
+    if (payroll.loanDeduction > 0 && payroll.deductedLoans?.length > 0) {
+      for (const loanId of payroll.deductedLoans) {
+        const loan = await Loan.findById(loanId);
+        if (loan && loan.status === 'active') {
+          const installment = loan.monthlyInstallment || 0;
+          loan.payments.push({
+            amount: installment,
+            date: new Date(),
+            payrollId: payroll._id,
+            note: `Auto-deducted from ${MONTHS[payroll.month - 1]} payroll`,
+            method: 'salary_deduction'
+          });
+          loan.totalPaid = (loan.totalPaid || 0) + installment;
+          loan.installmentsPaid = (loan.installmentsPaid || 0) + 1;
+          loan.outstandingBalance = Math.max(0, loan.totalAmount - loan.totalPaid);
+          if (loan.outstandingBalance === 0) loan.status = 'cleared';
+          await loan.save();
+          
+          // Also update employee's total loan balance
+          await Employee.findByIdAndUpdate(payroll.employee._id, { $inc: { loanBalance: -installment } });
+        }
+      }
+    }
+
+    // Sync with Bank Account
+    if (payroll.bankAccount && ['bank_transfer', 'card_payment', 'online_transfer', 'payhere'].includes(payroll.paymentMethod)) {
+      const BankAccount = require('../models/BankAccount');
+      const account = await BankAccount.findById(payroll.bankAccount);
+      if (account) {
+        account.currentBalance = (account.currentBalance || 0) - (payroll.netSalary || 0);
+        account.transactions.push({
+          type: 'withdrawal',
+          amount: payroll.netSalary || 0,
+          balanceAfter: account.currentBalance,
+          description: `Payroll: ${payroll.employee?.userId?.name} (${payroll.month}/${payroll.year})`,
+          date: new Date(),
+          recordedBy: req.user._id,
+        });
+        await account.save();
+      }
+    }
+    
+    await createAuditLog({
+      user: req.user, action: 'pay', module: 'payroll', entityId: payroll._id, entityName: `Payroll ${payroll.month}/${payroll.year}`,
+      description: `Marked payroll as paid for ${payroll.employee?.userId?.name}`,
+    });
+
     res.json({ success: true, payroll });
   } catch (err) { next(err); }
 };
 
-// @desc    Get EPF/ETF summary
+// @desc    Get EPF/ETF summary — all enrolled employees (with or without payroll)
 // @route   GET /api/payroll/epf-summary
 exports.getEpfSummary = async (req, res, next) => {
   try {
     const { month, year } = req.query;
-    let query = {};
-    if (month) query.month = Number(month);
-    if (year) query.year = Number(year);
 
-    const payrolls = await Payroll.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
+    const enrolledEmployees = await Employee.find({
+      epfEtfEnrolled: true,
+      status: { $nin: ['former', 'terminated', 'intern_ended'] },
+    }).populate('userId', 'name email');
 
-    const summary = payrolls.map(p => ({
-      employeeNo: p.employee?.employeeNo,
-      name: p.employee?.userId?.name,
-      epfNo: p.employee?.epfNumber,
-      basicSalary: p.basicSalary,
-      epfEmployee: p.epfEmployee,
-      epfEmployer: p.epfEmployer,
-      totalEPF: p.epfEmployee + p.epfEmployer,
-      etfEmployer: p.etfEmployer,
-      month: p.month,
-      year: p.year,
-    }));
+    const enrolledIds = enrolledEmployees.map(e => e._id);
+    const payrollQuery = { employee: { $in: enrolledIds } };
+    if (month) payrollQuery.month = Number(month);
+    if (year)  payrollQuery.year  = Number(year);
+
+    const payrolls = await Payroll.find(payrollQuery);
+    const payrollMap = {};
+    payrolls.forEach(p => { payrollMap[String(p.employee)] = p; });
+
+    const summary = enrolledEmployees.map(emp => {
+      const p           = payrollMap[String(emp._id)];
+      const basicSalary = p ? p.basicSalary : (emp.basicSalary || 0);
+      const epfEmployee = p ? p.epfEmployee : Math.round(basicSalary * EPF_EMPLOYEE);
+      const epfEmployer = p ? p.epfEmployer : Math.round(basicSalary * EPF_EMPLOYER);
+      const etfEmployer = p ? p.etfEmployer : Math.round(basicSalary * ETF_EMPLOYER);
+      return {
+        employeeId: String(emp._id),
+        payrollId:  p?._id ? String(p._id) : null,
+        employeeNo: emp.employeeNo,
+        name:       emp.userId?.name,
+        epfNo:      emp.epfNumber,
+        etfNo:      emp.etfNumber,
+        basicSalary,
+        epfEmployee,
+        epfEmployer,
+        totalEPF:   epfEmployee + epfEmployer,
+        etfEmployer,
+        isPaid:     p?.status === 'paid',
+        paidAt:     p?.paidAt || null,
+        hasPayroll: !!p,
+      };
+    });
 
     const totals = {
       epfEmployee: summary.reduce((a, b) => a + b.epfEmployee, 0),
       epfEmployer: summary.reduce((a, b) => a + b.epfEmployer, 0),
-      totalEPF: summary.reduce((a, b) => a + b.totalEPF, 0),
+      totalEPF:    summary.reduce((a, b) => a + b.totalEPF,    0),
       etfEmployer: summary.reduce((a, b) => a + b.etfEmployer, 0),
     };
 
     res.json({ success: true, summary, totals });
   } catch (err) { next(err); }
 };
+
+// @desc    Edit EPF/ETF amounts on an existing payroll record
+// @route   PUT /api/payroll/:id/epf
+exports.updateEpfRecord = async (req, res, next) => {
+  try {
+    const existing = await Payroll.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Record not found' });
+    const epfEmployee = req.body.epfEmployee ?? existing.epfEmployee;
+    const epfEmployer = req.body.epfEmployer ?? existing.epfEmployer;
+    const etfEmployer = req.body.etfEmployer ?? existing.etfEmployer;
+    const newNet = existing.netSalary - (epfEmployee - existing.epfEmployee);
+    const updated = await Payroll.findByIdAndUpdate(
+      req.params.id,
+      { epfEmployee, epfEmployer, etfEmployer, netSalary: newNet },
+      { new: true }
+    );
+    res.json({ success: true, payroll: updated });
+  } catch (err) { next(err); }
+};
+
+// @desc    Delete a payroll / EPF record
+// @route   DELETE /api/payroll/:id
+exports.deletePayroll = async (req, res, next) => {
+  try {
+    const rec = await Payroll.findByIdAndDelete(req.params.id);
+    if (!rec) return res.status(404).json({ success: false, message: 'Record not found' });
+    
+    await createAuditLog({
+      user: req.user, action: 'delete', module: 'payroll', entityId: rec._id, entityName: `Payroll deleted`,
+      description: `Deleted payroll record ${rec._id} (${rec.month}/${rec.year})`,
+    });
+    res.json({ success: true, message: 'Record deleted' });
+  } catch (err) { next(err); }
+};
+
+
 
 // @desc    Add overtime for selected employee/month
 // @route   POST /api/payroll/overtime

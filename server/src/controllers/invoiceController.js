@@ -174,12 +174,33 @@ exports.recordPayment = async (req, res, next) => {
     if (invoice.remainingBalance <= 0) return res.status(400).json({ success: false, message: 'Invoice already fully paid' });
 
     const payAmt = Math.min(Number(amount), invoice.remainingBalance);
+    const bankAccount = req.body.bankAccount;
+    
     invoice.payments.push({
       amount: payAmt, date: date || new Date(),
-      method: method || 'cash', reference, notes,
+      method: method || 'cash', reference, notes, bankAccount,
       recordedBy: req.user._id, isAdvance: false,
     });
     await invoice.save(); // triggers pre-save for totals + status
+
+    // Sync with Bank Account
+    if (bankAccount && ['bank_transfer', 'card', 'online_transfer', 'payhere'].includes(method)) {
+      const BankAccount = require('../models/BankAccount');
+      const account = await BankAccount.findById(bankAccount);
+      if (account) {
+        account.currentBalance = (account.currentBalance || 0) + payAmt;
+        account.transactions.push({
+          type: 'deposit',
+          amount: payAmt,
+          balanceAfter: account.currentBalance,
+          description: `Invoice Payment: ${invoice.invoiceNo}`,
+          date: date || new Date(),
+          reference,
+          recordedBy: req.user._id,
+        });
+        await account.save();
+      }
+    }
 
     // Notify client
     await createNotification({
@@ -194,6 +215,51 @@ exports.recordPayment = async (req, res, next) => {
 
     if (invoice.status === 'paid') {
       await awardPoints({ userId: invoice.client, action: 'complete_invoice_payment', sourceKey: `inv-paid:${invoice._id}`, note: 'Invoice paid' });
+
+      // ── Auto-trigger: Update linked project & unlock employee commissions ──
+      if (invoice.project) {
+        const project = await Project.findById(invoice.project).populate('salaryAllocations.employee');
+        if (project) {
+          // Mark project as paid & completed
+          project.status = 'paid_completed';
+          project.completedAt = project.completedAt || new Date();
+          // Mark all salary allocations as paid
+          project.salaryAllocations = project.salaryAllocations.map(a => ({ ...a.toObject(), paid: true }));
+          await project.save();
+
+          // Auto-generate commission payroll entries for each employee with a commission
+          const Payroll = require('../models/Payroll');
+          const now = new Date();
+          const month = now.getMonth() + 1;
+          const year = now.getFullYear();
+
+          for (const alloc of project.salaryAllocations) {
+            if (!alloc.commission || alloc.commission <= 0) continue;
+            try {
+              // Find or update existing payroll record for this month
+              const existing = await Payroll.findOne({ employee: alloc.employee, month, year });
+              if (existing) {
+                existing.commissions = (existing.commissions || 0) + alloc.commission;
+                existing.grossSalary = (existing.grossSalary || 0) + alloc.commission;
+                existing.netSalary = (existing.netSalary || 0) + alloc.commission;
+                if (existing.status !== 'paid') await existing.save();
+              }
+              // Notify employee
+              const Employee = require('../models/Employee');
+              const emp = await Employee.findById(alloc.employee).populate('userId', 'name _id');
+              if (emp?.userId?._id) {
+                await createNotification({
+                  recipient: emp.userId._id,
+                  title: '💰 Commission Unlocked',
+                  message: `Your commission of LKR ${alloc.commission.toLocaleString()} from project "${project.title}" has been approved. Invoice fully paid.`,
+                  type: 'payroll',
+                  link: '/developer/payslips',
+                });
+              }
+            } catch (_) { /* don't fail main invoice save */ }
+          }
+        }
+      }
     }
 
     const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);

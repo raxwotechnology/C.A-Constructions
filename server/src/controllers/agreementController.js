@@ -1,4 +1,5 @@
 const Agreement = require('../models/Agreement');
+const AgreementTemplate = require('../models/AgreementTemplate');
 const Project = require('../models/Project');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
@@ -9,12 +10,59 @@ const POPULATE = [
   { path: 'invoice', select: 'invoiceNo total remainingBalance' },
   { path: 'subscription', select: 'name plan' },
   { path: 'createdBy', select: 'name' },
+  { path: 'approvedBy', select: 'name' },
 ];
+
+function mergeSignatures(prev = {}, incoming = {}) {
+  if (!incoming || typeof incoming !== 'object') return prev;
+  const p = prev && typeof prev.toObject === 'function' ? prev.toObject() : { ...prev };
+  return {
+    provider: { ...p.provider, ...incoming.provider },
+    client: { ...p.client, ...incoming.client },
+    witness: { ...p.witness, ...incoming.witness },
+  };
+}
+
+// ── GET /api/agreements/templates ─────────────────────────────────────────────
+exports.getAgreementTemplates = async (req, res, next) => {
+  try {
+    const templates = await AgreementTemplate.find()
+      .sort({ updatedAt: -1 })
+      .limit(100)
+      .populate('createdBy', 'name');
+    res.json({ success: true, templates });
+  } catch (err) { next(err); }
+};
+
+// ── POST /api/agreements/templates ────────────────────────────────────────────
+exports.createAgreementTemplate = async (req, res, next) => {
+  try {
+    const { name, content, agreementType } = req.body;
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: 'Template name is required' });
+    }
+    const template = await AgreementTemplate.create({
+      name: name.trim(),
+      content: content || '',
+      agreementType: agreementType || 'custom',
+      createdBy: req.user._id,
+    });
+    res.status(201).json({ success: true, template });
+  } catch (err) { next(err); }
+};
+
+// ── DELETE /api/agreements/templates/:templateId ──────────────────────────────
+exports.deleteAgreementTemplate = async (req, res, next) => {
+  try {
+    await AgreementTemplate.findByIdAndDelete(req.params.templateId);
+    res.json({ success: true, message: 'Template removed' });
+  } catch (err) { next(err); }
+};
 
 // ── GET /api/agreements ────────────────────────────────────────────────────────
 exports.getAgreements = async (req, res, next) => {
   try {
-    const { client, project, invoice, subscription, status, type } = req.query;
+    const { client, project, invoice, subscription, status, type, approvalStatus } = req.query;
     const query = {};
     if (client) query.client = client;
     if (project) query.project = project;
@@ -22,9 +70,11 @@ exports.getAgreements = async (req, res, next) => {
     if (subscription) query.subscription = subscription;
     if (status) query.status = status;
     if (type) query.agreementType = type;
+    if (approvalStatus) query.approvalStatus = approvalStatus;
 
     const agreements = await Agreement.find(query)
       .populate(POPULATE)
+      .populate({ path: 'history.user', select: 'name' })
       .sort({ createdAt: -1 });
     res.json({ success: true, count: agreements.length, agreements });
   } catch (err) { next(err); }
@@ -33,36 +83,46 @@ exports.getAgreements = async (req, res, next) => {
 // ── GET /api/agreements/:id ────────────────────────────────────────────────────
 exports.getAgreement = async (req, res, next) => {
   try {
-    const agreement = await Agreement.findById(req.params.id).populate(POPULATE);
+    const agreement = await Agreement.findById(req.params.id)
+      .populate(POPULATE)
+      .populate({ path: 'history.user', select: 'name' });
     if (!agreement) return res.status(404).json({ success: false, message: 'Agreement not found' });
     res.json({ success: true, agreement });
   } catch (err) { next(err); }
 };
 
 // ── POST /api/agreements ───────────────────────────────────────────────────────
-// Generates agreement content from template tokens
 exports.createAgreement = async (req, res, next) => {
   try {
-    const { agreementType, title, client, project, invoice, subscription, content, status } = req.body;
+    const {
+      agreementType, title, client, project, invoice, subscription, content, status,
+      signatures, approvalStatus, agreementDate,
+    } = req.body;
 
-    // Auto-populate template tokens if content not provided
     let finalContent = content || '';
     if (!finalContent) {
       finalContent = await buildTemplateContent(agreementType, { client, project, invoice, subscription });
     }
 
     const agreement = await Agreement.create({
-      agreementType, title, 
-      client: client || undefined, 
-      project: project || undefined, 
-      invoice: invoice || undefined, 
+      agreementType,
+      title,
+      client: client || undefined,
+      project: project || undefined,
+      invoice: invoice || undefined,
       subscription: subscription || undefined,
       content: finalContent,
       status: status || 'draft',
+      signatures: signatures || undefined,
+      approvalStatus: approvalStatus || 'none',
+      agreementDate: agreementDate ? new Date(agreementDate) : undefined,
       createdBy: req.user._id,
+      history: [{ action: 'created', detail: title || 'Agreement', user: req.user._id }],
     });
 
-    const populated = await Agreement.findById(agreement._id).populate(POPULATE);
+    const populated = await Agreement.findById(agreement._id)
+      .populate(POPULATE)
+      .populate({ path: 'history.user', select: 'name' });
     res.status(201).json({ success: true, agreement: populated });
   } catch (err) { next(err); }
 };
@@ -70,18 +130,58 @@ exports.createAgreement = async (req, res, next) => {
 // ── PUT /api/agreements/:id ────────────────────────────────────────────────────
 exports.updateAgreement = async (req, res, next) => {
   try {
+    const prev = await Agreement.findById(req.params.id);
+    if (!prev) return res.status(404).json({ success: false, message: 'Agreement not found' });
+
     const updates = { ...req.body };
+    delete updates.history;
+    delete updates.agreementNo;
+    delete updates.createdBy;
+
     if (!updates.client) updates.client = undefined;
     if (!updates.project) updates.project = undefined;
     if (!updates.invoice) updates.invoice = undefined;
     if (!updates.subscription) updates.subscription = undefined;
-    
+
     if (updates.status === 'finalised' && !updates.finalisedAt) updates.finalisedAt = new Date();
     if (updates.status === 'signed' && !updates.signedAt) updates.signedAt = new Date();
 
-    const agreement = await Agreement.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
-      .populate(POPULATE);
-    if (!agreement) return res.status(404).json({ success: false, message: 'Agreement not found' });
+    if (updates.approvalStatus !== undefined) {
+      if (updates.approvalStatus === 'approved') {
+        updates.approvedBy = req.user._id;
+        updates.approvedAt = new Date();
+      } else {
+        updates.approvedBy = undefined;
+        updates.approvedAt = undefined;
+      }
+    }
+
+    if (updates.signatures) {
+      updates.signatures = mergeSignatures(prev.signatures, updates.signatures);
+    }
+
+    const details = [];
+    if (updates.content !== undefined && updates.content !== prev.content) details.push('document body updated');
+    if (updates.status !== undefined && updates.status !== prev.status) details.push(`status ${prev.status} → ${updates.status}`);
+    if (updates.approvalStatus !== undefined && updates.approvalStatus !== prev.approvalStatus) {
+      details.push(`approval ${prev.approvalStatus} → ${updates.approvalStatus}`);
+    }
+    if (updates.signatures) {
+      details.push('signatures updated');
+    }
+    if (updates.title !== undefined && updates.title !== prev.title) details.push('title changed');
+
+    const historyEntry = details.length
+      ? { action: 'updated', detail: details.join('; '), user: req.user._id }
+      : null;
+
+    const updateOp = historyEntry
+      ? { $set: updates, $push: { history: historyEntry } }
+      : { $set: updates };
+
+    const agreement = await Agreement.findByIdAndUpdate(req.params.id, updateOp, { new: true, runValidators: true })
+      .populate(POPULATE)
+      .populate({ path: 'history.user', select: 'name' });
     res.json({ success: true, agreement });
   } catch (err) { next(err); }
 };
@@ -95,7 +195,6 @@ exports.deleteAgreement = async (req, res, next) => {
 };
 
 // ── POST /api/agreements/generate-preview ─────────────────────────────────────
-// Returns auto-filled content without saving
 exports.generatePreview = async (req, res, next) => {
   try {
     const { agreementType, client, project, invoice, subscription, agreementDate } = req.body;
@@ -104,17 +203,69 @@ exports.generatePreview = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+function buildCustomAgreementShell(companyName, companyAddress, companyPhone, companyEmail, clientName, today) {
+  const addrLine = [companyAddress, companyPhone, companyEmail].filter(Boolean).join(' · ');
+  return `
+<h2 style="text-transform:uppercase;letter-spacing:0.06em;font-size:1.1rem;">Custom Agreement</h2>
+<p style="font-size:0.95rem;line-height:1.65;">This agreement is made on <strong>${today}</strong> between <strong>${companyName}</strong>${addrLine ? ` (${addrLine})` : ''}, hereinafter the <em>Company</em>, and <strong>${clientName}</strong>, hereinafter the <em>Counterparty</em>.</p>
+
+<h3>1. Purpose</h3>
+<p>Describe the commercial or legal purpose of this agreement.</p>
+
+<h3>2. Terms &amp; Conditions</h3>
+<p>Set out payment terms, deliverables, timelines, and responsibilities.</p>
+
+<h3>3. Confidentiality</h3>
+<p>Both parties agree to protect confidential information disclosed in connection with this agreement.</p>
+
+<h3>4. Term &amp; Termination</h3>
+<p>Specify duration, notice periods, and consequences of termination.</p>
+
+<h3>5. Dispute Resolution</h3>
+<p>Parties agree to seek good-faith resolution; governing law: Sri Lanka unless otherwise agreed in writing.</p>
+
+<h3>6. Execution</h3>
+<p>This agreement may be executed in counterparts. Electronic signatures shall be treated as originals where permitted by law.</p>
+
+<h3>7. Witness / Approval (optional)</h3>
+<p>Name and capacity of witness or internal approver, if required by your organisation.</p>
+<p>Witness name: ___________________________ &nbsp; Signature: ___________________________ &nbsp; Date: __________</p>
+
+<hr style="border:none;border-top:1px solid #e2e8f0;margin:2rem 0;"/>
+<p style="font-size:0.85rem;color:#64748b;"><strong>Signature blocks</strong></p>
+<table style="width:100%;border-collapse:collapse;margin-top:0.5rem;font-size:0.9rem;">
+  <tr>
+    <td style="width:48%;vertical-align:top;padding:12px;border:1px solid #e2e8f0;">
+      <p style="margin:0 0 8px;font-weight:600;">${companyName}</p>
+      <p style="margin:0 0 32px;">Authorised signatory</p>
+      <p style="margin:0;">Name: ___________________________</p>
+      <p style="margin:8px 0 0;">Date: ___________________________</p>
+    </td>
+    <td style="width:4%;"></td>
+    <td style="width:48%;vertical-align:top;padding:12px;border:1px solid #e2e8f0;">
+      <p style="margin:0 0 8px;font-weight:600;">${clientName}</p>
+      <p style="margin:0 0 32px;">Authorised signatory</p>
+      <p style="margin:0;">Name: ___________________________</p>
+      <p style="margin:8px 0 0;">Date: ___________________________</p>
+    </td>
+  </tr>
+</table>
+  `.trim();
+}
+
 // ── Template builder ──────────────────────────────────────────────────────────
 async function buildTemplateContent(type, { client, project, invoice, subscription, agreementDate }) {
   const siteSettings = await require('../models/SiteSetting').findOne().catch(() => null);
   const companyName = siteSettings?.siteName || 'Raxwo Technology';
-  const companyAddress = siteSettings?.address || '';
-  const companyPhone = siteSettings?.phone || '';
-  const companyEmail = siteSettings?.email || '';
-  
-  const today = agreementDate ? new Date(agreementDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' });
+  const companyAddress = siteSettings?.contactAddress || '';
+  const companyPhone = siteSettings?.contactPhone || '';
+  const companyEmail = siteSettings?.contactEmail || '';
 
-  let clientDoc = null, projectDoc = null, invoiceDoc = null;
+  const today = agreementDate
+    ? new Date(agreementDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date().toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  let clientDoc = null; let projectDoc = null; let invoiceDoc = null;
   if (client) clientDoc = await User.findById(client).select('name email phone');
   if (project) projectDoc = await Project.findById(project).populate('client', 'name').select('title serviceType budget description startDate deadline');
   if (invoice) invoiceDoc = await Invoice.findById(invoice).populate('client', 'name').select('invoiceNo total remainingBalance dueDate');
@@ -123,11 +274,13 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
   const clientEmail = clientDoc?.email || '{{CLIENT_EMAIL}}';
   const clientPhone = clientDoc?.phone || '{{CLIENT_PHONE}}';
 
+  const companyLine = `${companyName}${companyAddress ? `, ${companyAddress}` : ''}`;
+
   const templates = {
     client_project: `
 <h2>PROJECT AGREEMENT</h2>
 <p>This Project Agreement ("Agreement") is entered into as of <strong>${today}</strong> between:</p>
-<p><strong>${companyName}</strong>${companyAddress ? `, ${companyAddress}` : ''} ("Service Provider")</p>
+<p><strong>${companyLine}</strong> ("Service Provider")</p>
 <p>and</p>
 <p><strong>${clientName}</strong>${clientEmail ? `, ${clientEmail}` : ''}${clientPhone ? `, ${clientPhone}` : ''} ("Client")</p>
 
@@ -158,6 +311,9 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
 
 <p>By proceeding with this project, both parties agree to the terms outlined in this Agreement.</p>
 
+<h3>8. Witness (optional)</h3>
+<p>Witness: ___________________________ &nbsp; Date: __________</p>
+
 <p>__________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__________________________</p>
 <p><strong>${companyName}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>${clientName}</strong></p>
 <p>Service Provider&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Client</p>
@@ -167,7 +323,7 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
     subscription_service: `
 <h2>SUBSCRIPTION SERVICE AGREEMENT</h2>
 <p>This Subscription Service Agreement ("Agreement") is entered into as of <strong>${today}</strong> between:</p>
-<p><strong>${companyName}</strong> ("Service Provider") and <strong>${clientName}</strong> ("Subscriber")</p>
+<p><strong>${companyLine}</strong> ("Service Provider") and <strong>${clientName}</strong> ("Subscriber")</p>
 
 <h3>1. Service Details</h3>
 <p>The Service Provider agrees to provide the subscribed services as outlined in the subscription plan selected by the Subscriber.</p>
@@ -183,6 +339,9 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
 
 <h3>5. Termination</h3>
 <p>Either party may terminate this agreement with 30 days written notice. No refunds for partial periods.</p>
+
+<h3>6. Witness (optional)</h3>
+<p>Witness: ___________________________ &nbsp; Date: __________</p>
 
 <p>__________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__________________________</p>
 <p><strong>${companyName}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>${clientName}</strong></p>
@@ -205,6 +364,9 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
 <h3>Late Payment</h3>
 <p>Late payments may incur charges at the discretion of the Service Provider.</p>
 
+<h3>Witness (optional)</h3>
+<p>Witness: ___________________________ &nbsp; Date: __________</p>
+
 <p>__________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__________________________</p>
 <p><strong>${companyName}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>${clientName}</strong></p>
 <p>Date: ${today}</p>
@@ -214,10 +376,16 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
 <h2>GENERAL AGREEMENT</h2>
 <p>This Agreement is entered into as of <strong>${today}</strong> between <strong>${companyName}</strong> and <strong>${clientName}</strong>.</p>
 <p>[Enter agreement details here]</p>
+
+<h3>Witness (optional)</h3>
+<p>Witness: ___________________________ &nbsp; Date: __________</p>
+
 <p>__________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__________________________</p>
 <p><strong>${companyName}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>${clientName}</strong></p>
 <p>Date: ${today}</p>
     `.trim(),
+
+    custom: buildCustomAgreementShell(companyName, companyAddress, companyPhone, companyEmail, clientName, today),
   };
 
   return templates[type] || templates.general;

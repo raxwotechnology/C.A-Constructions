@@ -17,6 +17,7 @@ const attendanceSchema = new mongoose.Schema({
   }],
   totalWorkedHours: { type: Number, default: 0 },
   otHours: { type: Number, default: 0 },
+  otAmount: { type: Number, default: 0 },
   isHalfDay: { type: Boolean, default: false },
   isFullDay: { type: Boolean, default: true },
   notes: String,

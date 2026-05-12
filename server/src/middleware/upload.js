@@ -5,7 +5,7 @@ const fs = require('fs');
 // Local storage for CVs
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads/cvs');
+    const dir = path.resolve(process.cwd(), 'uploads/cvs');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -42,7 +42,7 @@ exports.uploadImage = multer({
 // Local image upload for profile/site/portfolio/services
 const imageDiskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads/images');
+    const dir = path.resolve(process.cwd(), 'uploads/images');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -64,7 +64,7 @@ exports.uploadImageLocal = multer({
 // ── Agreement upload (PDF, DOC, DOCX, images) ──────────
 const agreementStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads/agreements');
+    const dir = path.resolve(process.cwd(), 'uploads/agreements');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -88,7 +88,7 @@ exports.uploadAgreement = multer({
 // ── Bill / Receipt upload (PDF, images) ─────────────────
 const billStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads/bills');
+    const dir = path.resolve(process.cwd(), 'uploads/bills');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -111,7 +111,7 @@ exports.uploadBill = multer({
 // ── Generic document upload (PDF + images, 5MB) ─────────
 const docStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads/documents');
+    const dir = path.resolve(process.cwd(), 'uploads/documents');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },

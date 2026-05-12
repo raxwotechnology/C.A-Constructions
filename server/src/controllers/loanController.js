@@ -1,6 +1,7 @@
 const Loan = require('../models/Loan');
 const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
+const { createAuditLog } = require('./auditController');
 
 // GET /api/loans
 exports.getLoans = async (req, res, next) => {
@@ -67,29 +68,42 @@ exports.getEmployeeLoanSummary = async (req, res, next) => {
 // POST /api/loans
 exports.createLoan = async (req, res, next) => {
   try {
-    const { employeeId, totalAmount, monthlyInstallment, startDate, reason, deductionType, taxRate } = req.body;
-    const total = Number(totalAmount);
-    const monthly = Number(monthlyInstallment);
-    const totalInstallments = monthly > 0 ? Math.ceil(total / monthly) : 0;
-    const taxAmt = total * (Number(taxRate || 0) / 100);
+    const { employeeId, totalAmount, monthlyInstallment, startDate, reason, deductionType, taxRate, repaymentMonths } = req.body;
+    const principal = Number(totalAmount);
+    const months    = Number(repaymentMonths || 0);
+    const rate      = Number(taxRate || 0);
+    
+    // Interest calculation: Simple interest on principal
+    const interestAmt = Math.round(principal * (rate / 100));
+    const finalTotal  = principal + interestAmt;
+    
+    let finalMonthly = Number(monthlyInstallment || 0);
+    let finalInstallments = months;
+
+    if (months > 0 && !monthlyInstallment) {
+      finalMonthly = Math.ceil(finalTotal / months);
+    } else if (finalMonthly > 0 && months === 0) {
+      finalInstallments = Math.ceil(finalTotal / finalMonthly);
+    }
 
     const loan = await Loan.create({
       employee: employeeId,
-      totalAmount: total,
-      outstandingBalance: total,
-      monthlyInstallment: monthly,
-      totalInstallments,
+      totalAmount: finalTotal,
+      outstandingBalance: finalTotal,
+      monthlyInstallment: finalMonthly,
+      repaymentMonths: months,
+      totalInstallments: finalInstallments,
       startDate: startDate ? new Date(startDate) : new Date(),
       reason,
       deductionType: deductionType || 'salary',
-      taxRate: Number(taxRate || 0),
-      taxAmount: taxAmt,
+      taxRate: rate,
+      taxAmount: interestAmt,
       recordedBy: req.user._id,
     });
 
     const emp = await Employee.findByIdAndUpdate(
       employeeId,
-      { $inc: { loanBalance: total } },
+      { $inc: { loanBalance: finalTotal } },
       { new: true }
     ).populate('userId', 'name _id');
 
@@ -97,11 +111,16 @@ exports.createLoan = async (req, res, next) => {
       await createNotification({
         recipient: emp.userId._id,
         title: 'Loan Approved & Recorded',
-        message: `A loan of LKR ${total.toLocaleString()} has been recorded. Monthly installment: LKR ${monthly.toLocaleString()} for ${totalInstallments} months. Deduction type: ${deductionType || 'salary'}.`,
+        message: `A loan of LKR ${finalTotal.toLocaleString()} has been recorded. Monthly installment: LKR ${finalMonthly.toLocaleString()} for ${finalInstallments} months. Deduction type: ${deductionType || 'salary'}.`,
         type: 'payroll',
         link: '/developer/payslips',
       });
     }
+
+    await createAuditLog({
+      user: req.user, action: 'create', module: 'loans', entityId: loan._id, entityName: `Loan for employee ${employeeId}`,
+      description: `Recorded a loan of LKR ${finalTotal.toLocaleString()} for employee ${employeeId}`,
+    });
 
     res.status(201).json({ success: true, loan });
   } catch (err) { next(err); }
@@ -114,18 +133,46 @@ exports.updateLoan = async (req, res, next) => {
     if (!loan) return res.status(404).json({ success: false, message: 'Loan not found' });
     if (loan.status === 'cleared') return res.status(400).json({ success: false, message: 'Cannot edit a cleared loan' });
 
-    const { monthlyInstallment, reason, deductionType, taxRate, startDate } = req.body;
-    if (monthlyInstallment !== undefined) loan.monthlyInstallment = Number(monthlyInstallment);
+    const { monthlyInstallment, reason, deductionType, taxRate, startDate, repaymentMonths } = req.body;
+    
     if (reason !== undefined) loan.reason = reason;
     if (deductionType !== undefined) loan.deductionType = deductionType;
-    if (taxRate !== undefined) {
-      loan.taxRate = Number(taxRate);
-      loan.taxAmount = loan.totalAmount * (Number(taxRate) / 100);
-    }
     if (startDate !== undefined) loan.startDate = new Date(startDate);
-    loan.totalInstallments = loan.monthlyInstallment > 0 ? Math.ceil(loan.totalAmount / loan.monthlyInstallment) : 0;
+
+    // If amounts/months change, recalculate
+    const hasTaxChange    = taxRate !== undefined && Number(taxRate) !== loan.taxRate;
+    const hasMonthChange  = repaymentMonths !== undefined;
+    const hasMonthlyChange = monthlyInstallment !== undefined;
+
+    if (hasTaxChange) {
+      // Recalculate interest based on original principal
+      const principal = loan.totalAmount - (loan.taxAmount || 0);
+      loan.taxRate = Number(taxRate);
+      loan.taxAmount = Math.round(principal * (loan.taxRate / 100));
+      
+      const prevTotal = loan.totalAmount;
+      loan.totalAmount = principal + loan.taxAmount;
+      loan.outstandingBalance += (loan.totalAmount - prevTotal);
+    }
+
+    if (hasMonthChange) loan.repaymentMonths = Number(repaymentMonths);
+    if (hasMonthlyChange) loan.monthlyInstallment = Number(monthlyInstallment);
+
+    if (loan.repaymentMonths > 0 && !hasMonthlyChange) {
+      loan.monthlyInstallment = Math.ceil(loan.totalAmount / loan.repaymentMonths);
+      loan.totalInstallments = loan.repaymentMonths;
+    } else if (loan.monthlyInstallment > 0) {
+      loan.totalInstallments = Math.ceil(loan.totalAmount / loan.monthlyInstallment);
+    }
+
     await loan.save();
     await loan.populate({ path: 'employee', populate: { path: 'userId', select: 'name email _id' } });
+    
+    await createAuditLog({
+      user: req.user, action: 'update', module: 'loans', entityId: loan._id, entityName: `Loan updated`,
+      description: `Updated terms for loan ${loan._id}`,
+    });
+
     res.json({ success: true, loan });
   } catch (err) { next(err); }
 };
@@ -139,7 +186,8 @@ exports.recordPayment = async (req, res, next) => {
     if (!loan) return res.status(404).json({ success: false, message: 'Loan not found' });
 
     const payAmt = Number(amount);
-    loan.payments.push({ amount: payAmt, date: date || new Date(), payrollId, note, method: method || 'salary_deduction' });
+    const bankAccount = req.body.bankAccount;
+    loan.payments.push({ amount: payAmt, date: date || new Date(), payrollId, note, method: method || 'salary_deduction', bankAccount });
     loan.totalPaid = (loan.totalPaid || 0) + payAmt;
     loan.installmentsPaid = (loan.installmentsPaid || 0) + 1;
     loan.outstandingBalance = Math.max(0, loan.totalAmount - loan.totalPaid);
@@ -148,6 +196,31 @@ exports.recordPayment = async (req, res, next) => {
     await loan.save();
 
     await Employee.findByIdAndUpdate(loan.employee._id || loan.employee, { $inc: { loanBalance: -payAmt } });
+
+    // Sync with Bank Account
+    if (bankAccount && ['bank_transfer', 'cash'].includes(method)) {
+      // NOTE: For loans, a payment means the employee is paying the company back
+      // Thus, it increases the company's bank balance.
+      const BankAccount = require('../models/BankAccount');
+      const account = await BankAccount.findById(bankAccount);
+      if (account) {
+        account.currentBalance = (account.currentBalance || 0) + payAmt;
+        account.transactions.push({
+          type: 'deposit',
+          amount: payAmt,
+          balanceAfter: account.currentBalance,
+          description: `Loan Repayment: ${loan.employee?.userId?.name || 'Employee'}`,
+          date: date || new Date(),
+          recordedBy: req.user._id,
+        });
+        await account.save();
+      }
+    }
+
+    await createAuditLog({
+      user: req.user, action: 'update', module: 'loans', entityId: loan._id, entityName: `Loan Payment`,
+      description: `Recorded payment of LKR ${payAmt.toLocaleString()} for loan ${loan._id}`,
+    });
 
     // Notify employee
     const recipientId = loan.employee?.userId?._id;
@@ -174,6 +247,10 @@ exports.deleteLoan = async (req, res, next) => {
     if (!loan) return res.status(404).json({ success: false, message: 'Not found' });
     // Reverse outstanding balance from employee
     await Employee.findByIdAndUpdate(loan.employee, { $inc: { loanBalance: -loan.outstandingBalance } });
+    await createAuditLog({
+      user: req.user, action: 'delete', module: 'loans', entityId: loan._id, entityName: `Loan deleted`,
+      description: `Deleted loan ${loan._id} (outstanding was LKR ${loan.outstandingBalance.toLocaleString()})`,
+    });
     await loan.deleteOne();
     res.json({ success: true, message: 'Loan deleted' });
   } catch (err) { next(err); }

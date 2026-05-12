@@ -4,8 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import FilterBar from '../../components/ui/FilterBar'
-import ExportBar from '../../components/ui/ExportBar'
 import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart } from 'react-icons/fi'
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 
@@ -81,7 +79,7 @@ export default function AdminPettyCash() {
   const ttStyle = { borderRadius: '10px', fontSize: '12px', border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="erp-module space-y-5 animate-fade-in">
       <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Petty Cash</h1>
@@ -100,18 +98,19 @@ export default function AdminPettyCash() {
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="kpi-card kpi-green">
-          <p className="text-xs text-slate-500 uppercase font-medium">Total In</p>
-          <p className="text-xl font-bold text-emerald-700">LKR {summary.totalIn.toLocaleString()}</p>
-        </div>
-        <div className="kpi-card kpi-red">
-          <p className="text-xs text-slate-500 uppercase font-medium">Total Out</p>
-          <p className="text-xl font-bold text-red-700">LKR {summary.totalOut.toLocaleString()}</p>
-        </div>
-        <div className={`kpi-card ${summary.currentBalance >= 0 ? 'kpi-blue' : 'kpi-red'}`}>
-          <p className="text-xs text-slate-500 uppercase font-medium">Physical Cash Balance</p>
-          <p className={`text-xl font-bold ${summary.currentBalance >= 0 ? 'text-blue-700' : 'text-red-700'}`}>LKR {summary.currentBalance.toLocaleString()}</p>
-        </div>
+        {[
+          { label:'Funds Added (IN)', value:summary.totalIn, icon:<FiTrendingUp size={18}/>, color:'text-emerald-600', bg:'bg-emerald-50', border:'border-emerald-100' },
+          { label:'Total Spent (OUT)',  value:summary.totalOut, icon:<FiTrendingDown size={18}/>, color:'text-red-600', bg:'bg-red-50', border:'border-red-100' },
+          { label:'Cash Balance',      value:summary.currentBalance, icon:<FiCheck size={18}/>, color:summary.currentBalance>=0?'text-blue-600':'text-red-600', bg:summary.currentBalance>=0?'bg-blue-50':'bg-red-50', border:summary.currentBalance>=0?'border-blue-100':'border-red-100' },
+        ].map(k=>(
+          <motion.div key={k.label} initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} className={`card card-body flex items-center gap-4 border ${k.border}`}>
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${k.bg} ${k.color}`}>{k.icon}</div>
+            <div>
+              <p className="text-xs text-slate-400 uppercase font-semibold tracking-wide">{k.label}</p>
+              <p className={`text-xl font-bold font-heading ${k.color}`}>LKR {Number(k.value).toLocaleString()}</p>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
       {/* Financial Overview Chart */}
@@ -134,30 +133,31 @@ export default function AdminPettyCash() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <FilterBar
-          search={search} onSearchChange={setSearch}
-          startDate={startDate} onStartChange={setStartDate}
-          endDate={endDate} onEndChange={setEndDate}
-          searchPlaceholder="Search description or payee..."
-          extraFilters={
-            <>
-              <select className="form-select py-2 text-sm" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-                <option value="">All Types</option>
-                <option value="in">IN (Fund Top-Up)</option>
-                <option value="out">OUT (Expense)</option>
-              </select>
-              <select className="form-select py-2 text-sm" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
-                <option value="">All Categories</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
-              </select>
-              <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
-                <option value="">All Branches</option>
-                {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-              </select>
-            </>
-          }
-        />
+      <div className="card card-body filter-toolbar">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="col-span-2"><label className="form-label text-xs">Search</label>
+            <input className="form-input text-sm py-2" placeholder="Search description or payee…" value={search} onChange={e=>setSearch(e.target.value)}/>
+          </div>
+          <div><label className="form-label text-xs">From Date</label>
+            <input type="date" className="form-input text-sm py-2" value={startDate} onChange={e=>setStartDate(e.target.value)}/>
+          </div>
+          <div><label className="form-label text-xs">To Date</label>
+            <input type="date" className="form-input text-sm py-2" value={endDate} onChange={e=>setEndDate(e.target.value)}/>
+          </div>
+          <div><label className="form-label text-xs">Type</label>
+            <select className="form-select text-sm py-2" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}>
+              <option value="">All Types</option>
+              <option value="in">IN (Top-Up)</option>
+              <option value="out">OUT (Expense)</option>
+            </select>
+          </div>
+          <div><label className="form-label text-xs">Category</label>
+            <select className="form-select text-sm py-2" value={catFilter} onChange={e=>setCatFilter(e.target.value)}>
+              <option value="">All Categories</option>
+              {CATEGORIES.map(c=><option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Transactions table */}
@@ -183,8 +183,11 @@ export default function AdminPettyCash() {
                 <td className="text-sm text-slate-600">{CAT_LABEL[t.category] || t.category}</td>
                 <td className="font-medium text-slate-800 max-w-[180px] truncate">{t.description}</td>
                 <td className="text-sm text-slate-500">{t.paidTo || '—'}</td>
-                <td className={`text-right font-semibold text-sm ${t.type === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {t.type === 'in' ? '+' : '-'} LKR {Number(t.amount).toLocaleString()}
+                <td className={`amount-cell ${t.type === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <div className="amount-cell-inner">
+                    <span className="amount-cell-sign">{t.type === 'in' ? '+' : '−'}</span>
+                    <span>LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                 </td>
                 <td className="text-xs text-slate-400 capitalize">{t.paymentType?.replace('_',' ')}</td>
                 <td className="text-xs text-slate-400">{t.recordedBy?.name || '—'}</td>

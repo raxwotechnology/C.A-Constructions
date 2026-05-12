@@ -6,7 +6,7 @@ const auditLogSchema = new mongoose.Schema({
   userRole: { type: String, default: 'system' },
   action: {
     type: String,
-    enum: ['create', 'update', 'delete', 'view', 'login', 'logout', 'approve', 'reject', 'export'],
+    enum: ['create', 'update', 'delete', 'view', 'login', 'logout', 'approve', 'reject', 'export', 'pay'],
     required: true
   },
   module: {
@@ -14,7 +14,7 @@ const auditLogSchema = new mongoose.Schema({
     enum: ['employees', 'payroll', 'leaves', 'attendance', 'projects', 'invoices',
            'clients', 'subscriptions', 'recruitment', 'letters', 'financial',
            'services', 'portfolio', 'rewards', 'settings', 'auth', 'quotations',
-           'branches', 'performance', 'analytics', 'exports'],
+           'branches', 'performance', 'analytics', 'exports', 'loans'],
     required: true
   },
   entityId: { type: String, default: '' },

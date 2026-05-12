@@ -25,7 +25,7 @@ const adminNav = [
     { to: '/admin/employees', label: 'Employees', icon: FiUsers },
     { to: '/admin/attendance', label: 'Attendance', icon: FiClipboard },
     { to: '/admin/leaves', label: 'Leave Management', icon: FiCalendar },
-    { to: '/admin/leave-policies', label: 'Leave Policies', icon: FiShield },
+    { to: '/admin/policies', label: 'Policy Management', icon: FiShield },
     { to: '/admin/payroll', label: 'Payroll', icon: FiDollarSign },
     { to: '/admin/epf', label: 'EPF / ETF', icon: FiTrendingUp },
     { to: '/admin/advances', label: 'Advances', icon: FiCreditCard },

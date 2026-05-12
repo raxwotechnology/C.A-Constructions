@@ -29,7 +29,7 @@ exports.markAttendance = async (req, res, next) => {
   try {
     const {
       employeeId, date, status = 'present', checkIn, checkOut, breakTimes = [],
-      isHalfDay = false, isFullDay = true, notes = '',
+      isHalfDay = false, isFullDay = true, otHours = 0, otAmount = 0, notes = '',
     } = req.body;
     const targetDate = date ? new Date(date) : new Date();
     targetDate.setHours(0, 0, 0, 0);
@@ -40,6 +40,8 @@ exports.markAttendance = async (req, res, next) => {
       status,
       isHalfDay: Boolean(isHalfDay),
       isFullDay: Boolean(isFullDay),
+      otHours: Number(otHours),
+      otAmount: Number(otAmount),
       notes,
       markedBy: req.user._id,
       ...(checkIn !== undefined && { checkIn: checkIn ? new Date(checkIn) : null }),

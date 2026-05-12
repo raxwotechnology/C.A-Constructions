@@ -16,13 +16,16 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const printRef = useRef()
 
-  const { register, handleSubmit, reset } = useForm({ defaultValues: { date: new Date().toISOString().split('T')[0] } })
+  const { register, handleSubmit, reset, watch } = useForm({ defaultValues: { date: new Date().toISOString().split('T')[0], method: 'cash' } })
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoice', invoiceId],
     queryFn: () => api.get(`/invoices/${invoiceId}`).then(r => r.data),
     enabled: !!invoiceId,
   })
+
+  const { data: bankData } = useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get('/bank-accounts').then(r => r.data) })
+  const bankAccounts = bankData?.accounts || []
 
   const recordPayMut = useMutation({
     mutationFn: d => api.post(`/invoices/${invoiceId}/payments`, d),
@@ -367,6 +370,15 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                     </select>
                   </div>
                 </div>
+                {['bank_transfer', 'card'].includes(watch('method')) && (
+                  <div>
+                    <label className="form-label">Bank Account</label>
+                    <select {...register('bankAccount')} className="form-select">
+                      <option value="">Select Bank Account...</option>
+                      {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>)}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="form-label">Reference (Optional)</label>
                   <input {...register('reference')} className="form-input" placeholder="Cheque no / Txn ID"/>

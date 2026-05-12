@@ -169,3 +169,16 @@ exports.createClient = async (req, res, next) => {
     res.status(201).json({ success: true, user });
   } catch (err) { next(err); }
 };
+// @desc    Verify password (for sensitive actions like delete)
+// @route   POST /api/auth/verify-password
+exports.verifyPassword = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ success: false, message: 'Password required' });
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ success: false, message: 'Invalid password' });
+    }
+    res.json({ success: true, message: 'Password verified' });
+  } catch (err) { next(err); }
+};

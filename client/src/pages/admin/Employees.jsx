@@ -69,8 +69,12 @@ export default function AdminEmployees() {
   const [profilePhotoFile, setProfilePhotoFile] = useState(null)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null)
   const [viewEmp, setViewEmp] = useState(null)
+  const [deleteId, setDeleteId] = useState(null)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [verifying, setVerifying] = useState(false)
   const { register, handleSubmit, reset, setValue, control } = useForm()
   const watchedType = useWatch({ control, name: 'employmentType', defaultValue: 'permanent' })
+  const watchedEpfEnrolled = useWatch({ control, name: 'epfEtfEnrolled', defaultValue: false })
 
   const [empTypeFilter, setEmpTypeFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -96,14 +100,31 @@ export default function AdminEmployees() {
   })
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => api.put(`/employees/${id}`, data).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries(['employees']); toast.success('Updated'); closeModal() },
-    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => {
+      qc.invalidateQueries(['employees'])
+      qc.invalidateQueries(['epf-records']) // Also refresh EPF page if open
+      toast.success('Updated')
+      closeModal()
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Update failed'),
   })
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/employees/${id}`),
-    onSuccess: () => { qc.invalidateQueries(['employees']); toast.success('Removed') },
+    onSuccess: () => { qc.invalidateQueries(['employees']); toast.success('Removed'); setDeleteId(null); setDeletePassword('') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
+
+  const confirmDelete = async () => {
+    if (!deletePassword) { toast.error('Password required'); return }
+    setVerifying(true)
+    try {
+      await api.post('/auth/verify-password', { password: deletePassword })
+      deleteMut.mutate(deleteId)
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Invalid password')
+    }
+    setVerifying(false)
+  }
 
   const openCreate = () => { reset(); setEditing(null); setCvFile(null); setAgreementFile(null); setNicFile(null); setShowModal(true) }
   const openEdit = emp => {
@@ -111,8 +132,11 @@ export default function AdminEmployees() {
     ;[
       'department', 'designation', 'basicSalary', 'allowances', 'status', 'epfNumber',
       'idType', 'idNumber', 'dob', 'primaryPhone', 'secondaryPhone', 'address',
-      'maxLeavesPerYear', 'portfolioUrl', 'gender', 'employmentType', 'branch'
+      'maxLeavesPerYear', 'portfolioUrl', 'gender', 'employmentType', 'branch',
+      'etfNumber',
     ].forEach(k => setValue(k, emp[k]))
+    setValue('_id', emp._id)
+    setValue('epfEtfEnrolled', emp.epfEtfEnrolled || false)
     setValue('emergencyContactName', emp?.emergencyContact?.name || '')
     setValue('emergencyContactPhone', emp?.emergencyContact?.phone || '')
     setValue('emergencyContactRelationship', emp?.emergencyContact?.relationship || '')
@@ -126,7 +150,8 @@ export default function AdminEmployees() {
       setValue('internship.supervisorName', emp.internship.supervisorName || '')
     }
     setCvFile(null); setAgreementFile(null); setNicFile(null); setNicBackFile(null)
-    setProfilePhotoFile(null); setProfilePhotoPreview(editing?.profilePhoto || null)
+    // Use `emp` directly — setEditing is async so `editing` is still the previous value here
+    setProfilePhotoFile(null); setProfilePhotoPreview(emp?.profilePhoto || null)
     setShowModal(true)
   }
   const closeModal = () => {
@@ -134,12 +159,20 @@ export default function AdminEmployees() {
     setCvFile(null); setAgreementFile(null); setNicFile(null); setNicBackFile(null)
     setProfilePhotoFile(null); setProfilePhotoPreview(null)
   }
-  const uploadFile = async (file, field) => {
+  const uploadFile = async (file) => {
     if (!file) return null
     const fd = new FormData()
     fd.append('file', file)
     const { data } = await api.post('/uploads/file', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     return data?.fileUrl || data?.url || null
+  }
+
+  const uploadImage = async (file) => {
+    if (!file) return null
+    const fd = new FormData()
+    fd.append('image', file)
+    const { data } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return data?.imageUrl || null
   }
 
   const onSubmit = async (d) => {
@@ -149,7 +182,7 @@ export default function AdminEmployees() {
         uploadFile(agreementFile),
         uploadFile(nicFile),
         uploadFile(nicBackFile),
-        uploadFile(profilePhotoFile),
+        uploadImage(profilePhotoFile),   // use image route so it returns a full backend URL
       ])
       const payload = {
         ...d,
@@ -168,7 +201,12 @@ export default function AdminEmployees() {
       delete payload.emergencyContactName
       delete payload.emergencyContactPhone
       delete payload.emergencyContactRelationship
-      return editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
+      const targetId = editing ? d._id : null
+      if (editing && !targetId) {
+        toast.error('Employee ID missing. Please refresh.')
+        return
+      }
+      return editing ? updateMut.mutate({ id: targetId, data: payload }) : createMut.mutate(payload)
     } catch(err) {
       toast.error('File upload failed. Please try again.')
     }
@@ -283,7 +321,7 @@ export default function AdminEmployees() {
                       <FiActivity size={14}/>
                     </button>
                     <button onClick={()=>openEdit(emp)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
-                    <button onClick={()=>{if(window.confirm('Remove this employee? All data is retained.'))deleteMut.mutate(emp._id)}} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
+                    <button onClick={() => setDeleteId(emp._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
                   </div>
                 </td>
               </tr>
@@ -301,6 +339,7 @@ export default function AdminEmployees() {
                 <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
               </div>
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+                <input type="hidden" {...register('_id')} />
                 {!editing && (<>
                   <div className="grid grid-cols-2 gap-4">
                     <div><label className="form-label">Full Name *</label>
@@ -405,7 +444,10 @@ export default function AdminEmployees() {
                 </div>
                 {/* Document Uploads */}
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Uploads</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Uploads</p>
+                    {editing && <p className="text-xs text-blue-500 font-medium">Click any field to view or replace ↑</p>}
+                  </div>
                   <FileUploadField
                     label="CV / Resume (PDF, max 5MB)"
                     accept=".pdf"
@@ -454,8 +496,19 @@ export default function AdminEmployees() {
                     <input {...register('emergencyContactName')} placeholder="Contact person" className="form-input"/></div>
                   <div><label className="form-label">Emergency Contact Phone</label>
                     <input {...register('emergencyContactPhone')} placeholder="+94..." className="form-input"/></div>
-                  <div><label className="form-label">Relationship</label>
-                    <input {...register('emergencyContactRelationship')} placeholder="e.g. Sister" className="form-input"/></div>
+                  <div><label className="form-label">Relation Type</label>
+                    <select {...register('emergencyContactRelationship')} className="form-select">
+                      <option value="">Select...</option>
+                      <option value="Parent">Parent</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Sibling">Sibling</option>
+                      <option value="Child">Child</option>
+                      <option value="Relative">Relative</option>
+                      <option value="Friend">Friend</option>
+                      <option value="Guardian">Guardian</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="form-label">Basic Salary (LKR)</label>
@@ -463,12 +516,36 @@ export default function AdminEmployees() {
                   <div><label className="form-label">Allowances (LKR)</label>
                     <input {...register('allowances',{valueAsNumber:true})} type="number" placeholder="10000" className="form-input"/></div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="form-label">EPF Number</label>
-                    <input {...register('epfNumber')} placeholder="EPF12345" className="form-input"/></div>
-                  <div><label className="form-label">Max Leaves / Year</label>
-                    <input {...register('maxLeavesPerYear',{valueAsNumber:true})} type="number" placeholder="24" className="form-input"/></div>
+                {/* EPF / ETF Enrollment */}
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-800">EPF / ETF Enrollment</p>
+                      <p className="text-xs text-emerald-600">Statutory contributions — Sri Lanka Labour Law</p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" {...register('epfEtfEnrolled')} className="w-4 h-4 accent-emerald-600 cursor-pointer"/>
+                      <span className={`text-sm font-semibold ${watchedEpfEnrolled ? 'text-emerald-700' : 'text-slate-400'}`}>
+                        {watchedEpfEnrolled ? 'Enrolled' : 'Not Enrolled'}
+                      </span>
+                    </label>
+                  </div>
+                  {watchedEpfEnrolled && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="form-label text-xs">EPF Number</label>
+                        <input {...register('epfNumber')} placeholder="EPF12345" className="form-input"/></div>
+                      <div><label className="form-label text-xs">ETF Number</label>
+                        <input {...register('etfNumber')} placeholder="ETF12345" className="form-input"/></div>
+                    </div>
+                  )}
+                  {watchedEpfEnrolled && (
+                    <p className="text-xs text-emerald-600 bg-emerald-100 rounded-lg px-3 py-2">
+                      📊 EPF deducted: 8% (employee) + 12% (employer) · ETF: 3% (employer)
+                    </p>
+                  )}
                 </div>
+                <div><label className="form-label">Max Leaves / Year</label>
+                  <input {...register('maxLeavesPerYear',{valueAsNumber:true})} type="number" placeholder="24" className="form-input"/></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="form-label">Employment Type</label>
@@ -653,6 +730,27 @@ export default function AdminEmployees() {
           onClose={() => setViewEmp(null)}
           onEdit={() => { openEdit(viewEmp); setViewEmp(null) }}
         />
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteId && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiAlertCircle size={24} /></div>
+              <h3 className="font-bold text-lg text-slate-800">Confirm Action</h3>
+              <p className="text-sm text-slate-500">Please enter your administrator password to mark this employee as former.</p>
+            </div>
+            <div>
+              <input type="password" placeholder="Enter password" disabled={verifying} className="form-input" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDelete()} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setDeleteId(null); setDeletePassword('') }} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={confirmDelete} disabled={verifying || !deletePassword} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
+                {verifying || deleteMut.isPending ? <span className="spinner" /> : 'Confirm'}
+              </button>
+            </div>
+          </motion.div>
+        </div>, document.body
       )}
     </div>
   )

@@ -189,10 +189,15 @@ exports.assignLeave = async (req, res, next) => {
 // ─── @route GET /api/leaves ────────────────────────────────────────────────────
 exports.getLeaves = async (req, res, next) => {
   try {
-    const { status, employee, branch } = req.query;
+    const { status, employee, branch, startDate, endDate } = req.query;
     let query = {};
     if (status) query.status = status;
     if (employee) query.employee = employee;
+    if (startDate || endDate) {
+      query.startDate = {};
+      if (startDate) query.startDate.$gte = new Date(startDate);
+      if (endDate)   query.startDate.$lte = new Date(endDate + 'T23:59:59.999Z');
+    }
 
     // Branch filter via employee
     if (branch) {
@@ -221,6 +226,46 @@ exports.getLeaves = async (req, res, next) => {
     }));
 
     res.json({ success: true, count: leaves.length, leaves: enriched });
+  } catch (err) { next(err); }
+};
+
+// ─── @route PUT /api/leaves/:id (admin edit) ──────────────────────────────────
+exports.updateLeave = async (req, res, next) => {
+  try {
+    const { leaveType, startDate, endDate, reason } = req.body;
+    const leave = await Leave.findById(req.params.id);
+    if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
+
+    const start = new Date(startDate || leave.startDate);
+    const end   = new Date(endDate   || leave.endDate);
+    const days  = leaveType === 'half_day' ? 0.5 : Math.max(1, Math.ceil((end - start) / 86400000) + 1);
+
+    leave.leaveType  = leaveType  || leave.leaveType;
+    leave.startDate  = start;
+    leave.endDate    = end;
+    leave.days       = days;
+    leave.reason     = reason ?? leave.reason;
+    await leave.save();
+
+    res.json({ success: true, leave });
+  } catch (err) { next(err); }
+};
+
+// ─── @route DELETE /api/leaves/:id (admin) ────────────────────────────────────
+exports.deleteLeave = async (req, res, next) => {
+  try {
+    const leave = await Leave.findByIdAndDelete(req.params.id);
+    if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
+    res.json({ success: true, message: 'Leave record deleted' });
+  } catch (err) { next(err); }
+};
+
+// ─── @route DELETE /api/leaves/policies/:id ───────────────────────────────────
+exports.deletePolicy = async (req, res, next) => {
+  try {
+    const policy = await LeavePolicy.findByIdAndDelete(req.params.id);
+    if (!policy) return res.status(404).json({ success: false, message: 'Policy not found' });
+    res.json({ success: true, message: 'Policy deleted' });
   } catch (err) { next(err); }
 };
 

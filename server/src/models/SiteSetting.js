@@ -8,6 +8,7 @@ const siteSettingSchema = new mongoose.Schema({
   contactEmail: { type: String, default: '' },
   contactPhone: { type: String, default: '' },
   contactAddress: { type: String, default: 'Weliweriya, Sri Lanka' },
+  websiteUrl: { type: String, default: '' },
   mapLat: { type: Number, default: 7.0289 },
   mapLng: { type: Number, default: 80.0153 },
   mapZoom: { type: Number, default: 13 },

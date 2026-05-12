@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
 import api from '../../lib/api'
-import { FiDownload } from 'react-icons/fi'
+import { FiDownload, FiLayers, FiMapPin } from 'react-icons/fi'
 import toast from 'react-hot-toast'
+import { paymentPillClass, PaymentTypeIcon } from '../../lib/financeDisplay'
 
 const DATASETS = [
   { value: 'financial_overview', label: 'Financial Overview' },
@@ -13,6 +14,10 @@ const DATASETS = [
   { value: 'incomes', label: 'Incomes' },
   { value: 'expenses', label: 'Expenses' },
 ]
+
+function formatLkr(amount) {
+  return Number(amount || 0).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 export default function AdminFinancial() {
   const now = new Date()
@@ -68,7 +73,7 @@ export default function AdminFinancial() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="erp-module space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
           <h1 className="page-title">Financial Dashboard</h1>
@@ -80,7 +85,7 @@ export default function AdminFinancial() {
         </div>
       </div>
 
-      <div className="card card-body grid md:grid-cols-4 gap-3 items-end">
+      <div className="card card-body filter-toolbar grid md:grid-cols-4 gap-3 items-end">
         <div>
           <label className="form-label">From</label>
           <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -201,43 +206,126 @@ export default function AdminFinancial() {
           </div>
         </div>
         <div className="card card-body">
-          <h3 className="font-bold text-primary font-heading mb-4">Recent Income/Expense Entries</h3>
-          <div className="space-y-2">
-            {(details.recentEntries || []).map((e, idx) => (
-              <div key={`${e.title}-${idx}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2">
-                <div>
-                  <p className="text-sm font-medium text-primary">{e.title}</p>
-                  <p className="text-xs text-slate-500">{e.category} • {new Date(e.date).toLocaleDateString()}</p>
-                </div>
-                <span className={`text-sm font-semibold ${e.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
-                  {e.type === 'income' ? '+' : '-'} LKR {Number(e.amount || 0).toLocaleString()}
-                </span>
-              </div>
-            ))}
+          <h3 className="font-bold text-primary font-heading mb-4">Recent income & expense activity</h3>
+          <p className="text-xs text-slate-500 mb-3">Latest entries with payment method and account context.</p>
+          <div className="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+            {(details.recentEntries || []).map((e, idx) => {
+              const pm = e.paymentMethod || 'Cash'
+              return (
+                <article
+                  key={`${e.title}-${idx}`}
+                  className={`finance-tx-shell overflow-hidden ${e.type === 'income' ? 'finance-tx-shell--income' : 'finance-tx-shell--expense'}`}
+                >
+                  <div className="finance-tx-accent" aria-hidden />
+                  <div className="finance-tx-body py-3 sm:py-3.5">
+                    <div className="finance-tx-main min-h-0">
+                      <div className="finance-tx-meta">
+                        <time className="finance-tx-date">{new Date(e.date).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</time>
+                        <span className={`finance-tx-typepill capitalize ${e.type === 'income' ? 'finance-tx-typepill--income' : 'finance-tx-typepill--expense'}`}>{e.type}</span>
+                        <span className={`finance-payment-pill ${paymentPillClass(pm)}`} title="Payment type">
+                          <PaymentTypeIcon method={pm} />
+                          {pm}
+                        </span>
+                      </div>
+                      <p className="finance-tx-title text-sm sm:text-[15px]">{e.title}</p>
+                      <p className="text-[11px] font-medium text-slate-500">{e.category}</p>
+                      <div className="finance-tx-chips mt-1">
+                        {e.bankName ? (
+                          <span className="finance-tx-chip max-w-[200px]">
+                            <FiLayers size={10} className="shrink-0 opacity-70" aria-hidden />
+                            <span className="truncate">{e.bankName}</span>
+                          </span>
+                        ) : null}
+                        {e.branchName ? (
+                          <span className="finance-tx-chip max-w-[160px]">
+                            <FiMapPin size={10} className="shrink-0 opacity-70" aria-hidden />
+                            <span className="truncate">{e.branchName}</span>
+                          </span>
+                        ) : null}
+                      </div>
+                      {e.note ? <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2 leading-snug">{e.note}</p> : null}
+                    </div>
+                    <div className="finance-tx-aside sm:min-w-[7rem] py-0">
+                      <p className={`finance-amount text-sm font-bold ${e.type === 'income' ? 'text-emerald-700' : 'text-red-700'}`}>
+                        {e.type === 'income' ? '+' : '−'} LKR {formatLkr(e.amount)}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
             {(details.recentEntries || []).length === 0 ? <p className="text-sm text-slate-400">No finance entries in this period.</p> : null}
           </div>
         </div>
       </div>
 
       <div className="card card-body">
-        <h3 className="font-bold text-primary font-heading mb-4">Financial Entries</h3>
+        <h3 className="font-bold text-primary font-heading mb-4">Financial entries</h3>
+        <p className="text-xs text-slate-500 mb-3">Ledger view with payment type; amounts use fixed-width digits for alignment.</p>
         <div className="table-container">
-          <table className="table">
+          <table className="table finance-ledger-table">
+            <colgroup>
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '12%' }} />
+            </colgroup>
             <thead>
-              <tr><th>Date</th><th>Type</th><th>Category</th><th>Title</th><th>Amount</th><th>Note</th></tr>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Title</th>
+                <th>Payment</th>
+                <th>Bank / Branch</th>
+                <th className="text-right">Amount (LKR)</th>
+                <th>Note</th>
+              </tr>
             </thead>
             <tbody>
               {entries.map((e) => (
                 <tr key={e._id}>
-                  <td>{new Date(e.date).toLocaleDateString()}</td>
+                  <td className="whitespace-nowrap text-sm">{new Date(e.date).toLocaleDateString()}</td>
                   <td><span className={`badge ${e.type === 'income' ? 'badge-green' : 'badge-red'} capitalize`}>{e.type}</span></td>
-                  <td>{e.category}</td>
-                  <td>{e.title}</td>
-                  <td>LKR {Number(e.amount || 0).toLocaleString()}</td>
-                  <td>{e.note || '—'}</td>
+                  <td className="text-sm">{e.category}</td>
+                  <td className="text-sm font-medium max-w-[1px] truncate" title={e.title}>{e.title}</td>
+                  <td className="align-middle">
+                    <span className={`finance-payment-pill ${paymentPillClass(e.paymentMethod)}`}>
+                      <PaymentTypeIcon method={e.paymentMethod} />
+                      {e.paymentMethod || '—'}
+                    </span>
+                  </td>
+                  <td className="text-xs text-slate-600 align-middle">
+                    {e.bankAccount?.bankName || e.branch?.name ? (
+                      <div className="space-y-1">
+                        {e.bankAccount?.bankName ? (
+                          <div className="flex items-center gap-1 min-w-0">
+                            <FiLayers size={12} className="text-slate-400 shrink-0" aria-hidden />
+                            <span className="truncate">{e.bankAccount.bankName}</span>
+                          </div>
+                        ) : null}
+                        {e.branch?.name ? (
+                          <div className="flex items-center gap-1 min-w-0 text-slate-500">
+                            <FiMapPin size={12} className="text-slate-400 shrink-0" aria-hidden />
+                            <span className="truncate">{e.branch.name}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className={`finance-amount text-sm font-semibold ${e.type === 'income' ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {e.type === 'income' ? '+' : '−'} LKR {formatLkr(e.amount)}
+                  </td>
+                  <td className="text-xs text-slate-500 max-w-[140px] truncate" title={e.note || ''}>{e.note || '—'}</td>
                 </tr>
               ))}
-              {entries.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">No finance entries found for selected month/year.</td></tr> : null}
+              {entries.length === 0 ? <tr><td colSpan={8} className="text-center py-8 text-slate-400">No finance entries found for selected month/year.</td></tr> : null}
             </tbody>
           </table>
         </div>

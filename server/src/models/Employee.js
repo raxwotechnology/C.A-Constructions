@@ -118,6 +118,7 @@ const employeeSchema = new mongoose.Schema({
   accountType: { type: String, enum: ['savings', 'current'], default: 'savings' },
 
   // ── EPF / ETF ───────────────────────────────────────────────────────────────
+  epfEtfEnrolled: { type: Boolean, default: false },
   epfNumber: { type: String, default: '' },
   etfNumber: { type: String, default: '' },
 

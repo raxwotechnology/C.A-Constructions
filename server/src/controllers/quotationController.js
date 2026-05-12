@@ -2,6 +2,21 @@ const Quotation = require('../models/Quotation');
 const Invoice = require('../models/Invoice');
 const { createAuditLog } = require('./auditController');
 
+function quotationAuditSummary(doc) {
+  if (!doc) return null;
+  const items = doc.items || [];
+  return {
+    quotationNo: doc.quotationNo,
+    title: doc.title,
+    status: doc.status,
+    total: doc.total,
+    subtotal: doc.subtotal,
+    itemCount: Array.isArray(items) ? items.length : 0,
+    taxRate: doc.taxRate,
+    serviceType: doc.serviceType,
+  };
+}
+
 // @desc    Get all quotations
 // @route   GET /api/quotations
 exports.getQuotations = async (req, res, next) => {
@@ -43,7 +58,17 @@ exports.getQuotation = async (req, res, next) => {
 exports.createQuotation = async (req, res, next) => {
   try {
     const quotation = await Quotation.create({ ...req.body, generatedBy: req.user._id });
-    await createAuditLog({ user: req.user, action: 'create', module: 'quotations', entityId: quotation._id, entityName: quotation.quotationNo, description: `Quotation ${quotation.quotationNo} created` });
+    await createAuditLog({
+      user: req.user,
+      action: 'create',
+      module: 'quotations',
+      entityId: quotation._id,
+      entityName: quotation.quotationNo,
+      description: `Quotation ${quotation.quotationNo} created`,
+      changes: { before: null, after: quotationAuditSummary(quotation.toObject()) },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
     res.status(201).json({ success: true, quotation });
   } catch (err) { next(err); }
 };
@@ -52,6 +77,9 @@ exports.createQuotation = async (req, res, next) => {
 // @route   PUT /api/quotations/:id
 exports.updateQuotation = async (req, res, next) => {
   try {
+    const prev = await Quotation.findById(req.params.id).lean();
+    if (!prev) return res.status(404).json({ success: false, message: 'Quotation not found' });
+
     const allowed = ['draft', 'sent', 'accepted', 'confirmed', 'rejected', 'expired', 'converted'];
     const updates = { ...req.body };
     if (updates.status && !allowed.includes(updates.status)) {
@@ -59,7 +87,17 @@ exports.updateQuotation = async (req, res, next) => {
     }
     const quotation = await Quotation.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
-    await createAuditLog({ user: req.user, action: 'update', module: 'quotations', entityId: quotation._id, entityName: quotation.quotationNo, description: `Quotation ${quotation.quotationNo} updated to status: ${quotation.status}` });
+    await createAuditLog({
+      user: req.user,
+      action: 'update',
+      module: 'quotations',
+      entityId: quotation._id,
+      entityName: quotation.quotationNo,
+      description: `Quotation ${quotation.quotationNo} updated (status: ${quotation.status})`,
+      changes: { before: quotationAuditSummary(prev), after: quotationAuditSummary(quotation.toObject()) },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
     res.json({ success: true, quotation });
   } catch (err) { next(err); }
 };
@@ -68,13 +106,26 @@ exports.updateQuotation = async (req, res, next) => {
 // @route   PUT /api/quotations/:id/confirm
 exports.confirmQuotation = async (req, res, next) => {
   try {
+    const prev = await Quotation.findById(req.params.id).lean();
+    if (!prev) return res.status(404).json({ success: false, message: 'Quotation not found' });
+
     const quotation = await Quotation.findByIdAndUpdate(
       req.params.id,
       { status: 'confirmed', confirmedAt: new Date(), confirmedBy: req.user._id },
       { new: true }
     ).populate('client', 'name email');
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
-    await createAuditLog({ user: req.user, action: 'approve', module: 'quotations', entityId: quotation._id, entityName: quotation.quotationNo, description: `Quotation ${quotation.quotationNo} confirmed` });
+    await createAuditLog({
+      user: req.user,
+      action: 'approve',
+      module: 'quotations',
+      entityId: quotation._id,
+      entityName: quotation.quotationNo,
+      description: `Quotation ${quotation.quotationNo} confirmed`,
+      changes: { before: quotationAuditSummary(prev), after: quotationAuditSummary(quotation.toObject()) },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
     res.json({ success: true, quotation });
   } catch (err) { next(err); }
 };
@@ -91,12 +142,13 @@ exports.convertToInvoice = async (req, res, next) => {
 
     const { calcItems } = require('./invoiceController').helpers || {};
     // Recalc items
-    const calcedItems = (quotation.items || []).map(item => {
-      const base = Number(item.quantity || 1) * Number(item.unitPrice || 0);
-      const discAmt = base * (Number(item.discount || 0) / 100);
+    const calcedItems = (quotation.items || []).map((item) => {
+      const raw = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
+      const base = Number(raw.quantity || 1) * Number(raw.unitPrice || 0);
+      const discAmt = base * (Number(raw.discount || 0) / 100);
       const afterDisc = base - discAmt;
-      const taxAmt = afterDisc * (Number(item.tax || 0) / 100);
-      return { ...item.toObject(), total: parseFloat((afterDisc + taxAmt).toFixed(2)) };
+      const taxAmt = afterDisc * (Number(raw.tax || 0) / 100);
+      return { ...raw, total: parseFloat((afterDisc + taxAmt).toFixed(2)) };
     });
 
     const invoice = await Invoice.create({
@@ -118,7 +170,20 @@ exports.convertToInvoice = async (req, res, next) => {
     });
 
     await Quotation.findByIdAndUpdate(quotation._id, { status: 'converted', convertedToInvoice: invoice._id });
-    await createAuditLog({ user: req.user, action: 'create', module: 'quotations', entityId: quotation._id, entityName: quotation.quotationNo, description: `Quotation ${quotation.quotationNo} converted to invoice ${invoice.invoiceNo}` });
+    await createAuditLog({
+      user: req.user,
+      action: 'create',
+      module: 'quotations',
+      entityId: quotation._id,
+      entityName: quotation.quotationNo,
+      description: `Quotation ${quotation.quotationNo} converted to invoice ${invoice.invoiceNo}`,
+      changes: {
+        before: quotationAuditSummary(quotation.toObject()),
+        after: { status: 'converted', invoiceNo: invoice.invoiceNo, invoiceId: String(invoice._id) },
+      },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
 
     const populated = await Invoice.findById(invoice._id).populate('client', 'name email').populate('quotationRef', 'quotationNo title');
     res.json({ success: true, invoice: populated, quotation });
@@ -131,7 +196,18 @@ exports.deleteQuotation = async (req, res, next) => {
   try {
     const quotation = await Quotation.findByIdAndDelete(req.params.id);
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
-    await createAuditLog({ user: req.user, action: 'delete', module: 'quotations', entityId: quotation._id, entityName: quotation.quotationNo, description: `Quotation ${quotation.quotationNo} deleted`, severity: 'warning' });
+    await createAuditLog({
+      user: req.user,
+      action: 'delete',
+      module: 'quotations',
+      entityId: quotation._id,
+      entityName: quotation.quotationNo,
+      description: `Quotation ${quotation.quotationNo} deleted`,
+      changes: { before: quotationAuditSummary(quotation.toObject()), after: null },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+      severity: 'warning',
+    });
     res.json({ success: true, message: 'Quotation deleted' });
   } catch (err) { next(err); }
 };

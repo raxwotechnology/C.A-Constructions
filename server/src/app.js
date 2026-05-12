@@ -4,6 +4,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const errorHandler = require('./middleware/errorHandler');
@@ -41,6 +42,9 @@ const clientRoutes = require('./routes/clientRoutes');
 const workLogRoutes = require('./routes/workLogRoutes');
 const bonusRoutes = require('./routes/bonusRoutes');
 const agreementRoutes = require('./routes/agreementRoutes');
+const epfRecordRoutes = require('./routes/epfRecordRoutes');
+const targetRoutes = require('./routes/targetRoutes');
+const attendancePolicyRoutes = require('./routes/attendancePolicyRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -85,8 +89,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Logging
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 
-// Static files (uploaded CVs)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// ── Ensure upload directories exist ──────────────────────────────────────────
+const UPLOADS_ROOT = path.resolve(process.cwd(), 'uploads');
+['documents', 'images', 'cvs', 'agreements', 'bills'].forEach(sub => {
+  fs.mkdirSync(path.join(UPLOADS_ROOT, sub), { recursive: true });
+});
+console.log(`📁 Uploads directory: ${UPLOADS_ROOT}`);
+
+// Static files — serve /uploads/** from the uploads folder next to package.json
+app.use('/uploads', express.static(UPLOADS_ROOT));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -121,7 +132,10 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/work-logs', workLogRoutes);
 app.use('/api/bonuses', bonusRoutes);
 app.use('/api/agreements', agreementRoutes);
+app.use('/api/epf-records', epfRecordRoutes);
 app.use('/api/bank-accounts', require('./routes/bankAccountRoutes'));
+app.use('/api/targets', targetRoutes);
+app.use('/api/attendance-policies', attendancePolicyRoutes);
 
 ensureDefaultRules().catch(() => {});
 

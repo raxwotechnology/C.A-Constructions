@@ -238,37 +238,118 @@ export default function AdminQuotations() {
                   <input {...register('taxRate', { valueAsNumber: true })} type="number" step="0.1" className="form-input" placeholder="0"/></div>
               </div>
 
-              {/* Line Items */}
+              {/* Line items — each row is one billable line with clear field names */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="form-label mb-0">Line Items</label>
-                  <button type="button" onClick={() => append({ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 })}
-                    className="btn-outline btn-sm"><FiPlus size={12}/> Add Item</button>
+                <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                  <div>
+                    <label className="form-label mb-0">Line items</label>
+                    <p className="text-[11px] text-slate-500 mt-0.5 max-w-xl leading-snug">
+                      Add one row per product or service: <strong>description</strong> (what you are charging for), <strong>quantity</strong>, <strong>unit price</strong> per unit in LKR, and optional <strong>discount %</strong> off that line. Line total updates from those values.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => append({ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 })}
+                    className="btn-outline btn-sm shrink-0"
+                  >
+                    <FiPlus size={12} /> Add line
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  {fields.map((field, idx) => (
-                    <div key={field.id} className="grid grid-cols-12 gap-2 items-start">
-                      <div className="col-span-4">
-                        <input {...register(`items.${idx}.description`, { required: true })} className="form-input text-sm py-2" placeholder="Description *"/>
+
+                {/* Column guide (desktop) */}
+                <div className="hidden md:grid md:grid-cols-12 gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100/80 rounded-t-lg border border-b-0 border-slate-200">
+                  <div className="md:col-span-4">Item / service description</div>
+                  <div className="md:col-span-2 text-center">Qty</div>
+                  <div className="md:col-span-2 text-right">Unit price (LKR)</div>
+                  <div className="md:col-span-2 text-right">Discount %</div>
+                  <div className="md:col-span-2 text-right">Line total (LKR)</div>
+                </div>
+
+                <div className={`space-y-3 ${fields.length ? 'md:border md:border-t-0 md:border-slate-200 md:rounded-b-lg md:rounded-t-none md:p-3 md:bg-slate-50/30' : ''}`}>
+                  {fields.map((field, idx) => {
+                    const row = watchItems[idx] || {}
+                    const qty = Number(row.quantity || 1)
+                    const price = Number(row.unitPrice || 0)
+                    const disc = Number(row.discount || 0)
+                    const lineTotal = qty * price * (1 - disc / 100)
+                    return (
+                      <div
+                        key={field.id}
+                        className="rounded-xl border border-slate-200 bg-white p-4 md:border-0 md:bg-transparent md:p-0 space-y-3 md:space-y-0"
+                      >
+                        <div className="flex items-center justify-between md:hidden">
+                          <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Line {idx + 1}</span>
+                          {fields.length > 1 && (
+                            <button type="button" onClick={() => remove(idx)} className="text-red-500 hover:text-red-700 p-1" title="Remove line">
+                              <FiTrash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-2 md:items-end">
+                          <div className="md:col-span-4">
+                            <label className="form-label text-xs mb-1 md:sr-only">Item / service description *</label>
+                            <input
+                              {...register(`items.${idx}.description`, { required: true })}
+                              className="form-input text-sm py-2"
+                              placeholder="e.g. ERP module — Phase 1 implementation"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="form-label text-xs mb-1 md:sr-only">Quantity</label>
+                            <input
+                              {...register(`items.${idx}.quantity`, { valueAsNumber: true })}
+                              type="number"
+                              min="1"
+                              step="1"
+                              className="form-input text-sm py-2"
+                              placeholder="Qty"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="form-label text-xs mb-1 md:sr-only">Unit price (LKR)</label>
+                            <input
+                              {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="form-input text-sm py-2"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="form-label text-xs mb-1 md:sr-only">Discount %</label>
+                            <input
+                              {...register(`items.${idx}.discount`, { valueAsNumber: true })}
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              className="form-input text-sm py-2"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1 md:text-right">
+                              <p className="text-[10px] font-semibold uppercase text-slate-400 md:hidden">Line total</p>
+                              <p className="text-sm font-bold text-primary tabular-nums md:py-2">
+                                LKR {lineTotal.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            {fields.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => remove(idx)}
+                                className="hidden md:inline-flex text-red-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50"
+                                title="Remove line"
+                              >
+                                <FiX size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="col-span-2">
-                        <input {...register(`items.${idx}.quantity`, { valueAsNumber: true })} type="number" min="1" className="form-input text-sm py-2" placeholder="Qty"/>
-                      </div>
-                      <div className="col-span-3">
-                        <input {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })} type="number" className="form-input text-sm py-2" placeholder="Unit Price"/>
-                      </div>
-                      <div className="col-span-2">
-                        <input {...register(`items.${idx}.discount`, { valueAsNumber: true })} type="number" min="0" max="100" className="form-input text-sm py-2" placeholder="Disc%"/>
-                      </div>
-                      <div className="col-span-1 pt-2">
-                        {fields.length > 1 && (
-                          <button type="button" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600 p-1">
-                            <FiX size={14}/>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-1 text-sm">
                   <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>LKR {subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>

@@ -1,7 +1,10 @@
-const Project = require('../models/Project');
-const Invoice = require('../models/Invoice');
+const Project  = require('../models/Project');
+const Invoice  = require('../models/Invoice');
+const Target   = require('../models/Target');
+const Employee = require('../models/Employee');
+const Payroll  = require('../models/Payroll');
 const path = require('path');
-const fs = require('fs');
+const fs   = require('fs');
 const { createNotification } = require('../services/notificationService');
 
 const POPULATE = [
@@ -87,8 +90,83 @@ exports.updateProject = async (req, res, next) => {
     if (payload.invoice === '') delete payload.invoice;
     if (Array.isArray(payload.assignedEmployees)) payload.assignedEmployees = payload.assignedEmployees.filter(Boolean);
 
+    const oldProject = await Project.findById(req.params.id).select('status assignedEmployees title');
     const project = await Project.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true }).populate(POPULATE);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+    // ── Auto-update Target progress on completion ──────────────────────────────
+    const COMPLETION_STATUSES = ['completed', 'completed_payment_pending', 'paid_completed'];
+    const wasNotCompleted = !COMPLETION_STATUSES.includes(oldProject?.status);
+    const isNowCompleted  = COMPLETION_STATUSES.includes(project.status);
+
+    if (wasNotCompleted && isNowCompleted && project.assignedEmployees?.length) {
+      for (const userId of project.assignedEmployees) {
+        // Find the Employee record for this user
+        const emp = await Employee.findOne({ userId }).select('_id basicSalary');
+        if (!emp) continue;
+
+        // Find active/partial targets for this employee
+        const now = new Date();
+        const targets = await Target.find({
+          employee: emp._id,
+          status: { $in: ['active', 'partial'] },
+          year: now.getFullYear(),
+        });
+
+        for (const target of targets) {
+          target.achievedValue = (target.achievedValue || 0) + 1;
+          const pct = target.targetValue > 0 ? (target.achievedValue / target.targetValue) * 100 : 0;
+
+          if (pct >= 100) {
+            target.status = 'achieved';
+            target.achievedAt = target.achievedAt || new Date();
+
+            // Auto-push bonus to payroll
+            if (target.bonusEnabled && !target.bonusAdded) {
+              let bonusAmt = target.bonusAmount || 0;
+              if (target.bonusPercentage > 0) bonusAmt += (emp.basicSalary || 0) * (target.bonusPercentage / 100);
+              if (bonusAmt > 0) {
+                const month = now.getMonth() + 1;
+                const year  = now.getFullYear();
+                const payroll = await Payroll.findOne({ employee: emp._id, month, year });
+                if (payroll && payroll.status !== 'paid') {
+                  payroll.bonus       = (payroll.bonus || 0) + bonusAmt;
+                  payroll.bonusNote   = `Target achieved: ${target.title}`;
+                  payroll.grossSalary = (payroll.grossSalary || 0) + bonusAmt;
+                  payroll.netSalary   = (payroll.netSalary   || 0) + bonusAmt;
+                  await payroll.save();
+                  target.bonusAdded = true;
+                }
+              }
+              // Notify employee
+              await createNotification({
+                recipient: userId,
+                title: '🏆 Target Achieved!',
+                message: `You completed "${project.title}" and achieved your target "${target.title}". Bonus has been added to payroll!`,
+                type: 'payroll', link: '/developer/performance',
+              });
+            } else {
+              await createNotification({
+                recipient: userId,
+                title: '🏆 Target Achieved!',
+                message: `Great work! You achieved your target "${target.title}" by completing "${project.title}".`,
+                type: 'project', link: '/developer/performance',
+              });
+            }
+          } else if (pct > 0) {
+            target.status = 'partial';
+            // Progress notification
+            await createNotification({
+              recipient: userId,
+              title: '🎯 Target Progress Updated',
+              message: `Target "${target.title}" updated to ${Math.round(pct)}% after completing "${project.title}".`,
+              type: 'project', link: '/developer/performance',
+            });
+          }
+          await target.save();
+        }
+      }
+    }
 
     if (project.client) {
       await createNotification({ recipient: project.client, title: 'Project Updated', message: `Project "${project.title}" has been updated.`, type: 'project', link: '/my-projects' });

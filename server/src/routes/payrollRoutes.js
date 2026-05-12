@@ -5,6 +5,7 @@ const {
   reviewPayroll, approvePayroll, updatePayroll, markPaid,
   getEpfSummary, addOvertime, getOvertime,
   initiateSalaryPayHere, salaryPayHereNotify,
+  updateEpfRecord, deletePayroll,
 } = require('../controllers/payrollController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -19,7 +20,9 @@ router.get('/', protect, authorize('admin', 'manager'), getPayrolls);
 router.put('/:id/review', protect, authorize('admin', 'manager'), reviewPayroll);
 router.put('/:id/approve', protect, authorize('admin', 'manager'), approvePayroll);
 router.put('/:id/pay', protect, authorize('admin'), markPaid);
+router.put('/:id/epf', protect, authorize('admin', 'manager'), updateEpfRecord);
 router.put('/:id', protect, authorize('admin', 'manager'), updatePayroll);
 router.post('/:id/payhere/init', protect, authorize('admin'), initiateSalaryPayHere);
+router.delete('/:id', protect, authorize('admin'), deletePayroll);
 
 module.exports = router;

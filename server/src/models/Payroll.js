@@ -42,6 +42,7 @@ const payrollSchema = new mongoose.Schema({
   // ── Deductions ───────────────────────────────────────────────────────────────
   advanceDeduction: { type: Number, default: 0 },
   loanDeduction: { type: Number, default: 0 },
+  deductedLoans: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Loan' }],
   leaveDeduction: { type: Number, default: 0 },     // auto-deducted for excess leaves
   leaveDeductionDays: { type: Number, default: 0 }, // number of excess leave days deducted
 
@@ -62,9 +63,10 @@ const payrollSchema = new mongoose.Schema({
   // ── Payment ───────────────────────────────────────────────────────────────────
   paymentMethod: {
     type: String,
-    enum: ['cash', 'bank_transfer', 'cheque', 'payhere'],
+    enum: ['cash', 'bank_transfer', 'cheque', 'payhere', 'card_payment', 'online_transfer'],
     default: 'bank_transfer',
   },
+  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
 
   // ── Workflow status ───────────────────────────────────────────────────────────
   status: {

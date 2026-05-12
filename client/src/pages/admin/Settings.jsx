@@ -44,6 +44,7 @@ export default function AdminSettings() {
       contactEmail: siteData?.settings?.contactEmail || '',
       contactPhone: siteData?.settings?.contactPhone || '',
       contactAddress: siteData?.settings?.contactAddress || '',
+      websiteUrl: siteData?.settings?.websiteUrl || '',
       mapLat: siteData?.settings?.mapLat ?? 7.0289,
       mapLng: siteData?.settings?.mapLng ?? 80.0153,
       mapZoom: siteData?.settings?.mapZoom ?? 13,
@@ -156,6 +157,7 @@ export default function AdminSettings() {
             <div><label className="form-label">Contact Phone</label><input {...reg3('contactPhone')} className="form-input" /></div>
           </div>
           <div><label className="form-label">Contact Address</label><input {...reg3('contactAddress')} className="form-input" placeholder="Weliweriya, Sri Lanka" /></div>
+          <div><label className="form-label">Website URL</label><input {...reg3('websiteUrl')} className="form-input" placeholder="https://www.example.com" /></div>
           <div className="grid grid-cols-3 gap-4">
             <div><label className="form-label">Map Latitude</label><input type="number" step="any" {...reg3('mapLat', { valueAsNumber: true })} className="form-input" /></div>
             <div><label className="form-label">Map Longitude</label><input type="number" step="any" {...reg3('mapLng', { valueAsNumber: true })} className="form-input" /></div>

@@ -4,7 +4,7 @@ const agreementSchema = new mongoose.Schema({
   // ── Type ──────────────────────────────────────────────────────────────────
   agreementType: {
     type: String,
-    enum: ['client_project', 'subscription_service', 'invoice_payment', 'general'],
+    enum: ['client_project', 'subscription_service', 'invoice_payment', 'general', 'custom'],
     required: true,
     default: 'general',
   },
@@ -12,6 +12,7 @@ const agreementSchema = new mongoose.Schema({
   // ── Title / Reference ─────────────────────────────────────────────────────
   title: { type: String, required: true },
   agreementNo: { type: String, unique: true },
+  agreementDate: { type: Date },
 
   // ── Linked records ────────────────────────────────────────────────────────
   client:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -31,6 +32,39 @@ const agreementSchema = new mongoose.Schema({
   },
   finalisedAt: Date,
   signedAt: Date,
+
+  approvalStatus: {
+    type: String,
+    enum: ['none', 'pending', 'approved', 'rejected'],
+    default: 'none',
+  },
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedAt: Date,
+
+  signatures: {
+    provider: {
+      data: { type: String, default: '' },
+      signerName: { type: String, default: '' },
+      signedAt: Date,
+    },
+    client: {
+      data: { type: String, default: '' },
+      signerName: { type: String, default: '' },
+      signedAt: Date,
+    },
+    witness: {
+      name: { type: String, default: '' },
+      data: { type: String, default: '' },
+      signedAt: Date,
+    },
+  },
+
+  history: [{
+    at: { type: Date, default: Date.now },
+    action: { type: String, required: true },
+    detail: { type: String, default: '' },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  }],
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

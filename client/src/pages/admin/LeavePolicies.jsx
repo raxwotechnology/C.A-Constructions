@@ -5,7 +5,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiEdit2, FiShield, FiStar } from 'react-icons/fi'
+import { FiPlus, FiX, FiEdit2, FiShield, FiStar, FiTrash2 } from 'react-icons/fi'
 
 const LEAVE_TYPE_OPTIONS = [
   { value: 'annual',      label: 'Annual Leave',       icon: '🌴' },
@@ -21,6 +21,7 @@ export default function LeavePolicies() {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [deleteId, setDeleteId] = useState(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['leave-policies'],
@@ -73,6 +74,12 @@ export default function LeavePolicies() {
     mutationFn: ({ id, data }) => api.put(`/leaves/policies/${id}`, data),
     onSuccess: () => { qc.invalidateQueries(['leave-policies']); toast.success('Policy updated'); closeModal() },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: id => api.delete(`/leaves/policies/${id}`),
+    onSuccess: () => { qc.invalidateQueries(['leave-policies']); toast.success('Policy deleted'); setDeleteId(null) },
+    onError: e => toast.error(e.response?.data?.message || 'Delete failed'),
   })
 
   const closeModal = () => {
@@ -137,13 +144,9 @@ export default function LeavePolicies() {
   const policies = data?.policies || []
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Leave Policies</h1>
-          <p className="page-subtitle">Configure leave quotas and entitlements by employment type or branch</p>
-        </div>
-        <button onClick={openCreate} className="btn-primary"><FiPlus size={15}/> New Policy</button>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex justify-end">
+        <button onClick={openCreate} className="btn-primary"><FiPlus size={14}/> New Policy</button>
       </div>
 
       {isLoading ? (
@@ -196,9 +199,14 @@ export default function LeavePolicies() {
                   ⚠️ Global deduction: LKR {p.deductionPerExtraLeaveDay}/extra day
                 </div>
               )}
-              <button onClick={() => openEdit(p)} className="btn-ghost btn-sm w-full mt-4 justify-center">
-                <FiEdit2 size={12}/> Edit Policy
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => openEdit(p)} className="btn-ghost btn-sm flex-1 justify-center">
+                  <FiEdit2 size={12}/> Edit
+                </button>
+                <button onClick={() => setDeleteId(p._id)} className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg" title="Delete Policy">
+                  <FiTrash2 size={14}/>
+                </button>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -322,6 +330,22 @@ export default function LeavePolicies() {
           </motion.div>
         </div>,
         document.body
+      )}
+      {/* Delete Confirm */}
+      {deleteId && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{zIndex:999999}}>
+          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiTrash2 size={22}/></div>
+            <h3 className="font-bold text-lg text-slate-800">Delete Policy?</h3>
+            <p className="text-sm text-slate-500">This will permanently remove the leave policy. Employees assigned this policy will fall back to the default.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteId(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={() => deleteMut.mutate(deleteId)} disabled={deleteMut.isPending} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
+                {deleteMut.isPending ? <span className="spinner"/> : 'Delete'}
+              </button>
+            </div>
+          </motion.div>
+        </div>, document.body
       )}
     </div>
   )

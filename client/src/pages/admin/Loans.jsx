@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
 import { FiPlus, FiX, FiCheck, FiRefreshCw, FiEdit2, FiAlertCircle, FiDollarSign, FiCalendar } from 'react-icons/fi'
 
-const EMPTY = { employeeId: '', totalAmount: '', monthlyInstallment: '', startDate: new Date().toISOString().split('T')[0], reason: '', deductionType: 'salary', taxRate: 0 }
+const EMPTY = { employeeId: '', totalAmount: '', monthlyInstallment: '', repaymentMonths: '', startDate: new Date().toISOString().split('T')[0], reason: '', deductionType: 'salary', taxRate: 0 }
 const PAY_EMPTY = { amount: '', date: new Date().toISOString().split('T')[0], note: '', method: 'salary_deduction' }
 
 export default function AdminLoans() {
@@ -23,6 +23,9 @@ export default function AdminLoans() {
   const [branchFilter, setBranchFilter] = useState('')
   const [empSummary, setEmpSummary] = useState(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
+  const [deleteId, setDeleteId] = useState(null)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [verifying, setVerifying] = useState(false)
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -70,12 +73,51 @@ export default function AdminLoans() {
   })
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/loans/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Deleted') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Deleted'); setDeleteId(null); setDeletePassword('') },
+    onError: e => toast.error(e.response?.data?.message || 'Delete failed'),
   })
 
+  const confirmDelete = async () => {
+    if (!deletePassword) { toast.error('Password required'); return }
+    setVerifying(true)
+    try {
+      await api.post('/auth/verify-password', { password: deletePassword })
+      deleteMut.mutate(deleteId)
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Invalid password')
+    }
+    setVerifying(false)
+  }
+
   const calcInstallments = () => {
-    if (form.totalAmount && form.monthlyInstallment) return Math.ceil(Number(form.totalAmount) / Number(form.monthlyInstallment))
+    if (form.repaymentMonths) return Number(form.repaymentMonths)
+    if (form.totalAmount && form.monthlyInstallment) {
+      const principal = Number(form.totalAmount)
+      const interest = principal * (Number(form.taxRate || 0) / 100)
+      return Math.ceil((principal + interest) / Number(form.monthlyInstallment))
+    }
     return 0
+  }
+
+  const calcTotalWithInterest = () => {
+    const p = Number(form.totalAmount || 0)
+    const r = Number(form.taxRate || 0)
+    return p + Math.round(p * (r / 100))
+  }
+
+  const updateLoanFields = (updates) => {
+    setForm(s => {
+      const next = { ...s, ...updates }
+      if (updates.repaymentMonths || (updates.totalAmount !== undefined && next.repaymentMonths) || (updates.taxRate !== undefined && next.repaymentMonths)) {
+        const total = Number(next.totalAmount || 0)
+        const interest = total * (Number(next.taxRate || 0) / 100)
+        const months = Number(next.repaymentMonths || 0)
+        if (months > 0) {
+          next.monthlyInstallment = Math.ceil((total + interest) / months)
+        }
+      }
+      return next
+    })
   }
 
   const exportCols = [
@@ -148,11 +190,14 @@ export default function AdminLoans() {
                     </td>
                     <td className="text-xs text-slate-500">{l.taxRate > 0 ? `${l.taxRate}%` : '—'}</td>
                     <td>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (l.totalPaid || 0) / (l.totalAmount || 1) * 100)}%` }} />
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (l.totalPaid || 0) / (l.totalAmount || 1) * 100)}%` }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-600">{Math.round((l.totalPaid || 0) / (l.totalAmount || 1) * 100)}%</span>
                         </div>
-                        <span className="text-xs text-slate-500">{l.installmentsPaid || 0}/{l.totalInstallments || 0}</span>
+                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{l.installmentsPaid || 0}/{l.totalInstallments || 0} Paid</span>
                       </div>
                     </td>
                     <td className={`font-bold ${l.outstandingBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>LKR {(l.outstandingBalance || 0).toLocaleString()}</td>
@@ -167,7 +212,7 @@ export default function AdminLoans() {
                               className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg"><FiRefreshCw size={13} /></button>
                           </>
                         )}
-                        <button onClick={() => { if (window.confirm('Delete?')) deleteMut.mutate(l._id) }}
+                        <button onClick={() => setDeleteId(l._id)}
                           className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiX size={13} /></button>
                       </div>
                     </td>
@@ -186,12 +231,21 @@ export default function AdminLoans() {
               <button onClick={() => { setShowCreate(false); setEmpSummary(null) }} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div>
-                <label className="form-label">Employee *</label>
-                <select className="form-select" value={form.employeeId} onChange={e => { setForm(s => ({ ...s, employeeId: e.target.value })); loadEmployeeSummary(e.target.value) }}>
-                  <option value="">Select employee</option>
-                  {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label text-xs">Filter by Branch</label>
+                  <select className="form-select py-1.5 text-xs" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+                    <option value="">All Branches</option>
+                    {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-xs">Select Employee *</label>
+                  <select className="form-select py-1.5 text-xs" value={form.employeeId} onChange={e => { setForm(s => ({ ...s, employeeId: e.target.value })); loadEmployeeSummary(e.target.value) }}>
+                    <option value="">Select employee</option>
+                    {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
+                  </select>
+                </div>
               </div>
 
               {/* Employee Financial Summary */}
@@ -222,23 +276,36 @@ export default function AdminLoans() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="form-label">Total Amount (LKR) *</label>
-                  <input type="number" className="form-input" value={form.totalAmount} onChange={e => setForm(s => ({ ...s, totalAmount: e.target.value }))} /></div>
-                <div><label className="form-label">Monthly Installment *</label>
+                <div><label className="form-label">Principal Amount (LKR) *</label>
+                  <input type="number" className="form-input" value={form.totalAmount} onChange={e => updateLoanFields({ totalAmount: e.target.value })} /></div>
+                <div><label className="form-label">Repayment Months</label>
+                  <select className="form-select" value={form.repaymentMonths} onChange={e => updateLoanFields({ repaymentMonths: e.target.value })}>
+                    <option value="">Manual / No fixed term</option>
+                    {[3,6,12,18,24,36,48,60].map(m => <option key={m} value={m}>{m} Months</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="form-label">Tax / Interest Rate (%)</label>
+                  <input type="number" className="form-input" min="0" max="50" value={form.taxRate} onChange={e => updateLoanFields({ taxRate: e.target.value })} placeholder="0" /></div>
+                <div><label className="form-label">Monthly Installment (LKR) *</label>
                   <input type="number" className="form-input" value={form.monthlyInstallment} onChange={e => setForm(s => ({ ...s, monthlyInstallment: e.target.value }))} /></div>
               </div>
 
-              {calcInstallments() > 0 && (
-                <div className="bg-blue-50 text-blue-700 rounded-xl p-3 text-sm">
-                  Estimated <strong>{calcInstallments()} installments</strong> to clear this loan.
+              {(form.totalAmount > 0 || form.taxRate > 0) && (
+                <div className="bg-emerald-50 text-emerald-800 rounded-xl p-3 text-xs space-y-1">
+                  <div className="flex justify-between"><span>Principal:</span><span>LKR {Number(form.totalAmount||0).toLocaleString()}</span></div>
+                  <div className="flex justify-between text-red-600"><span>Interest ({form.taxRate}%):</span><span>+ LKR {Math.round(Number(form.totalAmount||0) * (Number(form.taxRate||0)/100)).toLocaleString()}</span></div>
+                  <div className="flex justify-between font-bold border-t border-emerald-200 pt-1 mt-1"><span>Total Payable:</span><span>LKR {calcTotalWithInterest().toLocaleString()}</span></div>
+                  {calcInstallments() > 0 && <p className="text-center pt-2 font-medium">Clearance in ~{calcInstallments()} months</p>}
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="form-label">Start Date</label>
                   <input type="date" className="form-input" value={form.startDate} onChange={e => setForm(s => ({ ...s, startDate: e.target.value }))} /></div>
-                <div><label className="form-label">Tax Rate (%)</label>
-                  <input type="number" className="form-input" min="0" max="50" value={form.taxRate} onChange={e => setForm(s => ({ ...s, taxRate: e.target.value }))} placeholder="0" /></div>
+                <div />
               </div>
 
               <div>
@@ -282,10 +349,16 @@ export default function AdminLoans() {
                 <p className="text-slate-500 text-xs mt-0.5">Outstanding: LKR {editTarget.outstandingBalance?.toLocaleString()}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="form-label">Monthly Installment</label>
+                <div><label className="form-label text-xs">Monthly Installment</label>
                   <input type="number" className="form-input" value={form.monthlyInstallment} onChange={e => setForm(s => ({ ...s, monthlyInstallment: e.target.value }))} /></div>
-                <div><label className="form-label">Tax Rate (%)</label>
+                <div><label className="form-label text-xs">Repayment Months</label>
+                  <input type="number" className="form-input" value={form.repaymentMonths} onChange={e => setForm(s => ({ ...s, repaymentMonths: e.target.value }))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="form-label text-xs">Interest Rate (%)</label>
                   <input type="number" className="form-input" value={form.taxRate} onChange={e => setForm(s => ({ ...s, taxRate: e.target.value }))} /></div>
+                <div><label className="form-label text-xs">Start Date</label>
+                  <input type="date" className="form-input" value={form.startDate} onChange={e => setForm(s => ({ ...s, startDate: e.target.value }))} /></div>
               </div>
               <div>
                 <label className="form-label">Deduction Type</label>
@@ -316,13 +389,35 @@ export default function AdminLoans() {
               <button onClick={() => setPayTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="bg-slate-50 rounded-xl p-3 text-sm space-y-1">
-                <p className="font-medium">{payTarget.employee?.userId?.name}</p>
-                <p className="text-slate-500">Outstanding: <strong className="text-red-600">LKR {(payTarget.outstandingBalance || 0).toLocaleString()}</strong></p>
-                <p className="text-slate-500">Installment: LKR {(payTarget.monthlyInstallment || 0).toLocaleString()}</p>
-                <span className={`badge ${payTarget.deductionType === 'salary' ? 'badge-blue' : 'badge-purple'} text-xs`}>
-                  {payTarget.deductionType === 'salary' ? 'Salary Deduction' : 'Separate Repayment'}
-                </span>
+              <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-2 border border-slate-200">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <p className="font-bold text-slate-800">{payTarget.employee?.userId?.name}</p>
+                  <span className={`badge ${payTarget.deductionType === 'salary' ? 'badge-blue' : 'badge-purple'} text-[10px]`}>
+                    {payTarget.deductionType === 'salary' ? 'Salary Deduction' : 'Separate'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Total Principal</p>
+                    <p className="font-semibold text-slate-700">LKR {payTarget.totalAmount?.toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Repayment Period</p>
+                    <p className="font-semibold text-slate-700">{payTarget.repaymentMonths || payTarget.totalInstallments || '—'} Months</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Interest Rate</p>
+                    <p className="font-semibold text-slate-700">{payTarget.taxRate || 0}%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Monthly Installment</p>
+                    <p className="font-semibold text-slate-700">LKR {payTarget.monthlyInstallment?.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="pt-2 mt-2 border-t border-slate-200 flex justify-between items-center">
+                  <p className="text-slate-500 font-medium">Outstanding Balance</p>
+                  <p className="text-lg font-bold text-red-600">LKR {(payTarget.outstandingBalance || 0).toLocaleString()}</p>
+                </div>
               </div>
               <div><label className="form-label">Amount *</label>
                 <input type="number" className="form-input" value={payForm.amount} onChange={e => setPayForm(s => ({ ...s, amount: e.target.value }))} /></div>
@@ -343,6 +438,27 @@ export default function AdminLoans() {
               <button onClick={() => { if (!payForm.amount) { toast.error('Amount required'); return } payMut.mutate({ id: payTarget._id, ...payForm }) }}
                 disabled={payMut.isPending} className="btn-primary flex-1 justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
                 {payMut.isPending ? <span className="spinner" /> : <FiCheck size={14} />} Record Payment
+              </button>
+            </div>
+          </motion.div>
+        </div>, document.body
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteId && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiAlertCircle size={24} /></div>
+              <h3 className="font-bold text-lg text-slate-800">Confirm Deletion</h3>
+              <p className="text-sm text-slate-500">This action cannot be undone. Please enter your administrator password to proceed.</p>
+            </div>
+            <div>
+              <input type="password" placeholder="Enter your password" disabled={verifying} className="form-input" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDelete()} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setDeleteId(null); setDeletePassword('') }} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button onClick={confirmDelete} disabled={verifying || !deletePassword} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
+                {verifying || deleteMut.isPending ? <span className="spinner" /> : 'Confirm Delete'}
               </button>
             </div>
           </motion.div>

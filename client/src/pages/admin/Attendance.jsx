@@ -35,11 +35,12 @@ const EMPTY_FORM = {
 export default function AdminAttendance() {
   const qc = useQueryClient()
   const now = new Date()
-  const [filterMode, setFilterMode] = useState('month') // 'month' | 'range'
+  const [filterMode, setFilterMode] = useState('range') // default to date range showing today
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const todayStr = now.toISOString().split('T')[0]
+  const [dateFrom, setDateFrom] = useState(todayStr)
+  const [dateTo, setDateTo] = useState(todayStr)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [empFilter, setEmpFilter] = useState('')
