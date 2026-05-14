@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "db:clean-except-admin": "node src/scripts/cleanDatabaseExceptAdmin.js",
+    "db:clean-except-admin:yes": "node src/scripts/cleanDatabaseExceptAdmin.js --yes"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
