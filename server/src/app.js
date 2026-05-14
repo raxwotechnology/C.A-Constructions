@@ -134,6 +134,7 @@ app.use('/api/bonuses', bonusRoutes);
 app.use('/api/agreements', agreementRoutes);
 app.use('/api/epf-records', epfRecordRoutes);
 app.use('/api/bank-accounts', require('./routes/bankAccountRoutes'));
+app.use('/api/cheques', require('./routes/chequeRoutes'));
 app.use('/api/targets', targetRoutes);
 app.use('/api/attendance-policies', attendancePolicyRoutes);
 

@@ -22,16 +22,20 @@ export function buildAgreementBodyHtml(opts) {
     address,
     phone,
     email,
+    websiteUrl,
+    locationLine,
     title,
     agreementNo,
     agreementDate,
     bodyHtml,
     signatures,
   } = opts
-  const logo = logoUrl
-    ? `<img src="${safeImgSrc(logoUrl)}" alt="" crossorigin="anonymous" style="max-height:52px;margin-bottom:8px;object-fit:contain;"/>`
-    : ''
+  const initials = escapeHtml((siteName || 'C').trim().slice(0, 2).toUpperCase())
+  const logoInner = logoUrl
+    ? `<img src="${safeImgSrc(logoUrl)}" alt="" crossorigin="anonymous" style="max-width:100%;max-height:100%;object-fit:contain;"/>`
+    : `<span style="font-size:26px;font-weight:800;color:#0f172a;font-family:system-ui,Segoe UI,sans-serif;letter-spacing:-0.02em;">${initials}</span>`
   const meta = [address, phone, email].filter(Boolean).join(' · ')
+  const loc = locationLine || ''
 
   const sigBlock = (heading, data, name) => {
     if (!data) {
@@ -46,10 +50,19 @@ export function buildAgreementBodyHtml(opts) {
       : ''
 
   return `
-    <div style="border-bottom:2px solid #1e3a5f;padding-bottom:16px;margin-bottom:20px;">
-      ${logo}
-      <h1 style="margin:0;font-size:15px;letter-spacing:0.1em;text-transform:uppercase;color:#1e3a5f;font-family:system-ui,Segoe UI,sans-serif;">${escapeHtml(siteName || 'Company')}</h1>
-      ${meta ? `<p style="margin:6px 0 0;font-size:10.5pt;color:#475569;font-family:system-ui,Segoe UI,sans-serif;">${escapeHtml(meta)}</p>` : ''}
+    <div style="margin-bottom:28px;padding:22px 24px;border-radius:14px;background:linear-gradient(135deg,#f8fafc 0%,#e8eef5 55%,#f1f5f9 100%);border:1px solid #cbd5e1;box-shadow:0 10px 30px rgba(15,23,42,0.06);">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="flex-shrink:0;width:88px;height:88px;border-radius:14px;background:#fff;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(15,23,42,0.08);overflow:hidden;padding:8px;">
+          ${logoInner}
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <p style="margin:0;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:#64748b;font-family:system-ui,Segoe UI,sans-serif;font-weight:600;">Official agreement</p>
+          <h1 style="margin:8px 0 0;font-size:24px;font-weight:800;color:#0c1a2e;font-family:Georgia,serif;line-height:1.15;letter-spacing:-0.02em;">${escapeHtml(siteName || 'Company')}</h1>
+          ${meta ? `<p style="margin:10px 0 0;font-size:10.5pt;color:#475569;font-family:system-ui,Segoe UI,sans-serif;line-height:1.45;">${escapeHtml(meta)}</p>` : ''}
+          ${websiteUrl ? `<p style="margin:6px 0 0;font-size:10pt;color:#2563eb;font-family:system-ui,Segoe UI,sans-serif;"><a href="${escapeHtml(websiteUrl)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(websiteUrl)}</a></p>` : ''}
+          ${loc ? `<p style="margin:6px 0 0;font-size:9.5pt;color:#64748b;font-family:system-ui,Segoe UI,sans-serif;">${escapeHtml(loc)}</p>` : ''}
+        </div>
+      </div>
     </div>
     <p style="text-align:right;font-size:10pt;color:#64748b;margin:0 0 16px;font-family:system-ui,Segoe UI,sans-serif;">Ref: <strong>${escapeHtml(agreementNo || '—')}</strong> &nbsp;|&nbsp; Date: <strong>${escapeHtml(agreementDate || '')}</strong></p>
     <h2 style="font-size:14pt;margin:0 0 16px;color:#0f172a;font-family:Georgia,serif;">${escapeHtml(title || 'Agreement')}</h2>

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import api from '../../lib/api'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { FiUsers, FiFolder, FiDollarSign, FiClock, FiBriefcase, FiCalendar, FiUserPlus, FiBarChart2, FiServer, FiCreditCard, FiShield, FiMapPin, FiFileText, FiTrendingUp, FiAlertTriangle, FiCheckCircle, FiArrowRight, FiZap, FiActivity, FiRefreshCw, FiUser } from 'react-icons/fi'
+import { FiUsers, FiFolder, FiDollarSign, FiClock, FiBriefcase, FiCalendar, FiUserPlus, FiBarChart2, FiServer, FiCreditCard, FiShield, FiMapPin, FiFileText, FiTrendingUp, FiAlertTriangle, FiCheckCircle, FiArrowRight, FiZap, FiActivity, FiRefreshCw, FiUser, FiPieChart } from 'react-icons/fi'
 
 const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316']
 const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -25,7 +25,8 @@ export default function AdminDashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-dashboard', branchFilter],
     queryFn: () => api.get(`/analytics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
-    refetchInterval: 60000,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   })
 
   const kpis = data?.kpis || {}
@@ -67,6 +68,33 @@ export default function AdminDashboard() {
           </select>
           <Link to="/admin/employees" className="btn-outline btn-sm"><FiUserPlus size={13}/> Add Employee</Link>
           <Link to="/admin/projects" className="btn-primary btn-sm"><FiFolder size={13}/> New Project</Link>
+        </div>
+      </div>
+
+      {/* ── Financial summary (live from ledger + invoices + banks) ── */}
+      <div>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Financial summary (synced)</p>
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          {[
+            { label: 'Total invoices', value: String(kpis.totalInvoices ?? 0), sub: 'All statuses', icon: FiFileText, accent: '#64748b', bg: 'bg-slate-50 text-slate-600' },
+            { label: 'Paid invoices', value: String(kpis.paidInvoicesCount ?? 0), sub: 'Marked paid', icon: FiCheckCircle, accent: '#16a34a', bg: 'bg-green-50 text-green-700' },
+            { label: 'Pending payments', value: `LKR ${fmt(kpis.pendingPaymentsTotal || 0)}`, sub: 'Outstanding balances', icon: FiAlertTriangle, accent: '#ea580c', bg: 'bg-orange-50 text-orange-700', alert: (kpis.pendingPaymentsTotal || 0) > 0 },
+            { label: 'Bank balances', value: `LKR ${fmt(kpis.bankAccountsTotalBalance || 0)}`, sub: 'Active accounts', icon: FiBriefcase, accent: '#2563eb', bg: 'bg-blue-50 text-blue-700' },
+            { label: 'Income total', value: `LKR ${fmt(kpis.financeIncomeTotal || 0)}`, sub: 'Income entries (all time)', icon: FiTrendingUp, accent: '#059669', bg: 'bg-emerald-50 text-emerald-700' },
+            { label: 'Expense total', value: `LKR ${fmt(kpis.financeExpenseTotal || 0)}`, sub: 'Expense entries (all time)', icon: FiPieChart, accent: '#dc2626', bg: 'bg-red-50 text-red-700' },
+          ].map((c, i) => (
+            <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`card card-body relative overflow-hidden ${c.alert ? 'border-orange-200' : ''}`}>
+              <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: c.accent, borderRadius: '12px 0 0 12px' }} />
+              <div className="flex items-start justify-between pl-2">
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
+                  <p className="text-lg font-bold text-primary font-heading">{c.value}</p>
+                  <p className="text-xs text-gray-400">{c.sub}</p>
+                </div>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16} /></div>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
 

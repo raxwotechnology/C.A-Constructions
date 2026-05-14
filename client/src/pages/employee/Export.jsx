@@ -63,24 +63,24 @@ export default function DeveloperExport() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <motion.button
               whileTap={{ scale: 0.98 }}
               type="button"
-              className="btn-primary justify-center"
+              className="btn-primary btn-sm justify-center gap-1.5"
               disabled={downloading}
               onClick={() => download('pdf')}
             >
-              <FiFileText size={16}/> Export PDF <FiDownload size={14}/>
+              <FiFileText size={13}/> PDF <FiDownload size={12}/>
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.98 }}
               type="button"
-              className="btn-outline justify-center"
+              className="btn-outline btn-sm justify-center gap-1.5"
               disabled={downloading}
               onClick={() => download('json')}
             >
-              <FiCode size={16}/> Export JSON <FiDownload size={14}/>
+              <FiCode size={13}/> JSON <FiDownload size={12}/>
             </motion.button>
           </div>
         </div>

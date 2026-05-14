@@ -1,5 +1,6 @@
 const PettyCash = require('../models/PettyCash');
 const BankAccount = require('../models/BankAccount');
+const { appendBankTransaction } = require('../utils/bankLedger');
 
 // GET /api/petty-cash
 exports.getTransactions = async (req, res, next) => {
@@ -49,27 +50,20 @@ exports.createTransaction = async (req, res, next) => {
       }
     }
 
-    // Process Bank Transfer logic if bankAccount is provided
-    if (paymentType === 'bank_transfer' && bankAccount) {
-      const account = await BankAccount.findById(bankAccount);
-      if (!account) return res.status(404).json({ success: false, message: 'Selected Bank Account not found' });
-      
+    const usesBank = bankAccount && ['bank_transfer', 'card'].includes(String(paymentType || '').toLowerCase());
+
+    if (usesBank) {
+      const acc = await BankAccount.findById(bankAccount);
+      if (!acc) return res.status(404).json({ success: false, message: 'Selected Bank Account not found' });
       const amt = Number(amount);
-      // Both IN (fund top-up) and OUT (expense) mean money leaves the bank account
-      // If it's a fund top-up, money moves from Bank to Petty Cash
-      // If it's an expense, money moves from Bank to Vendor
-      account.currentBalance = (account.currentBalance || 0) - amt;
-      
-      account.transactions.push({
+      await appendBankTransaction(bankAccount, {
         type: 'withdrawal',
         amount: amt,
-        balanceAfter: account.currentBalance,
         description: `Petty Cash: ${description} (${category})`,
         date: date ? new Date(date) : new Date(),
         reference: referenceNumber || '',
         recordedBy: req.user._id,
       });
-      await account.save();
     }
 
     const transaction = await PettyCash.create({
@@ -84,8 +78,22 @@ exports.createTransaction = async (req, res, next) => {
 // DELETE /api/petty-cash/:id
 exports.deleteTransaction = async (req, res, next) => {
   try {
-    const t = await PettyCash.findByIdAndDelete(req.params.id);
+    const t = await PettyCash.findById(req.params.id);
     if (!t) return res.status(404).json({ success: false, message: 'Transaction not found' });
+
+    const usesBank = t.bankAccount && ['bank_transfer', 'card'].includes(String(t.paymentType || '').toLowerCase());
+    if (usesBank) {
+      await appendBankTransaction(t.bankAccount, {
+        type: 'deposit',
+        amount: t.amount,
+        description: `Petty Cash reversal (deleted): ${t.description}`,
+        date: new Date(),
+        reference: t.referenceNumber || '',
+        recordedBy: req.user._id,
+      });
+    }
+
+    await PettyCash.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Transaction deleted' });
   } catch (err) { next(err); }
 };

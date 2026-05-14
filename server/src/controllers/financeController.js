@@ -9,6 +9,7 @@ const Leave = require('../models/Leave');
 const Project = require('../models/Project');
 const { createAuditLog } = require('./auditController');
 const { verifyActionPassword } = require('../utils/actionPassword');
+const { isFinanceBankMethod, appendBankTransaction } = require('../utils/bankLedger');
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -61,23 +62,15 @@ exports.addEntry = async (req, res, next) => {
     }
     const entry = await FinanceEntry.create(data);
 
-    // Sync with Bank Account
-    if (data.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(data.paymentMethod)) {
-      const BankAccount = require('../models/BankAccount');
-      const account = await BankAccount.findById(data.bankAccount);
-      if (account) {
-        const isCredit = type === 'income';
-        account.currentBalance = (account.currentBalance || 0) + (isCredit ? data.amount : -data.amount);
-        account.transactions.push({
-          type: isCredit ? 'deposit' : 'withdrawal',
-          amount: data.amount,
-          balanceAfter: account.currentBalance,
-          description: `Finance Entry: ${title} (${category})`,
-          date: data.date,
-          recordedBy: req.user._id,
-        });
-        await account.save();
-      }
+    if (data.bankAccount && isFinanceBankMethod(data.paymentMethod)) {
+      const isCredit = type === 'income';
+      await appendBankTransaction(data.bankAccount, {
+        type: isCredit ? 'deposit' : 'withdrawal',
+        amount: data.amount,
+        description: `Finance Entry: ${title} (${category})`,
+        date: data.date,
+        recordedBy: req.user._id,
+      });
     }
 
     await createAuditLog({
@@ -103,23 +96,15 @@ exports.updateEntry = async (req, res, next) => {
 
     const beforeSnap = financeEntrySnapshot(entry.toObject ? entry.toObject() : entry);
 
-    // Reverse old bank transaction if it existed
-    if (entry.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(entry.paymentMethod)) {
-      const BankAccount = require('../models/BankAccount');
-      const oldAccount = await BankAccount.findById(entry.bankAccount);
-      if (oldAccount) {
-        const isCredit = entry.type === 'income';
-        oldAccount.currentBalance = (oldAccount.currentBalance || 0) - (isCredit ? entry.amount : -entry.amount);
-        oldAccount.transactions.push({
-          type: isCredit ? 'withdrawal' : 'deposit',
-          amount: entry.amount,
-          balanceAfter: oldAccount.currentBalance,
-          description: `Finance Reversal (Edit): ${entry.title}`,
-          date: new Date(),
-          recordedBy: req.user._id,
-        });
-        await oldAccount.save();
-      }
+    if (entry.bankAccount && isFinanceBankMethod(entry.paymentMethod)) {
+      const wasCredit = entry.type === 'income';
+      await appendBankTransaction(entry.bankAccount, {
+        type: wasCredit ? 'withdrawal' : 'deposit',
+        amount: entry.amount,
+        description: `Finance Reversal (Edit): ${entry.title}`,
+        date: new Date(),
+        recordedBy: req.user._id,
+      });
     }
 
     const { type, category, title, amount, date, note, branch, paymentMethod, bankAccount } = req.body;
@@ -140,23 +125,15 @@ exports.updateEntry = async (req, res, next) => {
 
     await entry.save();
 
-    // Apply new bank transaction
-    if (entry.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(entry.paymentMethod)) {
-      const BankAccount = require('../models/BankAccount');
-      const newAccount = await BankAccount.findById(entry.bankAccount);
-      if (newAccount) {
-        const isCredit = entry.type === 'income';
-        newAccount.currentBalance = (newAccount.currentBalance || 0) + (isCredit ? entry.amount : -entry.amount);
-        newAccount.transactions.push({
-          type: isCredit ? 'deposit' : 'withdrawal',
-          amount: entry.amount,
-          balanceAfter: newAccount.currentBalance,
-          description: `Finance Entry (Edited): ${entry.title}`,
-          date: entry.date,
-          recordedBy: req.user._id,
-        });
-        await newAccount.save();
-      }
+    if (entry.bankAccount && isFinanceBankMethod(entry.paymentMethod)) {
+      const isCredit = entry.type === 'income';
+      await appendBankTransaction(entry.bankAccount, {
+        type: isCredit ? 'deposit' : 'withdrawal',
+        amount: entry.amount,
+        description: `Finance Entry (Edited): ${entry.title}`,
+        date: entry.date,
+        recordedBy: req.user._id,
+      });
     }
 
     const afterSnap = financeEntrySnapshot(entry.toObject ? entry.toObject() : entry);
@@ -187,23 +164,15 @@ exports.deleteEntry = async (req, res, next) => {
 
     const beforeSnap = financeEntrySnapshot(entry.toObject ? entry.toObject() : entry);
 
-    // Reverse bank transaction
-    if (entry.bankAccount && ['Bank Transfer', 'Card', 'Online Payment'].includes(entry.paymentMethod)) {
-      const BankAccount = require('../models/BankAccount');
-      const account = await BankAccount.findById(entry.bankAccount);
-      if (account) {
-        const isCredit = entry.type === 'income';
-        account.currentBalance = (account.currentBalance || 0) - (isCredit ? entry.amount : -entry.amount);
-        account.transactions.push({
-          type: isCredit ? 'withdrawal' : 'deposit',
-          amount: entry.amount,
-          balanceAfter: account.currentBalance,
-          description: `Finance Reversal (Deleted): ${entry.title}`,
-          date: new Date(),
-          recordedBy: req.user._id,
-        });
-        await account.save();
-      }
+    if (entry.bankAccount && isFinanceBankMethod(entry.paymentMethod)) {
+      const wasCredit = entry.type === 'income';
+      await appendBankTransaction(entry.bankAccount, {
+        type: wasCredit ? 'withdrawal' : 'deposit',
+        amount: entry.amount,
+        description: `Finance Reversal (Deleted): ${entry.title}`,
+        date: new Date(),
+        recordedBy: req.user._id,
+      });
     }
 
     await entry.deleteOne();

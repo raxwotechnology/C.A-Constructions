@@ -1,18 +1,41 @@
 const EpfRecord = require('../models/EpfRecord');
 const Employee  = require('../models/Employee');
 const { createAuditLog } = require('./auditController');
-
-const EPF_EMP  = 0.08;
-const EPF_EMPLR = 0.12;
-const ETF_EMPLR = 0.03;
+const { getStatutoryRates } = require('../utils/statutoryRates');
 
 // Helper — round to integer LKR
 const r = n => Math.round(n);
 
 // @desc  Get EPF records for a month/year — auto-creates for newly enrolled employees
-// @route GET /api/epf-records?month=X&year=Y
+//        OR all records for one employee when ?employeeId= is set
+// @route GET /api/epf-records?month=X&year=Y  OR  ?employeeId=
 exports.getEpfRecords = async (req, res, next) => {
   try {
+    const { fractions: F, percentages: statutoryRates } = await getStatutoryRates();
+
+    if (req.query.employeeId) {
+      const records = await EpfRecord.find({ employee: req.query.employeeId })
+        .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+        .sort({ year: -1, month: -1 })
+        .limit(240);
+      return res.json({
+        success: true,
+        records: records.map((rec) => ({
+          _id: rec._id,
+          month: rec.month,
+          year: rec.year,
+          basicSalary: rec.basicSalary,
+          epfEmployee: rec.epfEmployee,
+          epfEmployer: rec.epfEmployer,
+          etfEmployer: rec.etfEmployer,
+          totalEPF: rec.totalEPF,
+          isPaid: rec.isPaid,
+          paidAt: rec.paidAt,
+        })),
+        statutoryRates,
+      });
+    }
+
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year  = Number(req.query.year)  || new Date().getFullYear();
 
@@ -34,9 +57,9 @@ exports.getEpfRecords = async (req, res, next) => {
       .filter(emp => !existingMap[String(emp._id)])
       .map(emp => {
         const basic = emp.basicSalary || 0;
-        const ee = r(basic * EPF_EMP);
-        const er = r(basic * EPF_EMPLR);
-        const et = r(basic * ETF_EMPLR);
+        const ee = r(basic * F.epfEmployee);
+        const er = r(basic * F.epfEmployer);
+        const et = r(basic * F.etfEmployer);
         return {
           employee:    emp._id,
           month, year,
@@ -81,7 +104,7 @@ exports.getEpfRecords = async (req, res, next) => {
       etfEmployer: summary.reduce((a, b) => a + b.etfEmployer, 0),
     };
 
-    res.json({ success: true, summary, totals });
+    res.json({ success: true, summary, totals, statutoryRates });
   } catch (err) { next(err); }
 };
 

@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
@@ -8,22 +8,38 @@ import { useState } from 'react'
 
 export default function AdminSettings() {
   const { user, updateUser } = useAuthStore()
+  const qc = useQueryClient()
   const [avatarFile, setAvatarFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
-  const { register: reg1, handleSubmit: hs1 } = useForm({ defaultValues: { name: user?.name, phone: user?.phone } })
+  const [avatarToRemove, setAvatarToRemove] = useState(false)
+  const [logoToRemove, setLogoToRemove] = useState(false)
+
+  const { register: reg1, handleSubmit: hs1, formState: { isSubmitting: isSubmittingProfile } } = useForm({
+    values: { name: user?.name, phone: user?.phone }
+  })
   const { register: reg2, handleSubmit: hs2, reset: reset2 } = useForm()
 
   const profileMut = useMutation({
     mutationFn: d => api.put('/auth/profile', d).then(r => r.data),
-    onSuccess: r => { updateUser(r.user); toast.success('Profile updated') },
+    onSuccess: r => { 
+      updateUser(r.user); 
+      setAvatarFile(null);
+      setAvatarToRemove(false);
+      toast.success('Profile updated') 
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const uploadImage = async (file) => {
     if (!file) return ''
-    const fd = new FormData()
-    fd.append('image', file)
-    const { data } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-    return data.imageUrl
+    try {
+      const fd = new FormData()
+      fd.append('image', file)
+      const { data } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      return data.imageUrl
+    } catch (err) {
+      console.error('Image upload failed:', err)
+      throw new Error(err.response?.data?.message || 'Image upload failed')
+    }
   }
   const passMut = useMutation({
     mutationFn: d => api.put('/auth/change-password', d),
@@ -35,7 +51,7 @@ export default function AdminSettings() {
     queryKey: ['site-settings'],
     queryFn: () => api.get('/site-settings').then((r) => r.data),
   })
-  const { register: reg3, handleSubmit: hs3 } = useForm({
+  const { register: reg3, handleSubmit: hs3, formState: { isSubmitting: isSubmittingSite } } = useForm({
     values: {
       siteName: siteData?.settings?.siteName || '',
       siteDescription: siteData?.settings?.siteDescription || '',
@@ -48,11 +64,21 @@ export default function AdminSettings() {
       mapLat: siteData?.settings?.mapLat ?? 7.0289,
       mapLng: siteData?.settings?.mapLng ?? 80.0153,
       mapZoom: siteData?.settings?.mapZoom ?? 13,
+      epfEmployeeRate: siteData?.settings?.epfEmployeeRate ?? 8,
+      epfEmployerRate: siteData?.settings?.epfEmployerRate ?? 12,
+      etfEmployerRate: siteData?.settings?.etfEmployerRate ?? 3,
     },
   })
+
   const siteMut = useMutation({
     mutationFn: (d) => api.put('/site-settings', d).then((r) => r.data),
-    onSuccess: () => toast.success('Site settings updated'),
+    onSuccess: () => {
+      toast.success('Site settings updated')
+      setLogoFile(null)
+      setLogoToRemove(false)
+      qc.invalidateQueries({ queryKey: ['site-settings'] })
+      qc.invalidateQueries({ queryKey: ['epf-records'] })
+    },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
   })
 
@@ -78,8 +104,17 @@ export default function AdminSettings() {
         </div>
 
         <form onSubmit={hs1(async (d) => {
-          const uploadedAvatar = await uploadImage(avatarFile)
-          profileMut.mutate({ ...d, avatar: uploadedAvatar || user?.avatar || '' })
+          try {
+            let avatar = user?.avatar || ''
+            if (avatarToRemove) avatar = ''
+            if (avatarFile) {
+              const uploaded = await uploadImage(avatarFile)
+              if (uploaded) avatar = uploaded
+            }
+            profileMut.mutate({ ...d, avatar })
+          } catch (e) {
+            toast.error(e.message)
+          }
         })} className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
@@ -99,9 +134,38 @@ export default function AdminSettings() {
             <label className="form-label">Role</label>
             <input value={user?.role} disabled className="form-input bg-gray-50 text-gray-400 cursor-not-allowed capitalize"/>
           </div>
-          <div><label className="form-label">Profile Picture</label><input type="file" accept="image/*" className="form-input" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} /></div>
-          <button type="submit" disabled={profileMut.isPending} className="btn-primary">
-            {profileMut.isPending ? <span className="spinner"/> : <><FiSave size={15}/> Save Profile</>}
+          <div className="flex flex-col gap-2">
+            <label className="form-label">Profile Picture</label>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
+                {avatarFile ? (
+                  <img src={URL.createObjectURL(avatarFile)} alt="Preview" className="w-full h-full object-cover" />
+                ) : (!avatarToRemove && user?.avatar) ? (
+                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400"><FiUser size={30} /></div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <input type="file" accept="image/*" className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-secondary/10 file:text-secondary hover:file:bg-secondary/20 transition-all cursor-pointer" 
+                  onChange={(e) => {
+                    setAvatarFile(e.target.files?.[0] || null)
+                    setAvatarToRemove(false)
+                  }} 
+                />
+                {((!avatarToRemove && user?.avatar) || avatarFile) && (
+                  <button type="button" onClick={() => { 
+                    if (window.confirm('Are you sure you want to remove your profile picture?')) {
+                      setAvatarToRemove(true); 
+                      setAvatarFile(null);
+                    }
+                  }} className="text-xs text-red-500 hover:text-red-600 font-medium w-fit">Remove Picture</button>
+                )}
+              </div>
+            </div>
+          </div>
+          <button type="submit" disabled={profileMut.isPending || isSubmittingProfile} className="btn-primary">
+            {profileMut.isPending || isSubmittingProfile ? <span className="spinner"/> : <><FiSave size={15}/> Save Profile</>}
           </button>
         </form>
       </div>
@@ -142,14 +206,52 @@ export default function AdminSettings() {
       <div className="card card-body">
         <h3 className="font-bold text-primary font-heading mb-4">Site Settings</h3>
         <form onSubmit={hs3(async (d) => {
-          const uploadedLogo = await uploadImage(logoFile)
-          siteMut.mutate({ ...d, logoUrl: uploadedLogo || d.logoUrl || '' })
+          try {
+            let logoUrl = d.logoUrl || ''
+            if (logoToRemove) logoUrl = ''
+            if (logoFile) {
+              const uploaded = await uploadImage(logoFile)
+              if (uploaded) logoUrl = uploaded
+            }
+            siteMut.mutate({ ...d, logoUrl })
+          } catch (e) {
+            toast.error(e.message)
+          }
         })} className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div><label className="form-label">Site Name</label><input {...reg3('siteName')} className="form-input" /></div>
             <div><label className="form-label">Logo URL</label><input {...reg3('logoUrl')} className="form-input" /></div>
           </div>
-          <div><label className="form-label">Upload Logo Image</label><input type="file" accept="image/*" className="form-input" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} /></div>
+          <div className="flex flex-col gap-2">
+            <label className="form-label">Site Logo</label>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-12 rounded bg-gray-50 border border-gray-200 flex items-center justify-center p-1">
+                {logoFile ? (
+                  <img src={URL.createObjectURL(logoFile)} alt="Preview" className="max-h-full object-contain" />
+                ) : (!logoToRemove && siteData?.settings?.logoUrl) ? (
+                  <img src={siteData.settings.logoUrl} alt="Logo" className="max-h-full object-contain" />
+                ) : (
+                  <span className="text-[10px] text-gray-400">No Logo</span>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <input type="file" accept="image/*" className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer" 
+                  onChange={(e) => {
+                    setLogoFile(e.target.files?.[0] || null)
+                    setLogoToRemove(false)
+                  }} 
+                />
+                {((!logoToRemove && siteData?.settings?.logoUrl) || logoFile) && (
+                  <button type="button" onClick={() => { 
+                    if (window.confirm('Are you sure you want to remove the site logo?')) {
+                      setLogoToRemove(true); 
+                      setLogoFile(null);
+                    }
+                  }} className="text-xs text-red-500 hover:text-red-600 font-medium w-fit">Remove Logo</button>
+                )}
+              </div>
+            </div>
+          </div>
           <div><label className="form-label">Description</label><textarea {...reg3('siteDescription')} className="form-input min-h-20" /></div>
           <div><label className="form-label">Footer Details</label><textarea {...reg3('footerText')} className="form-input min-h-20" /></div>
           <div className="grid grid-cols-2 gap-4">
@@ -163,7 +265,26 @@ export default function AdminSettings() {
             <div><label className="form-label">Map Longitude</label><input type="number" step="any" {...reg3('mapLng', { valueAsNumber: true })} className="form-input" /></div>
             <div><label className="form-label">Map Zoom</label><input type="number" {...reg3('mapZoom', { valueAsNumber: true })} className="form-input" /></div>
           </div>
-          <button type="submit" className="btn-primary" disabled={siteMut.isPending}>Save Site Settings</button>
+          <div className="border-t border-slate-100 pt-4 mt-2">
+            <p className="text-xs text-gray-500 mb-3">Payroll and EPF/ETF calculations use these percentages of basic salary (Sri Lanka defaults: 8% / 12% / 3%).</p>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <label className="form-label">EPF employee (%)</label>
+                <input type="number" step="0.01" min={0} max={50} {...reg3('epfEmployeeRate', { valueAsNumber: true })} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">EPF employer (%)</label>
+                <input type="number" step="0.01" min={0} max={50} {...reg3('epfEmployerRate', { valueAsNumber: true })} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">ETF employer (%)</label>
+                <input type="number" step="0.01" min={0} max={50} {...reg3('etfEmployerRate', { valueAsNumber: true })} className="form-input" />
+              </div>
+            </div>
+          </div>
+          <button type="submit" className="btn-primary" disabled={siteMut.isPending || isSubmittingSite}>
+            {siteMut.isPending || isSubmittingSite ? <span className="spinner"/> : 'Save Site Settings'}
+          </button>
         </form>
       </div>
 
@@ -174,9 +295,9 @@ export default function AdminSettings() {
             { label:'Platform', value:'Raxwo Portal v1.0' },
             { label:'Stack', value:'MERN (MongoDB, Express, React, Node)' },
             { label:'Environment', value:'Development' },
-            { label:'EPF Rate (Employee)', value:'8%' },
-            { label:'EPF Rate (Employer)', value:'12%' },
-            { label:'ETF Rate (Employer)', value:'3%' },
+            { label:'EPF Rate (Employee)', value: `${Number(siteData?.settings?.epfEmployeeRate ?? 8)}%` },
+            { label:'EPF Rate (Employer)', value: `${Number(siteData?.settings?.epfEmployerRate ?? 12)}%` },
+            { label:'ETF Rate (Employer)', value: `${Number(siteData?.settings?.etfEmployerRate ?? 3)}%` },
           ].map(i => (
             <div key={i.label} className="flex justify-between py-1.5 border-b border-gray-100">
               <span className="text-gray-500">{i.label}</span>

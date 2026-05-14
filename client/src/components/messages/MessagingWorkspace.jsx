@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
 import { FiSend, FiSearch } from 'react-icons/fi'
 import api from '../../lib/api'
+import { getSocketOrigin } from '../../lib/devApi'
 import useAuthStore from '../../store/authStore'
 
 export default function MessagingWorkspace({ embedded = false }) {
@@ -65,7 +66,7 @@ export default function MessagingWorkspace({ embedded = false }) {
 
   useEffect(() => {
     if (!token) return undefined
-    const socket = io((import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', ''), {
+    const socket = io(getSocketOrigin(), {
       auth: { token },
       transports: ['websocket'],
     })

@@ -146,12 +146,12 @@ export default function AdminExports() {
           {selected ? <span> for <span className="font-semibold text-slate-800">{selected.userId?.name}</span></span> : <span> for <span className="font-semibold text-slate-800">All Employees</span></span>}
         </div>
 
-        <div className="flex gap-3">
-          <button type="button" className="btn-danger" disabled={downloading} onClick={() => download('pdf')}>
-            <FiFileText size={15} /> Export PDF <FiDownload size={14} />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-danger btn-sm inline-flex items-center gap-1.5" disabled={downloading} onClick={() => download('pdf')}>
+            <FiFileText size={13} /> PDF <FiDownload size={12} />
           </button>
-          <button type="button" className="btn-success" disabled={downloading} onClick={() => download('excel')}>
-            <FiFileText size={15} /> Export Excel <FiDownload size={14} />
+          <button type="button" className="btn-success btn-sm inline-flex items-center gap-1.5" disabled={downloading} onClick={() => download('excel')}>
+            <FiFileText size={13} /> Excel <FiDownload size={12} />
           </button>
         </div>
       </div>

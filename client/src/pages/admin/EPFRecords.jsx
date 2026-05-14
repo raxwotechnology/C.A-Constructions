@@ -4,7 +4,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import {
   FiDownload, FiTrendingUp, FiEdit2, FiTrash2,
-  FiCheckCircle, FiClock, FiX, FiSave, FiRefreshCw,
+  FiCheckCircle, FiClock, FiX, FiSave, FiRefreshCw, FiAlertCircle,
 } from 'react-icons/fi'
 
 const MONTHS = [
@@ -31,6 +31,7 @@ export default function EPFRecords() {
 
   const summary = data?.summary || []
   const totals  = data?.totals  || {}
+  const rt = data?.statutoryRates ?? { epfEmployee: 8, epfEmployer: 12, etfEmployer: 3 }
 
   /* ── mutations ─────────────────────────────────────────────────────── */
   const editMut = useMutation({
@@ -77,7 +78,7 @@ export default function EPFRecords() {
   /* ── CSV export ─────────────────────────────────────────────────────── */
   const exportCSV = () => {
     const rows = [
-      ['Employee','EPF No','ETF No','Basic','EPF Emp (8%)','EPF Emplr (12%)','Total EPF','ETF (3%)','Status'],
+      ['Employee','EPF No','ETF No','Basic',`EPF Emp (${rt.epfEmployee}%)`,`EPF Emplr (${rt.epfEmployer}%)`,'Total EPF',`ETF (${rt.etfEmployer}%)`,'Status'],
       ...summary.map(r => [
         r.name, r.epfNo||'—', r.etfNo||'—',
         r.basicSalary, r.epfEmployee, r.epfEmployer, r.totalEPF, r.etfEmployer,
@@ -140,9 +141,9 @@ export default function EPFRecords() {
       <div className="card card-body bg-blue-50 border border-blue-100">
         <div className="flex flex-wrap gap-6">
           {[
-            { label:'Employee EPF', rate:'8%',  desc:'Deducted from employee basic salary' },
-            { label:'Employer EPF', rate:'12%', desc:'Contributed by employer on basic salary' },
-            { label:'Employer ETF', rate:'3%',  desc:'Employee Trust Fund by employer' },
+            { label:'Employee EPF', rate:`${rt.epfEmployee}%`,  desc:'Deducted from employee basic salary' },
+            { label:'Employer EPF', rate:`${rt.epfEmployer}%`, desc:'Contributed by employer on basic salary' },
+            { label:'Employer ETF', rate:`${rt.etfEmployer}%`,  desc:'Employee Trust Fund by employer' },
           ].map(r => (
             <div key={r.label} className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-secondary text-white flex items-center justify-center font-bold text-sm">{r.rate}</div>
@@ -177,10 +178,10 @@ export default function EPFRecords() {
       {/* KPI totals */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label:'EPF Employee (8%)',  value:`LKR ${(totals.epfEmployee||0).toLocaleString()}`, color:'kpi-blue'   },
-          { label:'EPF Employer (12%)', value:`LKR ${(totals.epfEmployer||0).toLocaleString()}`, color:'kpi-navy'   },
+          { label:`EPF Employee (${rt.epfEmployee}%)`,  value:`LKR ${(totals.epfEmployee||0).toLocaleString()}`, color:'kpi-blue'   },
+          { label:`EPF Employer (${rt.epfEmployer}%)`, value:`LKR ${(totals.epfEmployer||0).toLocaleString()}`, color:'kpi-navy'   },
           { label:'Total EPF',          value:`LKR ${(totals.totalEPF||0).toLocaleString()}`,    color:'kpi-green'  },
-          { label:'ETF Employer (3%)',  value:`LKR ${(totals.etfEmployer||0).toLocaleString()}`, color:'kpi-purple' },
+          { label:`ETF Employer (${rt.etfEmployer}%)`,  value:`LKR ${(totals.etfEmployer||0).toLocaleString()}`, color:'kpi-purple' },
         ].map(s => (
           <div key={s.label} className={`kpi-card ${s.color}`}>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{s.label}</p>
@@ -198,10 +199,10 @@ export default function EPFRecords() {
               <th>EPF No</th>
               <th>ETF No</th>
               <th>Basic Salary</th>
-              <th>EPF Emp (8%)</th>
-              <th>EPF Emplr (12%)</th>
+              <th>EPF Emp ({rt.epfEmployee}%)</th>
+              <th>EPF Emplr ({rt.epfEmployer}%)</th>
               <th>Total EPF</th>
-              <th>ETF (3%)</th>
+              <th>ETF ({rt.etfEmployer}%)</th>
               <th>Status</th>
               <th className="text-right">Actions</th>
             </tr>
@@ -292,9 +293,9 @@ export default function EPFRecords() {
             </div>
             {[
               { key: 'basicSalary', label: 'Basic Salary (LKR)' },
-              { key: 'epfEmployee', label: 'EPF Employee 8% (LKR)' },
-              { key: 'epfEmployer', label: 'EPF Employer 12% (LKR)' },
-              { key: 'etfEmployer', label: 'ETF Employer 3% (LKR)' },
+              { key: 'epfEmployee', label: `EPF Employee ${rt.epfEmployee}% (LKR)` },
+              { key: 'epfEmployer', label: `EPF Employer ${rt.epfEmployer}% (LKR)` },
+              { key: 'etfEmployer', label: `ETF Employer ${rt.etfEmployer}% (LKR)` },
             ].map(f => (
               <div key={f.key}>
                 <label className="form-label">{f.label}</label>

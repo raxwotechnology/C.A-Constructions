@@ -30,6 +30,7 @@ import {
   FiBookmark,
   FiCode,
   FiChevronDown,
+  FiTrash2,
 } from 'react-icons/fi'
 import { mediaUrl } from '../../lib/media'
 import { openLetterPrint, downloadLetterPdf } from '../../lib/letterDocument'
@@ -73,6 +74,8 @@ export default function AdminLetters() {
   const [selectedTplId, setSelectedTplId] = useState('')
   const [showLetterTemplates, setShowLetterTemplates] = useState(false)
   const [tplPwdOpen, setTplPwdOpen] = useState(false)
+  const [letterPwdOpen, setLetterPwdOpen] = useState(false)
+  const [letterDeleteId, setLetterDeleteId] = useState(null)
 
   const { register, handleSubmit, reset, watch, setValue } = useForm()
   const selectedType = watch('type')
@@ -186,6 +189,19 @@ export default function AdminLetters() {
       setSelectedTplId('')
       toast.success('Template removed')
     },
+  })
+
+  const delLetterMut = useMutation({
+    mutationFn: ({ id, password }) => api.delete(`/letters/${id}`, { data: { password } }),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['admin-letters'] })
+      qc.invalidateQueries({ queryKey: ['my-letters'] })
+      setLetterPwdOpen(false)
+      setLetterDeleteId(null)
+      setPreview((prev) => (prev && v?.id && prev._id === v.id ? null : prev))
+      toast.success('Letter deleted')
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Could not delete letter'),
   })
 
   const onSubmit = (d) =>
@@ -398,6 +414,17 @@ export default function AdminLetters() {
                         </button>
                         <button type="button" title="PDF" onClick={() => handlePdf(l)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
                           <FiDownload size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete letter"
+                          onClick={() => {
+                            setLetterDeleteId(l._id)
+                            setLetterPwdOpen(true)
+                          }}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <FiTrash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -804,6 +831,22 @@ export default function AdminLetters() {
         onConfirm={async (password) => {
           if (!selectedTplId) return
           await delTplMut.mutateAsync({ id: selectedTplId, password })
+        }}
+      />
+
+      <PasswordConfirmModal
+        open={letterPwdOpen}
+        onClose={() => {
+          setLetterPwdOpen(false)
+          setLetterDeleteId(null)
+        }}
+        title="Delete issued letter"
+        message="This permanently removes the letter from HR records and employee “My letters”. Enter your account password to confirm."
+        confirmLabel="Delete letter"
+        isSubmitting={delLetterMut.isPending}
+        onConfirm={async (password) => {
+          if (!letterDeleteId) return
+          await delLetterMut.mutateAsync({ id: letterDeleteId, password })
         }}
       />
     </div>

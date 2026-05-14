@@ -1,5 +1,9 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-const SERVER_ORIGIN = API_BASE.replace(/\/api\/?$/, '')
+import { getApiBaseUrl } from './devApi'
+
+const API_BASE = getApiBaseUrl()
+const SERVER_ORIGIN = API_BASE.startsWith('http')
+  ? API_BASE.replace(/\/api\/?$/i, '')
+  : ''
 
 export function mediaUrl(url) {
   if (!url) return ''

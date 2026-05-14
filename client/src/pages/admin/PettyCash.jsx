@@ -45,12 +45,12 @@ export default function AdminPettyCash() {
 
   const createMut = useMutation({
     mutationFn: p => api.post('/petty-cash', p),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); toast.success('Transaction recorded'); setShowModal(false); setForm(EMPTY) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Transaction recorded'); setShowModal(false); setForm(EMPTY) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/petty-cash/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); toast.success('Deleted') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Deleted') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
@@ -245,7 +245,7 @@ export default function AdminPettyCash() {
                 </div>
               </div>
               
-              {form.paymentType === 'bank_transfer' && (
+              {['bank_transfer', 'card'].includes(form.paymentType) && (
                 <div>
                   <label className="form-label text-blue-600">Paying From Bank Account</label>
                   <select className="form-select border-blue-200" value={form.bankAccount || ''} onChange={e=>setForm(s=>({...s,bankAccount:e.target.value}))}>

@@ -1,6 +1,7 @@
 const Quotation = require('../models/Quotation');
 const Invoice = require('../models/Invoice');
 const { createAuditLog } = require('./auditController');
+const { allocateInvoiceNoFromQuotationNo } = require('../utils/allocateInvoiceNoFromQuotation');
 
 function quotationAuditSummary(doc) {
   if (!doc) return null;
@@ -34,6 +35,8 @@ exports.getQuotations = async (req, res, next) => {
       .populate('client', 'name email phone')
       .populate('booking', 'projectTitle')
       .populate('generatedBy', 'name')
+      .populate('branch', 'name')
+      .populate('project', 'title deadline')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: quotations.length, quotations });
   } catch (err) { next(err); }
@@ -134,10 +137,21 @@ exports.confirmQuotation = async (req, res, next) => {
 // @route   POST /api/quotations/:id/convert-to-invoice
 exports.convertToInvoice = async (req, res, next) => {
   try {
+    const qLean = await Quotation.findById(req.params.id).select('quotationNo status convertedToInvoice').lean();
+    if (!qLean) return res.status(404).json({ success: false, message: 'Quotation not found' });
+    if (qLean.status === 'converted' || qLean.convertedToInvoice) {
+      return res.status(400).json({ success: false, message: 'Already converted to invoice' });
+    }
+
     const quotation = await Quotation.findById(req.params.id).populate('client', 'name email');
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
-    if (quotation.status === 'converted' || quotation.convertedToInvoice) {
-      return res.status(400).json({ success: false, message: 'Already converted to invoice' });
+
+    const quoteNo = qLean.quotationNo != null ? String(qLean.quotationNo).trim() : '';
+    if (!quoteNo) {
+      return res.status(400).json({
+        success: false,
+        message: 'This quotation has no quotation number in the database. Save the quotation again, then convert.',
+      });
     }
 
     const { calcItems } = require('./invoiceController').helpers || {};
@@ -151,10 +165,16 @@ exports.convertToInvoice = async (req, res, next) => {
       return { ...raw, total: parseFloat((afterDisc + taxAmt).toFixed(2)) };
     });
 
-    const invoice = await Invoice.create({
-      client: quotation.client._id,
+    const invNo = await allocateInvoiceNoFromQuotationNo(quoteNo);
+    if (!invNo) {
+      return res.status(500).json({ success: false, message: 'Could not allocate a unique invoice number' });
+    }
+
+    const clientId = quotation.client?._id || quotation.client;
+    const invoice = new Invoice({
+      client: clientId,
       quotationRef: quotation._id,
-      title: quotation.title,
+      invoiceNo: invNo,
       items: calcedItems,
       subtotal: quotation.subtotal,
       discountTotal: quotation.discountTotal,
@@ -168,6 +188,7 @@ exports.convertToInvoice = async (req, res, next) => {
       status: 'unpaid',
       createdBy: req.user._id,
     });
+    await invoice.save();
 
     await Quotation.findByIdAndUpdate(quotation._id, { status: 'converted', convertedToInvoice: invoice._id });
     await createAuditLog({

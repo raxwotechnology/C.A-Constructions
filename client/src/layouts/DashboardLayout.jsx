@@ -11,7 +11,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload,
-  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote
+  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
@@ -55,6 +55,7 @@ const adminNav = [
     { to: '/admin/financial-reports', label: 'Financial Reports', icon: FiPieChart },
     { to: '/admin/finance-entries', label: 'Income & Expenses', icon: FiClipboard },
     { to: '/admin/petty-cash', label: 'Petty Cash', icon: FiCreditCard },
+    { to: '/admin/cheques', label: 'Cheques', icon: FiTarget },
     { to: '/admin/bank-management', label: 'Bank Management', icon: FiBarChart2 },
     { to: '/admin/exports', label: 'Export Center', icon: FiDownload },
   ]},
@@ -122,6 +123,15 @@ export default function DashboardLayout({ role }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const notifButtonRef = useRef(null)
   const [notifPos, setNotifPos] = useState({ top: 72, right: 16 })
+
+  const { data: siteRow } = useQuery({
+    queryKey: ['site-settings'],
+    queryFn: () => api.get('/site-settings').then((r) => r.data),
+    staleTime: 60_000,
+  })
+  const siteLogo = siteRow?.settings?.logoUrl
+    ? `${mediaUrl(siteRow.settings.logoUrl)}?v=${siteRow.settings.updatedAt ? new Date(siteRow.settings.updatedAt).getTime() : ''}`
+    : ''
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
@@ -195,11 +205,15 @@ export default function DashboardLayout({ role }) {
       {/* Logo */}
       <div className="p-6 border-b border-slate-200">
         <NavLink to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
-            <span className="text-white font-bold font-heading">R</span>
-          </div>
+          {siteLogo ? (
+            <img src={siteLogo} alt="" className="h-10 w-auto max-w-[140px] object-contain rounded-lg border border-slate-100 bg-white p-1" />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
+              <span className="text-white font-bold font-heading">R</span>
+            </div>
+          )}
           <div>
-            <span className="font-heading font-bold text-primary text-lg leading-none">Raxwo</span>
+            <span className="font-heading font-bold text-primary text-lg leading-none">{siteRow?.settings?.siteName || 'Raxwo'}</span>
             <p className="text-slate-400 text-xs leading-none capitalize">{user?.role} Portal</p>
           </div>
         </NavLink>

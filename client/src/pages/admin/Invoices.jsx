@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -7,11 +8,14 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiCreditCard, FiSearch, FiEdit2, FiTrash2, FiSend, FiEye } from 'react-icons/fi'
 import InvoiceDetail from './InvoiceDetail'
+import { INVOICE_CURRENCIES, suggestedExchangeToLKR } from '../../lib/currencies'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
 export default function AdminInvoices() {
   const qc = useQueryClient()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [viewInvoiceId, setViewInvoiceId] = useState(null)
@@ -19,8 +23,15 @@ export default function AdminInvoices() {
   const [branchFilter, setBranchFilter] = useState('')
 
   const { register, handleSubmit, reset, watch, control, setValue } = useForm({
-    defaultValues: { invoicePrefix: 'INV', items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }
+    defaultValues: {
+      invoicePrefix: 'INV',
+      currency: 'LKR',
+      exchangeRateToLKR: 1,
+      status: 'draft',
+      items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
+    },
   })
+  const quotationRefField = register('quotationRef')
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
 
   const watchItems = watch('items') || []
@@ -30,6 +41,15 @@ export default function AdminInvoices() {
   const total = subtotal + tax
 
   const selectedQuotation = watch('quotationRef')
+  const watchedCurrency = watch('currency') || 'LKR'
+  const watchedProject = watch('project')
+
+  useEffect(() => {
+    const openId = location.state?.openInvoiceId
+    if (!openId) return
+    setViewInvoiceId(openId)
+    navigate(location.pathname, { replace: true, state: {} })
+  }, [location.state, location.pathname, navigate])
 
   const { data: invData, isLoading } = useQuery({
     queryKey: ['admin-invoices', branchFilter],
@@ -44,6 +64,15 @@ export default function AdminInvoices() {
   const projects = projData?.projects || []
   const branches = branchData?.branches || []
   const quotations = quotData?.quotations || []
+
+  useEffect(() => {
+    if (!watchedProject) return
+    const pr = projects.find((p) => String(p._id) === String(watchedProject))
+    if (pr?.deadline) {
+      const d = new Date(pr.deadline).toISOString().split('T')[0]
+      setValue('dueDate', d, { shouldDirty: false })
+    }
+  }, [watchedProject, projects, setValue])
 
   const createMut = useMutation({
     mutationFn: d => api.post('/invoices', d),
@@ -72,6 +101,14 @@ export default function AdminInvoices() {
         setValue('notes', q.notes || '')
         setValue('paymentTerms', q.terms || '')
         setValue('items', q.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount })))
+        setValue('currency', q.currency || 'LKR')
+        setValue('exchangeRateToLKR', suggestedExchangeToLKR(q.currency || 'LKR'))
+        if (q.branch) setValue('branch', q.branch?._id || q.branch)
+        if (q.project) {
+          setValue('project', q.project?._id || q.project)
+          const pr = projects.find((p) => String(p._id) === String(q.project?._id || q.project))
+          if (pr?.deadline) setValue('dueDate', new Date(pr.deadline).toISOString().split('T')[0], { shouldDirty: false })
+        }
       }
     }
   }
@@ -80,19 +117,76 @@ export default function AdminInvoices() {
     !search || inv.invoiceNo?.toLowerCase().includes(search.toLowerCase()) || inv.client?.name?.toLowerCase().includes(search.toLowerCase())
   )
 
-  const openCreate = () => { reset({ invoicePrefix: 'INV', invoiceDate: new Date().toISOString().split('T')[0], items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }); setEditing(null); setShowModal(true) }
+  const openCreate = () => {
+    reset({
+      invoicePrefix: 'INV',
+      currency: 'LKR',
+      exchangeRateToLKR: 1,
+      status: 'draft',
+      invoiceDate: new Date().toISOString().split('T')[0],
+      items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
+    })
+    setEditing(null)
+    setShowModal(true)
+  }
+  const openEdit = (inv) => {
+    setEditing(inv)
+    setShowModal(true)
+    reset({
+      client: inv.client?._id || inv.client,
+      project: inv.project?._id || inv.project || '',
+      branch: inv.branch?._id || inv.branch || '',
+      quotationRef: inv.quotationRef?._id || inv.quotationRef || '',
+      invoicePrefix: inv.invoicePrefix || 'INV',
+      currency: inv.currency || 'LKR',
+      exchangeRateToLKR: inv.exchangeRateToLKR ?? 1,
+      taxRate: inv.taxRate || 0,
+      notes: inv.notes || '',
+      paymentTerms: inv.paymentTerms || '',
+      invoiceDate: inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : '',
+      dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : '',
+      status: inv.status || 'draft',
+      items: (inv.items || []).length
+        ? inv.items.map((i) => ({
+            description: i.description,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            discount: i.discount,
+          }))
+        : [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
+    })
+  }
   const closeModal = () => { setShowModal(false); setEditing(null); reset() }
 
-  const onSubmit = d => {
+  const editingPaid = editing?.status === 'paid'
+
+  const onSubmit = (d) => {
+    if (editingPaid) {
+      const payload = {
+        status: d.status,
+        notes: d.notes,
+        paymentTerms: d.paymentTerms,
+        invoiceDate: d.invoiceDate,
+        dueDate: d.dueDate || undefined,
+        branch: d.branch || undefined,
+        project: d.project || undefined,
+        currency: d.currency,
+        exchangeRateToLKR: Number(d.exchangeRateToLKR) > 0 ? Number(d.exchangeRateToLKR) : 1,
+      }
+      updateMut.mutate({ id: editing._id, data: payload })
+      return
+    }
     const payload = {
       ...d,
       taxRate: Number(d.taxRate || 0),
-      items: (d.items || []).map(i => ({
+      exchangeRateToLKR: Number(d.exchangeRateToLKR) > 0 ? Number(d.exchangeRateToLKR) : 1,
+      status: d.status,
+      items: (d.items || []).map((i) => ({
         description: i.description,
         quantity: Number(i.quantity || 1),
         unitPrice: Number(i.unitPrice || 0),
-        discount: Number(i.discount || 0)
-      }))
+        discount: Number(i.discount || 0),
+      })),
     }
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
@@ -132,21 +226,32 @@ export default function AdminInvoices() {
               </td></tr>
             ) : invoices.map(inv => (
               <tr key={inv._id}>
-                <td><span className="badge badge-navy">{inv.invoiceNo}</span></td>
+                <td><span className="badge badge-navy font-mono text-xs tracking-tight">{inv.invoiceNo}</span></td>
                 <td className="font-medium">{inv.client?.name}</td>
                 <td className="text-sm text-gray-500">{inv.branch?.name || '—'}</td>
-                <td className="font-bold text-gray-800">LKR {inv.total?.toLocaleString()}</td>
+                <td className="font-bold text-gray-800">{inv.currency || 'LKR'} {inv.total?.toLocaleString()}</td>
                 <td className="text-sm text-gray-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-LK') : '—'}</td>
                 <td><span className={`badge uppercase ${STATUS_COLORS[inv.status] || 'badge-gray'}`}>{inv.status}</span></td>
                 <td>
                   <div className="flex gap-1 items-center">
                     <button onClick={() => setViewInvoiceId(inv._id)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg" title="View Details"><FiEye size={14}/></button>
+                    <button type="button" onClick={() => openEdit(inv)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg" title="Edit"><FiEdit2 size={13}/></button>
                     {inv.status === 'draft' && (
                       <button onClick={() => updateMut.mutate({ id: inv._id, data: { status: 'unpaid' } })} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg" title="Mark Sent"><FiSend size={13}/></button>
                     )}
-                    {inv.status !== 'paid' && (
-                      <button onClick={() => { if(window.confirm('Delete?')) deleteMut.mutate(inv._id) }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Delete"><FiTrash2 size={13}/></button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const msg = inv.status === 'paid'
+                          ? 'This invoice is marked paid. Delete it anyway? Related PayHere records (if any) will be removed.'
+                          : 'Delete this invoice?'
+                        if (window.confirm(msg)) deleteMut.mutate(inv._id)
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                      title="Delete"
+                    >
+                      <FiTrash2 size={13}/>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -165,10 +270,22 @@ export default function AdminInvoices() {
             </div>
             <div className="overflow-y-auto flex-1">
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+                {editingPaid && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    This invoice is fully paid. You can change <strong>status</strong>, dates, branch, project, currency, and notes only. Line items and tax are locked.
+                  </div>
+                )}
                 {!editing && (
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-2">
                     <label className="form-label text-blue-800">Convert from Quotation (Optional)</label>
-                    <select {...register('quotationRef')} onChange={(e) => { register('quotationRef').onChange(e); handleQuotationSelect(e); }} className="form-select border-blue-200">
+                    <select
+                      {...quotationRefField}
+                      onChange={(e) => {
+                        quotationRefField.onChange(e)
+                        handleQuotationSelect(e)
+                      }}
+                      className="form-select border-blue-200"
+                    >
                       <option value="">-- Select a confirmed quotation to auto-fill --</option>
                       {quotations.map(q => <option key={q._id} value={q._id}>{q.quotationNo} - {q.title} ({q.client?.name})</option>)}
                     </select>
@@ -195,28 +312,68 @@ export default function AdminInvoices() {
                       {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
                     </select></div>
                   <div><label className="form-label">Invoice Prefix</label>
-                    <input {...register('invoicePrefix')} className="form-input" placeholder="INV"/></div>
+                    <input {...register('invoicePrefix')} className="form-input" placeholder="INV" disabled={!!editing}/></div>
                   <div><label className="form-label">Invoice Date</label>
                     <input {...register('invoiceDate')} type="date" className="form-input"/></div>
                   <div><label className="form-label">Due Date</label>
                     <input {...register('dueDate')} type="date" className="form-input"/></div>
                 </div>
 
-                <div className="pt-4 border-t">
+                {editing && (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Invoice status</label>
+                      <select {...register('status')} className="form-select">
+                        {['draft', 'unpaid', 'partial', 'paid', 'overdue', 'cancelled'].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-slate-500 mt-1">Status is always editable; paid invoices only allow non-line changes.</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Currency</label>
+                    <select
+                      {...register('currency')}
+                      onChange={(e) => {
+                        register('currency').onChange(e)
+                        setValue('exchangeRateToLKR', suggestedExchangeToLKR(e.target.value), { shouldValidate: true })
+                      }}
+                      className="form-select"
+                    >
+                      {INVOICE_CURRENCIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Amounts are in this currency. LKR equivalent uses the rate below.</p>
+                  </div>
+                  {watchedCurrency !== 'LKR' && (
+                    <div>
+                      <label className="form-label">LKR per 1 {watchedCurrency}</label>
+                      <input {...register('exchangeRateToLKR', { valueAsNumber: true })} type="number" step="0.01" min="0.01" className="form-input" placeholder="e.g. 303"/>
+                      <p className="text-xs text-slate-500 mt-1">Used for reference (totals stay in {watchedCurrency}).</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className={`pt-4 border-t ${editingPaid ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex items-center justify-between mb-3">
                     <label className="form-label mb-0">Line Items</label>
                     <button type="button" onClick={() => append({ description: '', quantity: 1, unitPrice: 0, discount: 0 })}
-                      className="btn-outline btn-sm"><FiPlus size={12}/> Add Item</button>
+                      className="btn-outline btn-sm" disabled={editingPaid}><FiPlus size={12}/> Add Item</button>
                   </div>
                   <div className="space-y-2">
                     {fields.map((field, idx) => (
                       <div key={field.id} className="grid grid-cols-12 gap-2 items-start">
-                        <div className="col-span-5"><input {...register(`items.${idx}.description`, { required: true })} className="form-input text-sm py-2" placeholder="Description *"/></div>
-                        <div className="col-span-2"><input {...register(`items.${idx}.quantity`, { valueAsNumber: true })} type="number" min="1" className="form-input text-sm py-2" placeholder="Qty"/></div>
-                        <div className="col-span-2"><input {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })} type="number" className="form-input text-sm py-2" placeholder="Unit Price"/></div>
-                        <div className="col-span-2"><input {...register(`items.${idx}.discount`, { valueAsNumber: true })} type="number" min="0" max="100" className="form-input text-sm py-2" placeholder="Disc%"/></div>
+                        <div className="col-span-5"><input {...register(`items.${idx}.description`, { required: !editingPaid })} className="form-input text-sm py-2" placeholder="Description *" disabled={editingPaid}/></div>
+                        <div className="col-span-2"><input {...register(`items.${idx}.quantity`, { valueAsNumber: true })} type="number" min="1" className="form-input text-sm py-2" placeholder="Qty" disabled={editingPaid}/></div>
+                        <div className="col-span-2"><input {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })} type="number" className="form-input text-sm py-2" placeholder="Unit Price" disabled={editingPaid}/></div>
+                        <div className="col-span-2"><input {...register(`items.${idx}.discount`, { valueAsNumber: true })} type="number" min="0" max="100" className="form-input text-sm py-2" placeholder="Disc%" disabled={editingPaid}/></div>
                         <div className="col-span-1 pt-2">
-                          {fields.length > 1 && <button type="button" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600 p-1"><FiX size={14}/></button>}
+                          {fields.length > 1 && !editingPaid && <button type="button" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600 p-1"><FiX size={14}/></button>}
                         </div>
                       </div>
                     ))}
@@ -225,12 +382,18 @@ export default function AdminInvoices() {
                   <div className="mt-4 flex gap-6 justify-end p-4 bg-slate-50 rounded-xl">
                     <div className="w-32">
                       <label className="form-label text-xs">Global Tax (%)</label>
-                      <input {...register('taxRate', { valueAsNumber: true })} type="number" step="0.1" className="form-input py-1 text-sm text-right" placeholder="0"/>
+                      <input {...register('taxRate', { valueAsNumber: true })} type="number" step="0.1" className="form-input py-1 text-sm text-right" placeholder="0" disabled={editingPaid}/>
                     </div>
-                    <div className="w-48 space-y-1 text-sm mt-1">
-                      <div className="flex justify-between text-slate-600"><span>Subtotal:</span><span>LKR {subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                      <div className="flex justify-between text-slate-600"><span>Tax ({taxRate}%):</span><span>LKR {tax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                      <div className="flex justify-between font-bold text-primary pt-1 border-t border-slate-200"><span>Total:</span><span>LKR {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                    <div className="w-56 space-y-1 text-sm mt-1">
+                      <div className="flex justify-between text-slate-600"><span>Subtotal:</span><span>{watchedCurrency} {subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                      <div className="flex justify-between text-slate-600"><span>Tax ({taxRate}%):</span><span>{watchedCurrency} {tax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                      <div className="flex justify-between font-bold text-primary pt-1 border-t border-slate-200"><span>Total:</span><span>{watchedCurrency} {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                      {watchedCurrency !== 'LKR' && Number(watch('exchangeRateToLKR')) > 0 && (
+                        <div className="flex justify-between text-xs text-slate-500 pt-1">
+                          <span>≈ LKR (ref.)</span>
+                          <span>{(total * Number(watch('exchangeRateToLKR'))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

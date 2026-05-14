@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiDollarSign, FiPercent, FiInfo } from 'react-icons/fi'
+import { invoicePaymentDisplay } from '../../lib/invoicePayment'
 
 const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
 const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', cancelled:'badge-red', overdue:'badge-red' }
@@ -24,12 +25,30 @@ export default function AdminProjects() {
   const [salaryAllocations, setSalaryAllocations] = useState([]) // [{employeeId, employeeName, salary, commission}]
   const [selectedTeam, setSelectedTeam] = useState([]) // array of employee._id
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm({ defaultValues: { progress: 0, budget: 0 } })
+  const { register, handleSubmit, reset, setValue, watch } = useForm({ defaultValues: { progress: 0, budget: 0, invoice: '' } })
   const budget = Number(watch('budget') || 0)
   const totalAllocated = salaryAllocations.reduce((s, a) => s + Number(a.salary || 0), 0)
   const totalCommission = salaryAllocations.reduce((s, a) => s + Number(a.commission || 0), 0)
   const remaining = budget - totalAllocated - totalCommission
   const watchedEmployees = watch('assignedEmployees') || []
+
+  const watchedClient = watch('client')
+  const watchedInvoice = watch('invoice')
+
+  const { data: clientInvData } = useQuery({
+    queryKey: ['invoices-for-project-form', watchedClient],
+    queryFn: () => api.get(`/invoices?client=${watchedClient}`).then((r) => r.data),
+    enabled: showModal && Boolean(watchedClient),
+  })
+  const clientInvoices = clientInvData?.invoices || []
+
+  useEffect(() => {
+    if (!watchedInvoice || !clientInvoices.length) return
+    const inv = clientInvoices.find((i) => String(i._id) === String(watchedInvoice))
+    if (inv?.dueDate) {
+      setValue('deadline', new Date(inv.dueDate).toISOString().slice(0, 10), { shouldDirty: false })
+    }
+  }, [watchedInvoice, clientInvoices, setValue])
 
   const { data: projData, isLoading } = useQuery({
     queryKey: ['admin-projects', branchFilter],
@@ -85,6 +104,7 @@ export default function AdminProjects() {
     setValue('progress', p.progress ?? 0)
     setValue('projectManager', p.projectManager?._id || '')
     setValue('branch', p.branch?._id || '')
+    setValue('invoice', p.invoice?._id || p.invoice || '')
     const team = (p.assignedEmployees || []).map(u => u._id || u)
     setSelectedTeam(team)
     const allocs = (p.salaryAllocations || []).map(a => ({
@@ -99,7 +119,7 @@ export default function AdminProjects() {
 
   const closeModal = () => {
     setShowModal(false); setEditing(null)
-    reset({ progress: 0, budget: 0 })
+    reset({ progress: 0, budget: 0, invoice: '' })
     setSalaryAllocations([]); setSelectedTeam([])
   }
 
@@ -134,7 +154,7 @@ export default function AdminProjects() {
     }
     if (!payload.client) delete payload.client
     if (!payload.projectManager) delete payload.projectManager
-    if (!payload.branch) delete payload.branch
+    if (!payload.invoice) delete payload.invoice
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
@@ -147,7 +167,7 @@ export default function AdminProjects() {
           <h1 className="page-title">Projects</h1>
           <p className="page-subtitle">{projData?.count || 0} total projects</p>
         </div>
-        <button onClick={() => { reset({ progress: 0, budget: 0 }); setEditing(null); setSalaryAllocations([]); setSelectedTeam([]); setShowModal(true) }} className="btn-primary">
+        <button onClick={() => { reset({ progress: 0, budget: 0, invoice: '' }); setEditing(null); setSalaryAllocations([]); setSelectedTeam([]); setShowModal(true) }} className="btn-primary">
           <FiPlus size={15}/> New Project
         </button>
       </div>
@@ -224,6 +244,15 @@ export default function AdminProjects() {
               )}
             </div>
             {p.deadline && <p className="text-xs text-gray-400 mt-1">Due: {new Date(p.deadline).toLocaleDateString('en-LK')}</p>}
+            {p.invoice && (() => {
+              const invPay = invoicePaymentDisplay(p.invoice)
+              return (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+                  <span className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Invoice</span>
+                  <span className={`badge text-[10px] ${invPay.badgeClass}`}>{invPay.label}</span>
+                </div>
+              )
+            })()}
 
             <button onClick={() => navigate(`/admin/projects/${p._id}`)} className="mt-4 w-full py-2 bg-slate-50 hover:bg-slate-100 text-secondary font-medium text-sm rounded-xl transition-colors border border-slate-100 flex justify-center items-center gap-1.5">
               <FiInfo size={14}/> View Full Details
@@ -257,6 +286,18 @@ export default function AdminProjects() {
                         <option value="">Internal / No client</option>
                         {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                       </select></div>
+                    <div className="sm:col-span-3">
+                      <label className="form-label">Client invoice (optional)</label>
+                      <select {...register('invoice')} className="form-select" disabled={!watchedClient}>
+                        <option value="">No invoice linked</option>
+                        {clientInvoices.map((inv) => (
+                          <option key={inv._id} value={inv._id}>
+                            {inv.invoiceNo} — {inv.status} — balance {(inv.currency || 'LKR')} {(inv.remainingBalance ?? 0).toLocaleString()}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-slate-400 mt-1">Pick a client first. Selecting an invoice sets the project deadline to that invoice&apos;s due date.</p>
+                    </div>
                     <div><label className="form-label">Service Type</label>
                       <select {...register('serviceType')} className="form-select">
                         {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}

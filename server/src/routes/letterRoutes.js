@@ -6,6 +6,7 @@ const {
   getLetter,
   getMyLetters,
   updateLetter,
+  deleteLetter,
   getCompanyInfo,
   getLetterTemplates,
   createLetterTemplate,
@@ -21,6 +22,7 @@ router.delete('/templates/:templateId', protect, authorize('admin', 'manager'), 
 router.get('/', protect, authorize('admin', 'manager'), getLetters);
 router.get('/my', protect, getMyLetters);
 router.put('/:id', protect, authorize('admin', 'manager'), updateLetter);
+router.delete('/:id', protect, authorize('admin', 'manager'), deleteLetter);
 router.get('/:id', protect, getLetter);
 
 module.exports = router;

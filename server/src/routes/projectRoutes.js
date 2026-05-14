@@ -3,10 +3,10 @@ const router = express.Router();
 const {
   getProjects, getProject, createProject, updateProject, deleteProject,
   addTask, updateTask, getStats,
-  addNote, addLink, removeLink, uploadDocument, removeDocument,
+  addNote, updateNote, deleteNote, addLink, removeLink, uploadDocument, removeDocument,
 } = require('../controllers/projectController');
 const { protect, authorize } = require('../middleware/auth');
-const { uploadDocument: uploadDocMw } = require('../middleware/upload');
+const { uploadFile: uploadProjectFileMw } = require('../middleware/upload');
 
 router.get('/stats', protect, authorize('admin', 'manager'), getStats);
 router.get('/', protect, getProjects);
@@ -21,13 +21,15 @@ router.put('/:id/tasks/:taskId', protect, updateTask);
 
 // Notes
 router.post('/:id/notes', protect, addNote);
+router.put('/:id/notes/:noteId', protect, authorize('admin', 'manager'), updateNote);
+router.delete('/:id/notes/:noteId', protect, authorize('admin', 'manager'), deleteNote);
 
-// Links
-router.post('/:id/links', protect, authorize('admin', 'manager'), addLink);
-router.delete('/:id/links/:linkId', protect, authorize('admin', 'manager'), removeLink);
+// Links (same roles as project updates so team members are not blocked)
+router.post('/:id/links', protect, authorize('admin', 'manager', 'developer', 'designer', 'marketing'), addLink);
+router.delete('/:id/links/:linkId', protect, authorize('admin', 'manager', 'developer', 'designer', 'marketing'), removeLink);
 
 // Documents
-router.post('/:id/documents', protect, authorize('admin', 'manager'), uploadDocMw, uploadDocument);
-router.delete('/:id/documents/:docId', protect, authorize('admin', 'manager'), removeDocument);
+router.post('/:id/documents', protect, authorize('admin', 'manager', 'developer', 'designer', 'marketing'), uploadProjectFileMw, uploadDocument);
+router.delete('/:id/documents/:docId', protect, authorize('admin', 'manager', 'developer', 'designer', 'marketing'), removeDocument);
 
 module.exports = router;

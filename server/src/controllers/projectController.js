@@ -12,7 +12,7 @@ const POPULATE = [
   { path: 'projectManager', select: 'name email avatar' },
   { path: 'assignedEmployees', select: 'name email avatar' },
   { path: 'branch', select: 'name' },
-  { path: 'invoice', select: 'invoiceNo total totalPaid totalAdvances remainingBalance status dueDate payments' },
+  { path: 'invoice', select: 'invoiceNo total totalPaid totalAdvances remainingBalance status dueDate payments currency' },
   { path: 'tasks.assignedTo', select: 'name email avatar' },
   { path: 'notes.createdBy', select: 'name' },
 ];
@@ -39,7 +39,7 @@ exports.getProjects = async (req, res, next) => {
     const projects = await Project.find(query)
       .populate('client', 'name email avatar')
       .populate('branch', 'name')
-      .populate('invoice', 'invoiceNo total remainingBalance status')
+      .populate('invoice', 'invoiceNo total totalPaid remainingBalance status')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, count: projects.length, projects });
@@ -199,10 +199,46 @@ exports.addNote = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// ── UPDATE NOTE ───────────────────────────────────────────────────────────────
+exports.updateNote = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ success: false, message: 'Note content is required' });
+    }
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
+    const note = project.notes.id(req.params.noteId);
+    if (!note) return res.status(404).json({ success: false, message: 'Note not found' });
+    note.content = String(content).trim();
+    await project.save();
+    const populated = await Project.findById(project._id).populate(POPULATE);
+    res.json({ success: true, project: populated });
+  } catch (err) { next(err); }
+};
+
+// ── DELETE NOTE ───────────────────────────────────────────────────────────────
+exports.deleteNote = async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ success: false, message: 'Not found' });
+    const note = project.notes.id(req.params.noteId);
+    if (!note) return res.status(404).json({ success: false, message: 'Note not found' });
+    project.notes.pull(req.params.noteId);
+    await project.save();
+    const populated = await Project.findById(project._id).populate(POPULATE);
+    res.json({ success: true, project: populated });
+  } catch (err) { next(err); }
+};
+
 // ── ADD LINK ──────────────────────────────────────────────────────────────────
 exports.addLink = async (req, res, next) => {
   try {
-    const { label, url } = req.body;
+    let { label, url } = req.body;
+    label = label != null ? String(label).trim() : '';
+    url = url != null ? String(url).trim() : '';
+    if (!label || !url) return res.status(400).json({ success: false, message: 'Label and URL are required' });
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ success: false, message: 'Not found' });
     project.links.push({ label, url, addedBy: req.user._id });

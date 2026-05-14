@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
@@ -55,6 +55,29 @@ const FileUploadField = ({ label, accept, hint, file, setFile, existingUrl, icon
   )
 }
 
+function buildEmployeesQueryString(filters) {
+  const params = new URLSearchParams()
+  if (filters.deptFilter) params.set('department', filters.deptFilter)
+  if (filters.empTypeFilter) params.set('employmentType', filters.empTypeFilter)
+  if (filters.branchFilter) params.set('branch', filters.branchFilter)
+  const qs = params.toString()
+  return qs ? `/employees?${qs}` : '/employees'
+}
+
+/** Dropdowns / other pages that list employees (never use a fuzzy `startsWith('employees')` match) */
+function invalidateEmployeePickers(qc) {
+  qc.invalidateQueries({ queryKey: ['employees-list'] })
+  qc.invalidateQueries({ queryKey: ['employees-mini'], exact: false })
+  qc.invalidateQueries({ queryKey: ['employees-all'], exact: false })
+  qc.invalidateQueries({ queryKey: ['employees-list-mini'] })
+  qc.invalidateQueries({ queryKey: ['admin-export-employees'] })
+}
+
+function invalidateAllEmployeeLists(qc) {
+  invalidateEmployeePickers(qc)
+  return qc.invalidateQueries({ queryKey: ['employees'], exact: false })
+}
+
 export default function AdminEmployees() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -69,7 +92,8 @@ export default function AdminEmployees() {
   const [profilePhotoFile, setProfilePhotoFile] = useState(null)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null)
   const [viewEmp, setViewEmp] = useState(null)
-  const [deleteId, setDeleteId] = useState(null)
+  /** Full row snapshot while delete modal is open — keeps the row in the list if cache refetches early, and drives modal copy */
+  const [deletePendingEmp, setDeletePendingEmp] = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
   const [verifying, setVerifying] = useState(false)
   const { register, handleSubmit, reset, setValue, control } = useForm()
@@ -84,46 +108,102 @@ export default function AdminEmployees() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees', deptFilter, empTypeFilter, branchFilter],
-    queryFn: () => api.get(`/employees?${deptFilter?`department=${deptFilter}&`:''}${empTypeFilter?`employmentType=${empTypeFilter}&`:''}${branchFilter?`branch=${branchFilter}`:''}`).then(r => r.data),
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (deptFilter) params.set('department', deptFilter)
+      if (empTypeFilter) params.set('employmentType', empTypeFilter)
+      if (branchFilter) params.set('branch', branchFilter)
+      const qs = params.toString()
+      const { data: json } = await api.get(qs ? `/employees?${qs}` : '/employees')
+      return json
+    },
+    placeholderData: (prev) => prev,
   })
 
-  const employees = (data?.employees || []).filter(e =>
-    !search || e.userId?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    e.employeeNo?.toLowerCase().includes(search.toLowerCase()) ||
-    e.designation?.toLowerCase().includes(search.toLowerCase())
-  )
+  const employeesSource = useMemo(() => {
+    const raw = data?.employees || []
+    if (!deletePendingEmp) return raw
+    const sid = String(deletePendingEmp._id)
+    if (raw.some((e) => String(e._id) === sid)) return raw
+    return [...raw, deletePendingEmp]
+  }, [data?.employees, deletePendingEmp])
+
+  const employees = employeesSource.filter((e) => {
+    if (!search) return true
+    try {
+      const s = search.toLowerCase()
+      const name = (e.userId?.name || '').toLowerCase()
+      const empNo = (e.employeeNo || '').toLowerCase()
+      const desig = (e.designation || '').toLowerCase()
+      return name.includes(s) || empNo.includes(s) || desig.includes(s)
+    } catch (err) {
+      return false
+    }
+  })
 
   const createMut = useMutation({
     mutationFn: d => api.post('/employees', d).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries(['employees']); toast.success('Employee created'); closeModal() },
+    onSuccess: async () => {
+      await invalidateAllEmployeeLists(qc)
+      toast.success('Employee created')
+      closeModal()
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => api.put(`/employees/${id}`, data).then(r => r.data),
-    onSuccess: () => {
-      qc.invalidateQueries(['employees'])
-      qc.invalidateQueries(['epf-records']) // Also refresh EPF page if open
+    onSuccess: async () => {
+      await invalidateAllEmployeeLists(qc)
+      await qc.invalidateQueries({ queryKey: ['epf-records'] })
       toast.success('Updated')
       closeModal()
     },
     onError: e => toast.error(e.response?.data?.message || 'Update failed'),
   })
   const deleteMut = useMutation({
-    mutationFn: id => api.delete(`/employees/${id}`),
-    onSuccess: () => { qc.invalidateQueries(['employees']); toast.success('Removed'); setDeleteId(null); setDeletePassword('') },
+    mutationFn: ({ id }) => api.delete(`/employees/${id}`),
+    onSuccess: async (_, variables) => {
+      const deletedId = variables.id
+      // Reset UI state immediately
+      setDeletePendingEmp(null)
+      setDeletePassword('')
+      setSearch('')
+      toast.success('Removed')
+
+      // Manually update cache to remove the employee from ALL cached lists
+      // This prevents the "disappearing records" issue by keeping the UI stable during refetch
+      qc.setQueriesData({ queryKey: ['employees'] }, (old) => {
+        if (!old || !old.employees) return old
+        return {
+          ...old,
+          count: Math.max(0, (old.count || 1) - 1),
+          employees: old.employees.filter((e) => String(e._id) !== String(deletedId))
+        }
+      })
+
+      // Background sync
+      invalidateAllEmployeeLists(qc)
+      qc.invalidateQueries({ queryKey: ['epf-records'] })
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
   const confirmDelete = async () => {
     if (!deletePassword) { toast.error('Password required'); return }
+    if (!deletePendingEmp?._id) return
     setVerifying(true)
     try {
       await api.post('/auth/verify-password', { password: deletePassword })
-      deleteMut.mutate(deleteId)
+      deleteMut.mutate({ id: deletePendingEmp._id, filters: { deptFilter, empTypeFilter, branchFilter } })
     } catch (e) {
       toast.error(e.response?.data?.message || 'Invalid password')
     }
     setVerifying(false)
+  }
+
+  const closeDeleteModal = () => {
+    setDeletePendingEmp(null)
+    setDeletePassword('')
   }
 
   const openCreate = () => { reset(); setEditing(null); setCvFile(null); setAgreementFile(null); setNicFile(null); setShowModal(true) }
@@ -227,13 +307,20 @@ export default function AdminEmployees() {
           <h1 className="page-title">Employees</h1>
           <p className="page-subtitle">{data?.count || 0} total employees</p>
         </div>
-        <button onClick={openCreate} className="btn-primary"><FiPlus size={16}/> Add Employee</button>
+        <button type="button" onClick={openCreate} className="btn-primary"><FiPlus size={16}/> Add Employee</button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search employees..." className="form-input pl-10"/>
+          <input 
+            value={search} 
+            onChange={e=>setSearch(e.target.value)} 
+            placeholder="Search employees..." 
+            className="form-input pl-10"
+            autoComplete="off"
+            name="raxwo-emp-search-unique"
+          />
         </div>
         <select value={deptFilter} onChange={e=>setDeptFilter(e.target.value)} className="form-select sm:w-48">
           <option value="">All Departments</option>
@@ -259,73 +346,78 @@ export default function AdminEmployees() {
             <th>Basic Salary</th><th>EPF No</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
-            {isLoading ? (
+            {!data && isLoading ? (
               <tr><td colSpan={8} className="text-center py-12">
                 <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
               </td></tr>
-            ) : employees.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-12 text-gray-400">
-                <FiUser size={36} className="mx-auto mb-2 opacity-30"/>No employees found
-              </td></tr>
-            ) : employees.map(emp=>(
-              <tr key={emp._id}>
-                <td>
-                  <div className="flex items-center gap-3">
-                    {emp.profilePhoto
-                      ? <img src={emp.profilePhoto} alt={emp.userId?.name}
-                          className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-white shadow"/>
-                      : <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
-                          {emp.userId?.name?.charAt(0).toUpperCase()}
+            ) : data ? (
+              employees.length > 0 ? (
+                employees.map(emp => (
+                  <tr key={emp._id}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        {emp.profilePhoto
+                          ? <img src={emp.profilePhoto} alt={emp.userId?.name}
+                              className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-white shadow"/>
+                          : <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
+                              {emp.userId?.name?.charAt(0).toUpperCase()}
+                            </div>
+                        }
+                        <div>
+                          <p className="font-medium text-gray-800">{emp.userId?.name}</p>
+                          <p className="text-xs text-gray-400">{emp.userId?.email}</p>
                         </div>
-                    }
-                    <div>
-                      <p className="font-medium text-gray-800">{emp.userId?.name}</p>
-                      <p className="text-xs text-gray-400">{emp.userId?.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span className="badge badge-navy">{emp.employeeNo}</span>
-                  {emp.employmentType === 'intern' && (
-                    <span className="badge badge-yellow ml-1">Intern</span>
-                  )}
-                  {emp.employmentType === 'contract' && (
-                    <span className="badge badge-purple ml-1">Contract</span>
-                  )}
-                  {emp.employmentType === 'part_time' && (
-                    <span className="badge badge-gray ml-1">Part-time</span>
-                  )}
-                  {/* Internship days remaining warning */}
-                  {emp.employmentType === 'intern' && emp.internshipDaysRemaining !== null && (
-                    <div className={`text-xs mt-1 font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-400'}`}>
-                      {emp.internshipDaysRemaining <= 14 && <FiAlertCircle size={11} />}
-                      {emp.internshipDaysRemaining} days left
-                    </div>
-                  )}
-                </td>
-                <td>{emp.department}</td>
-                <td>{emp.designation}</td>
-                <td className="font-medium">LKR {emp.basicSalary?.toLocaleString()}</td>
-                <td className="text-gray-500">{emp.epfNumber||'—'}</td>
-                <td><span className={`badge ${statusColor[emp.status]||'badge-gray'} capitalize`}>{emp.status}</span></td>
-                <td>
-                  <div className="flex gap-1">
-                    <button onClick={() => setViewEmp(emp)}
-                      className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
-                      <FiEye size={14}/>
-                    </button>
-                    <button
-                      onClick={() => setActivityEmp(emp)}
-                      className="p-1.5 text-gray-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
-                      title="View activity" type="button">
-                      <FiActivity size={14}/>
-                    </button>
-                    <button onClick={()=>openEdit(emp)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
-                    <button onClick={() => setDeleteId(emp._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-navy">{emp.employeeNo}</span>
+                      {emp.employmentType === 'intern' && (
+                        <span className="badge badge-yellow ml-1">Intern</span>
+                      )}
+                      {emp.employmentType === 'contract' && (
+                        <span className="badge badge-purple ml-1">Contract</span>
+                      )}
+                      {emp.employmentType === 'part_time' && (
+                        <span className="badge badge-gray ml-1">Part-time</span>
+                      )}
+                      {emp.employmentType === 'intern' && emp.internshipDaysRemaining !== null && (
+                        <div className={`text-xs mt-1 font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-400'}`}>
+                          {emp.internshipDaysRemaining <= 14 && <FiAlertCircle size={11} />}
+                          {emp.internshipDaysRemaining} days left
+                        </div>
+                      )}
+                    </td>
+                    <td>{emp.department}</td>
+                    <td>{emp.designation}</td>
+                    <td className="font-medium">LKR {emp.basicSalary?.toLocaleString()}</td>
+                    <td className="text-gray-500">{emp.epfNumber||'—'}</td>
+                    <td><span className={`badge ${statusColor[emp.status]||'badge-gray'} capitalize`}>{emp.status}</span></td>
+                    <td>
+                      <div className="flex gap-1">
+                        <button type="button" onClick={() => setViewEmp(emp)}
+                          className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
+                          <FiEye size={14}/>
+                        </button>
+                        <button
+                          onClick={() => setActivityEmp(emp)}
+                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
+                          title="View activity" type="button">
+                          <FiActivity size={14}/>
+                        </button>
+                        <button type="button" onClick={()=>openEdit(emp)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
+                        <button type="button" onClick={() => { setDeletePendingEmp(emp); setDeletePassword('') }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove employee"><FiTrash2 size={14}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">
+                  <FiUser size={36} className="mx-auto mb-2 opacity-30"/>No employees found
+                </td></tr>
+              )
+            ) : (
+              <tr><td colSpan={8} className="text-center py-12 text-gray-400">Failed to load data</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -336,7 +428,7 @@ export default function AdminEmployees() {
               className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-lg font-bold text-primary font-heading">{editing?'Edit Employee':'Add Employee'}</h3>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+                <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
               </div>
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
                 <input type="hidden" {...register('_id')} />
@@ -732,20 +824,33 @@ export default function AdminEmployees() {
         />
       )}
       {/* Delete Confirmation Modal */}
-      {deleteId && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+      {deletePendingEmp && createPortal(
+        <div className="fixed inset-0 bg-slate-900/30 flex items-center justify-center z-[100001] p-4 backdrop-blur-[2px]">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiAlertCircle size={24} /></div>
               <h3 className="font-bold text-lg text-slate-800">Confirm Action</h3>
-              <p className="text-sm text-slate-500">Please enter your administrator password to mark this employee as former.</p>
+              <p className="text-sm text-slate-500">
+                Enter your administrator password to mark{' '}
+                <span className="font-semibold text-slate-800">{deletePendingEmp.userId?.name || 'this employee'}</span>
+                {' '}({deletePendingEmp.employeeNo}) as former.
+              </p>
             </div>
             <div>
-              <input type="password" placeholder="Enter password" disabled={verifying} className="form-input" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDelete()} />
+              <input 
+                type="password" 
+                placeholder="Enter password" 
+                disabled={verifying} 
+                className="form-input" 
+                value={deletePassword} 
+                onChange={e => setDeletePassword(e.target.value)} 
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmDelete() } }}
+                autoComplete="new-password"
+              />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => { setDeleteId(null); setDeletePassword('') }} className="btn-ghost flex-1 justify-center">Cancel</button>
-              <button onClick={confirmDelete} disabled={verifying || !deletePassword} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
+              <button type="button" onClick={closeDeleteModal} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button type="button" onClick={confirmDelete} disabled={verifying || !deletePassword} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
                 {verifying || deleteMut.isPending ? <span className="spinner" /> : 'Confirm'}
               </button>
             </div>

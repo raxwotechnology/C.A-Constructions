@@ -113,27 +113,30 @@ export default function ExportBar({
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 flex-wrap">
         <button
+          type="button"
           onClick={() => setModal('pdf')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors"
+          className="btn-export bg-red-600 hover:bg-red-700 text-white"
         >
-          <FiFileText size={14} />
-          <span>Export PDF</span>
+          <FiFileText size={12} />
+          <span>PDF</span>
         </button>
         <button
+          type="button"
           onClick={() => setModal('excel')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors"
+          className="btn-export bg-emerald-600 hover:bg-emerald-700 text-white"
         >
-          <FiDownload size={14} />
-          <span>Export Excel</span>
+          <FiDownload size={12} />
+          <span>Excel</span>
         </button>
         {!hidePrint && (
           <button
+            type="button"
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium transition-colors"
+            className="btn-export bg-slate-100 hover:bg-slate-200 text-slate-700"
           >
-            <FiPrinter size={14} />
+            <FiPrinter size={12} />
             <span className="hidden sm:inline">Print</span>
           </button>
         )}
@@ -219,10 +222,11 @@ export default function ExportBar({
                 <div className="px-6 py-4 border-t flex justify-end gap-3">
                   <button onClick={() => setModal(null)} className="btn-ghost">Cancel</button>
                   <button
+                    type="button"
                     onClick={handleConfirm}
-                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-white text-sm font-medium transition-colors ${modal === 'pdf' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-medium transition-colors ${modal === 'pdf' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                   >
-                    <FiCheck size={15} />
+                    <FiCheck size={14} />
                     Confirm & Download
                   </button>
                 </div>

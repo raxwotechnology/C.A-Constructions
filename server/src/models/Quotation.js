@@ -50,13 +50,31 @@ const quotationSchema = new mongoose.Schema({
   generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
-// Auto-generate quotation number
+// Auto-generate quotation number (must not collide with another quotation or any invoice number)
 quotationSchema.pre('save', async function (next) {
-  if (!this.quotationNo) {
-    const count = await mongoose.model('Quotation').countDocuments();
-    this.quotationNo = `QUO-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+  if (this.quotationNo) return next();
+  try {
+    const Invoice = require('./Invoice');
+    const QuotationModel = mongoose.model('Quotation');
+    const year = new Date().getFullYear();
+    const baseCount = await QuotationModel.countDocuments();
+    for (let i = 0; i < 5000; i++) {
+      const candidate = `QUO-${year}-${String(baseCount + 1 + i).padStart(4, '0')}`;
+      const qFilter = { quotationNo: candidate };
+      if (this._id) qFilter._id = { $ne: this._id };
+      const [qClash, invClash] = await Promise.all([
+        QuotationModel.findOne(qFilter).select('_id').lean(),
+        Invoice.findOne({ invoiceNo: candidate }).select('_id').lean(),
+      ]);
+      if (!qClash && !invClash) {
+        this.quotationNo = candidate;
+        return next();
+      }
+    }
+    return next(new Error('Could not allocate a unique quotation number'));
+  } catch (e) {
+    return next(e);
   }
-  next();
 });
 
 module.exports = mongoose.model('Quotation', quotationSchema);

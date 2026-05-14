@@ -12,7 +12,7 @@ const lineItemSchema = new mongoose.Schema({
 const paymentEntrySchema = new mongoose.Schema({
   amount:      { type: Number, required: true },
   date:        { type: Date,   default: Date.now },
-  method:      { type: String, enum: ['cash', 'card', 'bank_transfer', 'cheque', 'payhere'], default: 'cash' },
+  method:      { type: String, enum: ['cash', 'card', 'bank_transfer', 'cheque', 'payhere', 'online_transfer'], default: 'cash' },
   reference:   { type: String, default: '' },
   notes:       { type: String, default: '' },
   recordedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -44,6 +44,8 @@ const invoiceSchema = new mongoose.Schema({
   taxRate:      { type: Number, default: 0 },  // global tax %
   total:        { type: Number, default: 0 },
   currency:     { type: String, default: 'LKR' },
+  /** When currency is not LKR: LKR equivalent of 1 unit of `currency` (for reference / reporting). Default 1 for LKR. */
+  exchangeRateToLKR: { type: Number, default: 1 },
 
   // ── Terms / Notes ────────────────────────────────────────────────────────────
   paymentTerms: { type: String, default: '' },
@@ -68,15 +70,8 @@ const invoiceSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// ── Auto Invoice Number ───────────────────────────────────────────────────────
-invoiceSchema.pre('save', async function (next) {
-  if (!this.invoiceNo) {
-    const count = await mongoose.model('Invoice').countDocuments();
-    const prefix = this.invoicePrefix || 'INV';
-    this.invoiceNo = `${prefix}-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
-  }
-  next();
-});
+// Invoice numbers are assigned in controllers (quotation → same as QUO-…; otherwise generateAutoInvoiceNo).
+// A pre-save hook here was overwriting quotation-based numbers with INV-….
 
 // ── Auto-recalculate totals & status ─────────────────────────────────────────
 invoiceSchema.pre('save', function (next) {

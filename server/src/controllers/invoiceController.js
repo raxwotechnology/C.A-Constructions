@@ -6,6 +6,8 @@ const SiteSetting= require('../models/SiteSetting');
 const crypto     = require('crypto');
 const { createNotification } = require('../services/notificationService');
 const { awardPoints }        = require('../services/rewardService');
+const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
+const { allocateInvoiceNoFromQuotationNo, generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
 
 const POPULATE_INVOICE = [
   { path: 'client',       select: 'name email phone' },
@@ -83,44 +85,72 @@ exports.createInvoice = async (req, res, next) => {
     const {
       client, project, quotationRef, branch, dueDate, invoiceDate,
       items = [], taxRate = 0, notes, paymentTerms, invoicePrefix, currency,
+      exchangeRateToLKR,
     } = req.body;
 
     let sourceItems = items;
     let quotationData = {};
+    let quotationDoc = null;
 
-    // If converting from quotation, pull items from it
     if (quotationRef) {
-      const quotation = await Quotation.findById(quotationRef);
-      if (quotation) {
-        sourceItems   = quotation.items;
-        taxRate       = quotation.taxRate || 0;
-        quotationData = { quotationRef: quotation._id };
-        // Mark quotation as converted
-        await Quotation.findByIdAndUpdate(quotationRef, { status: 'converted' });
+      quotationDoc = await Quotation.findById(quotationRef);
+      if (quotationDoc) {
+        sourceItems = quotationDoc.items;
+        quotationData = { quotationRef: quotationDoc._id };
       }
     }
 
-    const { items: calcedItems, subtotal, discountTotal, tax, total } = calcItems(sourceItems, taxRate);
+    const effectiveTaxRate = quotationDoc ? (quotationDoc.taxRate || 0) : Number(taxRate || 0);
+    const { items: calcedItems, subtotal, discountTotal, tax, total } = calcItems(sourceItems, effectiveTaxRate);
 
-    const invoice = await Invoice.create({
-      client, project: project || undefined,
+    const resolvedCurrency = (currency || quotationDoc?.currency || 'LKR').toString().trim() || 'LKR';
+    const resolvedFx = Number(exchangeRateToLKR) > 0
+      ? Number(exchangeRateToLKR)
+      : (resolvedCurrency === 'LKR' ? 1 : 1);
+
+    const invoicePayload = {
+      client,
+      project: project || undefined,
       ...quotationData,
-      branch: branch || undefined,
+      branch: (branch || (quotationDoc && quotationDoc.branch)) || undefined,
       invoiceDate: invoiceDate || new Date(),
       dueDate: dueDate || undefined,
-      items: calcedItems, subtotal, discountTotal, tax, taxRate: Number(taxRate), total,
-      currency: currency || 'LKR',
-      notes, paymentTerms,
+      items: calcedItems,
+      subtotal,
+      discountTotal,
+      tax,
+      taxRate: Number(effectiveTaxRate),
+      total,
+      currency: resolvedCurrency,
+      exchangeRateToLKR: resolvedFx,
+      notes,
+      paymentTerms,
       invoicePrefix: invoicePrefix || 'INV',
       status: 'unpaid',
       createdBy: req.user._id,
-    });
+    };
+    if (quotationDoc) {
+      const allocated = await allocateInvoiceNoFromQuotationNo(quotationDoc.quotationNo);
+      if (allocated) invoicePayload.invoiceNo = allocated;
+    } else {
+      const explicitNo = req.body.invoiceNo != null ? String(req.body.invoiceNo).trim() : '';
+      if (explicitNo) invoicePayload.invoiceNo = explicitNo;
+    }
+    const hasInvNo = invoicePayload.invoiceNo != null && String(invoicePayload.invoiceNo).trim() !== '';
+    if (!hasInvNo) {
+      invoicePayload.invoiceNo = await generateAutoInvoiceNo(invoicePayload.invoicePrefix || 'INV');
+    }
 
-    // Notify client
+    const invoice = await Invoice.create(invoicePayload);
+
+    if (quotationRef && quotationDoc) {
+      await Quotation.findByIdAndUpdate(quotationRef, { status: 'converted', convertedToInvoice: invoice._id });
+    }
+
     await createNotification({
       recipient: invoice.client,
       title: 'New Invoice',
-      message: `Invoice ${invoice.invoiceNo} for LKR ${total.toLocaleString()} has been issued. Due: ${dueDate ? new Date(dueDate).toLocaleDateString('en-LK') : 'N/A'}.`,
+      message: `Invoice ${invoice.invoiceNo} for ${invoice.currency} ${total.toLocaleString()} has been issued. Due: ${dueDate ? new Date(dueDate).toLocaleDateString('en-LK') : 'N/A'}.`,
       type: 'payment',
       link: '/invoices',
     });
@@ -134,15 +164,48 @@ exports.updateInvoice = async (req, res, next) => {
   try {
     const existing = await Invoice.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
-    if (existing.status === 'paid') return res.status(400).json({ success: false, message: 'Cannot edit a fully paid invoice' });
 
     const {
       items, taxRate, notes, paymentTerms, dueDate, invoiceDate,
-      client, project, branch, quotationRef, currency, status,
+      client, project, branch, quotationRef, currency, exchangeRateToLKR, status,
     } = req.body;
+
+    const wantsLineEdit = items !== undefined && items !== null;
+    const wantsFinancialEdit = wantsLineEdit || taxRate !== undefined;
+
+    // Fully paid: allow status + metadata corrections; block line items / tax changes (would desync payments).
+    if (existing.status === 'paid' && wantsFinancialEdit) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot change line items or tax on a fully paid invoice. Adjust payments or change status first.',
+      });
+    }
+
+    if (existing.status === 'paid') {
+      const fx = exchangeRateToLKR !== undefined
+        ? (Number(exchangeRateToLKR) > 0 ? Number(exchangeRateToLKR) : 1)
+        : (existing.exchangeRateToLKR != null ? existing.exchangeRateToLKR : 1);
+      const paidMeta = {
+        ...(notes !== undefined ? { notes } : {}),
+        ...(paymentTerms !== undefined ? { paymentTerms } : {}),
+        ...(currency !== undefined ? { currency } : {}),
+        ...(exchangeRateToLKR !== undefined ? { exchangeRateToLKR: fx } : {}),
+        ...(dueDate !== undefined ? { dueDate: dueDate || existing.dueDate } : {}),
+        ...(invoiceDate !== undefined ? { invoiceDate: invoiceDate || existing.invoiceDate } : {}),
+        ...(branch !== undefined ? { branch: branch || null } : {}),
+        ...(project !== undefined ? { project: project || null } : {}),
+        ...(status !== undefined ? { status } : {}),
+      };
+      const invoice = await Invoice.findByIdAndUpdate(req.params.id, { $set: paidMeta }, { new: true, runValidators: true })
+        .populate(POPULATE_INVOICE);
+      return res.json({ success: true, invoice });
+    }
 
     let updates = {
       notes, paymentTerms, currency,
+      exchangeRateToLKR: exchangeRateToLKR !== undefined
+        ? (Number(exchangeRateToLKR) > 0 ? Number(exchangeRateToLKR) : 1)
+        : (existing.exchangeRateToLKR != null ? existing.exchangeRateToLKR : 1),
       dueDate: dueDate || existing.dueDate,
       invoiceDate: invoiceDate || existing.invoiceDate,
       client: client || existing.client,
@@ -183,23 +246,15 @@ exports.recordPayment = async (req, res, next) => {
     });
     await invoice.save(); // triggers pre-save for totals + status
 
-    // Sync with Bank Account
-    if (bankAccount && ['bank_transfer', 'card', 'online_transfer', 'payhere'].includes(method)) {
-      const BankAccount = require('../models/BankAccount');
-      const account = await BankAccount.findById(bankAccount);
-      if (account) {
-        account.currentBalance = (account.currentBalance || 0) + payAmt;
-        account.transactions.push({
-          type: 'deposit',
-          amount: payAmt,
-          balanceAfter: account.currentBalance,
-          description: `Invoice Payment: ${invoice.invoiceNo}`,
-          date: date || new Date(),
-          reference,
-          recordedBy: req.user._id,
-        });
-        await account.save();
-      }
+    if (bankAccount && isLedgerBankMethod(method)) {
+      await appendBankTransaction(bankAccount, {
+        type: 'deposit',
+        amount: payAmt,
+        description: `Invoice Payment: ${invoice.invoiceNo}`,
+        date: date || new Date(),
+        reference: reference || '',
+        recordedBy: req.user._id,
+      });
     }
 
     // Notify client
@@ -274,12 +329,27 @@ exports.recordAdvance = async (req, res, next) => {
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
 
+    const bankAccount = req.body.bankAccount;
+    const payAmt = Number(amount);
+
     invoice.payments.push({
-      amount: Number(amount), date: date || new Date(),
+      amount: payAmt, date: date || new Date(),
       method: method || 'cash', reference, notes,
+      bankAccount: bankAccount || undefined,
       recordedBy: req.user._id, isAdvance: true,
     });
     await invoice.save();
+
+    if (bankAccount && isLedgerBankMethod(method)) {
+      await appendBankTransaction(bankAccount, {
+        type: 'deposit',
+        amount: payAmt,
+        description: `Invoice Advance: ${invoice.invoiceNo}`,
+        date: date || new Date(),
+        reference: reference || '',
+        recordedBy: req.user._id,
+      });
+    }
 
     await createNotification({
       recipient: invoice.client,
@@ -295,11 +365,22 @@ exports.recordAdvance = async (req, res, next) => {
 };
 
 // ─── DELETE invoice ───────────────────────────────────────────────────────────
+// Paid / unpaid: always allowed (admin). No "cannot delete paid" guard.
 exports.deleteInvoice = async (req, res, next) => {
   try {
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return res.status(404).json({ success: false, message: 'Not found' });
-    if (invoice.status === 'paid') return res.status(400).json({ success: false, message: 'Cannot delete a paid invoice' });
+
+    await Payment.deleteMany({ invoice: invoice._id });
+    await Project.updateMany({ invoice: invoice._id }, { $unset: { invoice: 1 } });
+
+    if (invoice.quotationRef) {
+      await Quotation.findByIdAndUpdate(invoice.quotationRef, {
+        status: 'confirmed',
+        $unset: { convertedToInvoice: 1 },
+      });
+    }
+
     await invoice.deleteOne();
     res.json({ success: true, message: 'Invoice deleted' });
   } catch (err) { next(err); }

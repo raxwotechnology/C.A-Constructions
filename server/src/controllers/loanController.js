@@ -2,6 +2,7 @@ const Loan = require('../models/Loan');
 const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
 const { createAuditLog } = require('./auditController');
+const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
 
 // GET /api/loans
 exports.getLoans = async (req, res, next) => {
@@ -197,24 +198,14 @@ exports.recordPayment = async (req, res, next) => {
 
     await Employee.findByIdAndUpdate(loan.employee._id || loan.employee, { $inc: { loanBalance: -payAmt } });
 
-    // Sync with Bank Account
-    if (bankAccount && ['bank_transfer', 'cash'].includes(method)) {
-      // NOTE: For loans, a payment means the employee is paying the company back
-      // Thus, it increases the company's bank balance.
-      const BankAccount = require('../models/BankAccount');
-      const account = await BankAccount.findById(bankAccount);
-      if (account) {
-        account.currentBalance = (account.currentBalance || 0) + payAmt;
-        account.transactions.push({
-          type: 'deposit',
-          amount: payAmt,
-          balanceAfter: account.currentBalance,
-          description: `Loan Repayment: ${loan.employee?.userId?.name || 'Employee'}`,
-          date: date || new Date(),
-          recordedBy: req.user._id,
-        });
-        await account.save();
-      }
+    if (bankAccount && isLedgerBankMethod(method)) {
+      await appendBankTransaction(bankAccount, {
+        type: 'deposit',
+        amount: payAmt,
+        description: `Loan Repayment: ${loan.employee?.userId?.name || 'Employee'}`,
+        date: date || new Date(),
+        recordedBy: req.user._id,
+      });
     }
 
     await createAuditLog({

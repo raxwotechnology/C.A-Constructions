@@ -78,6 +78,12 @@ app.use('/api/exports', exportRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);
+// Cheques (same implementation as server/src — mount here if you run this legacy app entry)
+try {
+  app.use('/api/cheques', require('../server/src/routes/chequeRoutes'));
+} catch (e) {
+  console.warn('[src/app] Cheque routes not mounted — redeploy with server/src or fix path:', e?.message || e);
+}
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -142,11 +142,11 @@ export default function AdminClients() {
                 <p className="text-xs text-gray-400 mt-3">
                   Joined {new Date(client.createdAt).toLocaleDateString('en-LK')}
                 </p>
-                <div className="mt-3 flex gap-2">
-                  <button className="btn-primary btn-sm flex-1 justify-center" onClick={() => navigate(`/admin/clients/${client._id}`)}>
+                <div className="mt-3 flex items-center gap-2 flex-nowrap">
+                  <button className="btn-primary btn-sm justify-center whitespace-nowrap" onClick={() => navigate(`/admin/clients/${client._id}`)}>
                     View CRM Profile
                   </button>
-                  <button className="btn-ghost btn-sm" onClick={() => {
+                  <button className="btn-ghost btn-sm whitespace-nowrap shrink-0" onClick={() => {
                       setEditingClient(client)
                       setEditForm({
                         name: client.name || '',
@@ -158,7 +158,7 @@ export default function AdminClients() {
                     }}>
                     <FiEdit2 size={13} /> Edit Login
                   </button>
-                  <button className="btn-ghost btn-sm text-red-500 hover:bg-red-50" onClick={() => { if(window.confirm('Delete client?')) deleteMut.mutate(client._id) }}>
+                  <button className="btn-ghost btn-sm text-red-500 hover:bg-red-50 whitespace-nowrap shrink-0" onClick={() => { if(window.confirm('Delete client?')) deleteMut.mutate(client._id) }}>
                     <FiTrash2 size={13} />
                   </button>
                 </div>

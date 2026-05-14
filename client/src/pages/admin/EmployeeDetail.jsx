@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import { getApiBaseUrl } from '../../lib/devApi'
 import toast from 'react-hot-toast'
 import {
   FiUser, FiX, FiCheck, FiCreditCard, FiFileText,
@@ -13,8 +14,12 @@ import {
 // Convert relative /uploads/... paths to full backend URL so "View" links
 // don't accidentally resolve against the frontend origin.
 const API_ORIGIN = (() => {
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-  try { return new URL(base).origin } catch { return 'http://localhost:5000' }
+  const base = getApiBaseUrl()
+  if (base.startsWith('http')) {
+    try { return new URL(base).origin } catch { return 'http://localhost:5000' }
+  }
+  if (typeof window !== 'undefined') return window.location.origin
+  return 'http://localhost:5000'
 })()
 const resolveUrl = (url) => {
   if (!url) return url
@@ -97,7 +102,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
   const convertMut = useMutation({
     mutationFn: () => api.put(`/employees/${employee._id}/convert-intern`, { newStartDate: convertDate }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['employees'], exact: false })
       toast.success('Intern converted to permanent employee!')
       setShowConvert(false)
       onClose()
@@ -108,7 +113,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
   const removeMut = useMutation({
     mutationFn: () => api.put(`/employees/${employee._id}/remove-intern`, { reason: removeReason }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['employees'], exact: false })
       toast.success('Intern removed. All data retained.')
       setShowRemove(false)
       onClose()
@@ -576,8 +581,9 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
           {/* ─── STATUTORY ─────────────────────────────────────────────── */}
           {tab === 'Statutory' && (
             <div className="space-y-4">
-              {epfHistory?.records?.length > 0 ? (
-                epfHistory.records.map(rec => (
+              {epfHistory?.records?.length > 0 ? (() => {
+                const sr = epfHistory?.statutoryRates ?? { epfEmployee: 8, epfEmployer: 12, etfEmployer: 3 }
+                return epfHistory.records.map(rec => (
                   <div key={rec._id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -591,21 +597,21 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
                     </div>
                     <div className="grid grid-cols-2 gap-3 border-t border-slate-50 pt-3">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee (EPF 8%)</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee (EPF {sr.epfEmployee}%)</p>
                         <p className="text-sm font-bold text-red-500">LKR {rec.epfEmployee.toLocaleString()}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employer (EPF 12%)</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employer (EPF {sr.epfEmployer}%)</p>
                         <p className="text-sm font-bold text-slate-700">LKR {rec.epfEmployer.toLocaleString()}</p>
                       </div>
                       <div className="space-y-1 col-span-2 pt-2 border-t border-slate-50">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employer (ETF 3%)</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employer (ETF {sr.etfEmployer}%)</p>
                         <p className="text-sm font-bold text-slate-700">LKR {rec.etfEmployer.toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
                 ))
-              ) : (
+              })() : (
                 <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                   <FiActivity size={32} className="mx-auto mb-2 opacity-20" />
                   <p className="text-sm font-medium">No statutory history found</p>

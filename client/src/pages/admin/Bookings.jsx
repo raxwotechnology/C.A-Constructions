@@ -23,6 +23,7 @@ export default function AdminBookings() {
     mutationFn: ({ id, payload }) => api.put(`/bookings/${id}`, payload).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-bookings'] })
+      qc.invalidateQueries({ queryKey: ['admin-projects'] })
       toast.success('Booking updated')
       setEditing(null)
     },

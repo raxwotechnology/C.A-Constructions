@@ -140,6 +140,27 @@ exports.updateUserByAdmin = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// @desc    Delete user (admin) — used from Clients screen for client accounts
+// @route   DELETE /api/auth/users/:id
+exports.deleteUserByAdmin = async (req, res, next) => {
+  try {
+    if (String(req.params.id) === String(req.user._id)) {
+      return res.status(400).json({ success: false, message: 'Cannot delete your own account' });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Administrator accounts cannot be deleted here' });
+    }
+    // Clients page only intends to remove client logins; block staff deletes unless needed later
+    if (user.role !== 'client') {
+      return res.status(403).json({ success: false, message: 'Only client accounts can be deleted from this endpoint' });
+    }
+    await user.deleteOne();
+    res.json({ success: true, message: 'User deleted' });
+  } catch (err) { next(err); }
+};
+
 // @desc    Create client account (admin)
 // @route   POST /api/auth/clients
 exports.createClient = async (req, res, next) => {

@@ -3,10 +3,18 @@ const mongoose = require('mongoose');
 const paymentRecordSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   paidAt: { type: Date, default: Date.now },
-  method: { type: String, default: 'manual' }, // manual, payhere, bank_transfer
+  method: {
+    type: String,
+    default: 'manual',
+  },
   reference: { type: String, default: '' },
   note: { type: String, default: '' },
+  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount', default: null },
   recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  chequeNumber: { type: String, default: '' },
+  chequeDate: { type: Date },
+  chequeBank: { type: String, default: '' },
+  chequeDrawer: { type: String, default: '' },
 }, { timestamps: true });
 
 const hostingDetailSchema = new mongoose.Schema({
@@ -69,7 +77,12 @@ const subscriptionSchema = new mongoose.Schema({
   billingFrequency: { type: String, enum: ['monthly', 'quarterly', 'semi_annual', 'annual'], default: 'monthly' },
   billingDay: { type: Number, default: 1, min: 1, max: 28 }, // Day of month billing is due
   nextDueDate: { type: Date, required: true },
-  gracePeriodDays: { type: Number, default: 7 }, // Days after due date before overdue
+  /** @deprecated Use reminderDaysBefore; kept for backward compatibility (overdue grace). */
+  gracePeriodDays: { type: Number, default: 0 },
+  /** Notify admins this many days before nextDueDate (e.g. 5). Null/0 = no reminder. */
+  reminderDaysBefore: { type: Number, default: null, min: 0, max: 90 },
+  /** Last calendar day we sent the pre-due admin reminder (dedupe). */
+  lastSubscriptionReminderDay: { type: String, default: '' },
 
   // Payment tracking
   totalBilled: { type: Number, default: 0 },

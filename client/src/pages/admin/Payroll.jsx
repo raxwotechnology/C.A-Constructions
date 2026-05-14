@@ -8,6 +8,19 @@ import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo, FiA
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
+function isLedgerBankMethod(method) {
+  const raw = String(method || '').trim();
+  if (!raw) return false;
+  const m = raw.toLowerCase().replace(/[\s-]+/g, '_');
+  if (!m || m === 'cash' || m === 'cheque' || m === 'other' || m === 'manual' || m === 'salary_deduction') return false;
+  if (m.includes('payhere')) return true;
+  if (m === 'bank_transfer' || (m.includes('bank') && m.includes('transfer'))) return true;
+  if (m.includes('card')) return true;
+  if (m.includes('online')) return true;
+  if (m.endsWith('_transfer') || m.includes('transfer')) return true;
+  return false;
+}
+
 const printPayslip = (p) => {
   const w = window.open('', '_blank')
   const r = (label, val, cls='') => val > 0 ? `<div class="row ${cls}"><span>${label}</span><span>LKR ${Number(val||0).toLocaleString()}</span></div>` : ''
@@ -145,7 +158,8 @@ export default function AdminPayroll() {
     mutationFn: () => api.post('/payroll/generate', { 
       month, year, employeeId: selectedEmployee, 
       allowances, commissions, bonus, deductions, 
-      loanDeduction, leaveDeduction, paymentMethod 
+      loanDeduction, leaveDeduction, paymentMethod,
+      bankAccount: payBank
     }),
     onSuccess: () => { qc.invalidateQueries(['payroll']); toast.success('Payroll generated'); setShowReplaceConfirm(false) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
@@ -173,12 +187,29 @@ export default function AdminPayroll() {
     mutationFn: id => api.put(`/payroll/${id}/pay`, { paymentMethod: payMethod, bankAccount: payBank }),
     onSuccess: () => { 
       qc.invalidateQueries(['payroll'])
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
       refetch()
       toast.success('Marked as paid')
       setPreviewPayroll(null) 
     },
     onError: e => toast.error(e.response?.data?.message || 'Payment failed'),
   })
+
+  useEffect(() => {
+    if (!previewPayroll) return
+    setPayMethod(previewPayroll.paymentMethod || 'bank_transfer')
+    const bid = previewPayroll.bankAccount?._id || previewPayroll.bankAccount
+    setPayBank(bid ? String(bid) : '')
+  }, [previewPayroll])
+
+  const confirmPayrollPayment = () => {
+    if (!previewPayroll) return
+    if (isLedgerBankMethod(payMethod) && !payBank) {
+      toast.error('Select which company bank account this payment is drawn from')
+      return
+    }
+    payMut.mutate(previewPayroll._id)
+  }
   const updateMut = useMutation({
     mutationFn: ({ id, ...p }) => api.put(`/payroll/${id}`, p),
     onSuccess: () => { qc.invalidateQueries(['payroll']); toast.success('Payroll updated'); setEditPayroll(null) },
@@ -365,7 +396,7 @@ export default function AdminPayroll() {
             <div><label className="form-label">Advance Deduction</label><input type="number" className="form-input" value={deductions} onChange={e => setDeductions(Number(e.target.value || 0))} /></div>
             <div><label className="form-label">Loan Deduction <span className="text-xs text-blue-500">(auto-filled)</span></label><input type="number" className="form-input" value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} /></div>
             <div><label className="form-label">Leave Deduction</label><input type="number" className="form-input" value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" /></div>
-            <div className="col-span-2">
+            <div className={`${isLedgerBankMethod(paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
               <label className="form-label">Payment Method</label>
               <select className="form-select" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
                 <option value="bank_transfer">Bank Transfer</option>
@@ -375,6 +406,15 @@ export default function AdminPayroll() {
                 <option value="cheque">Cheque</option>
               </select>
             </div>
+            {isLedgerBankMethod(paymentMethod) && (
+              <div className="col-span-1">
+                <label className="form-label">Source Bank & Branch</label>
+                <select className="form-select" value={payBank} onChange={e => setPayBank(e.target.value)}>
+                  <option value="">Select Account...</option>
+                  {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           <button className="btn-primary" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
             <FiPlay size={14}/> {generateOneMut.isPending ? 'Generating…' : 'Generate Payslip'}
@@ -501,7 +541,18 @@ export default function AdminPayroll() {
                       </button>
                     )}
                     {p.status !== 'paid' && (
-                      <button onClick={() => { setEditPayroll(p); setEditForm({ allowances: p.allowances, commissions: p.commissions, bonus: p.bonus, deductions: p.deductions, loanDeduction: p.loanDeduction, paymentMethod: p.paymentMethod || 'bank_transfer' }) }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg" title="Edit">
+                      <button onClick={() => { 
+                        setEditPayroll(p); 
+                        setEditForm({ 
+                          allowances: p.allowances, 
+                          commissions: p.commissions, 
+                          bonus: p.bonus, 
+                          deductions: p.deductions, 
+                          loanDeduction: p.loanDeduction, 
+                          paymentMethod: p.paymentMethod || 'bank_transfer',
+                          bankAccount: p.bankAccount?._id || p.bankAccount || ''
+                        }) 
+                      }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg" title="Edit">
                         <FiPlay size={13} className="rotate-90"/>
                       </button>
                     )}
@@ -610,7 +661,11 @@ export default function AdminPayroll() {
               <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
                 <div>
                   <label className="form-label text-xs">Payment Method</label>
-                  <select className="form-select text-sm" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                  <select className="form-select text-sm" value={payMethod} onChange={(e) => {
+                    const v = e.target.value
+                    setPayMethod(v)
+                    if (!PAYROLL_METHODS_NEEDING_BANK.includes(v)) setPayBank('')
+                  }}>
                     <option value="bank_transfer">Bank Transfer</option>
                     <option value="cash">Cash</option>
                     <option value="cheque">Cheque</option>
@@ -619,19 +674,20 @@ export default function AdminPayroll() {
                     <option value="payhere">PayHere</option>
                   </select>
                 </div>
-                {['bank_transfer', 'card_payment', 'online_transfer', 'payhere'].includes(payMethod) && (
+                {isLedgerBankMethod(payMethod) && (
                   <div>
-                    <label className="form-label text-xs">Bank Account</label>
+                    <label className="form-label text-xs">Company Bank & Branch</label>
+                    <p className="text-[10px] text-slate-500 mb-1">Net salary will be deducted from this account&apos;s balance.</p>
                     <select className="form-select text-sm" value={payBank} onChange={e => setPayBank(e.target.value)}>
                       <option value="">Select Account...</option>
-                      {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>)}
+                      {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''} ({b.accountNumber})</option>)}
                     </select>
                   </div>
                 )}
               </div>
               <div className="flex gap-3 pt-4">
                 <button onClick={() => setPreviewPayroll(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
-                <button onClick={() => payMut.mutate(previewPayroll._id)} disabled={payMut.isPending} className="btn-primary flex-1 justify-center bg-green-600 hover:bg-green-700 border-green-600">
+                <button type="button" onClick={confirmPayrollPayment} disabled={payMut.isPending} className="btn-primary flex-1 justify-center bg-green-600 hover:bg-green-700 border-green-600">
                   {payMut.isPending ? <span className="spinner"/> : <><FiCheck size={14}/> Confirm & Pay</>}
                 </button>
               </div>
@@ -674,7 +730,7 @@ export default function AdminPayroll() {
               <div><label className="form-label text-xs font-bold uppercase tracking-tight">Commissions</label><input type="number" className="form-input text-sm" value={editForm.commissions} onChange={e => setEditForm(s => ({...s, commissions: Number(e.target.value)}))} /></div>
               <div><label className="form-label text-xs font-bold uppercase tracking-tight">Bonus</label><input type="number" className="form-input text-sm" value={editForm.bonus} onChange={e => setEditForm(s => ({...s, bonus: Number(e.target.value)}))} /></div>
               <div><label className="form-label text-xs font-bold uppercase tracking-tight">Loan Deduction</label><input type="number" className="form-input text-sm" value={editForm.loanDeduction} onChange={e => setEditForm(s => ({...s, loanDeduction: Number(e.target.value)}))} /></div>
-              <div className="col-span-2">
+              <div className={`${isLedgerBankMethod(editForm.paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
                 <label className="form-label text-xs font-bold uppercase tracking-tight">Payment Method</label>
                 <select className="form-select text-sm" value={editForm.paymentMethod} onChange={e => setEditForm(s => ({...s, paymentMethod: e.target.value}))}>
                   <option value="bank_transfer">Bank Transfer</option>
@@ -684,6 +740,15 @@ export default function AdminPayroll() {
                   <option value="cheque">Cheque</option>
                 </select>
               </div>
+              {isLedgerBankMethod(editForm.paymentMethod) && (
+                <div className="col-span-1">
+                  <label className="form-label text-xs font-bold uppercase tracking-tight">Source Bank & Branch</label>
+                  <select className="form-select text-sm" value={editForm.bankAccount || ''} onChange={e => setEditForm(s => ({...s, bankAccount: e.target.value}))}>
+                    <option value="">Select Account...</option>
+                    {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setEditPayroll(null)} className="btn-ghost flex-1 justify-center text-sm">Cancel</button>

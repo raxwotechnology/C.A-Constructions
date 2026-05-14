@@ -19,7 +19,7 @@ function formatLkr(amount) {
   return Number(amount || 0).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const PAYMENT_FILTER_OPTIONS = ['', 'Cash', 'Bank Transfer', 'Card', 'Cheque', 'Other']
+const PAYMENT_FILTER_OPTIONS = ['', 'Cash', 'Bank Transfer', 'Card', 'Online Payment', 'Cheque', 'Other']
 
 export default function FinanceEntries() {
   const qc = useQueryClient()
@@ -79,6 +79,7 @@ export default function FinanceEntries() {
       setForm(EMPTY); setShowModal(false)
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -95,6 +96,7 @@ export default function FinanceEntries() {
       setForm(EMPTY); setShowModal(false); setEditingId(null)
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -106,6 +108,7 @@ export default function FinanceEntries() {
       setEntryIdToDelete(null)
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -140,10 +143,10 @@ export default function FinanceEntries() {
           <h1 className="page-title">Income & Expenses</h1>
           <p className="page-subtitle">Track, filter and export all financial transactions</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={()=>exportData('excel')} className="btn-ghost border border-slate-200 text-sm"><FiDownload size={13}/> Excel</button>
-          <button onClick={()=>exportData('pdf')} className="btn-ghost border border-slate-200 text-sm"><FiDownload size={13}/> PDF</button>
-          <button onClick={()=>{setEditingId(null); setForm(EMPTY); setShowModal(true)}} className="btn-primary"><FiPlus size={14}/> Add Entry</button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={()=>exportData('excel')} className="btn-export bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"><FiDownload size={12}/> Excel</button>
+          <button type="button" onClick={()=>exportData('pdf')} className="btn-export bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"><FiDownload size={12}/> PDF</button>
+          <button type="button" onClick={()=>{setEditingId(null); setForm(EMPTY); setShowModal(true)}} className="btn-primary btn-sm"><FiPlus size={13}/> Add Entry</button>
         </div>
       </div>
 

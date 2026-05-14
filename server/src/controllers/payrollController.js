@@ -8,6 +8,8 @@ const { createNotification } = require('../services/notificationService');
 const EpfRecord = require('../models/EpfRecord');
 const Loan = require('../models/Loan');
 const AuditLog = require('../models/AuditLog');
+const { appendBankTransaction, isLedgerBankMethod } = require('../utils/bankLedger');
+const { getStatutoryRates } = require('../utils/statutoryRates');
 
 // Internal audit logging helper (does not throw)
 const createAuditLog = async ({ user, action, module, entityId, entityName, description, severity = 'info' }) => {
@@ -25,10 +27,7 @@ const createAuditLog = async ({ user, action, module, entityId, entityName, desc
   } catch (_) { /* never crash on audit log failure */ }
 };
 
-// EPF/ETF rates (Sri Lanka)
-const EPF_EMPLOYEE = 0.08;
-const EPF_EMPLOYER = 0.12;
-const ETF_EMPLOYER = 0.03;
+// EPF/ETF rates — loaded from Site Settings (defaults: 8% / 12% / 3%)
 const COMMISSION_RATE = Number(process.env.PAYROLL_COMMISSION_RATE || 0.05);
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -116,10 +115,10 @@ exports.generatePayroll = async (req, res, next) => {
 
     const grossSalary = basicSalary + projectSalaryAlloc + Number(allowances) + finalOvertime + totalCommissions + Number(bonus);
 
-    // EPF/ETF calculations — only for enrolled employees
-    const epfEmployee = employee.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYEE) : 0;
-    const epfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYER) : 0;
-    const etfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * ETF_EMPLOYER) : 0;
+    const { fractions: R } = await getStatutoryRates();
+    const epfEmployee = employee.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployee) : 0;
+    const epfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployer) : 0;
+    const etfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * R.etfEmployer) : 0;
     const totalDeductions = Number(deductions) + Number(loanDeduction) + Number(leaveDeduction) + epfEmployee;
     const netSalary = grossSalary - totalDeductions;
 
@@ -173,6 +172,7 @@ exports.generateAllPayroll = async (req, res, next) => {
     const employees = await Employee.find(query);
     const results = [];
     const errors = [];
+    const { fractions: R } = await getStatutoryRates();
 
     for (const emp of employees) {
       try {
@@ -195,9 +195,9 @@ exports.generateAllPayroll = async (req, res, next) => {
         const { autoCommission } = await computeAutoCommission(emp._id, month, year);
         const grossSalary = basicSalary + allowances + overtime + autoCommission;
         
-        const epfEmployee = emp.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYEE) : 0;
-        const epfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * EPF_EMPLOYER) : 0;
-        const etfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * ETF_EMPLOYER) : 0;
+        const epfEmployee = emp.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployee) : 0;
+        const epfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployer) : 0;
+        const etfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * R.etfEmployer) : 0;
         
         const totalDeductions = loanDeduction + epfEmployee;
         const netSalary = grossSalary - totalDeductions;
@@ -356,9 +356,10 @@ exports.updatePayroll = async (req, res, next) => {
       + addOthers;
 
     const employee = await Employee.findById(existing.employee);
-    const epfEmployee = employee?.epfEtfEnrolled ? Math.round(basic * EPF_EMPLOYEE) : 0;
-    const epfEmployer = employee?.epfEtfEnrolled ? Math.round(basic * EPF_EMPLOYER) : 0;
-    const etfEmployer = employee?.epfEtfEnrolled ? Math.round(basic * ETF_EMPLOYER) : 0;
+    const { fractions: R } = await getStatutoryRates();
+    const epfEmployee = employee?.epfEtfEnrolled ? Math.round(basic * R.epfEmployee) : 0;
+    const epfEmployer = employee?.epfEtfEnrolled ? Math.round(basic * R.epfEmployer) : 0;
+    const etfEmployer = employee?.epfEtfEnrolled ? Math.round(basic * R.etfEmployer) : 0;
 
     const totalDeductions = epfEmployee
       + Number(advanceDeduction ?? existing.advanceDeduction ?? 0)
@@ -392,10 +393,34 @@ exports.updatePayroll = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const PAYROLL_METHODS_NEEDING_BANK = ['bank_transfer', 'card_payment', 'online_transfer', 'payhere'];
+
 // @desc    Mark payroll as paid
 exports.markPaid = async (req, res, next) => {
   try {
-    const payroll = await Payroll.findByIdAndUpdate(req.params.id, { status: 'paid', paidAt: new Date(), bankAccount: req.body.bankAccount || undefined, paymentMethod: req.body.paymentMethod || undefined }, { new: true })
+    const paymentMethod = req.body.paymentMethod || 'bank_transfer';
+    const rawBank = req.body.bankAccount;
+    const bankAccountId = rawBank && String(rawBank).trim() ? String(rawBank).trim() : undefined;
+
+    if (isLedgerBankMethod(paymentMethod) && !bankAccountId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Select which company bank account this payment is drawn from',
+      });
+    }
+
+    const updatePayload = {
+      status: 'paid',
+      paidAt: new Date(),
+      paymentMethod,
+    };
+    if (isLedgerBankMethod(paymentMethod)) {
+      updatePayload.bankAccount = bankAccountId;
+    } else {
+      updatePayload.bankAccount = null;
+    }
+
+    const payroll = await Payroll.findByIdAndUpdate(req.params.id, updatePayload, { new: true })
       .populate({ path: 'employee', populate: { path: 'userId', select: '_id name email' } });
     if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
 
@@ -438,22 +463,14 @@ exports.markPaid = async (req, res, next) => {
       }
     }
 
-    // Sync with Bank Account
-    if (payroll.bankAccount && ['bank_transfer', 'card_payment', 'online_transfer', 'payhere'].includes(payroll.paymentMethod)) {
-      const BankAccount = require('../models/BankAccount');
-      const account = await BankAccount.findById(payroll.bankAccount);
-      if (account) {
-        account.currentBalance = (account.currentBalance || 0) - (payroll.netSalary || 0);
-        account.transactions.push({
-          type: 'withdrawal',
-          amount: payroll.netSalary || 0,
-          balanceAfter: account.currentBalance,
-          description: `Payroll: ${payroll.employee?.userId?.name} (${payroll.month}/${payroll.year})`,
-          date: new Date(),
-          recordedBy: req.user._id,
-        });
-        await account.save();
-      }
+    if (payroll.bankAccount && isLedgerBankMethod(payroll.paymentMethod)) {
+      await appendBankTransaction(payroll.bankAccount, {
+        type: 'withdrawal',
+        amount: payroll.netSalary || 0,
+        description: `Payroll: ${payroll.employee?.userId?.name} (${payroll.month}/${payroll.year})`,
+        date: new Date(),
+        recordedBy: req.user._id,
+      });
     }
     
     await createAuditLog({
@@ -485,12 +502,14 @@ exports.getEpfSummary = async (req, res, next) => {
     const payrollMap = {};
     payrolls.forEach(p => { payrollMap[String(p.employee)] = p; });
 
+    const { fractions: R, percentages: statutoryRates } = await getStatutoryRates();
+
     const summary = enrolledEmployees.map(emp => {
       const p           = payrollMap[String(emp._id)];
       const basicSalary = p ? p.basicSalary : (emp.basicSalary || 0);
-      const epfEmployee = p ? p.epfEmployee : Math.round(basicSalary * EPF_EMPLOYEE);
-      const epfEmployer = p ? p.epfEmployer : Math.round(basicSalary * EPF_EMPLOYER);
-      const etfEmployer = p ? p.etfEmployer : Math.round(basicSalary * ETF_EMPLOYER);
+      const epfEmployee = p ? p.epfEmployee : Math.round(basicSalary * R.epfEmployee);
+      const epfEmployer = p ? p.epfEmployer : Math.round(basicSalary * R.epfEmployer);
+      const etfEmployer = p ? p.etfEmployer : Math.round(basicSalary * R.etfEmployer);
       return {
         employeeId: String(emp._id),
         payrollId:  p?._id ? String(p._id) : null,
@@ -516,7 +535,7 @@ exports.getEpfSummary = async (req, res, next) => {
       etfEmployer: summary.reduce((a, b) => a + b.etfEmployer, 0),
     };
 
-    res.json({ success: true, summary, totals });
+    res.json({ success: true, summary, totals, statutoryRates });
   } catch (err) { next(err); }
 };
 

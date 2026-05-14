@@ -33,7 +33,7 @@ const loanSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     date: { type: Date, default: Date.now },
     payrollId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payroll' },
-    method: { type: String, enum: ['cash', 'bank_transfer', 'salary_deduction'], default: 'salary_deduction' },
+    method: { type: String, enum: ['cash', 'bank_transfer', 'card', 'online_transfer', 'payhere', 'salary_deduction'], default: 'salary_deduction' },
     bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
     note: String,
   }],

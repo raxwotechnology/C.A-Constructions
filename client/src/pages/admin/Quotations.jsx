@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiCalendar, FiPrinter } from 'react-icons/fi'
+import { INVOICE_CURRENCIES } from '../../lib/currencies'
 
 const STATUS_COLOR = {
   draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', confirmed:'badge-green',
@@ -26,7 +27,7 @@ export default function AdminQuotations() {
   const [endDate, setEndDate] = useState('')
 
   const { register, handleSubmit, reset, setValue, watch, control } = useForm({
-    defaultValues: { items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }
+    defaultValues: { items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR' }
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
 
@@ -58,6 +59,21 @@ export default function AdminQuotations() {
     queryFn: () => api.get('/clients').then(r => r.data),
     enabled: showModal,
   })
+  const watchedClientQ = watch('client')
+  const { data: branchQuotData } = useQuery({
+    queryKey: ['branches-for-quotation-modal'],
+    queryFn: () => api.get('/branches').then((r) => r.data),
+    enabled: showModal,
+  })
+  const { data: projQuotData } = useQuery({
+    queryKey: ['projects-for-quotation-modal'],
+    queryFn: () => api.get('/projects').then((r) => r.data),
+    enabled: showModal,
+  })
+  const branchesQuot = branchQuotData?.branches || []
+  const projectsQuot = (projQuotData?.projects || []).filter(
+    (p) => !watchedClientQ || String(p.client?._id || p.client) === String(watchedClientQ)
+  )
 
   const createMut = useMutation({
     mutationFn: d => api.post('/quotations', d),
@@ -76,7 +92,7 @@ export default function AdminQuotations() {
   })
   const convertMut = useMutation({
     mutationFn: id => api.post(`/quotations/${id}/convert-to-invoice`),
-    onSuccess: (data) => { qc.invalidateQueries(['quotations']); qc.invalidateQueries(['admin-invoices']); toast.success(`Invoice ${data.data?.invoice?.invoiceNo || ''} created!`) },
+    onSuccess: (res) => { qc.invalidateQueries(['quotations']); qc.invalidateQueries(['admin-invoices']); toast.success(`Invoice ${res?.data?.invoice?.invoiceNo || ''} created!`) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
@@ -92,13 +108,16 @@ export default function AdminQuotations() {
     q.quotationNo?.toLowerCase().includes(search.toLowerCase())
   )
 
-  const closeModal = () => { setShowModal(false); setEditing(null); reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }) }
-  const openCreate = () => { reset({ quotationDate: new Date().toISOString().split('T')[0], items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }] }); setEditing(null); setShowModal(true) }
+  const closeModal = () => { setShowModal(false); setEditing(null); reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '' }) }
+  const openCreate = () => { reset({ quotationDate: new Date().toISOString().split('T')[0], items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '' }); setEditing(null); setShowModal(true) }
   const openEdit = (q) => {
     reset({
       client: q.client?._id || q.client,
       title: q.title || '',
       serviceType: q.serviceType || 'Other',
+      branch: q.branch?._id || q.branch || '',
+      project: q.project?._id || q.project || '',
+      currency: q.currency || 'LKR',
       quotationDate: q.quotationDate ? new Date(q.quotationDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       validUntil: q.validUntil ? new Date(q.validUntil).toISOString().split('T')[0] : '',
       taxRate: q.taxRate || 0,
@@ -122,6 +141,8 @@ export default function AdminQuotations() {
     const tRate = Number(d.taxRate || 0)
     const taxAmt = sub * tRate / 100
     const payload = { ...d, items, subtotal: sub, tax: taxAmt, taxRate: tRate, total: sub + taxAmt }
+    if (!payload.branch) delete payload.branch
+    if (!payload.project) delete payload.project
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
@@ -170,7 +191,7 @@ export default function AdminQuotations() {
               </td></tr>
             ) : quotations.map(q => (
               <tr key={q._id}>
-                <td><span className="badge badge-navy font-mono">{q.quotationNo}</span></td>
+                <td><span className="badge badge-navy font-mono text-xs tracking-tight">{q.quotationNo}</span></td>
                 <td>
                   <div className="font-medium text-gray-800">{q.client?.name || '—'}</div>
                   <div className="text-xs text-gray-400">{q.client?.email}</div>
@@ -229,6 +250,40 @@ export default function AdminQuotations() {
               </div>
               <div><label className="form-label">Subject / Title</label>
                 <input {...register('title')} className="form-input" placeholder="e.g. ERP System Development Proposal (optional)"/></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="form-label">Branch</label>
+                  <select {...register('branch')} className="form-select">
+                    <option value="">— None —</option>
+                    {branchesQuot.map((b) => (
+                      <option key={b._id} value={b._id}>{b.name}</option>
+                    ))}
+                  </select></div>
+                <div><label className="form-label">Linked project</label>
+                  <select
+                    {...register('project')}
+                    onChange={(e) => {
+                      register('project').onChange(e)
+                      const pid = e.target.value
+                      if (!pid) return
+                      const pr = projectsQuot.find((p) => String(p._id) === String(pid))
+                      if (pr?.deadline) {
+                        setValue('validUntil', new Date(pr.deadline).toISOString().split('T')[0], { shouldDirty: false })
+                      }
+                    }}
+                    className="form-select"
+                  >
+                    <option value="">— None —</option>
+                    {projectsQuot.map((p) => (
+                      <option key={p._id} value={p._id}>{p.title}</option>
+                    ))}
+                  </select></div>
+                <div><label className="form-label">Currency</label>
+                  <select {...register('currency')} className="form-select">
+                    {INVOICE_CURRENCIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select></div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="form-label">Quotation Date</label>
                   <input {...register('quotationDate')} type="date" className="form-input"/></div>

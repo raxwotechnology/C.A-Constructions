@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { getApiBaseUrl } from './devApi'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -12,6 +13,11 @@ api.interceptors.request.use(
     if (stored) {
       const { state } = JSON.parse(stored)
       if (state?.token) config.headers.Authorization = `Bearer ${state.token}`
+    }
+    // Instance default is application/json; FormData must omit Content-Type so the boundary is set.
+    if (config.data instanceof FormData && config.headers) {
+      if (typeof config.headers.delete === 'function') config.headers.delete('Content-Type')
+      else delete config.headers['Content-Type']
     }
     return config
   },

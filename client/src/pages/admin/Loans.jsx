@@ -8,7 +8,7 @@ import ExportBar from '../../components/ui/ExportBar'
 import { FiPlus, FiX, FiCheck, FiRefreshCw, FiEdit2, FiAlertCircle, FiDollarSign, FiCalendar } from 'react-icons/fi'
 
 const EMPTY = { employeeId: '', totalAmount: '', monthlyInstallment: '', repaymentMonths: '', startDate: new Date().toISOString().split('T')[0], reason: '', deductionType: 'salary', taxRate: 0 }
-const PAY_EMPTY = { amount: '', date: new Date().toISOString().split('T')[0], note: '', method: 'salary_deduction' }
+const PAY_EMPTY = { amount: '', date: new Date().toISOString().split('T')[0], note: '', method: 'salary_deduction', bankAccount: '' }
 
 export default function AdminLoans() {
   const qc = useQueryClient()
@@ -41,6 +41,8 @@ export default function AdminLoans() {
     queryFn: () => api.get(`/loans?${params.toString()}`).then(r => r.data),
   })
   const { data: empData } = useQuery({ queryKey: ['employees-mini', branchFilter], queryFn: () => api.get(`/employees?${branchFilter ? `branch=${branchFilter}` : ''}`).then(r => r.data) })
+  const { data: bankData } = useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get('/bank-accounts').then(r => r.data) })
+  const bankAccounts = bankData?.accounts || []
 
   const loans = loanData?.loans || []
   const employees = empData?.employees || []
@@ -68,7 +70,7 @@ export default function AdminLoans() {
   })
   const payMut = useMutation({
     mutationFn: ({ id, ...p }) => api.post(`/loans/${id}/pay`, p),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Payment recorded'); setPayTarget(null); setPayForm(PAY_EMPTY) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Payment recorded'); setPayTarget(null); setPayForm(PAY_EMPTY) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
@@ -422,12 +424,24 @@ export default function AdminLoans() {
               <div><label className="form-label">Amount *</label>
                 <input type="number" className="form-input" value={payForm.amount} onChange={e => setPayForm(s => ({ ...s, amount: e.target.value }))} /></div>
               <div><label className="form-label">Payment Method</label>
-                <select className="form-select" value={payForm.method} onChange={e => setPayForm(s => ({ ...s, method: e.target.value }))}>
+                <select className="form-select" value={payForm.method} onChange={e => setPayForm(s => ({ ...s, method: e.target.value, bankAccount: ['bank_transfer', 'card', 'online_transfer', 'payhere'].includes(e.target.value) ? s.bankAccount : '' }))}>
                   <option value="salary_deduction">Salary Deduction</option>
                   <option value="cash">Cash</option>
                   <option value="bank_transfer">Bank Transfer</option>
+                  <option value="card">Card</option>
+                  <option value="online_transfer">Online Transfer</option>
+                  <option value="payhere">PayHere</option>
                 </select>
               </div>
+              {['bank_transfer', 'card', 'online_transfer', 'payhere'].includes(payForm.method) && (
+                <div>
+                  <label className="form-label">Company bank account (deposit to)</label>
+                  <select className="form-select" value={payForm.bankAccount || ''} onChange={e => setPayForm(s => ({ ...s, bankAccount: e.target.value }))}>
+                    <option value="">Select account…</option>
+                    {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>)}
+                  </select>
+                </div>
+              )}
               <div><label className="form-label">Date</label>
                 <input type="date" className="form-input" value={payForm.date} onChange={e => setPayForm(s => ({ ...s, date: e.target.value }))} /></div>
               <div><label className="form-label">Note</label>

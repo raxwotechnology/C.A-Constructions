@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiX, FiPrinter, FiDollarSign, FiCreditCard, FiCalendar, FiClock, FiCheckCircle, FiAlertTriangle, FiFileText } from 'react-icons/fi'
+import { FiX, FiPrinter, FiDollarSign, FiCreditCard, FiCalendar, FiClock, FiCheckCircle, FiAlertTriangle, FiFileText, FiDownload } from 'react-icons/fi'
+import { mediaUrl } from '../../lib/media'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
@@ -27,20 +28,27 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   const { data: bankData } = useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get('/bank-accounts').then(r => r.data) })
   const bankAccounts = bankData?.accounts || []
 
+  const { data: siteRes } = useQuery({
+    queryKey: ['site-settings'],
+    queryFn: () => api.get('/site-settings').then((r) => r.data),
+  })
+  const site = siteRes?.settings || {}
+
   const recordPayMut = useMutation({
     mutationFn: d => api.post(`/invoices/${invoiceId}/payments`, d),
-    onSuccess: () => { qc.invalidateQueries(['invoice', invoiceId]); qc.invalidateQueries(['admin-invoices']); toast.success('Payment recorded'); setShowPaymentModal(false); reset() },
+    onSuccess: () => { qc.invalidateQueries(['invoice', invoiceId]); qc.invalidateQueries(['admin-invoices']); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Payment recorded'); setShowPaymentModal(false); reset() },
     onError: e => toast.error(e.response?.data?.message || 'Failed to record payment'),
   })
 
   const recordAdvMut = useMutation({
     mutationFn: d => api.post(`/invoices/${invoiceId}/advances`, d),
-    onSuccess: () => { qc.invalidateQueries(['invoice', invoiceId]); qc.invalidateQueries(['admin-invoices']); toast.success('Advance recorded'); setShowAdvanceModal(false); reset() },
+    onSuccess: () => { qc.invalidateQueries(['invoice', invoiceId]); qc.invalidateQueries(['admin-invoices']); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Advance recorded'); setShowAdvanceModal(false); reset() },
     onError: e => toast.error(e.response?.data?.message || 'Failed to record advance'),
   })
 
   const handlePrint = (type) => {
-    const content = printRef.current.innerHTML
+    const content = printRef.current?.innerHTML
+    if (!content) return
     const printWindow = window.open('', '_blank')
     printWindow.document.write(`
       <html>
@@ -76,10 +84,55 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   }
 
   if (!invoiceId) return null
-  const inv = data?.invoice
   if (isLoading) return null
+  const inv = data?.invoice
+  if (!inv) return null
 
-  const isOverdue = inv?.status === 'overdue'
+  const isOverdue = inv.status === 'overdue'
+  const cur = inv.currency || 'LKR'
+
+  const handlePdfPaymentHistory = async () => {
+    try {
+      const { default: jsPDF } = await import('jspdf')
+      const { default: autoTable } = await import('jspdf-autotable')
+      const doc = new jsPDF()
+      let y = 14
+      doc.setFontSize(16)
+      doc.setTextColor(15, 31, 58)
+      doc.text(String(site.siteName || 'Raxwo Pvt Ltd'), 14, y)
+      y += 8
+      doc.setFontSize(9)
+      doc.setTextColor(71, 85, 105)
+      const addr = [site.contactAddress, site.contactPhone, site.contactEmail, site.websiteUrl].filter(Boolean).join(' · ')
+      if (addr) {
+        doc.text(addr, 14, y)
+        y += 6
+      }
+      doc.setFontSize(12)
+      doc.setTextColor(15, 23, 42)
+      doc.text(`Payment history — Invoice ${inv.invoiceNo}`, 14, y + 4)
+      y += 14
+      const rows = (inv.payments || []).map((p) => [
+        new Date(p.date).toLocaleDateString('en-LK'),
+        p.isAdvance ? 'Advance' : 'Payment',
+        String(p.method || '').replace('_', ' '),
+        p.reference || '—',
+        `${cur} ${Number(p.amount || 0).toLocaleString()}`,
+      ])
+      autoTable(doc, {
+        startY: y,
+        head: [['Date', 'Type', 'Method', 'Reference', `Amount (${cur})`]],
+        body: rows.length ? rows : [['—', '—', '—', '—', 'No payments']],
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [11, 31, 58] },
+      })
+      doc.save(`invoice-${inv.invoiceNo}-payment-history.pdf`)
+      toast.success('PDF downloaded')
+    } catch (e) {
+      console.error(e)
+      toast.error('Could not generate PDF')
+    }
+  }
 
   return createPortal(
     <div className="fixed inset-0 bg-black/60 z-50 flex justify-end" onClick={onClose}>
@@ -209,7 +262,8 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
               <div className="flex gap-3 justify-end">
                 <button onClick={() => { setShowAdvanceModal(true); reset() }} className="btn-outline btn-sm"><FiDollarSign size={14}/> Record Advance</button>
                 <button onClick={() => { setShowPaymentModal(true); reset() }} disabled={inv?.remainingBalance === 0} className="btn-primary btn-sm"><FiCreditCard size={14}/> Record Payment</button>
-                <button onClick={() => handlePrint('Payment History')} className="btn-outline btn-sm"><FiPrinter size={14}/> Print History</button>
+                <button type="button" onClick={() => handlePrint('Payment History')} className="btn-outline btn-sm"><FiPrinter size={14}/> Print History</button>
+                <button type="button" onClick={handlePdfPaymentHistory} className="btn-outline btn-sm"><FiDownload size={14}/> PDF History</button>
               </div>
 
               {/* Payments Table */}
@@ -242,9 +296,9 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                   </tbody>
                 </table>
                 <div className="p-4 bg-slate-50 border-t flex justify-end gap-8 text-sm">
-                  <div className="text-right"><p className="text-slate-500">Total Advances:</p><p className="font-bold text-slate-800">LKR {(inv?.totalAdvances || 0).toLocaleString()}</p></div>
-                  <div className="text-right"><p className="text-slate-500">Total Paid (All):</p><p className="font-bold text-green-600">LKR {(inv?.totalPaid || 0).toLocaleString()}</p></div>
-                  <div className="text-right"><p className="text-slate-500">Remaining Balance:</p><p className="font-bold text-red-600">LKR {(inv?.remainingBalance || 0).toLocaleString()}</p></div>
+                  <div className="text-right"><p className="text-slate-500">Total Advances:</p><p className="font-bold text-slate-800">{cur} {(inv?.totalAdvances || 0).toLocaleString()}</p></div>
+                  <div className="text-right"><p className="text-slate-500">Total Paid (All):</p><p className="font-bold text-green-600">{cur} {(inv?.totalPaid || 0).toLocaleString()}</p></div>
+                  <div className="text-right"><p className="text-slate-500">Remaining Balance:</p><p className="font-bold text-red-600">{cur} {(inv?.remainingBalance || 0).toLocaleString()}</p></div>
                 </div>
               </div>
             </div>
@@ -252,92 +306,136 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
         </div>
 
-        {/* Hidden Print Templates */}
-        <div className="hidden">
+        {/* Hidden Print Templates — real DOM so innerHTML + currency + letterhead work */}
+        <div className="hidden" aria-hidden="true">
           <div ref={printRef}>
-            <div className="header">
-              <h1>Invoice: ${inv?.invoiceNo}</h1>
-              <p>Generated on: ${new Date().toLocaleDateString('en-LK')}</p>
-            </div>
-            <div className="meta-grid">
-              <div className="meta-box">
-                <h3>Billed To</h3>
-                <p><strong>Name:</strong> ${inv?.client?.name}</p>
-                <p><strong>Email:</strong> ${inv?.client?.email}</p>
-                <p><strong>Project:</strong> ${inv?.project?.title || 'N/A'}</p>
+            <div className="header" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', borderBottom: '2px solid #e2e8f0', paddingBottom: 16, marginBottom: 20 }}>
+              {site.logoUrl ? (
+                <img src={mediaUrl(site.logoUrl)} alt="" style={{ maxHeight: 72, objectFit: 'contain' }} />
+              ) : null}
+              <div>
+                <h1 style={{ margin: 0, fontSize: 22, color: '#0f172a' }}>{site.siteName || 'Raxwo Pvt Ltd'}</h1>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b' }}>
+                  {[site.contactAddress, site.contactPhone, site.contactEmail].filter(Boolean).join(' · ')}
+                </p>
               </div>
-              <div className="meta-box">
-                <h3>Invoice Details</h3>
-                <p><strong>Date:</strong> ${new Date(inv?.invoiceDate).toLocaleDateString('en-LK')}</p>
-                <p><strong>Due Date:</strong> ${inv?.dueDate ? new Date(inv?.dueDate).toLocaleDateString('en-LK') : 'N/A'}</p>
-                <p><strong>Status:</strong> <span className="badge badge-${inv?.status}">${inv?.status}</span></p>
-                <p><strong>Quotation Ref:</strong> ${inv?.quotationRef?.quotationNo || 'N/A'}</p>
+            </div>
+            <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#1e293b' }}>Tax Invoice</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#475569' }}>Invoice <strong>{inv.invoiceNo}</strong> · Generated {new Date().toLocaleDateString('en-LK')}</p>
+            <div className="meta-grid" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>
+              <div className="meta-box" style={{ background: '#f8fafc', padding: 15, borderRadius: 8, flex: 1 }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>Billed To</h3>
+                <p style={{ margin: '4px 0' }}><strong>Name:</strong> {inv.client?.name}</p>
+                <p style={{ margin: '4px 0' }}><strong>Email:</strong> {inv.client?.email}</p>
+                <p style={{ margin: '4px 0' }}><strong>Project:</strong> {inv.project?.title || 'N/A'}</p>
+              </div>
+              <div className="meta-box" style={{ background: '#f8fafc', padding: 15, borderRadius: 8, flex: 1 }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>Invoice Details</h3>
+                <p style={{ margin: '4px 0' }}><strong>Date:</strong> {new Date(inv.invoiceDate).toLocaleDateString('en-LK')}</p>
+                <p style={{ margin: '4px 0' }}><strong>Due:</strong> {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-LK') : 'N/A'}</p>
+                <p style={{ margin: '4px 0' }}><strong>Status:</strong> {inv.status}</p>
+                <p style={{ margin: '4px 0' }}><strong>Quotation ref:</strong> {inv.quotationRef?.quotationNo || 'N/A'}</p>
+                <p style={{ margin: '4px 0' }}><strong>Currency:</strong> {cur}</p>
               </div>
             </div>
 
-            <h2>Line Items</h2>
-            <table>
+            <h2 style={{ fontSize: 16, margin: '24px 0 8px' }}>Line Items</h2>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
               <thead>
                 <tr>
-                  <th>Description</th>
-                  <th className="text-center">Qty</th>
-                  <th className="text-right">Unit Price</th>
-                  <th className="text-right">Total</th>
+                  <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Description</th>
+                  <th style={{ textAlign: 'center', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Qty</th>
+                  <th style={{ textAlign: 'right', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Unit ({cur})</th>
+                  <th style={{ textAlign: 'right', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Total ({cur})</th>
                 </tr>
               </thead>
               <tbody>
-                ${inv?.items?.map(item => `
-                  <tr>
-                    <td>${item.description}</td>
-                    <td className="text-center">${item.quantity}</td>
-                    <td className="text-right">${item.unitPrice.toLocaleString()}</td>
-                    <td className="text-right">${item.total.toLocaleString()}</td>
+                {(inv.items || []).map((item, idx) => (
+                  <tr key={idx}>
+                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>{item.description}</td>
+                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>{item.quantity}</td>
+                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{Number(item.unitPrice || 0).toLocaleString()}</td>
+                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{Number(item.total || 0).toLocaleString()}</td>
                   </tr>
-                `).join('')}
+                ))}
               </tbody>
             </table>
 
-            <div className="totals">
-              <div className="totals-row"><span>Subtotal:</span><span>${inv?.subtotal.toLocaleString()}</span></div>
-              ${inv?.discountTotal > 0 ? `<div className="totals-row"><span>Discount:</span><span>-${inv.discountTotal.toLocaleString()}</span></div>` : ''}
-              ${inv?.tax > 0 ? `<div className="totals-row"><span>Tax (${inv.taxRate}%):</span><span>+${inv.tax.toLocaleString()}</span></div>` : ''}
-              <div className="totals-row grand"><span>Total (${inv?.currency}):</span><span>${inv?.total.toLocaleString()}</span></div>
-              <div className="totals-row text-green-600"><span>Total Paid:</span><span>-${inv?.totalPaid.toLocaleString()}</span></div>
-              <div className="totals-row grand text-red"><span>Balance Due:</span><span>${inv?.remainingBalance.toLocaleString()}</span></div>
+            <div className="totals" style={{ width: 320, marginLeft: 'auto' }}>
+              <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                <span>Subtotal:</span>
+                <span>{cur} {Number(inv.subtotal || 0).toLocaleString()}</span>
+              </div>
+              {inv.discountTotal > 0 && (
+                <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                  <span>Discount:</span>
+                  <span>-{cur} {Number(inv.discountTotal || 0).toLocaleString()}</span>
+                </div>
+              )}
+              {inv.tax > 0 && (
+                <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                  <span>Tax ({inv.taxRate}%):</span>
+                  <span>+{cur} {Number(inv.tax || 0).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="totals-row grand" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', marginTop: 8, borderTop: '2px solid #cbd5e1', fontWeight: 700, fontSize: 15 }}>
+                <span>Total:</span>
+                <span>{cur} {Number(inv.total || 0).toLocaleString()}</span>
+              </div>
+              <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', color: '#16a34a' }}>
+                <span>Total paid:</span>
+                <span>-{cur} {Number(inv.totalPaid || 0).toLocaleString()}</span>
+              </div>
+              <div className="totals-row grand text-red" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: 700, color: '#b91c1c' }}>
+                <span>Balance due:</span>
+                <span>{cur} {Number(inv.remainingBalance || 0).toLocaleString()}</span>
+              </div>
             </div>
 
-            ${inv?.payments?.length > 0 ? `
-              <h2 style="margin-top: 50px;">Payment History</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Method</th>
-                    <th>Ref</th>
-                    <th className="text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${inv.payments.map(p => `
+            {(inv.payments && inv.payments.length > 0) && (
+              <>
+                <h2 style={{ marginTop: 40, fontSize: 16 }}>Payment History</h2>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+                  <thead>
                     <tr>
-                      <td>${new Date(p.date).toLocaleDateString('en-LK')}</td>
-                      <td>${p.isAdvance ? 'Advance' : 'Payment'}</td>
-                      <td style="text-transform: capitalize;">${p.method.replace('_', ' ')}</td>
-                      <td>${p.reference || '-'}</td>
-                      <td className="text-right">${p.amount.toLocaleString()}</td>
+                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Date</th>
+                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Type</th>
+                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Method</th>
+                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Ref</th>
+                      <th style={{ textAlign: 'right', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Amount ({cur})</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            ` : ''}
+                  </thead>
+                  <tbody>
+                    {inv.payments.map((p, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0' }}>{new Date(p.date).toLocaleDateString('en-LK')}</td>
+                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0' }}>{p.isAdvance ? 'Advance' : 'Payment'}</td>
+                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0', textTransform: 'capitalize' }}>{String(p.method || '').replace('_', ' ')}</td>
+                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0' }}>{p.reference || '—'}</td>
+                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{Number(p.amount || 0).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
 
-            ${inv?.notes || inv?.paymentTerms ? `
-              <div style="margin-top: 50px;">
-                ${inv?.notes ? `<h3>Notes</h3><p style="white-space: pre-wrap;">${inv.notes}</p>` : ''}
-                ${inv?.paymentTerms ? `<h3>Payment Terms</h3><p style="white-space: pre-wrap;">${inv.paymentTerms}</p>` : ''}
+            {(inv.notes || inv.paymentTerms) && (
+              <div style={{ marginTop: 36 }}>
+                {inv.notes && (
+                  <>
+                    <h3 style={{ fontSize: 14 }}>Notes</h3>
+                    <p style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#334155' }}>{inv.notes}</p>
+                  </>
+                )}
+                {inv.paymentTerms && (
+                  <>
+                    <h3 style={{ fontSize: 14, marginTop: 16 }}>Payment Terms</h3>
+                    <p style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#334155' }}>{inv.paymentTerms}</p>
+                  </>
+                )}
               </div>
-            ` : ''}
+            )}
           </div>
         </div>
 
@@ -366,11 +464,13 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                       <option value="cash">Cash</option>
                       <option value="card">Card</option>
                       <option value="bank_transfer">Bank Transfer</option>
+                      <option value="online_transfer">Online Transfer</option>
+                      <option value="payhere">PayHere</option>
                       <option value="cheque">Cheque</option>
                     </select>
                   </div>
                 </div>
-                {['bank_transfer', 'card'].includes(watch('method')) && (
+                {['bank_transfer', 'card', 'online_transfer', 'payhere'].includes(watch('method')) && (
                   <div>
                     <label className="form-label">Bank Account</label>
                     <select {...register('bankAccount')} className="form-select">

@@ -19,7 +19,7 @@ router.post('/',   protect, authorize('admin', 'manager'), createInvoice);
 // These dynamic routes must come AFTER static routes like /payments/history
 router.get('/:id', protect, getInvoice);
 router.put('/:id', protect, authorize('admin', 'manager'), updateInvoice);
-router.delete('/:id', protect, authorize('admin'), deleteInvoice);
+router.delete('/:id', protect, authorize('admin', 'manager'), deleteInvoice);
 
 // Payment actions on invoice
 router.post('/:id/payments',  protect, authorize('admin', 'manager'), recordPayment);

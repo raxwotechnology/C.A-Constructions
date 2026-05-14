@@ -1,6 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import useAuthStore from './store/authStore'
+import api from './lib/api'
+import { mediaUrl } from './lib/media'
 
 // Layouts
 import PublicLayout from './layouts/PublicLayout'
@@ -59,6 +62,7 @@ import WorkLogs from './pages/admin/WorkLogs'
 import FinancialReports from './pages/admin/FinancialReports'
 import PolicyManagement from './pages/admin/PolicyManagement'
 import AdminBankManagement from './pages/admin/BankManagement'
+import AdminCheques from './pages/admin/Cheques'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
 import ManagerTeam from './pages/manager/Team'
@@ -114,12 +118,36 @@ const GuestRoute = ({ children }) => {
   return children
 }
 
+function DynamicFaviconFromSettings() {
+  const { data } = useQuery({
+    queryKey: ['site-settings'],
+    queryFn: () => api.get('/site-settings').then((r) => r.data),
+    staleTime: 60_000,
+  })
+  useEffect(() => {
+    const logo = data?.settings?.logoUrl
+    const v = data?.settings?.updatedAt ? new Date(data.settings.updatedAt).getTime() : ''
+    const href = logo ? `${mediaUrl(logo)}?v=${v}` : '/favicon.svg'
+    let link = document.querySelector("link[rel='icon']")
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.href = href
+    link.type = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(href) ? 'image/png' : 'image/svg+xml'
+  }, [data])
+  return null
+}
+
 export default function App() {
   const { initAuth } = useAuthStore()
   useEffect(() => { initAuth() }, [])
 
   return (
-    <Routes>
+    <>
+      <DynamicFaviconFromSettings />
+      <Routes>
       {/* Public Website */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
@@ -189,6 +217,7 @@ export default function App() {
         <Route path="leave-policies" element={<PolicyManagement />} />
         <Route path="policies" element={<PolicyManagement />} />
         <Route path="bank-management" element={<AdminBankManagement />} />
+        <Route path="cheques" element={<AdminCheques />} />
       </Route>
 
       {/* Manager */}
@@ -265,5 +294,6 @@ export default function App() {
       } />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }

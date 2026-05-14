@@ -236,6 +236,35 @@ exports.updateLetter = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// @desc    Delete issued letter
+// @route   DELETE /api/letters/:id
+exports.deleteLetter = async (req, res, next) => {
+  try {
+    const pw = req.body?.password ?? req.query?.password;
+    const check = await verifyActionPassword(req.user._id, pw);
+    if (!check.ok) return res.status(check.status).json({ success: false, message: check.message });
+
+    const prev = await Letter.findById(req.params.id).lean();
+    if (!prev) return res.status(404).json({ success: false, message: 'Letter not found' });
+
+    await Letter.findByIdAndDelete(req.params.id);
+    await createAuditLog({
+      user: req.user,
+      action: 'delete',
+      module: 'letters',
+      entityId: String(prev._id),
+      entityName: prev.letterRef || prev.title,
+      description: `Letter deleted: ${prev.title}`,
+      changes: { before: letterAuditSnapshot(prev), after: null },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+      severity: 'warning',
+    });
+
+    res.json({ success: true, message: 'Letter deleted' });
+  } catch (err) { next(err); }
+};
+
 // @desc    Get company branding for letters
 // @route   GET /api/letters/company-info
 exports.getCompanyInfo = async (req, res, next) => {

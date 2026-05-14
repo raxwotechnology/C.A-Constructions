@@ -29,7 +29,7 @@ const EMPTY_SIG = () => ({
 
 export default function Agreements() {
   const qc = useQueryClient()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [historyFor, setHistoryFor] = useState(null)
@@ -67,6 +67,8 @@ export default function Agreements() {
   const { data: siteData } = useQuery({
     queryKey: ['site-settings'],
     queryFn: () => api.get('/site-settings').then((r) => r.data),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
   const { data: clientsData } = useQuery({ queryKey: ['clients'], queryFn: () => api.get('/auth/users').then((r) => r.data) })
   const { data: projectsData } = useQuery({ queryKey: ['projects'], queryFn: () => api.get('/projects').then((r) => r.data) })
@@ -84,12 +86,17 @@ export default function Agreements() {
   const projects = projectsData?.projects || []
   const invoices = invoicesData?.invoices || []
 
-  const printOpts = (agr, html) => ({
-    siteName: site.siteName,
-    logoUrl: site.logoUrl ? mediaUrl(site.logoUrl) : '',
-    address: site.contactAddress,
-    phone: site.contactPhone,
-    email: site.contactEmail,
+  const buildPrintOptsWithSite = (s, agr, html) => ({
+    siteName: s.siteName,
+    logoUrl: s.logoUrl ? `${mediaUrl(s.logoUrl)}${s.updatedAt ? `?v=${new Date(s.updatedAt).getTime()}` : ''}` : '',
+    address: s.contactAddress,
+    phone: s.contactPhone,
+    email: s.contactEmail,
+    websiteUrl: s.websiteUrl || '',
+    locationLine:
+      s.mapLat != null && s.mapLng != null
+        ? `Location: ${Number(s.mapLat).toFixed(4)}, ${Number(s.mapLng).toFixed(4)} (map ref.)`
+        : '',
     title: agr?.title || watch('title'),
     agreementNo: agr?.agreementNo || '—',
     agreementDate: (() => {
@@ -99,6 +106,14 @@ export default function Agreements() {
     bodyHtml: html,
     signatures: agr?.signatures || signatures,
   })
+
+  const fetchFreshSiteSettings = async () => {
+    const res = await qc.fetchQuery({
+      queryKey: ['site-settings'],
+      queryFn: () => api.get('/site-settings').then((r) => r.data),
+    })
+    return res?.settings || site
+  }
 
   const generatePreviewMut = useMutation({
     mutationFn: (d) => api.post('/agreements/generate-preview', d),
@@ -237,13 +252,15 @@ export default function Agreements() {
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
-  const handlePrintAgreement = (agr) => {
-    openAgreementPrint(printOpts(agr, agr.content))
+  const handlePrintAgreement = async (agr) => {
+    const s = await fetchFreshSiteSettings()
+    openAgreementPrint(buildPrintOptsWithSite(s, agr, agr.content))
   }
 
   const handlePdfAgreement = async (agr) => {
     try {
-      await downloadAgreementPdf(printOpts(agr, agr.content), agr.agreementNo || 'agreement')
+      const s = await fetchFreshSiteSettings()
+      await downloadAgreementPdf(buildPrintOptsWithSite(s, agr, agr.content), agr.agreementNo || 'agreement')
       toast.success('PDF downloaded')
     } catch {
       toast.error('PDF export failed')
@@ -292,6 +309,30 @@ export default function Agreements() {
     }
   }, [type, clientVal, projectVal, invoiceVal, step, editing, clients, projects, invoices, setValue])
 
+  const focusAgreementId = searchParams.get('agreement')
+  useEffect(() => {
+    if (!focusAgreementId || !(data?.agreements || []).length) return
+    const agr = data.agreements.find((a) => String(a._id) === focusAgreementId)
+    if (!agr) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('agreement')
+        return next
+      }, { replace: true })
+      return
+    }
+    openEdit(agr)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('agreement')
+        return next
+      },
+      { replace: true }
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openEdit is stable enough for one-shot deep link
+  }, [focusAgreementId, data?.agreements, setSearchParams])
+
   const approvalBadge = (s) => {
     const map = {
       none: 'bg-slate-100 text-slate-600',
@@ -314,30 +355,34 @@ export default function Agreements() {
         </button>
       </div>
 
-      <div className="relative filter-toolbar max-w-md">
-        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search agreements…"
-          className="form-input pl-9"
-        />
-      </div>
-
-      {isLoading ? (
-        <div className="text-center py-20">
-          <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" />
+      <div className="card overflow-hidden border border-slate-200 shadow-sm">
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search agreements…"
+              className="form-input pl-9 bg-white"
+            />
+          </div>
+          <p className="text-xs text-slate-500 sm:ml-auto">Branding comes from Admin → Settings (logo, address, contact).</p>
         </div>
-      ) : agreements.length === 0 ? (
-        <div className="card card-body text-center py-20 border-dashed">
-          <FiFileText size={48} className="mx-auto mb-4 text-slate-300" />
-          <p className="text-slate-500 mb-4">No agreements found.</p>
-          <button type="button" onClick={openCreate} className="btn-primary btn-sm mx-auto">
-            Create first agreement
-          </button>
-        </div>
-      ) : (
-        <div className="table-container">
+        <div className="p-0">
+          {isLoading ? (
+            <div className="text-center py-20">
+              <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" />
+            </div>
+          ) : agreements.length === 0 ? (
+            <div className="text-center py-20 px-4">
+              <FiFileText size={48} className="mx-auto mb-4 text-slate-300" />
+              <p className="text-slate-500 mb-4">No agreements found.</p>
+              <button type="button" onClick={openCreate} className="btn-primary btn-sm mx-auto">
+                Create first agreement
+              </button>
+            </div>
+          ) : (
+            <div className="table-container">
           <table className="table">
             <thead>
               <tr>
@@ -439,8 +484,10 @@ export default function Agreements() {
               ))}
             </tbody>
           </table>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {historyFor && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[999999]" onClick={() => setHistoryFor(null)}>
@@ -614,7 +661,10 @@ export default function Agreements() {
                           <button
                             type="button"
                             className="btn-ghost border border-slate-200 text-xs"
-                            onClick={() => openAgreementPrint(printOpts(editing, editorContent))}
+                            onClick={async () => {
+                              const s = await fetchFreshSiteSettings()
+                              openAgreementPrint(buildPrintOptsWithSite(s, editing, editorContent))
+                            }}
                           >
                             <FiPrinter size={13} /> Print
                           </button>
@@ -623,7 +673,8 @@ export default function Agreements() {
                             className="btn-ghost border border-slate-200 text-xs"
                             onClick={async () => {
                               try {
-                                await downloadAgreementPdf(printOpts(editing, editorContent), editing?.agreementNo || 'agreement')
+                                const s = await fetchFreshSiteSettings()
+                                await downloadAgreementPdf(buildPrintOptsWithSite(s, editing, editorContent), editing?.agreementNo || 'agreement')
                                 toast.success('PDF downloaded')
                               } catch {
                                 toast.error('PDF failed')

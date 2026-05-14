@@ -65,13 +65,17 @@ export default function AdminSubscriptions() {
 
   const emptyForm = {
     client: '', project: '', branch: '', title: '', description: '', subscriptionType: 'custom',
-    amount: '', billingFrequency: 'monthly', billingDay: 1, gracePeriodDays: 7,
+    amount: '', billingFrequency: 'monthly', billingDay: 1,
+    reminderDaysBefore: '5',
     status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active'
   }
   const [form, setForm] = useState(emptyForm)
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }))
 
-  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'manual', reference: '', note: '' })
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '', method: 'cash', bankAccount: '', reference: '', note: '',
+    chequeNumber: '', chequeDate: '', chequeBank: '', chequeDrawer: '',
+  })
   const [agreementForm, setAgreementForm] = useState({ title: '', type: 'service', validFrom: '', validUntil: '', notes: '', file: null })
 
   /* Queries */
@@ -87,10 +91,15 @@ export default function AdminSubscriptions() {
     queryKey: ['admin-billing-overview', branchFilter],
     queryFn: () => api.get(`/subscriptions/billing-overview${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data)
   })
+  const { data: bankData } = useQuery({
+    queryKey: ['bank-accounts'],
+    queryFn: () => api.get('/bank-accounts').then((r) => r.data),
+  })
 
   const subs = data?.subscriptions || []
   const clients = (clientsData?.users || []).filter(u => u.role === 'client')
   const overview = overviewData?.overview || {}
+  const bankAccounts = bankData?.accounts || []
   const filteredSubs = subs.filter(s =>
     s.title?.toLowerCase().includes(search.toLowerCase()) ||
     s.subscriptionNo?.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,10 +109,25 @@ export default function AdminSubscriptions() {
   /* Mutations */
   const saveMut = useMutation({
     mutationFn: (payload) => {
-      if (selectedSub && !payload.isPayment && !payload.isAgreement)
+      if (selectedSub && !payload.isPayment && !payload.isAgreement) {
+        if (!selectedSub._id) return Promise.reject(new Error('Invalid subscription'))
         return api.put(`/subscriptions/${selectedSub._id}`, payload).then(r => r.data)
-      if (payload.isPayment)
-        return api.post(`/subscriptions/${selectedSub._id}/payments`, payload).then(r => r.data)
+      }
+      if (payload.isPayment) {
+        if (!selectedSub?._id) return Promise.reject(new Error('Invalid subscription'))
+        const body = {
+          amount: Number(payload.amount),
+          method: payload.method,
+          reference: payload.reference || '',
+          note: payload.note || '',
+          bankAccount: payload.bankAccount || undefined,
+          chequeNumber: payload.chequeNumber || '',
+          chequeDate: payload.chequeDate || undefined,
+          chequeBank: payload.chequeBank || '',
+          chequeDrawer: payload.chequeDrawer || '',
+        }
+        return api.post(`/subscriptions/${selectedSub._id}/payments`, body).then(r => r.data)
+      }
       if (payload.isAgreement) {
         const fd = new FormData()
         Object.keys(payload).forEach(k => fd.append(k, payload[k]))
@@ -119,6 +143,7 @@ export default function AdminSubscriptions() {
       setSelectedSub(null)
       qc.invalidateQueries({ queryKey: ['admin-subscriptions'] })
       qc.invalidateQueries({ queryKey: ['admin-billing-overview'] })
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed')
   })
@@ -146,7 +171,8 @@ export default function AdminSubscriptions() {
       title: sub.title, description: sub.description || '',
       subscriptionType: sub.subscriptionType, amount: sub.amount,
       billingFrequency: sub.billingFrequency, billingDay: sub.billingDay,
-      gracePeriodDays: sub.gracePeriodDays, status: sub.status,
+      reminderDaysBefore: sub.reminderDaysBefore != null ? String(sub.reminderDaysBefore) : '',
+      status: sub.status,
       hostingUrl: sub.hostingDetails?.hostingUrl || '',
       domainName: sub.hostingDetails?.domainName || '',
       provider: sub.hostingDetails?.provider || '',
@@ -157,7 +183,17 @@ export default function AdminSubscriptions() {
   }
   const openPayment = (sub) => {
     setSelectedSub(sub)
-    setPaymentForm({ amount: sub.remainingBalance || 0, method: 'manual', reference: '', note: '' })
+    setPaymentForm({
+      amount: sub.remainingBalance || 0,
+      method: 'cash',
+      bankAccount: '',
+      reference: '',
+      note: '',
+      chequeNumber: '',
+      chequeDate: '',
+      chequeBank: '',
+      chequeDrawer: '',
+    })
     setShowPaymentForm(true)
   }
   const openAgreement = (sub) => {
@@ -169,6 +205,12 @@ export default function AdminSubscriptions() {
   const handleSave = () => {
     const payload = { ...form }
     if (!payload.project) delete payload.project
+    payload.amount = Number(payload.amount) || 0
+    payload.billingDay = Number(payload.billingDay) || 1
+    const rd = form.reminderDaysBefore === '' || form.reminderDaysBefore == null
+      ? null
+      : Number(form.reminderDaysBefore)
+    payload.reminderDaysBefore = Number.isFinite(rd) && rd > 0 ? rd : null
     payload.hostingDetails = {
       domainName: form.domainName, provider: form.provider,
       hostingUrl: form.hostingUrl, expiryDate: form.expiryDate,
@@ -366,8 +408,9 @@ export default function AdminSubscriptions() {
                   <input type="number" className="form-input" value={form.billingDay} onChange={e => f('billingDay')(e.target.value)} min="1" max="28" />
                 </div>
                 <div>
-                  <label className="form-label">Grace Period (Days)</label>
-                  <input type="number" className="form-input" value={form.gracePeriodDays} onChange={e => f('gracePeriodDays')(e.target.value)} min="0" />
+                  <label className="form-label">Reminder (days before due)</label>
+                  <input type="number" className="form-input" value={form.reminderDaysBefore} onChange={e => f('reminderDaysBefore')(e.target.value)} min="0" max="90" placeholder="e.g. 5" />
+                  <p className="text-[11px] text-slate-500 mt-1">Admins get a notification on that day. Leave empty to disable.</p>
                 </div>
                 <div>
                   <label className="form-label">Status</label>
@@ -430,16 +473,63 @@ export default function AdminSubscriptions() {
                 <input type="number" className="form-input" value={paymentForm.amount} onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value }))} min="1" />
               </div>
               <div>
-                <label className="form-label">Payment Method</label>
+                <label className="form-label">Payment method</label>
                 <select className="form-select" value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))}>
-                  <option value="manual">Manual / Cash</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="payhere">PayHere Gateway</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="bank_transfer">Bank transfer</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="online_transfer">Online transfer</option>
+                  <option value="payhere">PayHere</option>
+                  <option value="manual">Other / manual</option>
                 </select>
               </div>
+              {['bank_transfer', 'payhere', 'card', 'online_transfer'].includes(paymentForm.method) && (
+                <div>
+                  <label className="form-label">Bank account (money received to)</label>
+                  <select
+                    className="form-select"
+                    value={paymentForm.bankAccount}
+                    onChange={(e) => setPaymentForm((p) => ({ ...p, bankAccount: e.target.value }))}
+                  >
+                    <option value="">Select bank account…</option>
+                    {bankAccounts.map((b) => (
+                      <option key={b._id} value={b._id}>
+                        {b.bankName} ({b.accountNumber})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-400 mt-1">Selecting a bank account will update that account balance automatically.</p>
+                </div>
+              )}
+              {paymentForm.method === 'cheque' && (
+                <div className="grid sm:grid-cols-2 gap-3 border border-slate-200 rounded-xl p-3 bg-slate-50/80">
+                  <div className="sm:col-span-2 text-xs font-semibold text-slate-600 uppercase tracking-wide">Cheque details</div>
+                  <div>
+                    <label className="form-label">Cheque number</label>
+                    <input className="form-input" value={paymentForm.chequeNumber} onChange={(e) => setPaymentForm((p) => ({ ...p, chequeNumber: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="form-label">Cheque date</label>
+                    <input type="date" className="form-input" value={paymentForm.chequeDate} onChange={(e) => setPaymentForm((p) => ({ ...p, chequeDate: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="form-label">Bank on cheque</label>
+                    <input className="form-input" value={paymentForm.chequeBank} onChange={(e) => setPaymentForm((p) => ({ ...p, chequeBank: e.target.value }))} placeholder="Drawee bank" />
+                  </div>
+                  <div>
+                    <label className="form-label">Drawer / payee</label>
+                    <input className="form-input" value={paymentForm.chequeDrawer} onChange={(e) => setPaymentForm((p) => ({ ...p, chequeDrawer: e.target.value }))} />
+                  </div>
+                </div>
+              )}
               <div>
-                <label className="form-label">Reference / Note</label>
-                <input type="text" className="form-input" value={paymentForm.note} onChange={e => setPaymentForm(p => ({ ...p, note: e.target.value }))} placeholder="Receipt no. or note…" />
+                <label className="form-label">Reference</label>
+                <input type="text" className="form-input" value={paymentForm.reference} onChange={e => setPaymentForm(p => ({ ...p, reference: e.target.value }))} placeholder="Receipt or transaction ref…" />
+              </div>
+              <div>
+                <label className="form-label">Note</label>
+                <input type="text" className="form-input" value={paymentForm.note} onChange={e => setPaymentForm(p => ({ ...p, note: e.target.value }))} placeholder="Internal note…" />
               </div>
             </div>
           )}

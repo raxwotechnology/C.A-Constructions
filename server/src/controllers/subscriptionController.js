@@ -2,6 +2,7 @@ const Subscription = require('../models/Subscription');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const { createNotification } = require('../services/notificationService');
+const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
 
 // ── helpers ────────────────────────────────────────────
 const SUBSCRIPTION_TYPE_LABELS = {
@@ -18,12 +19,60 @@ const SUBSCRIPTION_TYPE_LABELS = {
   custom: 'Custom Service',
 };
 
-function calcOverdueDays(nextDueDate, gracePeriodDays = 7) {
+function calendarDaysUntilDue(nextDueDate) {
+  const due = new Date(nextDueDate);
+  due.setHours(0, 0, 0, 0);
+  const t0 = new Date();
+  t0.setHours(0, 0, 0, 0);
+  return Math.round((due - t0) / 86400000);
+}
+
+/** Full days past due (0 if still within the due calendar day). */
+function calcOverdueDays(nextDueDate) {
+  if (!nextDueDate) return 0;
   const now = new Date();
-  const grace = new Date(nextDueDate);
-  grace.setDate(grace.getDate() + gracePeriodDays);
-  if (now <= grace) return 0;
-  return Math.floor((now - grace) / (1000 * 60 * 60 * 24));
+  const dueEnd = new Date(nextDueDate);
+  dueEnd.setHours(23, 59, 59, 999);
+  if (now <= dueEnd) return 0;
+  return Math.ceil((now - dueEnd) / 86400000);
+}
+
+async function sendAdminSubscriptionReminders() {
+  const subs = await Subscription.find({
+    status: { $in: ['active', 'overdue'] },
+    reminderDaysBefore: { $gte: 1, $lte: 120 },
+  }).populate('client', 'name');
+
+  const admins = await User.find({ role: { $in: ['admin', 'manager'] } }).select('_id');
+  const adminIds = admins.map((a) => a._id);
+  if (!subs.length || !adminIds.length) return;
+
+  for (const sub of subs) {
+    const n = Number(sub.reminderDaysBefore);
+    if (!n) continue;
+    const daysUntil = calendarDaysUntilDue(sub.nextDueDate);
+    if (daysUntil !== n) continue;
+
+    const dueKey = `${sub._id}-${new Date(sub.nextDueDate).toISOString().slice(0, 10)}`;
+    if (String(sub.lastSubscriptionReminderDay || '') === dueKey) continue;
+
+    await Subscription.updateOne({ _id: sub._id }, { $set: { lastSubscriptionReminderDay: dueKey } });
+
+    const title = `Subscription due soon: ${sub.title}`;
+    const msg = `${sub.client?.name || 'Client'} — "${sub.title}" is due in ${n} day(s) (due ${new Date(sub.nextDueDate).toLocaleDateString('en-LK')}).`;
+
+    await Promise.all(
+      adminIds.map((rid) =>
+        createNotification({
+          recipient: rid,
+          title,
+          message: msg,
+          type: 'subscription',
+          link: '/admin/subscriptions',
+        })
+      )
+    );
+  }
 }
 
 function advanceDueDate(current, frequency) {
@@ -53,10 +102,16 @@ exports.getSubscriptions = async (req, res, next) => {
       .populate('previousProjects', 'title status')
       .sort({ createdAt: -1 });
 
+    if (req.user.role !== 'client') {
+      setImmediate(() => {
+        sendAdminSubscriptionReminders().catch(() => {});
+      });
+    }
+
     // Compute live overdue for each
     const enriched = subs.map((s) => {
       const obj = s.toObject();
-      obj.overdueDays = calcOverdueDays(s.nextDueDate, s.gracePeriodDays);
+      obj.overdueDays = calcOverdueDays(s.nextDueDate);
       obj.remainingBalance = Math.max(0, s.totalBilled - s.totalPaid);
       obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
       return obj;
@@ -79,7 +134,7 @@ exports.getSubscription = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
     const obj = sub.toObject();
-    obj.overdueDays = calcOverdueDays(sub.nextDueDate, sub.gracePeriodDays);
+    obj.overdueDays = calcOverdueDays(sub.nextDueDate);
     obj.remainingBalance = Math.max(0, sub.totalBilled - sub.totalPaid);
     obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType;
     res.json({ success: true, subscription: obj });
@@ -132,12 +187,21 @@ exports.updateSubscription = async (req, res, next) => {
     // Don't allow overwriting payments via update
     delete updates.payments;
 
+    ['amount', 'billingDay', 'gracePeriodDays', 'reminderDaysBefore'].forEach((k) => {
+      if (updates[k] !== undefined && updates[k] !== null && updates[k] !== '') {
+        const num = Number(updates[k]);
+        if (Number.isFinite(num)) updates[k] = num;
+        else delete updates[k];
+      }
+    });
+    if (updates.reminderDaysBefore === 0) updates.reminderDaysBefore = null;
+
     const sub = await Subscription.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
       .populate('client', 'name email phone')
       .populate('project', 'title status');
 
     // Notify client of important changes
-    if (updates.amount && updates.amount !== existing.amount) {
+    if (updates.amount !== undefined && Number(updates.amount) !== Number(existing.amount)) {
       await createNotification({
         recipient: sub.client._id || sub.client,
         title: 'Subscription Amount Updated',
@@ -172,19 +236,34 @@ exports.deleteSubscription = async (req, res, next) => {
 // ── RECORD PAYMENT (admin) ───────────────────────────
 exports.recordPayment = async (req, res, next) => {
   try {
-    const { amount, method, reference, note } = req.body;
+    const {
+      amount, method, reference, note, bankAccount,
+      chequeNumber, chequeDate, chequeBank, chequeDrawer,
+    } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Valid amount required' });
 
     const sub = await Subscription.findById(req.params.id);
     if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
 
+    const m = method || 'cash';
+    if (m === 'bank_transfer' && !bankAccount) {
+      return res.status(400).json({ success: false, message: 'Select a bank account for bank transfer payments' });
+    }
+    if (m === 'cheque' && !chequeNumber) {
+      return res.status(400).json({ success: false, message: 'Cheque number is required for cheque payments' });
+    }
     sub.payments.push({
       amount: Number(amount),
-      method: method || 'manual',
+      method: m,
       reference: reference || '',
       note: note || '',
+      bankAccount: bankAccount || null,
       recordedBy: req.user._id,
       paidAt: new Date(),
+      chequeNumber: chequeNumber || '',
+      chequeDate: chequeDate ? new Date(chequeDate) : undefined,
+      chequeBank: chequeBank || '',
+      chequeDrawer: chequeDrawer || '',
     });
 
     sub.totalPaid += Number(amount);
@@ -199,8 +278,20 @@ exports.recordPayment = async (req, res, next) => {
 
     await sub.save();
 
+    if (bankAccount && isLedgerBankMethod(m)) {
+      const amt = Number(amount);
+      await appendBankTransaction(bankAccount, {
+        type: 'deposit',
+        amount: amt,
+        description: `Subscription Payment: ${sub.subscriptionNo || sub.title}`,
+        date: new Date(),
+        reference: reference || '',
+        recordedBy: req.user._id,
+      });
+    }
+
     await createNotification({
-      recipient: sub.client,
+      recipient: sub.client?._id || sub.client,
       title: 'Payment Recorded',
       message: `Payment of LKR ${Number(amount).toLocaleString()} recorded for "${sub.title}". Remaining: LKR ${Math.max(0, sub.totalBilled - sub.totalPaid).toLocaleString()}.`,
       type: 'subscription',
@@ -253,7 +344,10 @@ exports.removeAgreement = async (req, res, next) => {
 // ── BILLING OVERVIEW (admin dashboard) ────────────────
 exports.getBillingOverview = async (req, res, next) => {
   try {
-    const subs = await Subscription.find({ status: { $in: ['active', 'overdue'] } })
+    const { branch } = req.query;
+    const subMatch = { status: { $in: ['active', 'overdue'] }, ...(branch ? { branch } : {}) };
+
+    const subs = await Subscription.find(subMatch)
       .populate('client', 'name email')
       .populate('project', 'title');
 
@@ -273,7 +367,7 @@ exports.getBillingOverview = async (req, res, next) => {
       else if (s.billingFrequency === 'annual') monthlyEquiv = s.amount / 12;
       totalMRR += monthlyEquiv;
 
-      const overdue = calcOverdueDays(s.nextDueDate, s.gracePeriodDays);
+      const overdue = calcOverdueDays(s.nextDueDate);
       const remaining = Math.max(0, s.totalBilled - s.totalPaid);
 
       if (overdue > 0) {
@@ -317,6 +411,7 @@ exports.getBillingOverview = async (req, res, next) => {
     const hostingRenewals = await Subscription.find({
       'hostingDetails.expiryDate': { $lte: thirtyDaysOut, $gte: now },
       status: { $in: ['active', 'overdue'] },
+      ...(branch ? { branch } : {}),
     }).populate('client', 'name email').populate('project', 'title');
 
     // Monthly revenue for chart (last 12 months)
@@ -371,7 +466,7 @@ exports.processOverdue = async (req, res, next) => {
     let updated = 0;
 
     for (const sub of subs) {
-      const days = calcOverdueDays(sub.nextDueDate, sub.gracePeriodDays);
+      const days = calcOverdueDays(sub.nextDueDate);
       if (days > 0 && sub.status !== 'overdue') {
         sub.status = 'overdue';
         sub.overdueDays = days;
@@ -411,7 +506,7 @@ exports.getMySubscriptionSummary = async (req, res, next) => {
 
     const enriched = subs.map((s) => {
       const obj = s.toObject();
-      obj.overdueDays = calcOverdueDays(s.nextDueDate, s.gracePeriodDays);
+      obj.overdueDays = calcOverdueDays(s.nextDueDate);
       obj.remainingBalance = Math.max(0, s.totalBilled - s.totalPaid);
       obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
       totalDue += s.totalBilled;

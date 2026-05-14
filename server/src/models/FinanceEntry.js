@@ -12,7 +12,7 @@ const financeEntrySchema = new mongoose.Schema({
   // Bill / receipt support
   billFile: { type: String, default: '' },    // URL to uploaded bill/receipt file
   billFileName: { type: String, default: '' }, // Original file name
-  paymentMethod: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other'], default: 'Cash' },
+  paymentMethod: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Online Payment', 'Cheque', 'Other'], default: 'Cash' },
   bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
 }, { timestamps: true });
 

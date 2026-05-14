@@ -11,6 +11,7 @@ const Subscription = require('../models/Subscription');
 const FinanceEntry = require('../models/FinanceEntry');
 const Advance = require('../models/Advance');
 const Loan = require('../models/Loan');
+const BankAccount = require('../models/BankAccount');
 const { createNotification } = require('../services/notificationService');
 
 const dateRange = (start, end) => ({
@@ -167,6 +168,39 @@ exports.getDashboard = async (req, res, next) => {
     ]);
     const outstandingInvoiceTotal = invoiceStats[0]?.totalUnpaid || 0;
 
+    const [
+      totalInvoices,
+      paidInvoicesCount,
+      pendingPaymentsAgg,
+      bankAccountsBalanceAgg,
+      financeIncomeTotalAgg,
+      financeExpenseTotalAgg,
+    ] = await Promise.all([
+      Invoice.countDocuments(invMatch),
+      Invoice.countDocuments({ ...invMatch, status: 'paid' }),
+      Invoice.aggregate([
+        { $match: { ...invMatch, status: { $in: ['unpaid', 'partial', 'overdue'] } } },
+        { $group: { _id: null, total: { $sum: '$remainingBalance' } } },
+      ]),
+      BankAccount.aggregate([
+        ...(branch ? [{ $match: { branch, isActive: true } }] : [{ $match: { isActive: true } }]),
+        { $group: { _id: null, total: { $sum: '$currentBalance' } } },
+      ]),
+      FinanceEntry.aggregate([
+        { $match: { ...finMatch, type: 'income' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      FinanceEntry.aggregate([
+        { $match: { ...finMatch, type: 'expense' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+    ]);
+
+    const pendingPaymentsTotal = pendingPaymentsAgg[0]?.total || 0;
+    const bankAccountsTotalBalance = bankAccountsBalanceAgg[0]?.total || 0;
+    const financeIncomeTotal = financeIncomeTotalAgg[0]?.total || 0;
+    const financeExpenseTotal = financeExpenseTotalAgg[0]?.total || 0;
+
     // Daily & Monthly Revenue/Expenses exact values
     const todayStart = new Date(now.toDateString());
     const [revToday, expToday, revMonth, expMonth] = await Promise.all([
@@ -244,6 +278,12 @@ exports.getDashboard = async (req, res, next) => {
         bankBalance,
         cashBalance,
         pettyCashBalance: 0,
+        totalInvoices,
+        paidInvoicesCount,
+        pendingPaymentsTotal,
+        bankAccountsTotalBalance,
+        financeIncomeTotal,
+        financeExpenseTotal,
       },
       charts: {
         revenueData, expenseData, payrollCost,

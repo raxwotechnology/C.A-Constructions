@@ -1,16 +1,20 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiArrowLeft, FiEdit2, FiUsers, FiDollarSign, FiClock, FiFileText, FiLink, FiMessageSquare, FiUpload, FiX, FiCheckCircle, FiAlertTriangle, FiTrash2, FiExternalLink, FiPrinter } from 'react-icons/fi'
-import ReactQuill from 'react-quill'
-import 'react-quill/dist/quill.snow.css'
+import { FiArrowLeft, FiEdit2, FiUsers, FiDollarSign, FiClock, FiFileText, FiLink, FiMessageSquare, FiUpload, FiX, FiCheckCircle, FiAlertTriangle, FiTrash2, FiExternalLink, FiPrinter, FiPlus } from 'react-icons/fi'
+import { mediaUrl } from '../../lib/media'
+import useAuthStore from '../../store/authStore'
+import { isInvoiceFullyPaid, invoicePaymentDisplay } from '../../lib/invoicePayment'
 
 const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', cancelled:'badge-red', overdue:'badge-red' }
+
+/** Match other admin modals (Invoices, Agreements); must clear shell header z-[220]. */
+const MODAL_OVERLAY_Z = 999999
 
 export default function ProjectDetail() {
   const { id } = useParams()
@@ -22,8 +26,17 @@ export default function ProjectDetail() {
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showDocModal, setShowDocModal] = useState(false)
-  
-  const { register, handleSubmit, reset } = useForm()
+  const [editingNote, setEditingNote] = useState(null)
+
+  // Separate forms so Note + Link modals never cross-validate (shared useForm = silent submit failures).
+  const noteForm = useForm({ defaultValues: { content: '' }, shouldUnregister: true })
+  const linkForm = useForm({ defaultValues: { label: '', url: '' }, shouldUnregister: true })
+  const user = useAuthStore((s) => s.user)
+  const canManageNotes = ['admin', 'manager'].includes(user?.role)
+
+  const patchProjectCache = (json) => {
+    if (json?.project) qc.setQueryData(['project', id], { success: true, project: json.project })
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['project', id],
@@ -41,37 +54,86 @@ export default function ProjectDetail() {
 
   // Mutations
   const addNoteMut = useMutation({
-    mutationFn: d => api.post(`/projects/${id}/notes`, d),
-    onSuccess: () => { qc.invalidateQueries(['project', id]); toast.success('Note added'); setShowNoteModal(false); reset() },
+    mutationFn: d => api.post(`/projects/${id}/notes`, d).then((r) => r.data),
+    onSuccess: (json) => {
+      patchProjectCache(json)
+      qc.invalidateQueries({ queryKey: ['project', id] })
+      qc.invalidateQueries({ queryKey: ['agreements', 'project', id] })
+      toast.success('Note added')
+      setShowNoteModal(false)
+      noteForm.reset({ content: '' })
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed')
+  })
+
+  const updateNoteMut = useMutation({
+    mutationFn: ({ noteId, content }) => api.put(`/projects/${id}/notes/${noteId}`, { content }).then((r) => r.data),
+    onSuccess: (json) => {
+      patchProjectCache(json)
+      qc.invalidateQueries({ queryKey: ['project', id] })
+      toast.success('Note updated')
+      setEditingNote(null)
+      noteForm.reset({ content: '' })
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed')
+  })
+
+  const deleteNoteMut = useMutation({
+    mutationFn: noteId => api.delete(`/projects/${id}/notes/${noteId}`).then((r) => r.data),
+    onSuccess: (json) => {
+      patchProjectCache(json)
+      qc.invalidateQueries({ queryKey: ['project', id] })
+      toast.success('Note removed')
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed')
   })
 
   const addLinkMut = useMutation({
-    mutationFn: d => api.post(`/projects/${id}/links`, d),
-    onSuccess: () => { qc.invalidateQueries(['project', id]); toast.success('Link added'); setShowLinkModal(false); reset() },
+    mutationFn: d => api.post(`/projects/${id}/links`, d).then((r) => r.data),
+    onSuccess: (json) => {
+      patchProjectCache(json)
+      qc.invalidateQueries({ queryKey: ['project', id] })
+      toast.success('Link added')
+      setShowLinkModal(false)
+      linkForm.reset({ label: '', url: '' })
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed')
   })
 
   const removeLinkMut = useMutation({
-    mutationFn: linkId => api.delete(`/projects/${id}/links/${linkId}`),
-    onSuccess: () => { qc.invalidateQueries(['project', id]); toast.success('Link removed') }
+    mutationFn: linkId => api.delete(`/projects/${id}/links/${linkId}`).then((r) => r.data),
+    onSuccess: (json) => {
+      patchProjectCache(json)
+      qc.invalidateQueries({ queryKey: ['project', id] })
+      toast.success('Link removed')
+    }
   })
 
   const uploadDocMut = useMutation({
-    mutationFn: fd => api.post(`/projects/${id}/documents`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
-    onSuccess: () => { qc.invalidateQueries(['project', id]); toast.success('Document uploaded'); setShowDocModal(false); reset() },
+    mutationFn: fd => api.post(`/projects/${id}/documents`, fd).then((r) => r.data),
+    onSuccess: (json) => {
+      patchProjectCache(json)
+      qc.invalidateQueries({ queryKey: ['project', id] })
+      toast.success('Document uploaded')
+      setShowDocModal(false)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed')
   })
 
   const removeDocMut = useMutation({
     mutationFn: docId => api.delete(`/projects/${id}/documents/${docId}`),
-    onSuccess: () => { qc.invalidateQueries(['project', id]); toast.success('Document removed') }
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project', id] }); toast.success('Document removed') }
   })
 
   if (isLoading) return <div className="text-center py-20"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></div>
   if (!p) return <div className="text-center py-20 text-gray-500">Project not found</div>
 
   const isOverdue = p.status === 'overdue'
+  const linkedInvUi = p.invoice ? invoicePaymentDisplay(p.invoice) : null
+  const invRb = p.invoice?.remainingBalance
+  const hasInvRb = typeof invRb === 'number'
+  /** Outstanding amount due when we know balance; otherwise infer from paid status only */
+  const invOutstanding = Boolean(p.invoice && (hasInvRb ? invRb > 0 : !isInvoiceFullyPaid(p.invoice)))
 
   const onDocSubmit = e => {
     e.preventDefault()
@@ -158,16 +220,32 @@ export default function ProjectDetail() {
                     <p className="text-xl font-bold">LKR {p.budget?.toLocaleString()}</p>
                   </div>
                   {p.invoice && (
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                      <p className="text-xs text-slate-500 mb-1">Linked Invoice</p>
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-secondary hover:underline cursor-pointer">{p.invoice.invoiceNo}</span>
-                        <span className={`badge badge-${p.invoice.status}`}>{p.invoice.status}</span>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Linked invoice</p>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/admin/invoices', { state: { openInvoiceId: p.invoice._id } })}
+                          className="font-mono text-sm font-bold text-secondary hover:underline text-left"
+                        >
+                          {p.invoice.invoiceNo}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className={`badge ${linkedInvUi?.badgeClass || 'badge-gray'}`}>
+                            {linkedInvUi?.label || '—'}
+                          </span>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded ${linkedInvUi?.settled ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+                            {linkedInvUi?.settled ? 'Settled' : 'Balance due'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="mt-2 text-sm flex justify-between">
-                        <span className="text-slate-500">Balance:</span>
-                        <span className="font-semibold">LKR {p.invoice.remainingBalance?.toLocaleString()}</span>
+                      <div className="text-sm flex justify-between text-slate-600">
+                        <span>Balance ({p.invoice.currency || 'LKR'})</span>
+                        <span className="font-semibold text-slate-900">
+                          {hasInvRb ? invRb.toLocaleString() : isInvoiceFullyPaid(p.invoice) ? '0' : '—'}
+                        </span>
                       </div>
+                      <p className="text-xs text-slate-400">Click the invoice number to open it in Invoices.</p>
                     </div>
                   )}
                 </div>
@@ -204,7 +282,13 @@ export default function ProjectDetail() {
                         <td className="px-6 py-4 text-right font-medium text-slate-700">{(alloc.amount || 0).toLocaleString()}</td>
                         <td className="px-6 py-4 text-right font-medium text-slate-700">{(alloc.commission || 0).toLocaleString()}</td>
                         <td className="px-6 py-4 text-center">
-                          {alloc.paid ? <span className="badge badge-green">Paid</span> : <span className="badge badge-yellow">Unpaid</span>}
+                          {!p.invoice ? (
+                            <span className="badge badge-gray">No invoice</span>
+                          ) : isInvoiceFullyPaid(p.invoice) ? (
+                            <span className="badge badge-green">Paid</span>
+                          ) : (
+                            <span className="badge badge-yellow">Unpaid</span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -246,9 +330,11 @@ export default function ProjectDetail() {
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Advances & Payments</p>
                     <p className="text-2xl font-bold text-green-600">LKR {p.invoice.totalPaid?.toLocaleString()}</p>
                   </div>
-                  <div className={`card p-5 ${p.invoice.remainingBalance > 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${p.invoice.remainingBalance > 0 ? 'text-orange-500' : 'text-green-600'}`}>Remaining Balance</p>
-                    <p className={`text-2xl font-bold ${p.invoice.remainingBalance > 0 ? 'text-orange-700' : 'text-green-700'}`}>LKR {p.invoice.remainingBalance?.toLocaleString()}</p>
+                  <div className={`card p-5 ${invOutstanding ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+                    <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${invOutstanding ? 'text-orange-500' : 'text-green-600'}`}>Remaining Balance</p>
+                    <p className={`text-2xl font-bold ${invOutstanding ? 'text-orange-700' : 'text-green-700'}`}>
+                      LKR {hasInvRb ? invRb.toLocaleString() : isInvoiceFullyPaid(p.invoice) ? '0' : '—'}
+                    </p>
                   </div>
                 </div>
 
@@ -290,21 +376,21 @@ export default function ProjectDetail() {
             <div className="card p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-800 font-heading flex items-center gap-2"><FiFileText/> Documents</h3>
-                <button onClick={() => setShowDocModal(true)} className="btn-outline btn-sm"><FiUpload size={14}/> Upload</button>
+                <button type="button" onClick={() => setShowDocModal(true)} className="btn-outline btn-sm"><FiUpload size={14}/> Upload</button>
               </div>
               <div className="space-y-3">
-                {p.documents?.length === 0 ? (
+                {!(p.documents && p.documents.length) ? (
                   <p className="text-sm text-slate-400 text-center py-4">No documents uploaded</p>
-                ) : p.documents?.map(doc => (
+                ) : p.documents.map(doc => (
                   <div key={doc._id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border hover:border-secondary/30 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-secondary border shadow-sm"><FiFileText size={18}/></div>
                       <div>
-                        <a href={doc.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-slate-800 hover:text-secondary hover:underline">{doc.name}</a>
+                        <a href={mediaUrl(doc.url)} target="_blank" rel="noreferrer" className="text-sm font-medium text-slate-800 hover:text-secondary hover:underline">{doc.name}</a>
                         <p className="text-xs text-slate-400">By {doc.uploadedByName} • {new Date(doc.uploadedAt).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    <button onClick={() => { if(window.confirm('Remove document?')) removeDocMut.mutate(doc._id) }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
+                    <button type="button" onClick={() => { if(window.confirm('Remove document?')) removeDocMut.mutate(doc._id) }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
                   </div>
                 ))}
               </div>
@@ -314,12 +400,12 @@ export default function ProjectDetail() {
             <div className="card p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-800 font-heading flex items-center gap-2"><FiLink/> Important Links</h3>
-                <button onClick={() => setShowLinkModal(true)} className="btn-outline btn-sm"><FiPlus size={14}/> Add Link</button>
+                <button type="button" onClick={() => { linkForm.reset({ label: '', url: '' }); setShowLinkModal(true) }} className="btn-outline btn-sm"><FiPlus size={14}/> Add Link</button>
               </div>
               <div className="space-y-3">
-                {p.links?.length === 0 ? (
+                {!(p.links && p.links.length) ? (
                   <p className="text-sm text-slate-400 text-center py-4">No links added</p>
-                ) : p.links?.map(link => (
+                ) : p.links.map(link => (
                   <div key={link._id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border hover:border-secondary/30 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-blue-500 border shadow-sm"><FiLink size={18}/></div>
@@ -328,7 +414,7 @@ export default function ProjectDetail() {
                         <a href={link.url} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline break-all flex items-center gap-1 mt-0.5">{link.url} <FiExternalLink size={10}/></a>
                       </div>
                     </div>
-                    <button onClick={() => { if(window.confirm('Remove link?')) removeLinkMut.mutate(link._id) }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
+                    <button type="button" onClick={() => { if(window.confirm('Remove link?')) removeLinkMut.mutate(link._id) }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors"><FiTrash2 size={14}/></button>
                   </div>
                 ))}
               </div>
@@ -342,16 +428,38 @@ export default function ProjectDetail() {
             <div className="card p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-800 font-heading flex items-center gap-2"><FiMessageSquare/> Project Notes</h3>
-                <button onClick={() => setShowNoteModal(true)} className="btn-outline btn-sm"><FiPlus size={14}/> Add Note</button>
+                <button
+                  type="button"
+                  onClick={() => { setEditingNote(null); noteForm.reset({ content: '' }); setShowNoteModal(true) }}
+                  className="btn-outline btn-sm"
+                >
+                  <FiPlus size={14}/> Add Note
+                </button>
               </div>
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                {p.notes?.length === 0 ? (
+                {!(p.notes && p.notes.length) ? (
                   <p className="text-sm text-slate-400 text-center py-4">No notes added</p>
-                ) : p.notes?.slice().reverse().map(note => (
+                ) : p.notes.slice().reverse().map(note => (
                   <div key={note._id} className="p-4 bg-yellow-50/50 rounded-xl border border-yellow-100">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-start mb-2 gap-2">
                       <span className="text-xs font-bold text-yellow-800">{note.createdByName || 'User'}</span>
-                      <span className="text-xs text-yellow-600 opacity-70">{new Date(note.createdAt).toLocaleString('en-LK', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-yellow-600 opacity-70">{new Date(note.createdAt).toLocaleString('en-LK', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                        {canManageNotes && (
+                          <>
+                            <button
+                              type="button"
+                              className="text-xs text-secondary hover:underline"
+                              onClick={() => { setEditingNote(note); noteForm.setValue('content', note.content); setShowNoteModal(true) }}
+                            >Edit</button>
+                            <button
+                              type="button"
+                              className="text-xs text-red-500 hover:underline"
+                              onClick={() => { if (window.confirm('Delete this note?')) deleteNoteMut.mutate(note._id) }}
+                            >Delete</button>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.content}</p>
                   </div>
@@ -363,21 +471,28 @@ export default function ProjectDetail() {
             <div className="card p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-800 font-heading flex items-center gap-2"><FiFileText/> Client Agreements</h3>
-                <button onClick={() => navigate(`/admin/agreements?project=${p._id}`)} className="btn-outline btn-sm">Manage Agreements</button>
+                <button type="button" onClick={() => navigate(`/admin/agreements?project=${p._id}`)} className="btn-outline btn-sm">Manage Agreements</button>
               </div>
               <div className="space-y-3">
                 {agreements.length === 0 ? (
                   <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed">
                     <p className="text-sm text-slate-500 mb-3">No agreements generated for this project.</p>
-                    <button onClick={() => navigate(`/admin/agreements?new=true&project=${p._id}&client=${p.client?._id}`)} className="btn-primary btn-sm mx-auto">Generate Agreement</button>
+                    <button type="button" onClick={() => navigate(`/admin/agreements?new=true&project=${p._id}&client=${p.client?._id}`)} className="btn-primary btn-sm mx-auto">Generate Agreement</button>
                   </div>
                 ) : agreements.map(agr => (
-                  <div key={agr._id} className="flex items-center justify-between p-3 bg-white rounded-xl border shadow-sm hover:shadow transition-all">
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{agr.title}</p>
+                  <div key={agr._id} className="flex items-center justify-between gap-3 p-3 bg-white rounded-xl border shadow-sm hover:shadow transition-all">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{agr.title}</p>
                       <p className="text-xs text-slate-500 font-mono mt-0.5">{agr.agreementNo} • {new Date(agr.createdAt).toLocaleDateString()}</p>
                     </div>
-                    <span className={`badge ${agr.status === 'signed' ? 'badge-green' : agr.status === 'draft' ? 'badge-gray' : 'badge-blue'}`}>{agr.status}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`badge ${agr.status === 'signed' ? 'badge-green' : agr.status === 'draft' ? 'badge-gray' : 'badge-blue'}`}>{agr.status}</span>
+                      <button
+                        type="button"
+                        className="btn-outline btn-sm py-1 px-2 text-xs"
+                        onClick={() => navigate(`/admin/agreements?agreement=${agr._id}`)}
+                      >Open</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -386,38 +501,44 @@ export default function ProjectDetail() {
         )}
       </div>
 
-      {/* MODALS */}
-      <AnimatePresence>
-        {/* Note Modal */}
-        {showNoteModal && createPortal(
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99] p-4">
-            <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}} className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+      {/* MODALS — portaled + high z-index; separate RHF instances so submits never cross-validate */}
+      {showNoteModal && createPortal(
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: MODAL_OVERLAY_Z }}>
+            <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
               <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-slate-800">Add Project Note</h3>
-                <button onClick={() => setShowNoteModal(false)} className="p-1 hover:bg-slate-200 rounded"><FiX/></button>
+                <h3 className="font-bold text-slate-800">{editingNote ? 'Edit Project Note' : 'Add Project Note'}</h3>
+                <button type="button" onClick={() => { setShowNoteModal(false); setEditingNote(null); noteForm.reset({ content: '' }) }} className="p-1 hover:bg-slate-200 rounded"><FiX/></button>
               </div>
-              <form onSubmit={handleSubmit(d => addNoteMut.mutate(d))} className="p-6">
-                <textarea {...register('content', {required: true})} rows={5} className="form-input resize-none mb-4" placeholder="Type your note here..."></textarea>
+              <form onSubmit={noteForm.handleSubmit(
+                (d) => {
+                  if (editingNote?._id) updateNoteMut.mutate({ noteId: editingNote._id, content: d.content })
+                  else addNoteMut.mutate(d)
+                },
+                () => toast.error('Please enter note text')
+              )} className="p-6">
+                <textarea {...noteForm.register('content', { required: true })} rows={5} className="form-input resize-none mb-4" placeholder="Type your note here..."></textarea>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => setShowNoteModal(false)} className="btn-ghost flex-1">Cancel</button>
-                  <button type="submit" disabled={addNoteMut.isPending} className="btn-primary flex-1 justify-center">{addNoteMut.isPending ? <span className="spinner"/> : 'Save Note'}</button>
+                  <button type="button" onClick={() => { setShowNoteModal(false); setEditingNote(null); noteForm.reset({ content: '' }) }} className="btn-ghost flex-1">Cancel</button>
+                  <button type="submit" disabled={addNoteMut.isPending || updateNoteMut.isPending} className="btn-primary flex-1 justify-center">{(addNoteMut.isPending || updateNoteMut.isPending) ? <span className="spinner"/> : (editingNote ? 'Save Changes' : 'Save Note')}</button>
                 </div>
               </form>
             </motion.div>
           </div>, document.body
         )}
 
-        {/* Link Modal */}
         {showLinkModal && createPortal(
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99] p-4">
-            <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}} className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: MODAL_OVERLAY_Z }}>
+            <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
               <div className="p-4 border-b flex justify-between items-center bg-slate-50">
                 <h3 className="font-bold text-slate-800">Add Important Link</h3>
-                <button onClick={() => setShowLinkModal(false)} className="p-1 hover:bg-slate-200 rounded"><FiX/></button>
+                <button type="button" onClick={() => setShowLinkModal(false)} className="p-1 hover:bg-slate-200 rounded"><FiX/></button>
               </div>
-              <form onSubmit={handleSubmit(d => addLinkMut.mutate(d))} className="p-6 space-y-4">
-                <div><label className="form-label">Label</label><input {...register('label', {required: true})} className="form-input" placeholder="e.g. GitHub Repo, Figma Design"/></div>
-                <div><label className="form-label">URL</label><input {...register('url', {required: true})} type="url" className="form-input" placeholder="https://..."/></div>
+              <form onSubmit={linkForm.handleSubmit(
+                (d) => addLinkMut.mutate(d),
+                () => toast.error('Please enter label and URL')
+              )} className="p-6 space-y-4">
+                <div><label className="form-label">Label</label><input {...linkForm.register('label', { required: true })} className="form-input" placeholder="e.g. GitHub Repo, Figma Design"/></div>
+                <div><label className="form-label">URL</label><input {...linkForm.register('url', { required: true })} type="text" className="form-input" placeholder="https://example.com or example.com"/></div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => setShowLinkModal(false)} className="btn-ghost flex-1">Cancel</button>
                   <button type="submit" disabled={addLinkMut.isPending} className="btn-primary flex-1 justify-center">{addLinkMut.isPending ? <span className="spinner"/> : 'Save Link'}</button>
@@ -427,13 +548,12 @@ export default function ProjectDetail() {
           </div>, document.body
         )}
 
-        {/* Doc Modal */}
         {showDocModal && createPortal(
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99] p-4">
-            <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}} className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: MODAL_OVERLAY_Z }}>
+            <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
               <div className="p-4 border-b flex justify-between items-center bg-slate-50">
                 <h3 className="font-bold text-slate-800">Upload Document</h3>
-                <button onClick={() => setShowDocModal(false)} className="p-1 hover:bg-slate-200 rounded"><FiX/></button>
+                <button type="button" onClick={() => setShowDocModal(false)} className="p-1 hover:bg-slate-200 rounded"><FiX/></button>
               </div>
               <form onSubmit={onDocSubmit} className="p-6 space-y-4">
                 <div><label className="form-label">Document Name (Optional)</label><input name="name" className="form-input" placeholder="Custom name for file"/></div>
@@ -446,7 +566,6 @@ export default function ProjectDetail() {
             </motion.div>
           </div>, document.body
         )}
-      </AnimatePresence>
     </div>
   )
 }

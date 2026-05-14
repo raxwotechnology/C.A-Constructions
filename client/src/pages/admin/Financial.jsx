@@ -80,8 +80,8 @@ export default function AdminFinancial() {
           <p className="page-subtitle">Revenue, income, expenses, salary costs and profit with export tools.</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn-primary" onClick={() => exportData('excel')}><FiDownload size={14} /> Export Excel</button>
-          <button className="btn-outline" onClick={() => exportData('pdf')}><FiDownload size={14} /> Export PDF</button>
+          <button type="button" className="btn-primary btn-sm" onClick={() => exportData('excel')}><FiDownload size={12} /> Excel</button>
+          <button type="button" className="btn-outline btn-sm" onClick={() => exportData('pdf')}><FiDownload size={12} /> PDF</button>
         </div>
       </div>
 
