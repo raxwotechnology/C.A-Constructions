@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiEdit2, FiTrash2, FiClock, FiStar } from 'react-icons/fi'
 
@@ -29,7 +30,7 @@ export default function AttendancePolicies() {
 
   const { data, isLoading } = useQuery({ queryKey:['attendance-policies'], queryFn:()=>api.get('/attendance-policies').then(r=>r.data) })
   const { data: branchData } = useQuery({ queryKey:['branches-list'], queryFn:()=>api.get('/branches').then(r=>r.data) })
-  const { data: empData } = useQuery({ queryKey:['employees-list-mini'], queryFn:()=>api.get('/employees').then(r=>r.data) })
+  const { data: empData } = useQuery({ queryKey:['employees-list-mini'], queryFn:()=>api.get(assignableEmployeesUrl()).then(r=>r.data) })
   const branches = branchData?.branches || []
   const employees = empData?.employees || []
   const policies = data?.policies || []

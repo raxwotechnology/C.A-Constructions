@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Project = require('../models/Project');
@@ -6,19 +7,46 @@ const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Payroll = require('../models/Payroll');
 const Performance = require('../models/Performance');
+const { ASSIGNED_STATUSES, INACTIVE_STATUSES } = require('../utils/employeeFilters');
+const { sendMail, smtpConfigured } = require('../utils/mailer');
+
+function syncEmploymentTypeFromStatus(body) {
+  const status = body.status;
+  if (status === 'internship') body.employmentType = 'intern';
+  else if (status === 'contract') body.employmentType = 'contract';
+  else if (status === 'active' && body.employmentType === 'intern') {
+    body.status = 'internship';
+  }
+}
+
+function applyResignationFields(body) {
+  if (body.status === 'resigned') {
+    if (!body.resignationDate) body.resignationDate = new Date();
+  } else if (body.status && body.status !== 'resigned') {
+    body.resignationDate = body.resignationDate === null ? null : undefined;
+    if (body.clearResignation) {
+      body.resignationDate = null;
+      body.resignationReason = '';
+    }
+  }
+  delete body.clearResignation;
+}
 
 // @desc    Get all employees
 // @route   GET /api/employees
 exports.getEmployees = async (req, res, next) => {
   try {
-    const { department, status, search, branch, employmentType, includeFormer } = req.query;
+    const { department, status, search, branch, employmentType, includeFormer, assignable } = req.query;
     let query = {};
     if (department) query.department = department;
     if (branch) query.branch = branch;
     if (employmentType) query.employmentType = employmentType;
     if (status) query.status = status;
-    // By default hide former/terminated employees unless explicitly requested
-    if (!status && !includeFormer) query.status = { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] };
+    else if (assignable === '1' || assignable === 'true') {
+      query.status = { $in: ASSIGNED_STATUSES };
+    } else if (!includeFormer) {
+      query.status = { $nin: INACTIVE_STATUSES };
+    }
 
     let employees = await Employee.find(query)
       .populate('userId', 'name email phone avatar role')
@@ -73,10 +101,21 @@ exports.createEmployee = async (req, res, next) => {
       // file upload fields
       profilePhoto, nicPhotoUrl, nicPhotoBackUrl, agreementUrl,
       // employment extras
-      employmentType, branch, epfNumber, etfNumber, maxLeavesPerYear,
+      employmentType, branch, epfNumber, etfNumber,
       portfolioUrl, secondaryAddress, permanentAddress, currentAddress,
-      internship, contract, epfEtfEnrolled,
+      internship, contract, epfEtfEnrolled, status: statusBody,
+      resignationDate, resignationReason,
     } = req.body;
+
+    if (!department?.trim()) {
+      return res.status(400).json({ success: false, message: 'Department is required' });
+    }
+    if (!designation?.trim()) {
+      return res.status(400).json({ success: false, message: 'Designation is required' });
+    }
+    if (!joinedDate) {
+      return res.status(400).json({ success: false, message: 'Join date is required' });
+    }
 
     // Create user account
     let user = await User.findOne({ email });
@@ -96,13 +135,23 @@ exports.createEmployee = async (req, res, next) => {
       await user.save({ validateBeforeSave: false });
     }
 
+    const existingProfile = await Employee.findOne({ userId: user._id });
+    if (existingProfile) {
+      return res.status(400).json({
+        success: false,
+        message: `This email already has an employee profile (${existingProfile.employeeNo})`,
+      });
+    }
+
     const employeeCount = await Employee.countDocuments();
     const employeeNo = `EMP${String(employeeCount + 1).padStart(4, '0')}`;
 
-    const employee = await Employee.create({
+    const status = statusBody || (employmentType === 'intern' ? 'internship' : employmentType === 'contract' ? 'contract' : 'active');
+    const createPayload = {
       userId: user._id, employeeNo, department, designation,
-      basicSalary: basicSalary || 0, allowances: allowances || 0,
+      basicSalary: Number(basicSalary) || 0, allowances: Number(allowances) || 0,
       joinedDate,
+      status,
       idType: idType || 'nic',
       idNumber: idNumber || nic || '',
       nic: nic || idNumber || '',
@@ -128,14 +177,18 @@ exports.createEmployee = async (req, res, next) => {
       ...(branch          && { branch }),
       ...(epfNumber       && { epfNumber }),
       ...(etfNumber       && { etfNumber }),
-      ...(maxLeavesPerYear && { maxLeavesPerYear }),
       ...(portfolioUrl    && { portfolioUrl }),
       ...(permanentAddress && { permanentAddress }),
       ...(currentAddress  && { currentAddress }),
       ...(internship      && { internship }),
       ...(contract        && { contract }),
       epfEtfEnrolled: !!epfEtfEnrolled,
-    });
+    };
+    if (status === 'resigned') {
+      createPayload.resignationDate = resignationDate ? new Date(resignationDate) : new Date();
+      createPayload.resignationReason = resignationReason || '';
+    }
+    const employee = await Employee.create(createPayload);
 
     const populated = await employee.populate('userId', 'name email phone avatar role');
     await createAuditLog({
@@ -150,16 +203,25 @@ exports.createEmployee = async (req, res, next) => {
 // @route   PUT /api/employees/:id
 exports.updateEmployee = async (req, res, next) => {
   try {
+    const payload = { ...req.body };
+    delete payload.maxLeavesPerYear;
+
+    if (payload.status === 'resigned' && !payload.resignationDate) {
+      payload.resignationDate = new Date();
+    }
+    syncEmploymentTypeFromStatus(payload);
+    applyResignationFields(payload);
+
     // Update role on linked user if provided (admin/manager only)
-    if (req.body.role) {
+    if (payload.role) {
       const employeeDoc = await Employee.findById(req.params.id);
       if (employeeDoc) {
-        await User.findByIdAndUpdate(employeeDoc.userId, { role: req.body.role });
+        await User.findByIdAndUpdate(employeeDoc.userId, { role: payload.role });
       }
-      delete req.body.role;
+      delete payload.role;
     }
 
-    const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+    const employee = await Employee.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       .populate('userId', 'name email phone avatar role');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
     
@@ -269,7 +331,7 @@ exports.removeIntern = async (req, res, next) => {
 exports.getStats = async (req, res, next) => {
   try {
     const total = await Employee.countDocuments();
-    const active = await Employee.countDocuments({ status: 'active' });
+    const active = await Employee.countDocuments({ status: { $in: ASSIGNED_STATUSES } });
     const byDept = await Employee.aggregate([
       { $group: { _id: '$department', count: { $sum: 1 } } },
       { $sort: { count: -1 } }
@@ -342,6 +404,95 @@ exports.getEmployeeActivity = async (req, res, next) => {
       leaves,
       payrolls,
       performance,
+    });
+  } catch (err) { next(err); }
+};
+
+// @desc  Admin sets employee login password (hashed via User pre-save)
+// @route PUT /api/employees/:id/password
+exports.adminSetEmployeePassword = async (req, res, next) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const user = await User.findById(employee.userId).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'User account not found' });
+    user.password = newPassword;
+    await user.save();
+    await createAuditLog({
+      user: req.user, action: 'update', module: 'employees', entityId: employee._id,
+      description: `Password changed for ${employee.employeeNo}`,
+    });
+    res.json({ success: true, message: 'Password updated' });
+  } catch (err) { next(err); }
+};
+
+// @desc  Admin resets password to a new random value (returned once in response)
+// @route POST /api/employees/:id/reset-password
+exports.adminResetEmployeePassword = async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.id).populate('userId', 'name email');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const user = await User.findById(employee.userId).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'User account not found' });
+    const tempPassword = `Raxwo@${crypto.randomBytes(4).toString('hex')}`;
+    user.password = tempPassword;
+    await user.save();
+    await createAuditLog({
+      user: req.user, action: 'update', module: 'employees', entityId: employee._id,
+      description: `Password reset for ${employee.employeeNo}`,
+    });
+    res.json({
+      success: true,
+      message: 'Password reset',
+      tempPassword,
+      email: user.email,
+    });
+  } catch (err) { next(err); }
+};
+
+// @desc  Send password reset email (token link) when SMTP is configured
+// @route POST /api/employees/:id/send-password-reset
+exports.adminSendPasswordResetEmail = async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.id).populate('userId', 'name email');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const user = await User.findById(employee.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User account not found' });
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.resetPasswordExpire = Date.now() + 60 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+
+    const clientBase = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const resetUrl = `${clientBase}/reset-password?token=${resetToken}&email=${encodeURIComponent(user.email)}`;
+
+    const html = `
+      <p>Hello ${user.name},</p>
+      <p>An administrator requested a password reset for your Raxwo account.</p>
+      <p><a href="${resetUrl}">Reset your password</a> (link expires in 1 hour).</p>
+      <p>If you did not request this, contact your administrator.</p>
+    `;
+
+    const mailResult = await sendMail({
+      to: user.email,
+      subject: 'Raxwo — Password reset',
+      html,
+      text: `Reset your password: ${resetUrl}`,
+    });
+
+    res.json({
+      success: true,
+      message: mailResult.sent
+        ? `Reset email sent to ${user.email}`
+        : 'SMTP not configured — use the reset link below',
+      emailSent: mailResult.sent,
+      resetUrl: mailResult.sent ? undefined : resetUrl,
+      smtpConfigured: smtpConfigured(),
     });
   } catch (err) { next(err); }
 };

@@ -8,6 +8,7 @@ const { createNotification } = require('../services/notificationService');
 const { awardPoints }        = require('../services/rewardService');
 const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
 const { allocateInvoiceNoFromQuotationNo, generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
+const { syncProjectsForInvoice } = require('../utils/projectInvoiceSync');
 
 const POPULATE_INVOICE = [
   { path: 'client',       select: 'name email phone' },
@@ -155,6 +156,8 @@ exports.createInvoice = async (req, res, next) => {
       link: '/invoices',
     });
 
+    await syncProjectsForInvoice(invoice._id);
+
     res.status(201).json({ success: true, invoice });
   } catch (err) { next(err); }
 };
@@ -198,7 +201,9 @@ exports.updateInvoice = async (req, res, next) => {
       };
       const invoice = await Invoice.findByIdAndUpdate(req.params.id, { $set: paidMeta }, { new: true, runValidators: true })
         .populate(POPULATE_INVOICE);
-      return res.json({ success: true, invoice });
+      await syncProjectsForInvoice(invoice._id);
+      const refreshed = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
+      return res.json({ success: true, invoice: refreshed });
     }
 
     let updates = {
@@ -224,7 +229,9 @@ exports.updateInvoice = async (req, res, next) => {
     const invoice = await Invoice.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
       .populate(POPULATE_INVOICE);
 
-    res.json({ success: true, invoice });
+    await syncProjectsForInvoice(invoice._id);
+    const refreshed = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
+    res.json({ success: true, invoice: refreshed });
   } catch (err) { next(err); }
 };
 
@@ -270,52 +277,9 @@ exports.recordPayment = async (req, res, next) => {
 
     if (invoice.status === 'paid') {
       await awardPoints({ userId: invoice.client, action: 'complete_invoice_payment', sourceKey: `inv-paid:${invoice._id}`, note: 'Invoice paid' });
-
-      // ── Auto-trigger: Update linked project & unlock employee commissions ──
-      if (invoice.project) {
-        const project = await Project.findById(invoice.project).populate('salaryAllocations.employee');
-        if (project) {
-          // Mark project as paid & completed
-          project.status = 'paid_completed';
-          project.completedAt = project.completedAt || new Date();
-          // Mark all salary allocations as paid
-          project.salaryAllocations = project.salaryAllocations.map(a => ({ ...a.toObject(), paid: true }));
-          await project.save();
-
-          // Auto-generate commission payroll entries for each employee with a commission
-          const Payroll = require('../models/Payroll');
-          const now = new Date();
-          const month = now.getMonth() + 1;
-          const year = now.getFullYear();
-
-          for (const alloc of project.salaryAllocations) {
-            if (!alloc.commission || alloc.commission <= 0) continue;
-            try {
-              // Find or update existing payroll record for this month
-              const existing = await Payroll.findOne({ employee: alloc.employee, month, year });
-              if (existing) {
-                existing.commissions = (existing.commissions || 0) + alloc.commission;
-                existing.grossSalary = (existing.grossSalary || 0) + alloc.commission;
-                existing.netSalary = (existing.netSalary || 0) + alloc.commission;
-                if (existing.status !== 'paid') await existing.save();
-              }
-              // Notify employee
-              const Employee = require('../models/Employee');
-              const emp = await Employee.findById(alloc.employee).populate('userId', 'name _id');
-              if (emp?.userId?._id) {
-                await createNotification({
-                  recipient: emp.userId._id,
-                  title: '💰 Commission Unlocked',
-                  message: `Your commission of LKR ${alloc.commission.toLocaleString()} from project "${project.title}" has been approved. Invoice fully paid.`,
-                  type: 'payroll',
-                  link: '/developer/payslips',
-                });
-              }
-            } catch (_) { /* don't fail main invoice save */ }
-          }
-        }
-      }
     }
+
+    await syncProjectsForInvoice(invoice._id);
 
     const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
     res.json({ success: true, invoice: populated });
@@ -359,6 +323,8 @@ exports.recordAdvance = async (req, res, next) => {
       link: '/invoices',
     });
 
+    await syncProjectsForInvoice(invoice._id);
+
     const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
     res.json({ success: true, invoice: populated });
   } catch (err) { next(err); }
@@ -372,7 +338,10 @@ exports.deleteInvoice = async (req, res, next) => {
     if (!invoice) return res.status(404).json({ success: false, message: 'Not found' });
 
     await Payment.deleteMany({ invoice: invoice._id });
-    await Project.updateMany({ invoice: invoice._id }, { $unset: { invoice: 1 } });
+    await Project.updateMany(
+      { $or: [{ invoice: invoice._id }, { linkedInvoices: invoice._id }] },
+      { $pull: { linkedInvoices: invoice._id }, $unset: { invoice: '' }, $set: { paymentStatus: 'none' } },
+    );
 
     if (invoice.quotationRef) {
       await Quotation.findByIdAndUpdate(invoice.quotationRef, {
@@ -454,6 +423,7 @@ exports.payhereCallback = async (req, res, next) => {
             method: 'payhere', reference: payment_id, isAdvance: false,
           });
           await inv.save();
+          await syncProjectsForInvoice(inv._id);
         }
       }
       await payment.save();

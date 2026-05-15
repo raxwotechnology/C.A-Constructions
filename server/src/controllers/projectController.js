@@ -6,6 +6,12 @@ const Payroll  = require('../models/Payroll');
 const path = require('path');
 const fs   = require('fs');
 const { createNotification } = require('../services/notificationService');
+const {
+  validateInvoicesBelongToClient,
+  normalizeInvoiceIds,
+  loadInvoicesForProject,
+  applyPaymentStatusToProject,
+} = require('../utils/projectInvoiceSync');
 
 const POPULATE = [
   { path: 'client', select: 'name email avatar phone' },
@@ -13,6 +19,7 @@ const POPULATE = [
   { path: 'assignedEmployees', select: 'name email avatar' },
   { path: 'branch', select: 'name' },
   { path: 'invoice', select: 'invoiceNo total totalPaid totalAdvances remainingBalance status dueDate payments currency' },
+  { path: 'linkedInvoices', select: 'invoiceNo total totalPaid remainingBalance status dueDate currency' },
   { path: 'tasks.assignedTo', select: 'name email avatar' },
   { path: 'notes.createdBy', select: 'name' },
 ];
@@ -56,17 +63,41 @@ exports.getProject = async (req, res, next) => {
 };
 
 // ── CREATE project ────────────────────────────────────────────────────────────
+async function applyInvoiceLinks(payload) {
+  const invoiceIds = normalizeInvoiceIds(payload);
+  if (!invoiceIds.length) {
+    payload.linkedInvoices = [];
+    delete payload.invoice;
+    return { invoiceIds: [] };
+  }
+  await validateInvoicesBelongToClient(payload.client, invoiceIds);
+  payload.linkedInvoices = invoiceIds;
+  payload.invoice = invoiceIds[0];
+  return { invoiceIds };
+}
+
 exports.createProject = async (req, res, next) => {
   try {
     const payload = { ...req.body };
     if (!payload.client) delete payload.client;
     if (!payload.projectManager) delete payload.projectManager;
     if (!payload.branch) delete payload.branch;
-    if (!payload.invoice) delete payload.invoice;
     if (!Array.isArray(payload.assignedEmployees)) payload.assignedEmployees = [];
     payload.assignedEmployees = payload.assignedEmployees.filter(Boolean);
 
+    const { invoiceIds } = await applyInvoiceLinks(payload);
+    const invoices = await loadInvoicesForProject(invoiceIds);
+
     const project = await Project.create(payload);
+    await applyPaymentStatusToProject(project, invoices);
+    await project.save();
+
+    if (invoiceIds.length && project.client) {
+      await Invoice.updateMany(
+        { _id: { $in: invoiceIds }, client: project.client },
+        { $set: { project: project._id } },
+      );
+    }
 
     if (project.client) {
       await createNotification({
@@ -87,12 +118,37 @@ exports.updateProject = async (req, res, next) => {
     const payload = { ...req.body };
     if (payload.client === '') delete payload.client;
     if (payload.projectManager === '') delete payload.projectManager;
-    if (payload.invoice === '') delete payload.invoice;
     if (Array.isArray(payload.assignedEmployees)) payload.assignedEmployees = payload.assignedEmployees.filter(Boolean);
 
+    const hasInvoicePayload = payload.invoice !== undefined || payload.linkedInvoices !== undefined;
+    if (hasInvoicePayload) {
+      const existing = await Project.findById(req.params.id).select('client');
+      const clientId = payload.client || existing?.client;
+      payload.client = clientId;
+      await applyInvoiceLinks(payload);
+    }
+
     const oldProject = await Project.findById(req.params.id).select('status assignedEmployees title');
-    const project = await Project.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true }).populate(POPULATE);
+    let project = await Project.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+    if (hasInvoicePayload) {
+      const ids = [
+        ...(project.invoice ? [project.invoice] : []),
+        ...(project.linkedInvoices || []),
+      ];
+      const invoices = await loadInvoicesForProject(ids);
+      await applyPaymentStatusToProject(project, invoices);
+      await project.save();
+      if (ids.length && project.client) {
+        await Invoice.updateMany(
+          { _id: { $in: ids }, client: project.client },
+          { $set: { project: project._id } },
+        );
+      }
+    }
+
+    project = await Project.findById(project._id).populate(POPULATE);
 
     // ── Auto-update Target progress on completion ──────────────────────────────
     const COMPLETION_STATUSES = ['completed', 'completed_payment_pending', 'paid_completed'];

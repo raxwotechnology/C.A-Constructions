@@ -1,6 +1,7 @@
 const Advance = require('../models/Advance');
 const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
+const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
 
 // GET /api/advances
 exports.getAdvances = async (req, res, next) => {
@@ -15,39 +16,107 @@ exports.getAdvances = async (req, res, next) => {
     if (req.query.status) query.status = req.query.status;
     const advances = await Advance.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email _id' } })
+      .populate('bankAccount', 'bankName accountNumber')
       .populate('recordedBy', 'name')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: advances.length, advances });
   } catch (err) { next(err); }
 };
 
+// GET /api/advances/employee-summary/:employeeId
+exports.getEmployeeAdvanceSummary = async (req, res, next) => {
+  try {
+    const emp = await Employee.findById(req.params.employeeId).populate('userId', 'name email');
+    if (!emp) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const allAdvances = await Advance.find({ employee: req.params.employeeId }).sort({ date: -1 });
+    const activeAdvances = allAdvances.filter(a => a.status === 'active');
+
+    const previousAdvanceTotal = allAdvances.reduce((s, a) => s + (a.amount || 0), 0);
+    const totalRecovered = allAdvances.reduce((s, a) => s + (a.totalRecovered || 0), 0);
+    const remainingBalance = activeAdvances.reduce((s, a) => s + (a.outstandingBalance || 0), 0);
+    const employeeAdvanceBalance = emp.advanceBalance || 0;
+
+    res.json({
+      success: true,
+      summary: {
+        name: emp.userId?.name,
+        employeeNo: emp.employeeNo,
+        basicSalary: emp.basicSalary || 0,
+        allowances: emp.allowances || 0,
+        previousAdvanceTotal,
+        totalRecovered,
+        remainingBalance,
+        availableAdvanceBalance: employeeAdvanceBalance,
+        employeeAdvanceBalance,
+        activeAdvancesCount: activeAdvances.length,
+        activeAdvances: activeAdvances.map(a => ({
+          _id: a._id,
+          amount: a.amount,
+          outstandingBalance: a.outstandingBalance,
+          monthlyDeduction: a.monthlyDeduction,
+          date: a.date,
+          reason: a.reason,
+        })),
+      },
+    });
+  } catch (err) { next(err); }
+};
+
 // POST /api/advances
 exports.createAdvance = async (req, res, next) => {
   try {
-    const { employeeId, amount, date, reason, repaymentType, installments } = req.body;
+    const {
+      employeeId, amount, date, reason, repaymentType, installments,
+      paymentMethod, bankAccount, paymentReference,
+    } = req.body;
     const amt = Number(amount);
-    const inst = Number(installments) || 1;
+    if (!employeeId || !amt || amt <= 0) {
+      return res.status(400).json({ success: false, message: 'Employee and valid amount are required' });
+    }
 
+    const method = paymentMethod || 'cash';
+    if (isLedgerBankMethod(method) && !bankAccount) {
+      return res.status(400).json({ success: false, message: 'Bank account is required for card or bank transfer payments' });
+    }
+
+    const inst = Number(installments) || 1;
     const advance = await Advance.create({
       employee: employeeId,
       amount: amt,
       outstandingBalance: amt,
       date: date || new Date(),
-      reason,
+      reason: reason || '',
       repaymentType: repaymentType || 'lump_sum',
       installments: inst,
-      monthlyDeduction: repaymentType === 'installments' && inst > 1 ? Math.ceil(amt / inst) : 0,
+      monthlyDeduction: repaymentType === 'installments' && inst > 1 ? Math.ceil(amt / inst) : amt,
+      paymentMethod: method,
+      bankAccount: bankAccount || undefined,
+      paymentReference: paymentReference || '',
       recordedBy: req.user._id,
     });
 
-    // Update employee advanceBalance
     const emp = await Employee.findByIdAndUpdate(
       employeeId,
       { $inc: { advanceBalance: amt } },
       { new: true }
     ).populate('userId', 'name _id');
 
-    // Notify employee
+    if (isLedgerBankMethod(method) && bankAccount) {
+      const empName = emp?.userId?.name || 'Employee';
+      await appendBankTransaction(bankAccount, {
+        type: 'withdrawal',
+        amount: amt,
+        description: `Advance payment — ${empName}${reason ? `: ${reason}` : ''}`,
+        date: date || new Date(),
+        referenceId: paymentReference || `ADV-${advance._id}`,
+        moduleSource: 'advances',
+        sourceType: 'Advance',
+        sourceId: advance._id,
+        recordedBy: req.user._id,
+      });
+    }
+
     if (emp?.userId?._id) {
       await createNotification({
         recipient: emp.userId._id,
@@ -58,7 +127,11 @@ exports.createAdvance = async (req, res, next) => {
       });
     }
 
-    res.status(201).json({ success: true, advance });
+    const populated = await Advance.findById(advance._id)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .populate('bankAccount', 'bankName accountNumber');
+
+    res.status(201).json({ success: true, advance: populated });
   } catch (err) { next(err); }
 };
 
@@ -78,10 +151,8 @@ exports.recordRepayment = async (req, res, next) => {
     if (justCleared) advance.status = 'cleared';
     await advance.save();
 
-    // Reduce employee advanceBalance
     await Employee.findByIdAndUpdate(advance.employee._id || advance.employee, { $inc: { advanceBalance: -repayAmt } });
 
-    // Notify employee
     const recipientId = advance.employee?.userId?._id;
     if (recipientId) {
       await createNotification({
@@ -102,10 +173,28 @@ exports.recordRepayment = async (req, res, next) => {
 // DELETE /api/advances/:id
 exports.deleteAdvance = async (req, res, next) => {
   try {
-    const advance = await Advance.findById(req.params.id);
+    const advance = await Advance.findById(req.params.id)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name' } });
     if (!advance) return res.status(404).json({ success: false, message: 'Not found' });
-    // Reverse employee balance
-    await Employee.findByIdAndUpdate(advance.employee, { $inc: { advanceBalance: -advance.outstandingBalance } });
+
+    if (isLedgerBankMethod(advance.paymentMethod) && advance.bankAccount) {
+      const empName = advance.employee?.userId?.name || 'Employee';
+      await appendBankTransaction(advance.bankAccount, {
+        type: 'deposit',
+        amount: advance.amount,
+        description: `Advance reversal (deleted) — ${empName}`,
+        date: new Date(),
+        referenceId: `ADV-REV-${advance._id}`,
+        moduleSource: 'advances',
+        sourceType: 'Advance',
+        sourceId: advance._id,
+        recordedBy: req.user?._id,
+      });
+    }
+
+    await Employee.findByIdAndUpdate(advance.employee._id || advance.employee, {
+      $inc: { advanceBalance: -advance.outstandingBalance },
+    });
     await advance.deleteOne();
     res.json({ success: true, message: 'Advance deleted' });
   } catch (err) { next(err); }

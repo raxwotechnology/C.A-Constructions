@@ -52,7 +52,13 @@ const projectSchema = new mongoose.Schema({
 
   // ── Relations ─────────────────────────────────────────────────────────────
   client:          { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  invoice:         { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },   // linked invoice
+  invoice:         { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },   // primary linked invoice
+  linkedInvoices:  [{ type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' }],
+  paymentStatus: {
+    type: String,
+    enum: ['none', 'unpaid', 'partial', 'paid'],
+    default: 'none',
+  },
   projectManager:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   assignedEmployees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   branch:          { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },

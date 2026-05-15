@@ -130,6 +130,12 @@ export default function Login() {
               {errors.password && <p className="form-error">{errors.password.message}</p>}
             </div>
 
+            <div className="flex justify-end">
+              <Link to="/forgot-password" className="text-sm text-secondary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+
             <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">
               {loading ? <span className="spinner" /> : <>Sign In <FiArrowRight size={16} /></>}
             </button>

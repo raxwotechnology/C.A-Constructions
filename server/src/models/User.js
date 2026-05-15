@@ -16,6 +16,8 @@ const userSchema = new mongoose.Schema({
   isEmailVerified: { type: Boolean, default: false },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
+  otpCode: String,
+  otpExpire: Date,
   lastLogin: Date,
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', default: null },
 }, { timestamps: true });
@@ -36,6 +38,8 @@ userSchema.methods.toJSON = function () {
   delete obj.password;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpire;
+  delete obj.otpCode;
+  delete obj.otpExpire;
   return obj;
 };
 

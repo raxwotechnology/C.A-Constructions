@@ -1,16 +1,20 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiDollarSign, FiPercent, FiInfo } from 'react-icons/fi'
+import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiInfo } from 'react-icons/fi'
 import { invoicePaymentDisplay } from '../../lib/invoicePayment'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
 
 const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
 const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', cancelled:'badge-red', overdue:'badge-red' }
+const paymentStatusColor = { unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', none: 'badge-gray' }
 const priorityColor = { low:'badge-gray', medium:'badge-yellow', high:'badge-red', critical:'badge-purple' }
 
 export default function AdminProjects() {
@@ -21,19 +25,14 @@ export default function AdminProjects() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
-  // Salary allocations state
-  const [salaryAllocations, setSalaryAllocations] = useState([]) // [{employeeId, employeeName, salary, commission}]
-  const [selectedTeam, setSelectedTeam] = useState([]) // array of employee._id
+  const [selectedTeam, setSelectedTeam] = useState([])
+  const [commissionAllocations, setCommissionAllocations] = useState([])
+  const [linkedInvoices, setLinkedInvoices] = useState([])
+  const [clientSelectLabel, setClientSelectLabel] = useState('')
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm({ defaultValues: { progress: 0, budget: 0, invoice: '' } })
-  const budget = Number(watch('budget') || 0)
-  const totalAllocated = salaryAllocations.reduce((s, a) => s + Number(a.salary || 0), 0)
-  const totalCommission = salaryAllocations.reduce((s, a) => s + Number(a.commission || 0), 0)
-  const remaining = budget - totalAllocated - totalCommission
-  const watchedEmployees = watch('assignedEmployees') || []
+  const { register, handleSubmit, reset, setValue, watch } = useForm({ defaultValues: { progress: 0, budget: 0 } })
 
   const watchedClient = watch('client')
-  const watchedInvoice = watch('invoice')
 
   const { data: clientInvData } = useQuery({
     queryKey: ['invoices-for-project-form', watchedClient],
@@ -43,12 +42,20 @@ export default function AdminProjects() {
   const clientInvoices = clientInvData?.invoices || []
 
   useEffect(() => {
-    if (!watchedInvoice || !clientInvoices.length) return
-    const inv = clientInvoices.find((i) => String(i._id) === String(watchedInvoice))
-    if (inv?.dueDate) {
-      setValue('deadline', new Date(inv.dueDate).toISOString().slice(0, 10), { shouldDirty: false })
+    if (!watchedClient) {
+      setLinkedInvoices([])
+      return
     }
-  }, [watchedInvoice, clientInvoices, setValue])
+    setLinkedInvoices((prev) => prev.filter((id) => clientInvoices.some((i) => String(i._id) === String(id))))
+  }, [watchedClient, clientInvoices])
+
+  useEffect(() => {
+    if (!linkedInvoices.length || !clientInvoices.length) return
+    const first = clientInvoices.find((i) => String(i._id) === String(linkedInvoices[0]))
+    if (first?.dueDate) {
+      setValue('deadline', new Date(first.dueDate).toISOString().slice(0, 10), { shouldDirty: false })
+    }
+  }, [linkedInvoices, clientInvoices, setValue])
 
   const { data: projData, isLoading } = useQuery({
     queryKey: ['admin-projects', branchFilter],
@@ -56,11 +63,7 @@ export default function AdminProjects() {
   })
   const { data: empData } = useQuery({
     queryKey: ['employees-list'],
-    queryFn: () => api.get('/employees').then(r => r.data),
-  })
-  const { data: clientData } = useQuery({
-    queryKey: ['clients-list'],
-    queryFn: () => api.get('/auth/users').then(r => r.data),
+    queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data),
   })
   const { data: branchData } = useQuery({
     queryKey: ['branches'],
@@ -71,7 +74,6 @@ export default function AdminProjects() {
     (!search || p.title?.toLowerCase().includes(search.toLowerCase())) &&
     (!statusFilter || p.status === statusFilter)
   )
-  const clients = (clientData?.users || []).filter(u => u.role === 'client')
   const employees = empData?.employees || []
   const branches = branchData?.branches || []
 
@@ -95,6 +97,9 @@ export default function AdminProjects() {
     setValue('title', p.title || '')
     setValue('description', p.description || '')
     setValue('client', p.client?._id || '')
+    setClientSelectLabel(
+      p.client?.name ? `${p.client.name}${p.client.email ? ` (${p.client.email})` : ''}` : ''
+    )
     setValue('status', p.status || 'planning')
     setValue('priority', p.priority || 'medium')
     setValue('serviceType', p.serviceType || 'Other')
@@ -104,61 +109,91 @@ export default function AdminProjects() {
     setValue('progress', p.progress ?? 0)
     setValue('projectManager', p.projectManager?._id || '')
     setValue('branch', p.branch?._id || '')
-    setValue('invoice', p.invoice?._id || p.invoice || '')
+    const invIds = [
+      ...(p.linkedInvoices || []).map((i) => i._id || i),
+      ...(p.invoice ? [p.invoice._id || p.invoice] : []),
+    ]
+    setLinkedInvoices([...new Set(invIds.map(String))])
     const team = (p.assignedEmployees || []).map(u => u._id || u)
     setSelectedTeam(team)
-    const allocs = (p.salaryAllocations || []).map(a => ({
+    const allocs = (p.salaryAllocations || []).map((a) => ({
       employeeId: a.employee?._id || a.employee,
       employeeName: a.employeeName || '',
-      salary: a.amount || 0,
       commission: a.commission || 0,
     }))
-    setSalaryAllocations(allocs)
+    setCommissionAllocations(allocs)
     setShowModal(true)
   }
 
   const closeModal = () => {
     setShowModal(false); setEditing(null)
-    reset({ progress: 0, budget: 0, invoice: '' })
-    setSalaryAllocations([]); setSelectedTeam([])
+    reset({ progress: 0, budget: 0 })
+    setSelectedTeam([])
+    setCommissionAllocations([])
+    setLinkedInvoices([])
+    setClientSelectLabel('')
   }
 
-  // When team member toggled, add/remove from allocations
   const toggleTeamMember = emp => {
     const empUserId = emp.userId?._id
     const empEmpId = emp._id
     const isSelected = selectedTeam.includes(empUserId)
     if (isSelected) {
-      setSelectedTeam(s => s.filter(id => id !== empUserId))
-      setSalaryAllocations(s => s.filter(a => a.employeeId !== empEmpId))
+      setSelectedTeam((s) => s.filter((id) => id !== empUserId))
+      setCommissionAllocations((s) => s.filter((a) => a.employeeId !== empEmpId))
     } else {
-      setSelectedTeam(s => [...s, empUserId])
-      setSalaryAllocations(s => [...s, { employeeId: empEmpId, employeeName: emp.userId?.name || '', salary: 0, commission: 0 }])
+      setSelectedTeam((s) => [...s, empUserId])
+      setCommissionAllocations((s) => [...s, { employeeId: empEmpId, employeeName: emp.userId?.name || '', commission: 0 }])
     }
   }
 
-  const updateAllocation = (empId, field, value) => {
-    setSalaryAllocations(s => s.map(a => a.employeeId === empId ? { ...a, [field]: Number(value || 0) } : a))
+  const updateCommission = (empEmpId, value) => {
+    setCommissionAllocations((s) => s.map((a) => (a.employeeId === empEmpId ? { ...a, commission: Number(value || 0) } : a)))
+  }
+
+  const toggleInvoice = (invId) => {
+    const id = String(invId)
+    setLinkedInvoices((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
   const onSubmit = d => {
+    if (selectedTeam.length > 0) {
+      const missing = selectedTeam.filter((userId) => {
+        const emp = employees.find((e) => String(e.userId?._id) === String(userId))
+        const alloc = commissionAllocations.find((a) => String(a.employeeId) === String(emp?._id))
+        return !alloc || Number(alloc.commission) <= 0
+      })
+      if (missing.length > 0) {
+        toast.error('Enter a commission amount for each selected team member')
+        return
+      }
+    }
+
     const payload = {
       ...d,
       assignedEmployees: selectedTeam,
-      salaryAllocations: salaryAllocations.map(a => ({
+      linkedInvoices,
+      invoice: linkedInvoices[0] || undefined,
+      salaryAllocations: commissionAllocations.map((a) => ({
         employee: a.employeeId,
         employeeName: a.employeeName,
-        amount: Number(a.salary || 0),
+        amount: 0,
         commission: Number(a.commission || 0),
       })),
     }
     if (!payload.client) delete payload.client
     if (!payload.projectManager) delete payload.projectManager
-    if (!payload.invoice) delete payload.invoice
+    if (!linkedInvoices.length) {
+      delete payload.invoice
+      payload.linkedInvoices = []
+    }
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
   const progressValue = Number(watch('progress') || 0)
+  const budget = Number(watch('budget') || 0)
+  const totalCommission = commissionAllocations.reduce((s, a) => s + Number(a.commission || 0), 0)
+  const commissionRemaining = budget - totalCommission
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -167,7 +202,7 @@ export default function AdminProjects() {
           <h1 className="page-title">Projects</h1>
           <p className="page-subtitle">{projData?.count || 0} total projects</p>
         </div>
-        <button onClick={() => { reset({ progress: 0, budget: 0, invoice: '' }); setEditing(null); setSalaryAllocations([]); setSelectedTeam([]); setShowModal(true) }} className="btn-primary">
+        <button onClick={() => { reset({ progress: 0, budget: 0 }); setEditing(null); setSelectedTeam([]); setCommissionAllocations([]); setLinkedInvoices([]); setClientSelectLabel(''); setShowModal(true) }} className="btn-primary">
           <FiPlus size={15}/> New Project
         </button>
       </div>
@@ -220,10 +255,16 @@ export default function AdminProjects() {
                 <div className="flex justify-between text-gray-600">
                   <span>Budget</span><span className="font-semibold">LKR {p.budget.toLocaleString()}</span>
                 </div>
+                {p.paymentStatus && p.paymentStatus !== 'none' && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>Payment</span>
+                    <span className={`badge text-[10px] capitalize ${paymentStatusColor[p.paymentStatus] || 'badge-gray'}`}>{p.paymentStatus}</span>
+                  </div>
+                )}
                 {p.salaryAllocations?.length > 0 && (
                   <div className="flex justify-between text-gray-500">
-                    <span>Allocated</span>
-                    <span className="text-orange-600 font-medium">LKR {p.salaryAllocations.reduce((s,a) => s + (a.amount||0) + (a.commission||0), 0).toLocaleString()}</span>
+                    <span>Team commission</span>
+                    <span className="text-purple-600 font-medium">LKR {p.salaryAllocations.reduce((s, a) => s + (a.commission || 0), 0).toLocaleString()}</span>
                   </div>
                 )}
               </div>
@@ -282,21 +323,42 @@ export default function AdminProjects() {
                     <textarea {...register('description', {required: !editing})} rows={2} className="form-input resize-none" placeholder="Project scope and objectives"/></div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div><label className="form-label">Client</label>
-                      <select {...register('client')} className="form-select">
-                        <option value="">Internal / No client</option>
-                        {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                      </select></div>
+                      <SearchableSelect
+                        value={watchedClient || ''}
+                        onChange={(v, opt) => {
+                          setValue('client', v, { shouldDirty: true })
+                          setClientSelectLabel(opt?.label || '')
+                        }}
+                        loadOptions={lookupLoaders.clients()}
+                        placeholder="Search client…"
+                        clearable
+                        initialLabel={clientSelectLabel}
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Leave empty for internal / no client</p>
+                    </div>
                     <div className="sm:col-span-3">
-                      <label className="form-label">Client invoice (optional)</label>
-                      <select {...register('invoice')} className="form-select" disabled={!watchedClient}>
-                        <option value="">No invoice linked</option>
-                        {clientInvoices.map((inv) => (
-                          <option key={inv._id} value={inv._id}>
-                            {inv.invoiceNo} — {inv.status} — balance {(inv.currency || 'LKR')} {(inv.remainingBalance ?? 0).toLocaleString()}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-slate-400 mt-1">Pick a client first. Selecting an invoice sets the project deadline to that invoice&apos;s due date.</p>
+                      <label className="form-label">Client invoices (optional)</label>
+                      {!watchedClient ? (
+                        <p className="text-sm text-slate-400 py-2">Select a client to load their invoices.</p>
+                      ) : clientInvoices.length === 0 ? (
+                        <p className="text-sm text-slate-400 py-2">No invoices found for this client.</p>
+                      ) : (
+                        <div className="border border-gray-100 rounded-xl max-h-40 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
+                          {clientInvoices.map((inv) => {
+                            const checked = linkedInvoices.includes(String(inv._id))
+                            const pay = invoicePaymentDisplay(inv)
+                            return (
+                              <label key={inv._id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer ${checked ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
+                                <input type="checkbox" checked={checked} onChange={() => toggleInvoice(inv._id)} className="w-4 h-4 accent-secondary" />
+                                <span className="flex-1 text-sm font-medium text-gray-800">{inv.invoiceNo}</span>
+                                <span className={`badge text-[10px] ${pay.badgeClass}`}>{pay.label}</span>
+                                <span className="text-xs text-gray-500">{(inv.currency || 'LKR')} {(inv.remainingBalance ?? 0).toLocaleString()}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">Only invoices for the selected client can be linked. The first selected invoice sets the project deadline.</p>
                     </div>
                     <div><label className="form-label">Service Type</label>
                       <select {...register('serviceType')} className="form-select">
@@ -338,90 +400,65 @@ export default function AdminProjects() {
 
               <hr className="border-gray-100"/>
 
-              {/* Team Selection with Salary Allocations */}
               <div>
-                <h4 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2"><FiUsers size={14}/> Team & Salary Allocation</h4>
-                <p className="text-xs text-gray-400 mb-3">Select team members, then assign salary and commission per employee from the project budget.</p>
-
-                {/* Budget Summary Bar */}
-                {budget > 0 && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                    <div className="flex justify-between text-xs font-semibold text-blue-800 mb-2">
-                      <span>Budget: LKR {budget.toLocaleString()}</span>
-                      <span className={remaining < 0 ? 'text-red-600' : 'text-green-600'}>
-                        Remaining: LKR {remaining.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="progress-bar h-1.5">
-                      <div className="progress-fill" style={{
-                        width: `${Math.min(100, ((totalAllocated + totalCommission) / budget) * 100)}%`,
-                        backgroundColor: remaining < 0 ? '#ef4444' : '#2563eb'
-                      }}/>
-                    </div>
-                    <div className="flex justify-between text-xs text-blue-600 mt-1">
-                      <span>Salary: LKR {totalAllocated.toLocaleString()}</span>
-                      <span>Commission: LKR {totalCommission.toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Employee Checkboxes + Allocation Rows */}
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-12 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    <div className="col-span-1">✓</div>
-                    <div className="col-span-4">Employee</div>
-                    <div className="col-span-2 text-right">Basic Sal.</div>
-                    <div className="col-span-2.5">Salary Alloc. (LKR)</div>
-                    <div className="col-span-2.5">Commission (LKR)</div>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
-                    {employees.map(emp => {
-                      const isSelected = selectedTeam.includes(emp.userId?._id)
-                      const alloc = salaryAllocations.find(a => a.employeeId === emp._id)
-                      return (
-                        <div key={emp._id} className={`grid grid-cols-12 items-center px-4 py-2.5 transition-colors ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
-                          <div className="col-span-1">
-                            <input type="checkbox" checked={isSelected} onChange={() => toggleTeamMember(emp)}
-                              className="w-4 h-4 accent-secondary cursor-pointer"/>
+                <h4 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2"><FiUsers size={14}/> Team & Commissions</h4>
+                <p className="text-xs text-gray-400 mb-3">Assign employees and enter a commission for each selected member (required). Salary allocation is not used on projects.</p>
+                <div className="grid grid-cols-[1fr_140px] gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-t-xl text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <span>Employee</span>
+                  <span>Commission (LKR) *</span>
+                </div>
+                <div className="border border-t-0 border-gray-100 rounded-b-xl overflow-hidden max-h-72 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
+                  {employees.map(emp => {
+                    const isSelected = selectedTeam.includes(emp.userId?._id)
+                    const alloc = commissionAllocations.find((a) => String(a.employeeId) === String(emp._id))
+                    return (
+                      <div key={emp._id} className={`grid grid-cols-[1fr_140px] gap-2 items-center px-4 py-2.5 ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
+                        <label className="flex items-center gap-3 cursor-pointer min-w-0">
+                          <input type="checkbox" checked={isSelected} onChange={() => toggleTeamMember(emp)} className="w-4 h-4 accent-secondary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{emp.userId?.name}</p>
+                            <p className="text-xs text-gray-400 truncate">{emp.designation} · {emp.employeeNo}</p>
                           </div>
-                          <div className="col-span-4">
-                            <p className="text-sm font-medium text-gray-800">{emp.userId?.name}</p>
-                            <p className="text-xs text-gray-400">{emp.designation} · {emp.employeeNo}</p>
-                          </div>
-                          <div className="col-span-2 text-right text-xs text-gray-500 pr-2">
-                            LKR {(emp.basicSalary || 0).toLocaleString()}
-                          </div>
-                          <div className="col-span-2 pr-1">
-                            {isSelected ? (
-                              <input type="number" min={0} placeholder="0"
-                                value={alloc?.salary || ''}
-                                onChange={e => updateAllocation(emp._id, 'salary', e.target.value)}
-                                className="form-input py-1.5 text-xs w-full"/>
-                            ) : <span className="text-gray-300 text-xs px-2">—</span>}
-                          </div>
-                          <div className="col-span-2 pl-1">
-                            {isSelected ? (
-                              <input type="number" min={0} placeholder="0"
-                                value={alloc?.commission || ''}
-                                onChange={e => updateAllocation(emp._id, 'commission', e.target.value)}
-                                className="form-input py-1.5 text-xs w-full"/>
-                            ) : <span className="text-gray-300 text-xs px-2">—</span>}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {employees.length === 0 && (
-                      <div className="text-center py-6 text-gray-400 text-sm">No employees found</div>
-                    )}
-                  </div>
-                  {selectedTeam.length > 0 && (
-                    <div className="grid grid-cols-12 px-4 py-2 bg-gray-50 border-t border-gray-100 text-xs font-semibold text-gray-700">
-                      <div className="col-span-7 text-right pr-2">{selectedTeam.length} selected</div>
-                      <div className="col-span-2 pr-1 text-blue-700">LKR {totalAllocated.toLocaleString()}</div>
-                      <div className="col-span-2 pl-1 text-purple-700">LKR {totalCommission.toLocaleString()}</div>
-                    </div>
+                        </label>
+                        {isSelected ? (
+                          <input
+                            type="number"
+                            min={0}
+                            className="form-input py-1.5 text-sm"
+                            placeholder="0"
+                            value={alloc?.commission ?? ''}
+                            onChange={(e) => updateCommission(emp._id, e.target.value)}
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-300 text-center">—</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {employees.length === 0 && (
+                    <div className="text-center py-6 text-gray-400 text-sm">No employees found</div>
                   )}
                 </div>
+                {budget > 0 && selectedTeam.length > 0 && (
+                  <div className="mt-3 p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs space-y-2">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Total commission allocated</span>
+                      <span className="font-bold text-purple-700">LKR {totalCommission.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500">
+                      <span>Remaining from budget</span>
+                      <span className={commissionRemaining < 0 ? 'text-red-600 font-semibold' : 'text-emerald-600 font-medium'}>
+                        LKR {commissionRemaining.toLocaleString()}
+                      </span>
+                    </div>
+                    {commissionRemaining < 0 && (
+                      <p className="text-red-600 text-[11px]">Commission total exceeds project budget.</p>
+                    )}
+                  </div>
+                )}
+                {selectedTeam.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-2">{selectedTeam.length} team member(s) — commission required for each</p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">

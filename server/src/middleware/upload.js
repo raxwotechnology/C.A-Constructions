@@ -1,11 +1,16 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { uploadSubdir } = require('../utils/uploadsPath');
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
 
 // Local storage for CVs
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.resolve(process.cwd(), 'uploads/cvs');
+    const dir = uploadSubdir('cvs');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -42,8 +47,8 @@ exports.uploadImage = multer({
 // Local image upload for profile/site/portfolio/services
 const imageDiskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.resolve(process.cwd(), 'uploads/images');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const dir = uploadSubdir('images');
+    ensureDir(dir);
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -64,8 +69,8 @@ exports.uploadImageLocal = multer({
 // ── Agreement upload (PDF, DOC, DOCX, images) ──────────
 const agreementStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.resolve(process.cwd(), 'uploads/agreements');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const dir = uploadSubdir('agreements');
+    ensureDir(dir);
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -88,8 +93,8 @@ exports.uploadAgreement = multer({
 // ── Bill / Receipt upload (PDF, images) ─────────────────
 const billStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.resolve(process.cwd(), 'uploads/bills');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const dir = uploadSubdir('bills');
+    ensureDir(dir);
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -111,8 +116,8 @@ exports.uploadBill = multer({
 // ── Generic document upload (PDF + images, 5MB) ─────────
 const docStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.resolve(process.cwd(), 'uploads/documents');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const dir = uploadSubdir('documents');
+    ensureDir(dir);
     cb(null, dir);
   },
   filename: (req, file, cb) => {

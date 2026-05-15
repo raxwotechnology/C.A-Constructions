@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiUsers, FiMail, FiPhone, FiFolder, FiPlus, FiEdit2, FiX, FiTrash2 } from 'react-icons/fi'
+import { FiUsers, FiMail, FiPhone, FiFolder, FiPlus, FiEdit2, FiX, FiTrash2, FiSearch } from 'react-icons/fi'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -11,8 +11,10 @@ export default function AdminClients() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', referralCode: '', branch: '' })
   const [editingClient, setEditingClient] = useState(null)
-  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', isActive: true, branch: '' })
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', isActive: true, branch: '', referralCode: '', newPassword: '' })
   const [branchFilter, setBranchFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -38,7 +40,12 @@ export default function AdminClients() {
   })
 
   const updateClientMut = useMutation({
-    mutationFn: ({ id, payload }) => api.put(`/auth/users/${id}`, payload).then((r) => r.data),
+    mutationFn: async ({ id, payload, newPassword }) => {
+      if (newPassword?.trim()) {
+        await api.put(`/auth/users/${id}/password`, { newPassword: newPassword.trim() })
+      }
+      return api.put(`/auth/users/${id}`, payload).then((r) => r.data)
+    },
     onSuccess: () => {
       toast.success('Client updated')
       setEditingClient(null)
@@ -58,6 +65,22 @@ export default function AdminClients() {
 
   const clients = data?.clients || []
 
+  const filteredClients = clients.filter((c) => {
+    const q = search.trim().toLowerCase()
+    const matchesSearch = !q || [
+      c.name,
+      c.email,
+      c.phone,
+      c.profile?.companyName,
+      c.referralCode,
+      c.branch?.name,
+    ].some((f) => String(f || '').toLowerCase().includes(q))
+    const matchesStatus =
+      !statusFilter ||
+      (statusFilter === 'active' ? c.isActive !== false : c.isActive === false)
+    return matchesSearch && matchesStatus
+  })
+
   const getClientProjects = (clientId) =>
     (projData?.projects || []).filter(p => p.client?._id === clientId || p.client === clientId)
 
@@ -66,8 +89,29 @@ export default function AdminClients() {
       <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Clients</h1>
-          <p className="page-subtitle">{clients.length} registered clients</p>
+          <p className="page-subtitle">
+            {filteredClients.length === clients.length
+              ? `${clients.length} registered clients`
+              : `${filteredClients.length} of ${clients.length} clients`}
+          </p>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-48">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, email, phone, company…"
+            className="form-input pl-9"
+          />
+        </div>
+        <select className="form-select w-full sm:w-40" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
         <select className="form-select w-full sm:w-48" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
           <option value="">All Branches</option>
           {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
@@ -96,7 +140,7 @@ export default function AdminClients() {
         <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin"/></div>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {clients.map(client => {
+          {filteredClients.map(client => {
             const projects = getClientProjects(client._id)
             return (
               <div key={client._id} className="card card-body card-hover">
@@ -154,6 +198,8 @@ export default function AdminClients() {
                         phone: client.phone || '',
                         isActive: Boolean(client.isActive),
                         branch: client.branch?._id || client.branch || '',
+                        referralCode: client.referralCode || '',
+                        newPassword: '',
                       })
                     }}>
                     <FiEdit2 size={13} /> Edit Login
@@ -165,10 +211,10 @@ export default function AdminClients() {
               </div>
             )
           })}
-          {clients.length === 0 && (
+          {filteredClients.length === 0 && (
             <div className="col-span-3 text-center py-16 text-gray-400">
               <FiUsers size={40} className="mx-auto mb-2 opacity-30"/>
-              <p>No clients yet. Clients register via the public portal.</p>
+              <p>{clients.length === 0 ? 'No clients yet. Clients register via the public portal.' : 'No clients match your filters.'}</p>
             </div>
           )}
         </div>
@@ -179,7 +225,7 @@ export default function AdminClients() {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
               <div className="p-5 border-b flex items-center justify-between">
-                <h3 className="text-lg font-bold text-primary font-heading">Edit Client Login Info</h3>
+                <h3 className="text-lg font-bold text-primary font-heading">Edit Client Account</h3>
                 <button className="p-2 hover:bg-slate-100 rounded-lg" onClick={() => setEditingClient(null)}><FiX /></button>
               </div>
               <div className="p-5 space-y-3">
@@ -194,9 +240,35 @@ export default function AdminClients() {
                   <option value="">No branch</option>
                   {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
                 </select>
+                <input className="form-input" placeholder="Referral code" value={editForm.referralCode} onChange={(e) => setEditForm((s) => ({ ...s, referralCode: e.target.value.toUpperCase() }))} />
+                <input
+                  className="form-input"
+                  type="password"
+                  placeholder="New login password (optional)"
+                  value={editForm.newPassword}
+                  onChange={(e) => setEditForm((s) => ({ ...s, newPassword: e.target.value }))}
+                />
+                <p className="text-xs text-slate-500">Leave blank to keep the current password. Must be 8+ chars with upper, lower, and a number.</p>
                 <div className="flex gap-3">
                   <button className="btn-ghost flex-1 justify-center" onClick={() => setEditingClient(null)}>Cancel</button>
-                  <button className="btn-primary flex-1 justify-center" onClick={() => updateClientMut.mutate({ id: editingClient._id, payload: editForm })} disabled={updateClientMut.isPending}>Save</button>
+                  <button
+                    className="btn-primary flex-1 justify-center"
+                    onClick={() => updateClientMut.mutate({
+                      id: editingClient._id,
+                      payload: {
+                        name: editForm.name,
+                        email: editForm.email,
+                        phone: editForm.phone,
+                        isActive: editForm.isActive,
+                        branch: editForm.branch,
+                        referralCode: editForm.referralCode,
+                      },
+                      newPassword: editForm.newPassword,
+                    })}
+                    disabled={updateClientMut.isPending}
+                  >
+                    Save
+                  </button>
                 </div>
               </div>
             </motion.div>

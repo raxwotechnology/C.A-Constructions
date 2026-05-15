@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiCheck, FiEdit2, FiTrash2, FiCreditCard, FiTrendingUp, FiTrendingDown, FiDollarSign } from 'react-icons/fi'
+import { Link } from 'react-router-dom'
+import { FiPlus, FiX, FiCheck, FiEdit2, FiTrash2, FiCreditCard, FiTrendingUp, FiTrendingDown, FiList, FiClipboard } from 'react-icons/fi'
 
 const EMPTY = { bankName: '', accountNumber: '', accountHolder: '', accountType: 'current', branchName: '', currentBalance: 0, currency: 'LKR', notes: '' }
 
@@ -15,6 +16,14 @@ export default function AdminBankManagement() {
   const [form, setForm] = useState(EMPTY)
   const [txnTarget, setTxnTarget] = useState(null)
   const [txnForm, setTxnForm] = useState({ type: 'deposit', amount: '', description: '', date: new Date().toISOString().split('T')[0] })
+  const [historyAccount, setHistoryAccount] = useState(null)
+  const [historyPage, setHistoryPage] = useState(1)
+
+  const { data: historyData, isLoading: historyLoading } = useQuery({
+    queryKey: ['bank-tx-history', historyAccount?._id, historyPage],
+    queryFn: () => api.get(`/bank-accounts/${historyAccount._id}/transactions?page=${historyPage}&limit=25`).then(r => r.data),
+    enabled: Boolean(historyAccount?._id),
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['bank-accounts'],
@@ -61,7 +70,10 @@ export default function AdminBankManagement() {
           <h1 className="page-title">Bank Management</h1>
           <p className="page-subtitle">{accounts.filter(a => a.isActive).length} active accounts · Total Balance: <strong className="text-emerald-600">LKR {totalBalance.toLocaleString()}</strong></p>
         </div>
-        <button onClick={() => { setForm(EMPTY); setEditing(null); setShowCreate(true) }} className="btn-primary gap-2"><FiPlus size={14} />Add Account</button>
+        <div className="flex gap-2">
+          <Link to="/admin/bank-transactions" className="btn-ghost gap-2"><FiClipboard size={14} />Transaction History</Link>
+          <button onClick={() => { setForm(EMPTY); setEditing(null); setShowCreate(true) }} className="btn-primary gap-2"><FiPlus size={14} />Add Account</button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -125,7 +137,11 @@ export default function AdminBankManagement() {
               </div>
 
               <div className="flex gap-2 pt-1">
-                <button onClick={() => setTxnTarget(acc)}
+                <button type="button" onClick={() => { setHistoryAccount(acc); setHistoryPage(1) }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors">
+                  <FiList size={12} /> History
+                </button>
+                <button type="button" onClick={() => setTxnTarget(acc)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg transition-colors">
                   <FiTrendingUp size={12} /> Transaction
                 </button>
@@ -256,6 +272,55 @@ export default function AdminBankManagement() {
                 Record {txnForm.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
               </button>
             </div>
+          </motion.div>
+        </div>, document.body
+      )}
+
+      {historyAccount && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h3 className="font-bold text-primary font-heading">Transaction history</h3>
+                <p className="text-xs text-slate-500">{historyAccount.bankName} · {historyAccount.accountNumber}</p>
+              </div>
+              <button type="button" onClick={() => setHistoryAccount(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
+            </div>
+            <div className="overflow-auto flex-1 p-4">
+              {historyLoading ? <p className="text-center py-8 text-slate-400">Loading…</p> : (
+                <table className="table text-sm">
+                  <thead>
+                    <tr>
+                      <th>Date</th><th>Type</th><th>Reference</th><th>Module</th><th>Amount</th>
+                      <th>Before</th><th>After</th><th>By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(historyData?.transactions || []).length === 0 ? (
+                      <tr><td colSpan={8} className="text-center py-8 text-slate-400">No transactions</td></tr>
+                    ) : historyData.transactions.map(tx => (
+                      <tr key={tx._id}>
+                        <td>{tx.date ? new Date(tx.date).toLocaleString('en-LK') : '—'}</td>
+                        <td className="capitalize">{tx.transactionType || tx.type}</td>
+                        <td className="font-mono text-xs">{tx.referenceId || '—'}</td>
+                        <td className="capitalize">{tx.moduleSource || '—'}</td>
+                        <td className={tx.type === 'deposit' ? 'text-emerald-600 font-medium' : 'text-red-600 font-medium'}>
+                          {tx.type === 'deposit' ? '+' : '-'} LKR {(tx.amount || 0).toLocaleString()}
+                        </td>
+                        <td>LKR {(tx.balanceBefore ?? 0).toLocaleString()}</td>
+                        <td>LKR {(tx.balanceAfter ?? 0).toLocaleString()}</td>
+                        <td>{tx.performedBy || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {historyData?.hasMore && (
+              <div className="p-4 border-t flex justify-center">
+                <button type="button" className="btn-outline btn-sm" onClick={() => setHistoryPage(p => p + 1)}>Load more</button>
+              </div>
+            )}
           </motion.div>
         </div>, document.body
       )}

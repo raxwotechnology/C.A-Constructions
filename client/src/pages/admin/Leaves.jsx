@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import { FiCheck, FiX, FiCalendar, FiPlus, FiEye, FiEdit2, FiTrash2, FiFilter } from 'react-icons/fi'
 
@@ -61,7 +62,7 @@ export default function AdminLeaves() {
 
   const { data: employeesData } = useQuery({
     queryKey: ['employees-mini'],
-    queryFn: () => api.get('/employees').then(r => r.data),
+    queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data),
     enabled: showAssign,
   })
   const employees = employeesData?.employees || []

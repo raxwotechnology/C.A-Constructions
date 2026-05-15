@@ -4,6 +4,7 @@ const {
   getEmployees, getEmployee, getMyProfile, createEmployee,
   updateEmployee, deleteEmployee, getStats, getEmployeeActivity,
   convertIntern, removeIntern,
+  adminSetEmployeePassword, adminResetEmployeePassword, adminSendPasswordResetEmail,
 } = require('../controllers/employeeController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -11,6 +12,9 @@ router.get('/stats', protect, authorize('admin', 'manager'), getStats);
 router.get('/me', protect, getMyProfile);
 router.get('/', protect, authorize('admin', 'manager'), getEmployees);
 router.get('/:id/activity', protect, authorize('admin', 'manager'), getEmployeeActivity);
+router.put('/:id/password', protect, authorize('admin'), adminSetEmployeePassword);
+router.post('/:id/reset-password', protect, authorize('admin'), adminResetEmployeePassword);
+router.post('/:id/send-password-reset', protect, authorize('admin'), adminSendPasswordResetEmail);
 router.get('/:id', protect, getEmployee);
 router.post('/', protect, authorize('admin', 'manager'), createEmployee);
 router.put('/:id/convert-intern', protect, authorize('admin'), convertIntern);

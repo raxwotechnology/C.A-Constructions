@@ -23,6 +23,7 @@ const loanSchema = new mongoose.Schema({
   installmentsPaid: { type: Number, default: 0 },
   repaymentMonths: { type: Number, default: 0 },
   totalInstallments: { type: Number, default: 0 }, // auto-calculated
+  payrollDeductionPaused: { type: Boolean, default: false },
 
   status: {
     type: String,

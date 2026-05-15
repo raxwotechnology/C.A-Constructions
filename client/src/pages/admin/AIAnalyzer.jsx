@@ -7,8 +7,9 @@ import {
   LineChart, Line, BarChart, Bar
 } from 'recharts'
 import { FiZap, FiTrendingUp, FiTrendingDown, FiActivity, FiAlertTriangle, FiCheckCircle } from 'react-icons/fi'
+import { formatMoney, chartMoneyTick, tooltipMoney } from '../../lib/currencies'
 
-const fmt = v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v || 0)
+const money = (v) => formatMoney(v)
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 export default function AdminAIAnalyzer() {
@@ -67,8 +68,8 @@ export default function AdminAIAnalyzer() {
           {/* Prediction Cards */}
           <div className="grid sm:grid-cols-3 gap-4">
             {[
-              { label: 'Revenue Prediction', val: `LKR ${fmt(predictions.revenue?.nextValue || 0)}`, trend: predictions.revenue?.trend || 0, sub: `vs prev period`, color: 'kpi-blue' },
-              { label: 'Payroll Prediction', val: `LKR ${fmt(predictions.payroll?.nextValue || 0)}`, trend: predictions.payroll?.trend || 0, sub: 'expected payroll cost', color: 'kpi-green' },
+              { label: 'Revenue Prediction', val: money(predictions.revenue?.nextValue || 0), trend: predictions.revenue?.trend || 0, sub: `vs prev period`, color: 'kpi-blue' },
+              { label: 'Payroll Prediction', val: money(predictions.payroll?.nextValue || 0), trend: predictions.payroll?.trend || 0, sub: 'expected payroll cost', color: 'kpi-green' },
               { label: 'New Projects', val: `${predictions.projects?.nextValue || 0} projects`, trend: predictions.projects?.trend || 0, sub: 'expected new projects', color: 'kpi-purple' },
             ].map((c, i) => (
               <motion.div key={c.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className={`kpi-card ${c.color}`}>
@@ -125,7 +126,7 @@ export default function AdminAIAnalyzer() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
-                <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)}/>
+                <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
                 <Tooltip formatter={(v, n) => [v ? `LKR ${Number(v).toLocaleString()}` : '—', n]} contentStyle={{ borderRadius: '10px', fontSize: '12px' }}/>
                 <Area type="monotone" dataKey="actual" name="Actual" stroke="#2563EB" strokeWidth={2.5} fill="url(#revGrad2)" dot={{ fill: '#2563EB', r: 3 }} connectNulls={false}/>
                 <Area type="monotone" dataKey="predicted" name="Predicted" stroke="#8B5CF6" strokeWidth={2.5} strokeDasharray="6 3" fill="none" dot={{ fill: '#8B5CF6', r: 5 }} connectNulls={false}/>
@@ -142,8 +143,8 @@ export default function AdminAIAnalyzer() {
                 <LineChart data={payChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)}/>
-                  <Tooltip formatter={v => v ? `LKR ${Number(v).toLocaleString()}` : '—'} contentStyle={{ borderRadius: '10px', fontSize: '12px' }}/>
+                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
+                  <Tooltip formatter={(v) => (v != null ? tooltipMoney(v, '') : ['—', ''])} contentStyle={{ borderRadius: '10px', fontSize: '12px' }}/>
                   <Line type="monotone" dataKey="actual" name="Actual" stroke="#22C55E" strokeWidth={2.5} dot={{ fill: '#22C55E', r: 3 }} connectNulls={false}/>
                   <Line type="monotone" dataKey="predicted" name="Predicted" stroke="#F59E0B" strokeWidth={2.5} strokeDasharray="6 3" dot={{ fill: '#F59E0B', r: 5 }} connectNulls={false}/>
                 </LineChart>

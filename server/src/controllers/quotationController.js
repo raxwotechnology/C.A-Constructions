@@ -182,6 +182,7 @@ exports.convertToInvoice = async (req, res, next) => {
       taxRate: quotation.taxRate,
       total: quotation.total,
       currency: quotation.currency,
+      exchangeRateToLKR: quotation.exchangeRateToLKR || 1,
       notes: quotation.notes,
       paymentTerms: quotation.terms,
       branch: quotation.branch,

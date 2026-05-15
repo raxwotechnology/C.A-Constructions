@@ -13,13 +13,21 @@ const advanceSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
   reason: { type: String, default: '' },
 
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'card', 'bank_transfer'],
+    default: 'cash',
+  },
+  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
+  paymentReference: { type: String, default: '' },
+
   repaymentType: {
     type: String,
     enum: ['lump_sum', 'installments'],
     default: 'lump_sum',
   },
   installments: { type: Number, default: 1 },
-  monthlyDeduction: { type: Number, default: 0 }, // auto-calculated
+  monthlyDeduction: { type: Number, default: 0 },
 
   totalRecovered: { type: Number, default: 0 },
   outstandingBalance: { type: Number, default: 0 },
@@ -32,7 +40,6 @@ const advanceSchema = new mongoose.Schema({
   recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
-// Pre-save: calculate monthlyDeduction and outstandingBalance
 advanceSchema.pre('save', function (next) {
   if (this.repaymentType === 'installments' && this.installments > 0) {
     this.monthlyDeduction = parseFloat((this.amount / this.installments).toFixed(2));

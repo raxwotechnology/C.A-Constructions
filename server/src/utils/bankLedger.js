@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 /**
  * True when money should move on a company bank account (when bankAccount id is set).
- * Accepts UI labels ("Bank Transfer"), enums ("bank_transfer"), and mixed casing.
  */
 function isLedgerBankMethod(method) {
   const raw = String(method || '').trim();
@@ -17,7 +16,6 @@ function isLedgerBankMethod(method) {
   return false;
 }
 
-/** FinanceEntry uses Title Case labels in the admin UI */
 function isFinanceBankMethod(paymentMethod) {
   const p = String(paymentMethod || '').trim();
   if (['Bank Transfer', 'Card', 'Online Payment'].includes(p)) return true;
@@ -26,7 +24,6 @@ function isFinanceBankMethod(paymentMethod) {
 
 /**
  * Append one ledger line and update currentBalance.
- * @param {'deposit'|'withdrawal'} txType
  */
 async function appendBankTransaction(bankAccountId, {
   type: txType,
@@ -34,7 +31,12 @@ async function appendBankTransaction(bankAccountId, {
   description = '',
   date,
   reference = '',
+  referenceId = '',
+  moduleSource = 'manual',
+  sourceType = '',
+  sourceId,
   recordedBy,
+  paymentMethod = '',
 }) {
   if (!bankAccountId || !mongoose.Types.ObjectId.isValid(String(bankAccountId))) return null;
   const BankAccount = require('../models/BankAccount');
@@ -42,16 +44,27 @@ async function appendBankTransaction(bankAccountId, {
   if (!account) return null;
   const amt = Math.abs(Number(amount) || 0);
   if (!amt) return null;
+
+  const balanceBefore = account.currentBalance || 0;
   const isCredit = txType === 'deposit' || txType === 'transfer_in';
   const delta = isCredit ? amt : -amt;
-  account.currentBalance = (account.currentBalance || 0) + delta;
+  account.currentBalance = balanceBefore + delta;
+
+  const ref = String(referenceId || reference || '').slice(0, 200);
+  const payLabel = String(paymentMethod || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
   account.transactions.push({
     type: isCredit ? 'deposit' : 'withdrawal',
+    transactionType: payLabel || txType,
     amount: amt,
+    balanceBefore,
     balanceAfter: account.currentBalance,
     description: String(description || '').slice(0, 500),
     date: date ? new Date(date) : new Date(),
-    reference: String(reference || '').slice(0, 200),
+    reference: ref,
+    referenceId: ref,
+    moduleSource: String(moduleSource || 'manual').slice(0, 80),
+    sourceType: String(sourceType || '').slice(0, 80),
+    sourceId: sourceId && mongoose.Types.ObjectId.isValid(String(sourceId)) ? sourceId : undefined,
     recordedBy: recordedBy || undefined,
   });
   await account.save();

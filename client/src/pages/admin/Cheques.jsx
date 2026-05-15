@@ -4,10 +4,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiTrash2, FiEye, FiX } from 'react-icons/fi'
+import { statusNeedsBankLedger } from '../../lib/chequeLedger'
 
 const STATUS_BADGE = {
   pending: 'badge-yellow',
+  unpaid: 'badge-yellow',
+  paid: 'badge-green',
   cleared: 'badge-green',
+  bounced: 'badge-red',
+  expected: 'badge-gray',
+  received: 'badge-blue',
+  deposited: 'badge-green',
   returned: 'badge-red',
   renewed: 'badge-blue',
 }
@@ -23,7 +30,7 @@ function fmtDate(d) {
 
 export default function AdminCheques() {
   const qc = useQueryClient()
-  const [filter, setFilter] = useState({ status: '', source: '' })
+  const [filter, setFilter] = useState({ status: '', source: '', direction: '', fromDate: '', toDate: '' })
   const [viewId, setViewId] = useState(null)
   /** Row from list when GET /cheques/:id is missing on older APIs */
   const [viewFallback, setViewFallback] = useState(null)
@@ -47,6 +54,9 @@ export default function AdminCheques() {
   const qs = new URLSearchParams()
   if (filter.status) qs.set('status', filter.status)
   if (filter.source) qs.set('source', filter.source)
+  if (filter.direction) qs.set('direction', filter.direction)
+  if (filter.fromDate) qs.set('fromDate', filter.fromDate)
+  if (filter.toDate) qs.set('toDate', filter.toDate)
 
   const { data, isLoading } = useQuery({
     queryKey: ['cheques', filter],
@@ -107,12 +117,33 @@ export default function AdminCheques() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, body }) => api.put(`/cheques/${id}`, body).then((r) => r.data),
-    onSuccess: () => {
-      toast.success('Updated')
+    onSuccess: (data) => {
+      if (data?.bankUpdated) {
+        toast.success('Cheque updated — bank balance adjusted')
+      } else {
+        toast.success('Updated')
+      }
       qc.invalidateQueries({ queryKey: ['cheques'] })
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      qc.invalidateQueries({ queryKey: ['bank-tx-history-all'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
   })
+
+  const handleStatusChange = (cheque, newStatus) => {
+    const bankId = cheque.bankAccount?._id || cheque.bankAccount
+    if (statusNeedsBankLedger(newStatus, cheque.direction) && !bankId) {
+      toast.error('Select a bank account for this cheque before marking as paid or cleared')
+      return
+    }
+    const body = { status: newStatus }
+    if (bankId) body.bankAccount = bankId
+    updateMut.mutate({ id: cheque._id, body })
+  }
+
+  const handleBankChange = (chequeId, bankAccountId) => {
+    updateMut.mutate({ id: chequeId, body: { bankAccount: bankAccountId || undefined } })
+  }
 
   const deleteMut = useMutation({
     mutationFn: (id) => api.delete(`/cheques/${id}`),
@@ -155,13 +186,26 @@ export default function AdminCheques() {
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
+        <select className="form-select w-auto" value={filter.direction} onChange={(e) => setFilter((p) => ({ ...p, direction: e.target.value }))}>
+          <option value="">Incoming & outgoing</option>
+          <option value="incoming">Incoming</option>
+          <option value="outgoing">Outgoing</option>
+        </select>
         <select className="form-select w-auto" value={filter.status} onChange={(e) => setFilter((p) => ({ ...p, status: e.target.value }))}>
           <option value="">All statuses</option>
           <option value="pending">Pending</option>
+          <option value="unpaid">Unpaid</option>
+          <option value="paid">Paid</option>
           <option value="cleared">Cleared</option>
+          <option value="bounced">Bounced</option>
+          <option value="expected">Expected</option>
+          <option value="received">Received</option>
+          <option value="deposited">Deposited</option>
           <option value="returned">Returned</option>
           <option value="renewed">Renewed</option>
         </select>
+        <input type="date" className="form-input w-auto py-2 text-sm" value={filter.fromDate} onChange={(e) => setFilter((p) => ({ ...p, fromDate: e.target.value }))} />
+        <input type="date" className="form-input w-auto py-2 text-sm" value={filter.toDate} onChange={(e) => setFilter((p) => ({ ...p, toDate: e.target.value }))} />
         <select className="form-select w-auto" value={filter.source} onChange={(e) => setFilter((p) => ({ ...p, source: e.target.value }))}>
           <option value="">All sources</option>
           <option value="manual">Manual</option>
@@ -180,8 +224,10 @@ export default function AdminCheques() {
             <div>
               <label className="form-label">Direction</label>
               <select className="form-select" value={form.direction} onChange={(e) => f('direction')(e.target.value)}>
-                <option value="received">Received (income)</option>
-                <option value="issued">Issued (payment)</option>
+                <option value="incoming">Incoming cheque</option>
+                <option value="outgoing">Outgoing cheque</option>
+                <option value="received">Received (legacy)</option>
+                <option value="issued">Issued (legacy)</option>
               </select>
             </div>
             <div>
@@ -199,7 +245,13 @@ export default function AdminCheques() {
               <label className="form-label">Status</label>
               <select className="form-select" value={form.status} onChange={(e) => f('status')(e.target.value)}>
                 <option value="pending">Pending</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="paid">Paid</option>
+                <option value="expected">Expected</option>
+                <option value="received">Received</option>
+                <option value="deposited">Deposited</option>
                 <option value="cleared">Cleared</option>
+                <option value="bounced">Bounced</option>
                 <option value="returned">Returned</option>
                 <option value="renewed">Renewed</option>
               </select>
@@ -264,6 +316,7 @@ export default function AdminCheques() {
                 <th>Direction</th>
                 <th>Source</th>
                 <th>Amount</th>
+                <th>Bank account</th>
                 <th>Status</th>
                 <th className="text-right">Actions</th>
               </tr>
@@ -271,7 +324,7 @@ export default function AdminCheques() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={6} className="text-center py-10">
+                  <td colSpan={7} className="text-center py-10">
                     <div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" />
                   </td>
                 </tr>
@@ -288,11 +341,23 @@ export default function AdminCheques() {
                     <td className="font-semibold">LKR {Number(c.amount || 0).toLocaleString()}</td>
                     <td>
                       <select
+                        className="form-select py-1 text-xs min-w-[140px]"
+                        value={c.bankAccount?._id || c.bankAccount || ''}
+                        onChange={(e) => handleBankChange(c._id, e.target.value)}
+                      >
+                        <option value="">— Select bank —</option>
+                        {banks.filter((b) => b.isActive !== false).map((b) => (
+                          <option key={b._id} value={b._id}>{b.bankName} · {b.accountNumber}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
                         className={`form-select py-1 text-xs capitalize ${STATUS_BADGE[c.status] || 'badge-gray'}`}
                         value={c.status}
-                        onChange={(e) => updateMut.mutate({ id: c._id, body: { status: e.target.value } })}
+                        onChange={(e) => handleStatusChange(c, e.target.value)}
                       >
-                        {['pending', 'cleared', 'returned', 'renewed'].map((s) => (
+                        {['pending', 'unpaid', 'paid', 'expected', 'received', 'deposited', 'cleared', 'bounced', 'returned', 'renewed'].map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
@@ -321,7 +386,7 @@ export default function AdminCheques() {
                 ))}
               {!isLoading && cheques.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400">
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
                     No cheques yet. Add one or record subscription payments as cheque.
                   </td>
                 </tr>

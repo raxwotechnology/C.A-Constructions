@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Loan = require('../models/Loan');
 const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
@@ -37,11 +38,20 @@ exports.getEmployeeLoanSummary = async (req, res, next) => {
 
     const Advance = require('../models/Advance');
     const advances = await Advance.find({ employee: req.params.employeeId, status: 'active' });
-    const activeLoans = await Loan.find({ employee: req.params.employeeId, status: 'active' });
+    const activeLoans = await Loan.find({
+      employee: req.params.employeeId,
+      status: 'active',
+      deductionType: 'salary',
+      payrollDeductionPaused: { $ne: true },
+    });
 
     const totalAdvanceBalance = advances.reduce((s, a) => s + (a.outstandingBalance || 0), 0);
+    const suggestedAdvanceDeduction = advances.reduce((s, a) => {
+      const due = Math.min(Number(a.monthlyDeduction || 0) || Number(a.outstandingBalance || 0), Number(a.outstandingBalance || 0));
+      return sum + due;
+    }, 0);
     const totalLoanBalance = activeLoans.reduce((s, l) => s + (l.outstandingBalance || 0), 0);
-    const totalMonthlyLoanDeductions = activeLoans.reduce((s, l) => s + (l.monthlyInstallment || 0), 0);
+    const totalMonthlyLoanDeductions = activeLoans.reduce((s, l) => sum + (l.monthlyInstallment || 0), 0);
 
     res.json({
       success: true,
@@ -51,14 +61,27 @@ exports.getEmployeeLoanSummary = async (req, res, next) => {
         basicSalary: emp.basicSalary || 0,
         allowances: emp.allowances || 0,
         totalAdvanceBalance,
+        suggestedAdvanceDeduction,
+        activeAdvancesCount: advances.length,
+        activeAdvances: advances.map((a) => ({
+          _id: a._id,
+          amount: a.amount,
+          outstandingBalance: a.outstandingBalance,
+          monthlyDeduction: a.monthlyDeduction,
+          reason: a.reason,
+        })),
         totalLoanBalance,
         totalMonthlyLoanDeductions,
         activeLoansCount: activeLoans.length,
-        activeLoans: activeLoans.map(l => ({
+        activeLoans: activeLoans.map((l) => ({
           _id: l._id,
           totalAmount: l.totalAmount,
           outstandingBalance: l.outstandingBalance,
           monthlyInstallment: l.monthlyInstallment,
+          deductionType: l.deductionType,
+          installmentsPaid: l.installmentsPaid || 0,
+          totalInstallments: l.totalInstallments || 0,
+          remainingMonths: Math.max(0, (l.totalInstallments || 0) - (l.installmentsPaid || 0)),
           reason: l.reason,
         })),
       }
@@ -187,8 +210,28 @@ exports.recordPayment = async (req, res, next) => {
     if (!loan) return res.status(404).json({ success: false, message: 'Loan not found' });
 
     const payAmt = Number(amount);
-    const bankAccount = req.body.bankAccount;
-    loan.payments.push({ amount: payAmt, date: date || new Date(), payrollId, note, method: method || 'salary_deduction', bankAccount });
+    if (!payAmt || payAmt <= 0) {
+      return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero' });
+    }
+
+    const payMethod = method || 'salary_deduction';
+    let bankAccount = req.body.bankAccount;
+    if (bankAccount && !mongoose.Types.ObjectId.isValid(String(bankAccount))) {
+      return res.status(400).json({ success: false, message: 'Invalid bank account' });
+    }
+    if (!isLedgerBankMethod(payMethod)) bankAccount = undefined;
+    if (isLedgerBankMethod(payMethod) && !bankAccount) {
+      return res.status(400).json({ success: false, message: 'Bank account is required for this payment method' });
+    }
+
+    loan.payments.push({
+      amount: payAmt,
+      date: date || new Date(),
+      payrollId,
+      note,
+      method: payMethod,
+      ...(bankAccount ? { bankAccount } : {}),
+    });
     loan.totalPaid = (loan.totalPaid || 0) + payAmt;
     loan.installmentsPaid = (loan.installmentsPaid || 0) + 1;
     loan.outstandingBalance = Math.max(0, loan.totalAmount - loan.totalPaid);
@@ -198,12 +241,16 @@ exports.recordPayment = async (req, res, next) => {
 
     await Employee.findByIdAndUpdate(loan.employee._id || loan.employee, { $inc: { loanBalance: -payAmt } });
 
-    if (bankAccount && isLedgerBankMethod(method)) {
+    if (bankAccount && isLedgerBankMethod(payMethod)) {
       await appendBankTransaction(bankAccount, {
         type: 'deposit',
         amount: payAmt,
         description: `Loan Repayment: ${loan.employee?.userId?.name || 'Employee'}`,
         date: date || new Date(),
+        moduleSource: 'loans',
+        sourceType: 'Loan',
+        sourceId: loan._id,
+        referenceId: `LOAN-PAY-${loan._id}`,
         recordedBy: req.user._id,
       });
     }

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
 import { FiFolder, FiCreditCard, FiCheckCircle, FiClock, FiTrendingUp, FiGift, FiServer } from 'react-icons/fi'
+import { formatMoney } from '../../lib/currencies'
 
 export default function ClientDashboard() {
   const { user } = useAuthStore()
@@ -55,8 +56,8 @@ export default function ClientDashboard() {
           { label:'Active Projects', value:activeProjects, icon:FiFolder, color:'kpi-blue' },
           { label:'Active Subs', value:activeSubs, icon:FiServer, color:'kpi-navy' },
           { label:'Pending Invoices', value:pendingInvoices, icon:FiClock, color:'kpi-orange' },
-          { label:'Overdue Subs', value:`LKR ${(overdueSubsAmount/1000).toFixed(0)}k`, icon:FiTrendingUp, color:'kpi-red' },
-          { label:'Total Paid', value:`LKR ${(totalPaid/1000).toFixed(0)}k`, icon:FiCreditCard, color:'kpi-purple' },
+          { label:'Overdue Subs', value: formatMoney(overdueSubsAmount), icon:FiTrendingUp, color:'kpi-red' },
+          { label:'Total Paid', value: formatMoney(totalPaid), icon:FiCreditCard, color:'kpi-purple' },
           { label:'Reward Points', value:rewardPoints, icon:FiGift, color:'kpi-green' },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} transition={{delay:i*0.08}}

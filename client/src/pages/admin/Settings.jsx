@@ -5,6 +5,7 @@ import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { FiSave, FiLock, FiUser } from 'react-icons/fi'
 import { useState } from 'react'
+import { mediaUrl } from '../../lib/media'
 
 export default function AdminSettings() {
   const { user, updateUser } = useAuthStore()
@@ -141,7 +142,7 @@ export default function AdminSettings() {
                 {avatarFile ? (
                   <img src={URL.createObjectURL(avatarFile)} alt="Preview" className="w-full h-full object-cover" />
                 ) : (!avatarToRemove && user?.avatar) ? (
-                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  <img src={mediaUrl(user.avatar)} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400"><FiUser size={30} /></div>
                 )}
@@ -229,7 +230,7 @@ export default function AdminSettings() {
                 {logoFile ? (
                   <img src={URL.createObjectURL(logoFile)} alt="Preview" className="max-h-full object-contain" />
                 ) : (!logoToRemove && siteData?.settings?.logoUrl) ? (
-                  <img src={siteData.settings.logoUrl} alt="Logo" className="max-h-full object-contain" />
+                  <img src={mediaUrl(siteData.settings.logoUrl)} alt="Logo" className="max-h-full object-contain" />
                 ) : (
                   <span className="text-[10px] text-gray-400">No Logo</span>
                 )}

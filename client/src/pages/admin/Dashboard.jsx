@@ -5,10 +5,11 @@ import { Link } from 'react-router-dom'
 import api from '../../lib/api'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { FiUsers, FiFolder, FiDollarSign, FiClock, FiBriefcase, FiCalendar, FiUserPlus, FiBarChart2, FiServer, FiCreditCard, FiShield, FiMapPin, FiFileText, FiTrendingUp, FiAlertTriangle, FiCheckCircle, FiArrowRight, FiZap, FiActivity, FiRefreshCw, FiUser, FiPieChart } from 'react-icons/fi'
+import { formatMoney, chartMoneyTick, tooltipMoney } from '../../lib/currencies'
 
 const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316']
 const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const fmt = v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v || 0)
+const money = (v) => formatMoney(v)
 const tt = { borderRadius: '10px', fontSize: '12px', border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }
 
 const QuickLink = ({ to, icon: Icon, label, color }) => (
@@ -78,10 +79,10 @@ export default function AdminDashboard() {
           {[
             { label: 'Total invoices', value: String(kpis.totalInvoices ?? 0), sub: 'All statuses', icon: FiFileText, accent: '#64748b', bg: 'bg-slate-50 text-slate-600' },
             { label: 'Paid invoices', value: String(kpis.paidInvoicesCount ?? 0), sub: 'Marked paid', icon: FiCheckCircle, accent: '#16a34a', bg: 'bg-green-50 text-green-700' },
-            { label: 'Pending payments', value: `LKR ${fmt(kpis.pendingPaymentsTotal || 0)}`, sub: 'Outstanding balances', icon: FiAlertTriangle, accent: '#ea580c', bg: 'bg-orange-50 text-orange-700', alert: (kpis.pendingPaymentsTotal || 0) > 0 },
-            { label: 'Bank balances', value: `LKR ${fmt(kpis.bankAccountsTotalBalance || 0)}`, sub: 'Active accounts', icon: FiBriefcase, accent: '#2563eb', bg: 'bg-blue-50 text-blue-700' },
-            { label: 'Income total', value: `LKR ${fmt(kpis.financeIncomeTotal || 0)}`, sub: 'Income entries (all time)', icon: FiTrendingUp, accent: '#059669', bg: 'bg-emerald-50 text-emerald-700' },
-            { label: 'Expense total', value: `LKR ${fmt(kpis.financeExpenseTotal || 0)}`, sub: 'Expense entries (all time)', icon: FiPieChart, accent: '#dc2626', bg: 'bg-red-50 text-red-700' },
+            { label: 'Pending payments', value: `${money(kpis.pendingPaymentsTotal || 0)}`, sub: 'Outstanding balances', icon: FiAlertTriangle, accent: '#ea580c', bg: 'bg-orange-50 text-orange-700', alert: (kpis.pendingPaymentsTotal || 0) > 0 },
+            { label: 'Bank balances', value: `${money(kpis.bankAccountsTotalBalance || 0)}`, sub: 'Active accounts', icon: FiBriefcase, accent: '#2563eb', bg: 'bg-blue-50 text-blue-700' },
+            { label: 'Income total', value: `${money(kpis.financeIncomeTotal || 0)}`, sub: 'Income entries (all time)', icon: FiTrendingUp, accent: '#059669', bg: 'bg-emerald-50 text-emerald-700' },
+            { label: 'Expense total', value: `${money(kpis.financeExpenseTotal || 0)}`, sub: 'Expense entries (all time)', icon: FiPieChart, accent: '#dc2626', bg: 'bg-red-50 text-red-700' },
           ].map((c, i) => (
             <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`card card-body relative overflow-hidden ${c.alert ? 'border-orange-200' : ''}`}>
               <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: c.accent, borderRadius: '12px 0 0 12px' }} />
@@ -103,10 +104,10 @@ export default function AdminDashboard() {
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💰 Income & Expense Metrics</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label:'Revenue (Month)', value:`LKR ${fmt(kpis.revenueMonth||0)}`, sub:`Today: ${fmt(kpis.revenueToday||0)}`, icon:FiTrendingUp, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
-            { label:'Expenses (Month)', value:`LKR ${fmt(kpis.expenseMonth||0)}`, sub:`Today: ${fmt(kpis.expenseToday||0)}`, icon:FiActivity, accent:'#ef4444', bg:'bg-red-50 text-red-600' },
-            { label:'Net Profit (Month)', value:`LKR ${fmt((kpis.revenueMonth||0) - (kpis.expenseMonth||0))}`, sub: 'Monthly margin', icon:FiDollarSign, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
-            { label:'Pending Invoices', value:`LKR ${fmt(kpis.outstandingInvoiceTotal||0)}`, sub:`${kpis.pendingInvoices||0} unpaid invoices`, icon:FiCreditCard, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:kpis.pendingInvoices>0 },
+            { label:'Revenue (Month)', value:`${money(kpis.revenueMonth||0)}`, sub:`Today: ${money(kpis.revenueToday||0)}`, icon:FiTrendingUp, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
+            { label:'Expenses (Month)', value:`${money(kpis.expenseMonth||0)}`, sub:`Today: ${money(kpis.expenseToday||0)}`, icon:FiActivity, accent:'#ef4444', bg:'bg-red-50 text-red-600' },
+            { label:'Net Profit (Month)', value:`${money((kpis.revenueMonth||0) - (kpis.expenseMonth||0))}`, sub: 'Monthly margin', icon:FiDollarSign, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
+            { label:'Pending Invoices', value:`${money(kpis.outstandingInvoiceTotal||0)}`, sub:`${kpis.pendingInvoices||0} unpaid invoices`, icon:FiCreditCard, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:kpis.pendingInvoices>0 },
           ].map((c,i) => (
             <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className={`card card-body relative overflow-hidden ${c.alert?'border-orange-200':''}`}>
               <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
@@ -126,10 +127,10 @@ export default function AdminDashboard() {
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🏦 Cash & Bank Balances</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label:'Bank Balance', value:`LKR ${fmt(kpis.bankBalance||0)}`, sub:'From reconciled txns', icon:FiBriefcase, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
-            { label:'Cash in Hand', value:`LKR ${fmt(kpis.cashBalance||0)}`, sub:'Physical cash', icon:FiDollarSign, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
-            { label:'Petty Cash', value:`LKR ${fmt(kpis.pettyCashBalance||0)}`, sub:'Office funds', icon:FiFolder, accent:'#f59e0b', bg:'bg-yellow-50 text-yellow-600' },
-            { label:'Subscription MRR', value:`LKR ${fmt(kpis.subscriptionRevenue||0)}`, sub:`${kpis.activeSubscriptions||0} active`, icon:FiServer, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600' },
+            { label:'Bank Balance', value:`${money(kpis.bankBalance||0)}`, sub:'From reconciled txns', icon:FiBriefcase, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
+            { label:'Cash in Hand', value:`${money(kpis.cashBalance||0)}`, sub:'Physical cash', icon:FiDollarSign, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
+            { label:'Petty Cash', value:`${money(kpis.pettyCashBalance||0)}`, sub:'Office funds', icon:FiFolder, accent:'#f59e0b', bg:'bg-yellow-50 text-yellow-600' },
+            { label:'Subscription MRR', value:`${money(kpis.subscriptionRevenue||0)}`, sub:`${kpis.activeSubscriptions||0} active`, icon:FiServer, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600' },
           ].map((c,i) => (
             <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className="card card-body relative overflow-hidden">
               <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
@@ -173,8 +174,8 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label:'Active Users', value:(kpis.activeEmployees||0)+(kpis.adminCount||0), sub:`${kpis.totalEmployees||0} total · ${kpis.internCount||0} interns`, icon:FiUser, accent:'#2563eb', bg:'bg-blue-50 text-blue-600', to:'/admin/employees' },
-            { label:'Outstanding Advances', value:`LKR ${fmt(kpis.outstandingAdvances||0)}`, sub:'Active advance balances', icon:FiCreditCard, accent:'#ef4444', bg:'bg-red-50 text-red-600', alert:(kpis.outstandingAdvances||0)>0, to:'/admin/advances' },
-            { label:'Outstanding Loans', value:`LKR ${fmt(kpis.outstandingLoans||0)}`, sub:'Active loan balances', icon:FiRefreshCw, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:(kpis.outstandingLoans||0)>0, to:'/admin/loans' },
+            { label:'Outstanding Advances', value:`${money(kpis.outstandingAdvances||0)}`, sub:'Active advance balances', icon:FiCreditCard, accent:'#ef4444', bg:'bg-red-50 text-red-600', alert:(kpis.outstandingAdvances||0)>0, to:'/admin/advances' },
+            { label:'Outstanding Loans', value:`${money(kpis.outstandingLoans||0)}`, sub:'Active loan balances', icon:FiRefreshCw, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:(kpis.outstandingLoans||0)>0, to:'/admin/loans' },
             { label:'Draft Payrolls', value:kpis.draftPayrolls||0, sub:'Awaiting review/approval', icon:FiDollarSign, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600', alert:(kpis.draftPayrolls||0)>0, to:'/admin/payroll' },
           ].map((c,i) => (
             <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}}
@@ -227,7 +228,7 @@ export default function AdminDashboard() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
               <XAxis dataKey="month" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-              <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={fmt}/>
+              <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
               <Tooltip formatter={(v,n) => [`LKR ${Number(v).toLocaleString()}`,n]} contentStyle={tt}/>
               <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#2563EB" strokeWidth={2.5} fill="url(#rG)"/>
               <Area type="monotone" dataKey="expense" name="Expenses" stroke="#EF4444" strokeWidth={2} fill="url(#eG)"/>
@@ -262,7 +263,7 @@ export default function AdminDashboard() {
               <BarChart data={payrollChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
                 <XAxis dataKey="month" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-                <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={fmt}/>
+                <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
                 <Tooltip formatter={v => [`LKR ${Number(v).toLocaleString()}`,'Payroll']} contentStyle={tt}/>
                 <Bar dataKey="cost" fill="#2563EB" radius={[4,4,0,0]}/>
               </BarChart>

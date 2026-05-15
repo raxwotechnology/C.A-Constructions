@@ -257,7 +257,7 @@ export default function ProjectDetail() {
         {activeTab === 'Team & Allocations' && (
           <div className="card p-0 overflow-hidden">
             <div className="p-6 border-b">
-              <h3 className="font-bold text-slate-800 font-heading">Team & Salary Allocations</h3>
+              <h3 className="font-bold text-slate-800 font-heading">Team & Commissions</h3>
               <p className="text-sm text-slate-500 mt-1">Project Budget: <strong className="text-slate-800">LKR {p.budget?.toLocaleString()}</strong></p>
             </div>
             <div className="overflow-x-auto">
@@ -265,22 +265,20 @@ export default function ProjectDetail() {
                 <thead className="bg-slate-50 border-b text-slate-600">
                   <tr>
                     <th className="px-6 py-3 font-semibold">Team Member</th>
-                    <th className="px-6 py-3 font-semibold text-right">Salary Allocation (LKR)</th>
                     <th className="px-6 py-3 font-semibold text-right">Commission (LKR)</th>
                     <th className="px-6 py-3 font-semibold text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {p.salaryAllocations?.length === 0 ? (
-                    <tr><td colSpan={4} className="p-8 text-center text-slate-400">No salary allocations defined for this project.</td></tr>
+                    <tr><td colSpan={3} className="p-8 text-center text-slate-400">No team commissions defined for this project.</td></tr>
                   ) : (
                     p.salaryAllocations?.map((alloc, i) => (
                       <tr key={i} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-medium text-slate-800">{alloc.employeeName || alloc.employee?.name}</p>
                         </td>
-                        <td className="px-6 py-4 text-right font-medium text-slate-700">{(alloc.amount || 0).toLocaleString()}</td>
-                        <td className="px-6 py-4 text-right font-medium text-slate-700">{(alloc.commission || 0).toLocaleString()}</td>
+                        <td className="px-6 py-4 text-right font-medium text-purple-700">{(alloc.commission || 0).toLocaleString()}</td>
                         <td className="px-6 py-4 text-center">
                           {!p.invoice ? (
                             <span className="badge badge-gray">No invoice</span>
@@ -296,14 +294,10 @@ export default function ProjectDetail() {
                 </tbody>
               </table>
               {p.salaryAllocations?.length > 0 && (
-                <div className="bg-slate-50 px-6 py-4 border-t flex justify-end gap-12 font-medium text-sm">
-                  <div className="text-right">
-                    <p className="text-slate-500 text-xs mb-0.5">Total Salary</p>
-                    <p className="text-slate-800">LKR {p.salaryAllocations.reduce((s,a)=>s+(a.amount||0),0).toLocaleString()}</p>
-                  </div>
+                <div className="bg-slate-50 px-6 py-4 border-t flex justify-end font-medium text-sm">
                   <div className="text-right">
                     <p className="text-slate-500 text-xs mb-0.5">Total Commission</p>
-                    <p className="text-slate-800">LKR {p.salaryAllocations.reduce((s,a)=>s+(a.commission||0),0).toLocaleString()}</p>
+                    <p className="text-purple-800">LKR {p.salaryAllocations.reduce((s,a)=>s+(a.commission||0),0).toLocaleString()}</p>
                   </div>
                 </div>
               )}

@@ -19,6 +19,7 @@ const leaveTypeQuotaSchema = new mongoose.Schema({
 const leavePolicySchema = new mongoose.Schema({
   name: { type: String, required: true },        // e.g. "Permanent Staff", "Probation"
   employmentType: { type: String, default: 'all' },
+  department: { type: String, default: '' },
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   leaveYear: { type: String, default: 'jan-dec' }, // or 'apr-mar' etc

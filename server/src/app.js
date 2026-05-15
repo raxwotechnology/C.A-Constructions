@@ -90,14 +90,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 
 // ── Ensure upload directories exist ──────────────────────────────────────────
-const UPLOADS_ROOT = path.resolve(process.cwd(), 'uploads');
-['documents', 'images', 'cvs', 'agreements', 'bills'].forEach(sub => {
-  fs.mkdirSync(path.join(UPLOADS_ROOT, sub), { recursive: true });
-});
+const { ensureUploadSubdirs, getUploadsRoot } = require('./utils/uploadsPath');
+const UPLOADS_ROOT = ensureUploadSubdirs();
 console.log(`📁 Uploads directory: ${UPLOADS_ROOT}`);
 
-// Static files — serve /uploads/** from the uploads folder next to package.json
-app.use('/uploads', express.static(UPLOADS_ROOT));
+// Static files — serve /uploads/** from the server uploads folder
+app.use('/uploads', express.static(UPLOADS_ROOT, { maxAge: '7d', fallthrough: true }));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -126,6 +124,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/quotations', quotationRoutes);
 app.use('/api/advances', advanceRoutes);
+app.use('/api/lookups', require('./routes/lookupRoutes'));
 app.use('/api/loans', loanRoutes);
 app.use('/api/petty-cash', pettyCashRoutes);
 app.use('/api/clients', clientRoutes);
@@ -135,6 +134,7 @@ app.use('/api/agreements', agreementRoutes);
 app.use('/api/epf-records', epfRecordRoutes);
 app.use('/api/bank-accounts', require('./routes/bankAccountRoutes'));
 app.use('/api/cheques', require('./routes/chequeRoutes'));
+app.use('/api/income-tax', require('./routes/incomeTaxRoutes'));
 app.use('/api/targets', targetRoutes);
 app.use('/api/attendance-policies', attendancePolicyRoutes);
 

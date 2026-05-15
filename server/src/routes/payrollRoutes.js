@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {
-  generatePayroll, generateAllPayroll, getPayrolls, getMyPayrolls,
+  generatePayroll, generateAllPayroll, getPayrolls, getMyPayrolls, getEmployeePayrollPreview,
   reviewPayroll, approvePayroll, updatePayroll, markPaid,
   getEpfSummary, addOvertime, getOvertime,
   initiateSalaryPayHere, salaryPayHereNotify,
@@ -13,6 +13,7 @@ router.post('/generate', protect, authorize('admin', 'manager'), generatePayroll
 router.post('/generate-all', protect, authorize('admin'), generateAllPayroll);
 router.post('/overtime', protect, authorize('admin', 'manager'), addOvertime);
 router.get('/overtime', protect, authorize('admin', 'manager'), getOvertime);
+router.get('/preview/:employeeId', protect, authorize('admin', 'manager'), getEmployeePayrollPreview);
 router.post('/payhere/notify', salaryPayHereNotify);
 router.get('/epf-summary', protect, authorize('admin', 'manager'), getEpfSummary);
 router.get('/my', protect, getMyPayrolls);

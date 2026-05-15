@@ -7,9 +7,12 @@ const crypto = require('crypto');
 const { createNotification } = require('../services/notificationService');
 const EpfRecord = require('../models/EpfRecord');
 const Loan = require('../models/Loan');
+const Advance = require('../models/Advance');
 const AuditLog = require('../models/AuditLog');
 const { appendBankTransaction, isLedgerBankMethod } = require('../utils/bankLedger');
 const { getStatutoryRates } = require('../utils/statutoryRates');
+const { calculateMonthlyIncomeTax } = require('../services/incomeTaxService');
+const IncomeTaxRecord = require('../models/IncomeTaxRecord');
 
 // Internal audit logging helper (does not throw)
 const createAuditLog = async ({ user, action, module, entityId, entityName, description, severity = 'info' }) => {
@@ -36,12 +39,13 @@ const monthRange = (month, year) => ({
   end: new Date(Number(year), Number(month), 0, 23, 59, 59, 999),
 });
 
-async function computeAutoCommission(employeeId, month, year) {
+async function computeAutoCommission(employee, month, year) {
+  const userId = employee.userId?._id || employee.userId;
   const { start, end } = monthRange(month, year);
   const completedProjects = await Project.find({
     status: 'completed',
     completedAt: { $gte: start, $lte: end },
-    assignedEmployees: employeeId,
+    assignedEmployees: userId,
   }).select('title budget assignedEmployees');
   const autoCommission = completedProjects.reduce((sum, project) => {
     const members = Math.max((project.assignedEmployees || []).length, 1);
@@ -51,20 +55,109 @@ async function computeAutoCommission(employeeId, month, year) {
   return { autoCommission, completedProjects };
 }
 
+/** Project salaryAllocations for an employee (commission from project form; amount legacy). */
+async function computeProjectAllocations(employee, month, year) {
+  const employeeId = employee._id;
+  const userId = employee.userId?._id || employee.userId;
+  const { end } = monthRange(month, year);
+  const projects = await Project.find({
+    $or: [
+      { assignedEmployees: userId },
+      { 'salaryAllocations.employee': employeeId },
+    ],
+    status: { $in: ['active', 'completed', 'on_hold'] },
+    startDate: { $lte: end },
+  }).select('title salaryAllocations');
+
+  let projectSalaryAlloc = 0;
+  let projectCommissionAlloc = 0;
+  const projectLines = [];
+
+  projects.forEach((proj) => {
+    const alloc = (proj.salaryAllocations || []).find((a) => String(a.employee) === String(employeeId));
+    if (!alloc) return;
+    const sal = Number(alloc.amount || 0);
+    const comm = Number(alloc.commission || 0);
+    projectSalaryAlloc += sal;
+    projectCommissionAlloc += comm;
+    if (comm > 0) {
+      projectLines.push({
+        project: proj._id,
+        projectName: proj.title,
+        amount: comm,
+        type: 'commission',
+      });
+    }
+    if (sal > 0) {
+      projectLines.push({
+        project: proj._id,
+        projectName: proj.title,
+        amount: sal,
+        type: 'salary',
+      });
+    }
+  });
+
+  return { projectSalaryAlloc, projectCommissionAlloc, projectLines };
+}
+
+exports.getEmployeePayrollPreview = async (req, res, next) => {
+  try {
+    const employeeId = req.params.employeeId || req.query.employeeId;
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ success: false, message: 'employeeId, month, and year are required' });
+    }
+    const employee = await Employee.findById(employeeId).populate('userId', 'name email');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const { projectSalaryAlloc, projectCommissionAlloc, projectLines } = await computeProjectAllocations(employee, month, year);
+    const { autoCommission } = await computeAutoCommission(employee, month, year);
+
+    res.json({
+      success: true,
+      preview: {
+        projectSalaryAlloc,
+        projectCommissionAlloc,
+        autoCommission,
+        totalProjectCommissions: projectCommissionAlloc + autoCommission,
+        projectLines,
+      },
+    });
+  } catch (err) { next(err); }
+};
+
 // @desc    Generate monthly payroll
 // @route   POST /api/payroll/generate
 exports.generatePayroll = async (req, res, next) => {
   try {
-    const { month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0, deductions = 0, loanDeduction: manualLoan = 0, leaveDeduction = 0, notes } = req.body;
+    const {
+      month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0,
+      deductions = 0, advanceDeduction: manualAdvance = 0, loanDeduction: manualLoan = 0,
+      leaveDeduction = 0, notes, continueLoanDeduction = true,
+    } = req.body;
 
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
-    // Auto-calculate Loan Deduction
-    const activeLoans = await Loan.find({ employee: employeeId, status: 'active', deductionType: 'salary' });
+    const activeLoans = await Loan.find({
+      employee: employeeId,
+      status: 'active',
+      deductionType: 'salary',
+      payrollDeductionPaused: { $ne: true },
+    });
     const autoLoanDeduct = activeLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0);
-    const loanDeduction = manualLoan || autoLoanDeduct;
-    const deductedLoans = activeLoans.map(l => l._id);
+    const loanDeduction = Number(manualLoan) || autoLoanDeduct;
+    const deductedLoans = activeLoans.map((l) => l._id);
+
+    const activeAdvances = await Advance.find({ employee: employeeId, status: 'active' });
+    const autoAdvanceDeduct = activeAdvances.reduce((sum, a) => {
+      const due = Math.min(Number(a.monthlyDeduction || 0) || Number(a.outstandingBalance || 0), Number(a.outstandingBalance || 0));
+      return sum + due;
+    }, 0);
+    const advanceDeduction = Number(manualAdvance) || autoAdvanceDeduct;
+    const deductedAdvances = activeAdvances.filter((a) => (a.outstandingBalance || 0) > 0).map((a) => a._id);
 
     // Auto-calculate Overtime
     const otRecords = await Overtime.find({ employee: employeeId, month, year });
@@ -81,31 +174,8 @@ exports.generatePayroll = async (req, res, next) => {
 
     const basicSalary = employee.basicSalary || 0;
 
-    // ── Auto-pull project salary allocations for this employee ──
-    const { start, end } = monthRange(month, year);
-    const assignedProjects = await Project.find({
-      $or: [
-        { assignedEmployees: employee.userId },
-        { 'salaryAllocations.employee': employeeId }
-      ],
-      status: { $in: ['active', 'completed'] },
-      startDate: { $lte: end },
-    });
-
-    let projectSalaryAlloc = 0;
-    let projectCommissionAlloc = 0;
-    assignedProjects.forEach(proj => {
-      const alloc = (proj.salaryAllocations || []).find(
-        a => String(a.employee) === String(employeeId)
-      );
-      if (alloc) {
-        projectSalaryAlloc += Number(alloc.amount || 0);
-        projectCommissionAlloc += Number(alloc.commission || 0);
-      }
-    });
-
-    // Manual commission + auto commission from completed projects
-    const { autoCommission } = await computeAutoCommission(employeeId, month, year);
+    const { projectSalaryAlloc, projectCommissionAlloc, projectLines } = await computeProjectAllocations(employee, month, year);
+    const { autoCommission } = await computeAutoCommission(employee, month, year);
     const totalCommissions = Number(commissions) + autoCommission + projectCommissionAlloc;
 
     // OT records
@@ -115,19 +185,31 @@ exports.generatePayroll = async (req, res, next) => {
 
     const grossSalary = basicSalary + projectSalaryAlloc + Number(allowances) + finalOvertime + totalCommissions + Number(bonus);
 
+    const taxCalc = await calculateMonthlyIncomeTax(employee, month, year, grossSalary);
+    const incomeTaxDeduction = Number(taxCalc.taxAmount || 0);
+
     const { fractions: R } = await getStatutoryRates();
     const epfEmployee = employee.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployee) : 0;
     const epfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployer) : 0;
     const etfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * R.etfEmployer) : 0;
-    const totalDeductions = Number(deductions) + Number(loanDeduction) + Number(leaveDeduction) + epfEmployee;
+    const totalDeductions = Number(deductions) + Number(advanceDeduction) + Number(loanDeduction) + Number(leaveDeduction) + epfEmployee + incomeTaxDeduction;
     const netSalary = grossSalary - totalDeductions;
 
     const payload = {
       employee: employeeId, month, year,
       basicSalary, allowances: Number(allowances) + projectSalaryAlloc,
-      overtime: finalOvertime, commissions: totalCommissions, bonus, deductions: Number(deductions), loanDeduction,
+      overtime: finalOvertime, commissions: totalCommissions,
+      projectCommissions: projectCommissionAlloc + autoCommission,
+      projectAllocations: projectLines,
+      bonus,
+      deductions: Number(deductions),
+      advanceDeduction: Number(advanceDeduction),
+      loanDeduction,
       deductedLoans,
+      deductedAdvances,
+      continueLoanDeduction: continueLoanDeduction !== false,
       leaveDeduction: Number(leaveDeduction), leaveDeductionDays: 0,
+      incomeTaxDeduction,
       epfEmployee, epfEmployer, etfEmployer,
       grossSalary, totalDeductions, netSalary,
       generatedBy: req.user._id, notes,
@@ -139,6 +221,26 @@ exports.generatePayroll = async (req, res, next) => {
       payroll = await Payroll.findByIdAndUpdate(exists._id, payload, { new: true });
     } else {
       payroll = await Payroll.create(payload);
+    }
+
+    if (incomeTaxDeduction > 0 || taxCalc.config) {
+      await IncomeTaxRecord.findOneAndUpdate(
+        { employee: employeeId, month, year },
+        {
+          employee: employeeId,
+          month,
+          year,
+          config: taxCalc.config?._id,
+          taxableIncome: taxCalc.monthlyTaxable,
+          taxAmount: incomeTaxDeduction,
+          exemptionsApplied: (taxCalc.exemptions || []).reduce((s, e) => s + Number(e.amount || 0), 0),
+          payroll: payroll._id,
+          branch: employee.branch,
+          status: incomeTaxDeduction > 0 ? 'deducted' : 'calculated',
+          paymentMethod: 'payroll',
+        },
+        { upsert: true },
+      );
     }
 
     await payroll.populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
@@ -183,31 +285,50 @@ exports.generateAllPayroll = async (req, res, next) => {
         const allowances = emp.allowances || 0;
         
         // Auto-calculate Loan Deduction
-        const activeLoans = await Loan.find({ employee: emp._id, status: 'active', deductionType: 'salary' });
+        const activeLoans = await Loan.find({
+          employee: emp._id, status: 'active', deductionType: 'salary', payrollDeductionPaused: { $ne: true },
+        });
         const loanDeduction = activeLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0);
-        const deductedLoans = activeLoans.map(l => l._id);
+        const deductedLoans = activeLoans.map((l) => l._id);
+
+        const activeAdvances = await Advance.find({ employee: emp._id, status: 'active' });
+        const advanceDeduction = activeAdvances.reduce((sum, a) => {
+          const due = Math.min(Number(a.monthlyDeduction || 0) || Number(a.outstandingBalance || 0), Number(a.outstandingBalance || 0));
+          return sum + due;
+        }, 0);
+        const deductedAdvances = activeAdvances.filter((a) => (a.outstandingBalance || 0) > 0).map((a) => a._id);
 
         // Auto-calculate Overtime
         const otRows = await Overtime.find({ employee: emp._id, month, year });
         const overtime = otRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
         const otHours = otRows.reduce((sum, row) => sum + Number(row.hours || 0), 0);
 
-        const { autoCommission } = await computeAutoCommission(emp._id, month, year);
-        const grossSalary = basicSalary + allowances + overtime + autoCommission;
+        const { projectSalaryAlloc, projectCommissionAlloc, projectLines } = await computeProjectAllocations(emp, month, year);
+        const { autoCommission } = await computeAutoCommission(emp, month, year);
+        const totalCommissions = autoCommission + projectCommissionAlloc;
+        const grossSalary = basicSalary + allowances + projectSalaryAlloc + overtime + totalCommissions;
+
+        const taxCalc = await calculateMonthlyIncomeTax(emp, month, year, grossSalary);
+        const incomeTaxDeduction = Number(taxCalc.taxAmount || 0);
         
         const epfEmployee = emp.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployee) : 0;
         const epfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployer) : 0;
         const etfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * R.etfEmployer) : 0;
         
-        const totalDeductions = loanDeduction + epfEmployee;
+        const totalDeductions = loanDeduction + advanceDeduction + epfEmployee + incomeTaxDeduction;
         const netSalary = grossSalary - totalDeductions;
 
         const payload = {
           employee: emp._id, month, year,
-          basicSalary, allowances, 
-          otHours, overtime, 
-          commissions: autoCommission, 
+          basicSalary, allowances: allowances + projectSalaryAlloc,
+          otHours, overtime,
+          commissions: totalCommissions,
+          projectCommissions: projectCommissionAlloc + autoCommission,
+          projectAllocations: projectLines,
+          advanceDeduction,
+          deductedAdvances,
           loanDeduction, deductedLoans,
+          incomeTaxDeduction,
           epfEmployee, epfEmployer, etfEmployer,
           grossSalary, totalDeductions, netSalary,
           generatedBy: req.user._id,
@@ -219,6 +340,25 @@ exports.generateAllPayroll = async (req, res, next) => {
           payroll = await Payroll.findByIdAndUpdate(exists._id, payload, { new: true });
         } else {
           payroll = await Payroll.create(payload);
+        }
+
+        if (incomeTaxDeduction > 0 || taxCalc.config) {
+          await IncomeTaxRecord.findOneAndUpdate(
+            { employee: emp._id, month, year },
+            {
+              employee: emp._id,
+              month,
+              year,
+              config: taxCalc.config?._id,
+              taxableIncome: taxCalc.monthlyTaxable,
+              taxAmount: incomeTaxDeduction,
+              payroll: payroll._id,
+              branch: emp.branch,
+              status: incomeTaxDeduction > 0 ? 'deducted' : 'calculated',
+              paymentMethod: 'payroll',
+            },
+            { upsert: true },
+          );
         }
         results.push(payroll);
       } catch (e) {
@@ -438,6 +578,30 @@ exports.markPaid = async (req, res, next) => {
       { isPaid: true, paidAt: new Date(), paidBy: req.user._id }
     );
 
+    // Sync advance repayments
+    if (payroll.advanceDeduction > 0 && payroll.deductedAdvances?.length > 0) {
+      let remainingAdvance = Number(payroll.advanceDeduction);
+      for (const advId of payroll.deductedAdvances) {
+        if (remainingAdvance <= 0) break;
+        const advance = await Advance.findById(advId);
+        if (!advance || advance.status !== 'active') continue;
+        const repayAmt = Math.min(remainingAdvance, advance.outstandingBalance || 0, advance.monthlyDeduction || advance.outstandingBalance || 0);
+        if (repayAmt <= 0) continue;
+        advance.repayments.push({
+          amount: repayAmt,
+          date: new Date(),
+          payrollId: payroll._id,
+          note: `Auto-deducted from ${MONTHS[payroll.month - 1]} ${payroll.year} payroll`,
+        });
+        advance.totalRecovered = (advance.totalRecovered || 0) + repayAmt;
+        advance.outstandingBalance = Math.max(0, advance.amount - advance.totalRecovered);
+        if (advance.outstandingBalance === 0) advance.status = 'cleared';
+        await advance.save();
+        await Employee.findByIdAndUpdate(payroll.employee._id, { $inc: { advanceBalance: -repayAmt } });
+        remainingAdvance -= repayAmt;
+      }
+    }
+
     // Sync with Loan Payments
     if (payroll.loanDeduction > 0 && payroll.deductedLoans?.length > 0) {
       for (const loanId of payroll.deductedLoans) {
@@ -457,9 +621,13 @@ exports.markPaid = async (req, res, next) => {
           if (loan.outstandingBalance === 0) loan.status = 'cleared';
           await loan.save();
           
-          // Also update employee's total loan balance
           await Employee.findByIdAndUpdate(payroll.employee._id, { $inc: { loanBalance: -installment } });
         }
+      }
+      if (payroll.continueLoanDeduction === false) {
+        await Loan.updateMany({ _id: { $in: payroll.deductedLoans } }, { $set: { payrollDeductionPaused: true } });
+      } else {
+        await Loan.updateMany({ _id: { $in: payroll.deductedLoans } }, { $set: { payrollDeductionPaused: false } });
       }
     }
 

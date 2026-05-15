@@ -43,8 +43,11 @@ const payrollSchema = new mongoose.Schema({
   advanceDeduction: { type: Number, default: 0 },
   loanDeduction: { type: Number, default: 0 },
   deductedLoans: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Loan' }],
+  deductedAdvances: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Advance' }],
+  continueLoanDeduction: { type: Boolean, default: true },
   leaveDeduction: { type: Number, default: 0 },     // auto-deducted for excess leaves
   leaveDeductionDays: { type: Number, default: 0 }, // number of excess leave days deducted
+  incomeTaxDeduction: { type: Number, default: 0 },
 
   // ── EPF / ETF (Sri Lanka statutory) ──────────────────────────────────────────
   epfEmployee: { type: Number, default: 0 },   // 8% of basic (deducted from employee)

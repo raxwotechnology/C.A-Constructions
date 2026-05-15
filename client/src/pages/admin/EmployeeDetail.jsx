@@ -10,6 +10,8 @@ import {
   FiClock, FiAlertTriangle, FiRefreshCw, FiTrash2,
   FiCalendar, FiTrendingUp, FiDollarSign, FiFolder, FiActivity,
 } from 'react-icons/fi'
+import EmployeePasswordPanel from '../../components/admin/EmployeePasswordPanel'
+import { EMPLOYEE_STATUSES } from '../../constants/employeeStatus'
 
 // Convert relative /uploads/... paths to full backend URL so "View" links
 // don't accidentally resolve against the frontend origin.
@@ -345,8 +347,15 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
                 <Field label="EPF/ETF Enrolled" value={e.epfEtfEnrolled ? 'Yes' : 'No'} />
                 <Field label="EPF Number" value={e.epfNumber} />
                 <Field label="ETF Number" value={e.etfNumber} />
-                <Field label="Max Leaves/Year" value={e.maxLeavesPerYear} />
+                <Field label="Status" value={EMPLOYEE_STATUSES.find(s => s.value === e.status)?.label || e.status} />
+                {(e.status === 'resigned' || e.resignationDate) && (
+                  <>
+                    <Field label="Resignation date" value={e.resignationDate ? new Date(e.resignationDate).toLocaleDateString('en-LK') : null} />
+                    <Field label="Resignation reason" value={e.resignationReason} />
+                  </>
+                )}
               </div>
+              <EmployeePasswordPanel employeeId={e._id} email={u.email} />
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Emergency Contact</p>
                 <Field label="Name" value={e.emergencyContact?.name} />

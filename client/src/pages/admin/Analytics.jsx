@@ -7,10 +7,11 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, LineChart, Line
 } from 'recharts'
 import { FiCalendar, FiUsers, FiDollarSign, FiFolder } from 'react-icons/fi'
+import { formatMoney, chartMoneyTick, tooltipMoney } from '../../lib/currencies'
 
 const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316']
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const fmt = v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v || 0)
+const money = (v) => formatMoney(v)
 
 export default function AdminAnalytics() {
   const now = new Date()
@@ -67,7 +68,7 @@ export default function AdminAnalytics() {
 
   const kpiCards = [
     { label: 'Total Employees', value: kpis.totalEmployees || 0, sub: `${kpis.activeEmployees || 0} active`, icon: FiUsers },
-    { label: 'Revenue YTD', value: `LKR ${fmt(kpis.totalRevenue)}`, sub: `Net: LKR ${fmt(kpis.netProfit)}`, icon: FiDollarSign },
+    { label: 'Revenue YTD', value: money(kpis.totalRevenue), sub: `Net: ${money(kpis.netProfit)}`, icon: FiDollarSign },
     { label: 'Total Projects', value: kpis.totalProjects || 0, sub: `${kpis.activeProjects || 0} active`, icon: FiFolder },
     { label: 'Total Clients', value: kpis.clientCount || 0, sub: `${kpis.totalSubscriptions || 0} subscriptions`, icon: FiUsers },
   ]
@@ -135,8 +136,8 @@ export default function AdminAnalytics() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
-            <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={fmt}/>
-            <Tooltip formatter={(v, n) => [`LKR ${Number(v).toLocaleString()}`, n]} contentStyle={tooltipStyle}/>
+            <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
+            <Tooltip formatter={(v, n) => tooltipMoney(v, n)} contentStyle={tooltipStyle}/>
             <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#2563EB" strokeWidth={2.5} fill="url(#revG)"/>
             <Area type="monotone" dataKey="expense" name="Expenses" stroke="#EF4444" strokeWidth={2} fill="url(#expG)"/>
           </AreaChart>
@@ -152,8 +153,8 @@ export default function AdminAnalytics() {
             <BarChart data={payrollChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={fmt}/>
-              <Tooltip formatter={v => [`LKR ${Number(v).toLocaleString()}`, 'Payroll']} contentStyle={tooltipStyle}/>
+              <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
+              <Tooltip formatter={(v) => tooltipMoney(v, 'Payroll')} contentStyle={tooltipStyle}/>
               <Bar dataKey="value" name="Payroll" fill="#2563EB" radius={[4,4,0,0]}/>
             </BarChart>
           </ResponsiveContainer>

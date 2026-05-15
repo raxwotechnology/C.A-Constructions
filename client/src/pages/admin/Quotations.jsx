@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
@@ -6,7 +6,13 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiCalendar, FiPrinter } from 'react-icons/fi'
-import { INVOICE_CURRENCIES } from '../../lib/currencies'
+import {
+  QUOTATION_CURRENCIES,
+  formatMoney,
+  convertAmountBetweenCurrencies,
+  suggestedExchangeToLKR,
+} from '../../lib/currencies'
+import ConfirmModal from '../../components/ui/ConfirmModal'
 
 const STATUS_COLOR = {
   draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', confirmed:'badge-green',
@@ -25,9 +31,16 @@ export default function AdminQuotations() {
   const [statusFilter, setStatusFilter] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [convertTarget, setConvertTarget] = useState(null)
+  const prevCurrencyRef = useRef('LKR')
 
   const { register, handleSubmit, reset, setValue, watch, control } = useForm({
-    defaultValues: { items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR' }
+    defaultValues: {
+      items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
+      currency: 'LKR',
+      exchangeRateToLKR: 1,
+      advanceAmount: 0,
+    },
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
 
@@ -38,9 +51,33 @@ export default function AdminQuotations() {
     const disc = Number(item.discount || 0)
     return s + (qty * price * (1 - disc / 100))
   }, 0)
+  const watchedCurrency = watch('currency') || 'LKR'
   const taxRate = Number(watch('taxRate') || 0)
   const tax = subtotal * taxRate / 100
   const total = subtotal + tax
+  const advanceAmount = Number(watch('advanceAmount') || 0)
+  const balance = Math.max(0, total - advanceAmount)
+
+  const handleCurrencyChange = (newCurrency) => {
+    const prev = prevCurrencyRef.current || watchedCurrency
+    if (newCurrency === prev) return
+    const items = watchItems.map((item) => ({
+      ...item,
+      unitPrice: convertAmountBetweenCurrencies(Number(item.unitPrice || 0), prev, newCurrency),
+    }))
+    items.forEach((item, idx) => {
+      setValue(`items.${idx}.unitPrice`, item.unitPrice, { shouldDirty: true })
+    })
+    const newAdvance = convertAmountBetweenCurrencies(advanceAmount, prev, newCurrency)
+    setValue('advanceAmount', newAdvance, { shouldDirty: true })
+    setValue('exchangeRateToLKR', suggestedExchangeToLKR(newCurrency), { shouldDirty: true })
+    setValue('currency', newCurrency, { shouldDirty: true })
+    prevCurrencyRef.current = newCurrency
+  }
+
+  useEffect(() => {
+    if (showModal) prevCurrencyRef.current = watchedCurrency
+  }, [showModal, editing?._id])
 
   const buildQuery = () => {
     const p = new URLSearchParams()
@@ -92,7 +129,12 @@ export default function AdminQuotations() {
   })
   const convertMut = useMutation({
     mutationFn: id => api.post(`/quotations/${id}/convert-to-invoice`),
-    onSuccess: (res) => { qc.invalidateQueries(['quotations']); qc.invalidateQueries(['admin-invoices']); toast.success(`Invoice ${res?.data?.invoice?.invoiceNo || ''} created!`) },
+    onSuccess: (res) => {
+      qc.invalidateQueries(['quotations'])
+      qc.invalidateQueries(['admin-invoices'])
+      toast.success(`Invoice ${res?.data?.invoice?.invoiceNo || ''} created successfully`)
+      setConvertTarget(null)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
@@ -118,6 +160,8 @@ export default function AdminQuotations() {
       branch: q.branch?._id || q.branch || '',
       project: q.project?._id || q.project || '',
       currency: q.currency || 'LKR',
+      exchangeRateToLKR: q.exchangeRateToLKR ?? suggestedExchangeToLKR(q.currency || 'LKR'),
+      advanceAmount: q.advanceAmount || 0,
       quotationDate: q.quotationDate ? new Date(q.quotationDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       validUntil: q.validUntil ? new Date(q.validUntil).toISOString().split('T')[0] : '',
       taxRate: q.taxRate || 0,
@@ -140,7 +184,16 @@ export default function AdminQuotations() {
     const sub = items.reduce((s, i) => s + i.total, 0)
     const tRate = Number(d.taxRate || 0)
     const taxAmt = sub * tRate / 100
-    const payload = { ...d, items, subtotal: sub, tax: taxAmt, taxRate: tRate, total: sub + taxAmt }
+    const payload = {
+      ...d,
+      items,
+      subtotal: sub,
+      tax: taxAmt,
+      taxRate: tRate,
+      total: sub + taxAmt,
+      advanceAmount: Number(d.advanceAmount || 0),
+      exchangeRateToLKR: Number(d.exchangeRateToLKR) || suggestedExchangeToLKR(d.currency || 'LKR'),
+    }
     if (!payload.branch) delete payload.branch
     if (!payload.project) delete payload.project
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
@@ -197,7 +250,7 @@ export default function AdminQuotations() {
                   <div className="text-xs text-gray-400">{q.client?.email}</div>
                 </td>
                 <td className="font-medium text-gray-800 max-w-[180px] truncate">{q.title || '—'}</td>
-                <td className="font-bold text-gray-800">LKR {(q.total || 0).toLocaleString()}</td>
+                <td className="font-bold text-gray-800">{formatMoney(q.total || 0, q.currency || 'LKR')}</td>
                 <td className="text-gray-500 text-xs">{q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-LK') : '—'}</td>
                 <td><span className={`badge capitalize ${STATUS_COLOR[q.status] || 'badge-gray'}`}>{q.status}</span></td>
                 <td>
@@ -213,7 +266,7 @@ export default function AdminQuotations() {
                       </>
                     )}
                     {!['converted', 'rejected', 'expired'].includes(q.status) && (
-                      <button onClick={() => { if(window.confirm('Convert this quotation to an invoice?')) convertMut.mutate(q._id) }} title="Convert to Invoice" className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><FiArrowRight size={13}/></button>
+                      <button onClick={() => setConvertTarget(q)} title="Convert to Invoice" className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><FiArrowRight size={13}/></button>
                     )}
                     {['draft','sent'].includes(q.status) && (
                       <button onClick={() => openEdit(q)} title="Edit" className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
@@ -278,11 +331,13 @@ export default function AdminQuotations() {
                     ))}
                   </select></div>
                 <div><label className="form-label">Currency</label>
-                  <select {...register('currency')} className="form-select">
-                    {INVOICE_CURRENCIES.map((c) => (
+                  <select className="form-select" value={watchedCurrency} onChange={(e) => handleCurrencyChange(e.target.value)}>
+                    {QUOTATION_CURRENCIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select></div>
+                <div><label className="form-label">Exchange rate (1 {watchedCurrency} → LKR)</label>
+                  <input {...register('exchangeRateToLKR', { valueAsNumber: true })} type="number" step="0.01" min="0.01" className="form-input" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="form-label">Quotation Date</label>
@@ -315,9 +370,9 @@ export default function AdminQuotations() {
                 <div className="hidden md:grid md:grid-cols-12 gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100/80 rounded-t-lg border border-b-0 border-slate-200">
                   <div className="md:col-span-4">Item / service description</div>
                   <div className="md:col-span-2 text-center">Qty</div>
-                  <div className="md:col-span-2 text-right">Unit price (LKR)</div>
+                  <div className="md:col-span-2 text-right">Unit price ({watchedCurrency})</div>
                   <div className="md:col-span-2 text-right">Discount %</div>
-                  <div className="md:col-span-2 text-right">Line total (LKR)</div>
+                  <div className="md:col-span-2 text-right">Line total ({watchedCurrency})</div>
                 </div>
 
                 <div className={`space-y-3 ${fields.length ? 'md:border md:border-t-0 md:border-slate-200 md:rounded-b-lg md:rounded-t-none md:p-3 md:bg-slate-50/30' : ''}`}>
@@ -361,7 +416,7 @@ export default function AdminQuotations() {
                             />
                           </div>
                           <div className="md:col-span-2">
-                            <label className="form-label text-xs mb-1 md:sr-only">Unit price (LKR)</label>
+                            <label className="form-label text-xs mb-1 md:sr-only">Unit price ({watchedCurrency})</label>
                             <input
                               {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })}
                               type="number"
@@ -387,7 +442,7 @@ export default function AdminQuotations() {
                             <div className="min-w-0 flex-1 md:text-right">
                               <p className="text-[10px] font-semibold uppercase text-slate-400 md:hidden">Line total</p>
                               <p className="text-sm font-bold text-primary tabular-nums md:py-2">
-                                LKR {lineTotal.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {formatMoney(lineTotal, watchedCurrency, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </p>
                             </div>
                             {fields.length > 1 && (
@@ -407,9 +462,20 @@ export default function AdminQuotations() {
                   })}
                 </div>
                 <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-1 text-sm">
-                  <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>LKR {subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                  <div className="flex justify-between text-gray-600"><span>Tax ({taxRate}%)</span><span>LKR {tax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                  <div className="flex justify-between font-bold text-primary pt-1 border-t border-gray-200"><span>Total</span><span>LKR {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{formatMoney(subtotal, watchedCurrency)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Tax ({taxRate}%)</span><span>{formatMoney(tax, watchedCurrency)}</span></div>
+                  <div className="flex justify-between font-bold text-primary pt-1 border-t border-gray-200"><span>Total</span><span>{formatMoney(total, watchedCurrency)}</span></div>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div><label className="form-label text-xs">Advance</label>
+                      <input {...register('advanceAmount', { valueAsNumber: true })} type="number" min="0" step="0.01" className="form-input" />
+                    </div>
+                    <div><label className="form-label text-xs">Balance due</label>
+                      <p className="form-input bg-white font-semibold">{formatMoney(balance, watchedCurrency)}</p>
+                    </div>
+                  </div>
+                  {watchedCurrency !== 'LKR' && Number(watch('exchangeRateToLKR')) > 0 && (
+                    <p className="text-xs text-slate-500">≈ {formatMoney(total * Number(watch('exchangeRateToLKR')), 'LKR')} at current rate</p>
+                  )}
                 </div>
               </div>
 
@@ -506,11 +572,11 @@ export default function AdminQuotations() {
 
               <div className="flex justify-end mb-8">
                 <div className="w-64 space-y-3">
-                  <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>LKR {(viewing.subtotal || 0).toLocaleString()}</span></div>
-                  {viewing.taxRate > 0 && <div className="flex justify-between text-slate-600"><span>Tax ({viewing.taxRate}%)</span><span>LKR {(viewing.tax || 0).toLocaleString()}</span></div>}
+                  <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>{formatMoney(viewing.subtotal || 0, viewing.currency || 'LKR')}</span></div>
+                  {viewing.taxRate > 0 && <div className="flex justify-between text-slate-600"><span>Tax ({viewing.taxRate}%)</span><span>{formatMoney(viewing.tax || 0, viewing.currency || 'LKR')}</span></div>}
                   <div className="flex justify-between text-lg font-bold text-slate-900 pt-3 border-t-2 border-slate-200">
                     <span>Total Amount</span>
-                    <span>LKR {(viewing.total || 0).toLocaleString()}</span>
+                    <span>{formatMoney(viewing.total || 0, viewing.currency || 'LKR')}</span>
                   </div>
                 </div>
               </div>
@@ -534,6 +600,16 @@ export default function AdminQuotations() {
         </div>,
         document.body
       )}
+
+      <ConfirmModal
+        open={!!convertTarget}
+        title="Convert to invoice"
+        message={convertTarget ? `Create an invoice from quotation ${convertTarget.quotationNo}? This will mark the quotation as converted.` : ''}
+        confirmLabel="Convert"
+        loading={convertMut.isPending}
+        onConfirm={() => convertTarget && convertMut.mutate(convertTarget._id)}
+        onCancel={() => !convertMut.isPending && setConvertTarget(null)}
+      />
     </div>
   )
 }

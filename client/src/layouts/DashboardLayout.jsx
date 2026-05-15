@@ -57,6 +57,8 @@ const adminNav = [
     { to: '/admin/petty-cash', label: 'Petty Cash', icon: FiCreditCard },
     { to: '/admin/cheques', label: 'Cheques', icon: FiTarget },
     { to: '/admin/bank-management', label: 'Bank Management', icon: FiBarChart2 },
+    { to: '/admin/bank-transactions', label: 'Bank Transactions', icon: FiClipboard },
+    { to: '/admin/income-tax', label: 'Income Tax', icon: FiDollarSign },
     { to: '/admin/exports', label: 'Export Center', icon: FiDownload },
   ]},
   { group: 'System', items: [

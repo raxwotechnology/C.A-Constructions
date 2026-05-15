@@ -58,9 +58,12 @@ const employeeSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['active', 'on_leave', 'resigned', 'terminated', 'former', 'intern_ended'],
+    enum: ['active', 'internship', 'contract', 'on_leave', 'resigned', 'terminated', 'former', 'intern_ended'],
     default: 'active',
   },
+
+  resignationDate: Date,
+  resignationReason: { type: String, default: '' },
 
   // ── Internship ──────────────────────────────────────────────────────────────
   internship: {
@@ -123,7 +126,6 @@ const employeeSchema = new mongoose.Schema({
   etfNumber: { type: String, default: '' },
 
   // ── Leave ───────────────────────────────────────────────────────────────────
-  maxLeavesPerYear: { type: Number, default: 24 },
   leavesTaken: { type: Number, default: 0 },
 
   // ── Documents ───────────────────────────────────────────────────────────────

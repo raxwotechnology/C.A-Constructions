@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import { lookupLoaders } from '../../lib/lookupApi'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
 import { FiPlus, FiX, FiCheck, FiRefreshCw, FiEdit2, FiAlertCircle, FiDollarSign, FiCalendar } from 'react-icons/fi'
@@ -40,7 +43,7 @@ export default function AdminLoans() {
     queryKey: ['loans', statusFilter, branchFilter, dateFrom, dateTo],
     queryFn: () => api.get(`/loans?${params.toString()}`).then(r => r.data),
   })
-  const { data: empData } = useQuery({ queryKey: ['employees-mini', branchFilter], queryFn: () => api.get(`/employees?${branchFilter ? `branch=${branchFilter}` : ''}`).then(r => r.data) })
+  const { data: empData } = useQuery({ queryKey: ['employees-mini', branchFilter], queryFn: () => api.get(assignableEmployeesUrl(branchFilter ? { branch: branchFilter } : {})).then(r => r.data) })
   const { data: bankData } = useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get('/bank-accounts').then(r => r.data) })
   const bankAccounts = bankData?.accounts || []
 
@@ -243,10 +246,12 @@ export default function AdminLoans() {
                 </div>
                 <div>
                   <label className="form-label text-xs">Select Employee *</label>
-                  <select className="form-select py-1.5 text-xs" value={form.employeeId} onChange={e => { setForm(s => ({ ...s, employeeId: e.target.value })); loadEmployeeSummary(e.target.value) }}>
-                    <option value="">Select employee</option>
-                    {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
-                  </select>
+                  <SearchableSelect
+                    value={form.employeeId}
+                    onChange={(v) => { setForm(s => ({ ...s, employeeId: v })); loadEmployeeSummary(v) }}
+                    loadOptions={lookupLoaders.employees({ branch: branchFilter })}
+                    placeholder="Search employee…"
+                  />
                 </div>
               </div>
 
@@ -449,7 +454,14 @@ export default function AdminLoans() {
             </div>
             <div className="flex gap-3 px-6 py-4 border-t">
               <button onClick={() => setPayTarget(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
-              <button onClick={() => { if (!payForm.amount) { toast.error('Amount required'); return } payMut.mutate({ id: payTarget._id, ...payForm }) }}
+              <button onClick={() => {
+                if (!payForm.amount || Number(payForm.amount) <= 0) { toast.error('Valid amount required'); return }
+                const payload = { id: payTarget._id, amount: payForm.amount, date: payForm.date, note: payForm.note, method: payForm.method }
+                if (['bank_transfer', 'card', 'online_transfer', 'payhere'].includes(payForm.method) && payForm.bankAccount) {
+                  payload.bankAccount = payForm.bankAccount
+                }
+                payMut.mutate(payload)
+              }}
                 disabled={payMut.isPending} className="btn-primary flex-1 justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
                 {payMut.isPending ? <span className="spinner" /> : <FiCheck size={14} />} Record Payment
               </button>

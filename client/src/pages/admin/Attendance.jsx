@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import FilterBar from '../../components/ui/FilterBar'
 import ExportBar from '../../components/ui/ExportBar'
@@ -72,7 +73,7 @@ export default function AdminAttendance() {
   })
   const { data: empData } = useQuery({
     queryKey: ['employees-list-mini'],
-    queryFn: () => api.get('/employees').then(r => r.data),
+    queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data),
   })
 
   const records = useMemo(() => {

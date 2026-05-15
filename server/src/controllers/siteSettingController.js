@@ -1,4 +1,5 @@
 const SiteSetting = require('../models/SiteSetting');
+const { toRelativeUploadUrl } = require('../utils/uploadsPath');
 
 exports.getSiteSettings = async (req, res, next) => {
   try {
@@ -10,10 +11,14 @@ exports.getSiteSettings = async (req, res, next) => {
 
 exports.updateSiteSettings = async (req, res, next) => {
   try {
+    const body = { ...req.body };
+    if (body.logoUrl != null && body.logoUrl !== '') {
+      body.logoUrl = toRelativeUploadUrl(body.logoUrl);
+    }
     let settings = await SiteSetting.findOne();
-    if (!settings) settings = await SiteSetting.create(req.body);
+    if (!settings) settings = await SiteSetting.create(body);
     else {
-      Object.assign(settings, req.body);
+      Object.assign(settings, body);
       await settings.save();
     }
     res.json({ success: true, settings });

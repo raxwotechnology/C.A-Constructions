@@ -2,6 +2,9 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { getOrCreateReward, awardPoints, handleReferralForNewClient } = require('../services/rewardService');
+const { sendMail } = require('../utils/mailer');
+const { validateStrongPassword } = require('../utils/passwordValidation');
+const { toRelativeUploadUrl } = require('../utils/uploadsPath');
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
 
@@ -78,7 +81,12 @@ exports.getMe = async (req, res) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const { name, phone, avatar } = req.body;
-    const user = await User.findByIdAndUpdate(req.user._id, { name, phone, avatar }, { new: true, runValidators: true });
+    const normalizedAvatar = avatar != null && avatar !== '' ? toRelativeUploadUrl(avatar) : avatar;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name, phone, avatar: normalizedAvatar },
+      { new: true, runValidators: true },
+    );
     res.json({ success: true, user });
   } catch (err) { next(err); }
 };
@@ -87,14 +95,79 @@ exports.updateProfile = async (req, res, next) => {
 // @route   PUT /api/auth/change-password
 exports.changePassword = async (req, res, next) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const currentPassword = String(req.body.currentPassword || '');
+    const newPassword = String(req.body.newPassword || '');
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+    const strengthErr = validateStrongPassword(newPassword);
+    if (strengthErr) return res.status(400).json({ success: false, message: strengthErr });
+
     const user = await User.findById(req.user._id).select('+password');
-    if (!(await user.matchPassword(currentPassword))) {
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: 'No password is set on this account. Use Forgot Password to create one.',
+      });
+    }
+
+    let currentMatches = false;
+    try {
+      currentMatches = await user.matchPassword(currentPassword);
+    } catch {
+      return res.status(400).json({ success: false, message: 'Could not verify your current password' });
+    }
+    if (!currentMatches) {
       return res.status(400).json({ success: false, message: 'Current password is incorrect' });
     }
+
+    let sameAsCurrent = false;
+    try {
+      sameAsCurrent = await user.matchPassword(newPassword);
+    } catch { /* ignore */ }
+    if (sameAsCurrent) {
+      return res.status(400).json({ success: false, message: 'New password must be different from your current password' });
+    }
+
     user.password = newPassword;
     await user.save();
+
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Your Raxwo password was changed',
+        html: `<p>Hi ${user.name},</p><p>Your account password was changed successfully. If you did not make this change, contact support immediately.</p>`,
+        text: `Hi ${user.name}, your Raxwo account password was changed. If this was not you, contact support.`,
+      });
+    } catch (mailErr) {
+      console.warn('[changePassword] email notification failed:', mailErr.message);
+    }
+
     res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Admin sets a client login password
+// @route   PUT /api/auth/users/:id/password
+exports.adminSetUserPassword = async (req, res, next) => {
+  try {
+    const newPassword = String(req.body.newPassword || '');
+    if (!newPassword) {
+      return res.status(400).json({ success: false, message: 'New password is required' });
+    }
+    const strengthErr = validateStrongPassword(newPassword);
+    if (strengthErr) return res.status(400).json({ success: false, message: strengthErr });
+
+    const user = await User.findById(req.params.id).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.role !== 'client') {
+      return res.status(403).json({ success: false, message: 'Only client account passwords can be updated here' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+    res.json({ success: true, message: 'Client password updated' });
   } catch (err) { next(err); }
 };
 
@@ -125,7 +198,7 @@ exports.toggleUserStatus = async (req, res, next) => {
 // @route   PUT /api/auth/users/:id
 exports.updateUserByAdmin = async (req, res, next) => {
   try {
-    const { name, email, phone, isActive, role, branch } = req.body;
+    const { name, email, phone, isActive, role, branch, referralCode } = req.body;
     const payload = {
       ...(name !== undefined ? { name } : {}),
       ...(email !== undefined ? { email } : {}),
@@ -136,6 +209,26 @@ exports.updateUserByAdmin = async (req, res, next) => {
     };
     const user = await User.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (referralCode !== undefined && user.role === 'client') {
+      const Reward = require('../models/Reward');
+      const { getOrCreateReward } = require('../services/rewardService');
+      const code = String(referralCode || '').trim().toUpperCase();
+      if (code) {
+        const existing = await Reward.findOne({ referralCode: code, userId: { $ne: user._id } });
+        if (existing) {
+          return res.status(400).json({ success: false, message: 'Referral code already in use' });
+        }
+        await Reward.findOneAndUpdate(
+          { userId: user._id },
+          { referralCode: code },
+          { upsert: true, new: true },
+        );
+      } else {
+        await getOrCreateReward(user._id);
+      }
+    }
+
     res.json({ success: true, user });
   } catch (err) { next(err); }
 };
@@ -190,6 +283,145 @@ exports.createClient = async (req, res, next) => {
     res.status(201).json({ success: true, user });
   } catch (err) { next(err); }
 };
+// @desc    Reset password using email + token from reset link
+// @route   POST /api/auth/reset-password
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { email, token, password } = req.body;
+    if (!email || !token || !password) {
+      return res.status(400).json({ success: false, message: 'Email, token, and new password are required' });
+    }
+    if (String(password).length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const user = await User.findOne({
+      email: String(email).toLowerCase().trim(),
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    }).select('+password +resetPasswordToken +resetPasswordExpire');
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset link' });
+    }
+
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successfully. You can sign in now.' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Client forgot password — send OTP to email
+// @route   POST /api/auth/forgot-password/otp
+exports.sendForgotPasswordOtp = async (req, res, next) => {
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+    const user = await User.findOne({ email }).select('+otpCode +otpExpire');
+    const genericMsg = 'If that email is registered as a client account, a verification code has been sent.';
+
+    if (!user || user.role !== 'client' || !user.isActive) {
+      return res.json({ success: true, message: genericMsg });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    user.otpCode = crypto.createHash('sha256').update(otp).digest('hex');
+    user.otpExpire = Date.now() + 15 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+
+    const mailResult = await sendMail({
+      to: user.email,
+      subject: 'Raxwo — Password reset verification code',
+      html: `<p>Hi ${user.name},</p><p>Your password reset code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in 15 minutes. If you did not request this, ignore this email.</p>`,
+      text: `Your Raxwo password reset code is ${otp}. It expires in 15 minutes.`,
+    });
+
+    const payload = { success: true, message: genericMsg };
+    if (!mailResult.sent && process.env.NODE_ENV !== 'production') {
+      payload.devOtp = otp;
+      payload.mailNote = mailResult.reason;
+    }
+    res.json(payload);
+  } catch (err) { next(err); }
+};
+
+// @desc    Verify OTP before reset
+// @route   POST /api/auth/forgot-password/verify-otp
+exports.verifyForgotPasswordOtp = async (req, res, next) => {
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    const otp = String(req.body.otp || '').trim();
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and verification code are required' });
+    }
+
+    const hashed = crypto.createHash('sha256').update(otp).digest('hex');
+    const user = await User.findOne({
+      email,
+      role: 'client',
+      otpCode: hashed,
+      otpExpire: { $gt: Date.now() },
+    }).select('+otpCode +otpExpire');
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+    }
+
+    res.json({ success: true, verified: true, message: 'Code verified. You may set a new password.' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Reset client password with OTP
+// @route   POST /api/auth/forgot-password/reset
+exports.resetPasswordWithOtp = async (req, res, next) => {
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    const otp = String(req.body.otp || '').trim();
+    const password = req.body.password;
+    if (!email || !otp || !password) {
+      return res.status(400).json({ success: false, message: 'Email, verification code, and new password are required' });
+    }
+
+    const strengthErr = validateStrongPassword(password);
+    if (strengthErr) return res.status(400).json({ success: false, message: strengthErr });
+
+    const hashed = crypto.createHash('sha256').update(otp).digest('hex');
+    const user = await User.findOne({
+      email,
+      role: 'client',
+      otpCode: hashed,
+      otpExpire: { $gt: Date.now() },
+    }).select('+password +otpCode +otpExpire');
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+    }
+
+    user.password = password;
+    user.otpCode = undefined;
+    user.otpExpire = undefined;
+    await user.save();
+
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Your Raxwo password was reset',
+        html: `<p>Hi ${user.name},</p><p>Your password was reset successfully. You can sign in with your new password.</p>`,
+        text: `Hi ${user.name}, your Raxwo password was reset successfully.`,
+      });
+    } catch (mailErr) {
+      console.warn('[resetPasswordWithOtp] email notification failed:', mailErr.message);
+    }
+
+    res.json({ success: true, message: 'Password reset successfully. You can sign in now.' });
+  } catch (err) { next(err); }
+};
+
 // @desc    Verify password (for sensitive actions like delete)
 // @route   POST /api/auth/verify-password
 exports.verifyPassword = async (req, res, next) => {

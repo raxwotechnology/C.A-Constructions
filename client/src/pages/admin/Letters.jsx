@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import api from '../../lib/api'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import {
   FiPlus,
@@ -90,7 +91,7 @@ export default function AdminLetters() {
   })
   const { data: empData } = useQuery({
     queryKey: ['employees-list'],
-    queryFn: () => api.get('/employees').then((r) => r.data),
+    queryFn: () => api.get(assignableEmployeesUrl()).then((r) => r.data),
   })
   const { data: companyData } = useQuery({
     queryKey: ['letter-company-info'],

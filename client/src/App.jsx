@@ -22,6 +22,8 @@ import Apply from './pages/public/Apply'
 // Auth
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
+import ResetPassword from './pages/auth/ResetPassword'
+import ForgotPassword from './pages/auth/ForgotPassword'
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard'
@@ -62,7 +64,9 @@ import WorkLogs from './pages/admin/WorkLogs'
 import FinancialReports from './pages/admin/FinancialReports'
 import PolicyManagement from './pages/admin/PolicyManagement'
 import AdminBankManagement from './pages/admin/BankManagement'
+import BankTransactionHistory from './pages/admin/BankTransactionHistory'
 import AdminCheques from './pages/admin/Cheques'
+import IncomeTax from './pages/admin/IncomeTax'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
 import ManagerTeam from './pages/manager/Team'
@@ -173,6 +177,8 @@ export default function App() {
       {/* Auth */}
       <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
       <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+      <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+      <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
 
       {/* Admin */}
       <Route path="/admin" element={<ProtectedRoute roles={['admin']}><DashboardLayout role="admin" /></ProtectedRoute>}>
@@ -217,7 +223,9 @@ export default function App() {
         <Route path="leave-policies" element={<PolicyManagement />} />
         <Route path="policies" element={<PolicyManagement />} />
         <Route path="bank-management" element={<AdminBankManagement />} />
+        <Route path="bank-transactions" element={<BankTransactionHistory />} />
         <Route path="cheques" element={<AdminCheques />} />
+        <Route path="income-tax" element={<IncomeTax />} />
       </Route>
 
       {/* Manager */}

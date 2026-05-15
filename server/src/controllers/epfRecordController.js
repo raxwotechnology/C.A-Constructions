@@ -2,6 +2,7 @@ const EpfRecord = require('../models/EpfRecord');
 const Employee  = require('../models/Employee');
 const { createAuditLog } = require('./auditController');
 const { getStatutoryRates } = require('../utils/statutoryRates');
+const { ASSIGNED_STATUSES } = require('../utils/employeeFilters');
 
 // Helper — round to integer LKR
 const r = n => Math.round(n);
@@ -42,7 +43,7 @@ exports.getEpfRecords = async (req, res, next) => {
     // All active enrolled employees
     const enrolled = await Employee.find({
       epfEtfEnrolled: true,
-      status: { $nin: ['former', 'terminated', 'intern_ended'] },
+      status: { $in: ASSIGNED_STATUSES },
     }).populate('userId', 'name email');
 
     const enrolledIds = enrolled.map(e => e._id);

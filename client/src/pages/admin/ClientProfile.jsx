@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import api from '../../lib/api'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import { FiArrowLeft, FiEdit2, FiBriefcase, FiMail, FiPhone, FiMapPin, FiGlobe, FiFileText, FiFolder, FiCreditCard, FiServer, FiMessageSquare, FiPlus, FiX } from 'react-icons/fi'
 
@@ -29,7 +30,7 @@ export default function ClientProfile() {
 
   // Branches & Users for Edit Modal
   const { data: branchData } = useQuery({ queryKey: ['branches'], queryFn: () => api.get('/branches').then(r => r.data) })
-  const { data: empData } = useQuery({ queryKey: ['employees'], queryFn: () => api.get('/employees').then(r => r.data) })
+  const { data: empData } = useQuery({ queryKey: ['employees-assignable'], queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data) })
 
   const updateMut = useMutation({
     mutationFn: d => api.put(`/clients/${id}/profile`, d),

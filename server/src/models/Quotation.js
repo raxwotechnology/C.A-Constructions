@@ -29,6 +29,8 @@ const quotationSchema = new mongoose.Schema({
   taxRate: { type: Number, default: 0 },
   total: { type: Number, default: 0 },
   currency: { type: String, default: 'LKR' },
+  exchangeRateToLKR: { type: Number, default: 1 },
+  advanceAmount: { type: Number, default: 0 },
   validUntil: { type: Date },
   notes: { type: String, default: '' },
   terms: { type: String, default: '' },

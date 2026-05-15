@@ -1,5 +1,6 @@
 const ClientProfile = require('../models/ClientProfile');
 const User = require('../models/User');
+const Reward = require('../models/Reward');
 const Project = require('../models/Project');
 const Invoice = require('../models/Invoice');
 const Subscription = require('../models/Subscription');
@@ -19,9 +20,13 @@ exports.getClients = async (req, res, next) => {
     const profiles = await ClientProfile.find({ userId: { $in: clientUsers.map(u => u._id) } });
     const profileMap = profiles.reduce((acc, p) => { acc[p.userId.toString()] = p; return acc; }, {});
 
+    const rewards = await Reward.find({ userId: { $in: clientUsers.map(u => u._id) } }).select('userId referralCode');
+    const referralMap = rewards.reduce((acc, r) => { acc[r.userId.toString()] = r.referralCode; return acc; }, {});
+
     const clients = clientUsers.map(u => ({
       ...u.toObject(),
-      profile: profileMap[u._id.toString()] || null
+      profile: profileMap[u._id.toString()] || null,
+      referralCode: referralMap[u._id.toString()] || '',
     }));
 
     res.json({ success: true, clients });

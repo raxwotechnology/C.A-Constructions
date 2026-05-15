@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiEdit2, FiShield, FiStar, FiTrash2 } from 'react-icons/fi'
 
@@ -36,7 +37,7 @@ export default function LeavePolicies() {
 
   const { data: empData } = useQuery({
     queryKey: ['employees-list'],
-    queryFn: () => api.get('/employees').then(r => r.data)
+    queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data)
   })
   const employees = empData?.employees || []
 
@@ -44,6 +45,7 @@ export default function LeavePolicies() {
     defaultValues: {
       name: '',
       employmentType: 'all',
+      department: '',
       branch: '',
       employee: '',
       isDefault: false,
@@ -92,6 +94,7 @@ export default function LeavePolicies() {
     reset({
       name: '',
       employmentType: 'all',
+      department: '',
       branch: '',
       employee: '',
       isDefault: false,
@@ -117,6 +120,7 @@ export default function LeavePolicies() {
     reset({
       name: policy.name,
       employmentType: policy.employmentType || 'all',
+      department: policy.department || '',
       branch: policy.branch?._id || policy.branch || '',
       employee: policy.employee?._id || policy.employee || '',
       isDefault: policy.isDefault,
@@ -174,7 +178,7 @@ export default function LeavePolicies() {
                 <div>
                   <h3 className="font-bold text-slate-800">{p.name}</h3>
                   <p className="text-xs text-slate-500">
-                    {p.employee ? `Employee: ${p.employee.userId?.name}` : `${p.employmentType} · ${p.branch?.name || 'All Branches'}`}
+                    {p.employee ? `Employee: ${p.employee.userId?.name}` : [p.department, p.employmentType !== 'all' ? p.employmentType : null, p.branch?.name || 'All branches'].filter(Boolean).join(' · ')}
                   </p>
                 </div>
               </div>
@@ -242,6 +246,10 @@ export default function LeavePolicies() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Department (optional)</label>
+                    <input {...register('department')} className="form-input" placeholder="e.g. Engineering" />
+                  </div>
                   <div>
                     <label className="form-label">Branch (Optional)</label>
                     <select {...register('branch')} className="form-select">
