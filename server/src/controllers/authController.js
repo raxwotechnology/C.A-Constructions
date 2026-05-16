@@ -41,7 +41,7 @@ exports.login = async (req, res, next) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ success: false, message: 'Please provide email and password' });
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: String(email).trim().toLowerCase() }).select('+password');
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -433,5 +433,20 @@ exports.verifyPassword = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid password' });
     }
     res.json({ success: true, message: 'Password verified' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Create or reset demo staff logins (admin only)
+// @route   POST /api/auth/ensure-demo-staff
+exports.ensureDemoStaffLogins = async (req, res, next) => {
+  try {
+    const { ensureStaffLogins, STAFF_SPECS } = require('../services/ensureStaffLogins');
+    const resetPassword = req.body?.resetPassword === true;
+    await ensureStaffLogins({ resetPassword });
+    res.json({
+      success: true,
+      message: resetPassword ? 'Demo staff passwords reset' : 'Demo staff accounts ensured',
+      accounts: STAFF_SPECS.map((s) => ({ role: s.role, email: s.email, password: s.password })),
+    });
   } catch (err) { next(err); }
 };

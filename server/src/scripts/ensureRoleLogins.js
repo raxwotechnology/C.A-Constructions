@@ -1,77 +1,39 @@
 /**
- * Ensures one login per staff role (excludes admin & client).
- * Creates missing users or resets password to the known demo value.
- * Run: node src/scripts/ensureRoleLogins.js
+ * Creates missing staff demo users or resets passwords to seed values.
+ * Run: npm run ensure-role-logins
  */
 require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const Employee = require('../models/Employee');
+const { ensureStaffLogins, STAFF_SPECS } = require('../services/ensureStaffLogins');
 
-const STAFF_ROLES = [
-  { role: 'manager', name: 'Sarah Manager', email: 'manager@raxwo.com', password: 'Manager@2026', department: 'Operations', designation: 'Operations Manager' },
-  { role: 'developer', name: 'John Developer', email: 'developer@raxwo.com', password: 'Developer@2026', department: 'Engineering', designation: 'Software Developer' },
-  { role: 'designer', name: 'Alex Designer', email: 'designer@raxwo.com', password: 'Designer@2026', department: 'Design', designation: 'UI/UX Designer' },
-  { role: 'marketing', name: 'Maya Marketing', email: 'marketing@raxwo.com', password: 'Marketing@2026', department: 'Marketing', designation: 'Marketing Executive' },
-];
-
-async function ensureEmployeeProfile(user, spec) {
-  const existing = await Employee.findOne({ userId: user._id });
-  if (existing) return existing;
-  const count = await Employee.countDocuments();
-  return Employee.create({
-    userId: user._id,
-    employeeNo: `EMP${String(count + 1).padStart(4, '0')}`,
-    department: spec.department,
-    designation: spec.designation,
-    basicSalary: 100000,
-    allowances: 10000,
-    joinedDate: new Date(),
-    status: 'active',
-    gender: 'male',
-  });
-}
-
-async function upsertRoleUser(spec) {
-  let user = await User.findOne({ email: spec.email });
-  if (!user) {
-    user = await User.create({
-      name: spec.name,
-      email: spec.email,
-      password: spec.password,
-      role: spec.role,
-      isActive: true,
-    });
-    console.log(`  + Created ${spec.role}: ${spec.email}`);
-  } else {
-    user.password = spec.password;
-    user.role = spec.role;
-    user.isActive = true;
-    if (!user.name) user.name = spec.name;
-    await user.save();
-    console.log(`  ~ Updated password for ${spec.email} (${spec.role})`);
+async function connect() {
+  const primary = process.env.MONGO_URI;
+  const fallback = process.env.MONGO_URI_FALLBACK;
+  try {
+    await mongoose.connect(primary);
+    return primary;
+  } catch (e) {
+    if (fallback && String(e.message || '').includes('querySrv')) {
+      await mongoose.connect(fallback);
+      return fallback;
+    }
+    throw e;
   }
-  if (['developer', 'designer', 'marketing', 'manager'].includes(spec.role)) {
-    await ensureEmployeeProfile(user, spec);
-  }
-  return user;
 }
 
 async function main() {
-  await mongoose.connect(process.env.MONGO_URI);
+  await connect();
   console.log('Connected.\n');
 
   const allRoles = ['admin', 'manager', 'developer', 'designer', 'marketing', 'client'];
-  console.log('=== Roles in this project (User model) ===');
+  console.log('=== Roles in this project ===');
   allRoles.forEach((r, i) => console.log(`  ${i + 1}. ${r}`));
-  console.log(`  Total: ${allRoles.length} roles\n`);
 
-  console.log('=== Ensuring staff demo logins (not admin/client) ===');
-  for (const spec of STAFF_ROLES) {
-    await upsertRoleUser(spec);
-  }
+  console.log('\n=== Ensuring staff demo logins (reset passwords) ===');
+  await ensureStaffLogins({ resetPassword: true });
 
-  console.log('\n=== All users in database (by role) ===');
+  console.log('\n=== All users (by role) ===');
   const users = await User.find({}).select('name email role isActive').sort({ role: 1, email: 1 }).lean();
   const byRole = {};
   for (const u of users) {
@@ -85,8 +47,8 @@ async function main() {
     else list.forEach((u) => console.log(`  - ${u.email} | ${u.name} | active=${u.isActive}`));
   }
 
-  console.log('\n=== Demo login credentials (staff only) ===');
-  for (const spec of STAFF_ROLES) {
+  console.log('\n=== Demo credentials (staff) ===');
+  for (const spec of STAFF_SPECS) {
     console.log(`  ${spec.role.padEnd(10)} ${spec.email.padEnd(22)} ${spec.password}`);
   }
 

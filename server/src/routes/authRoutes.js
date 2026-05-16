@@ -4,6 +4,7 @@ const {
   register, login, getMe, updateProfile, changePassword, resetPassword,
   sendForgotPasswordOtp, verifyForgotPasswordOtp, resetPasswordWithOtp,
   getAllUsers, toggleUserStatus, createClient, updateUserByAdmin, adminSetUserPassword, verifyPassword, deleteUserByAdmin,
+  ensureDemoStaffLogins,
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -17,6 +18,7 @@ router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.put('/change-password', protect, changePassword);
 router.post('/verify-password', protect, verifyPassword);
+router.post('/ensure-demo-staff', protect, authorize('admin'), ensureDemoStaffLogins);
 router.get('/users', protect, authorize('admin'), getAllUsers);
 router.put('/users/:id/toggle', protect, authorize('admin'), toggleUserStatus);
 router.put('/users/:id', protect, authorize('admin', 'manager'), updateUserByAdmin);

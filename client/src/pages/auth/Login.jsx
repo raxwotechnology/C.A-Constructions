@@ -22,11 +22,16 @@ export default function Login() {
         admin: '/admin',
         manager: '/manager',
         developer: '/developer',
-        employee: '/employee',
-        hr: '/manager',
+        designer: '/designer',
+        marketing: '/marketing',
         client: '/my-projects',
       }
-      navigate(redirect[user.role] || '/login')
+      const dest = redirect[user.role]
+      if (!dest) {
+        toast.error(`No dashboard configured for role "${user.role}"`)
+        return
+      }
+      navigate(dest)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed')
     } finally {
