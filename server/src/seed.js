@@ -26,6 +26,9 @@ const seed = async () => {
   const emp1User = await User.create({ name: 'John Developer', email: 'john@raxwo.com', password: 'Employee@2026', role: 'developer', isActive: true });
   const emp2User = await User.create({ name: 'Nimal Silva', email: 'nimal@raxwo.com', password: 'Employee@2026', role: 'developer', isActive: true });
 
+  const designerUser = await User.create({ name: 'Alex Designer', email: 'designer@raxwo.com', password: 'Designer@2026', role: 'designer', isActive: true });
+  const marketingUser = await User.create({ name: 'Maya Marketing', email: 'marketing@raxwo.com', password: 'Marketing@2026', role: 'marketing', isActive: true });
+
   // Create employee profiles
   const emp1 = await Employee.create({
     userId: emp1User._id, employeeNo: 'EMP0001', department: 'Engineering',
@@ -39,6 +42,20 @@ const seed = async () => {
     designation: 'Junior Software Engineer', basicSalary: 80000, allowances: 10000,
     epfNumber: 'EPF002', joinedDate: new Date('2024-03-01'), manager: manager._id, status: 'active',
     skills: ['React', 'JavaScript', 'CSS'], gender: 'male',
+  });
+
+  await Employee.create({
+    userId: designerUser._id, employeeNo: 'EMP0003', department: 'Design',
+    designation: 'UI/UX Designer', basicSalary: 95000, allowances: 12000,
+    joinedDate: new Date('2024-06-01'), manager: manager._id, status: 'active',
+    skills: ['Figma', 'CSS', 'HTML'], gender: 'female',
+  });
+
+  await Employee.create({
+    userId: marketingUser._id, employeeNo: 'EMP0004', department: 'Marketing',
+    designation: 'Marketing Executive', basicSalary: 85000, allowances: 10000,
+    joinedDate: new Date('2024-08-01'), manager: manager._id, status: 'active',
+    skills: ['SEO', 'Social Media'], gender: 'female',
   });
 
   // Create client
@@ -93,6 +110,9 @@ const seed = async () => {
   console.log('👤 Admin: admin@raxwo.com / Admin@2026');
   console.log('👤 Manager: manager@raxwo.com / Manager@2026');
   console.log('👤 Developer: john@raxwo.com / Employee@2026');
+  console.log('👤 Developer: nimal@raxwo.com / Employee@2026');
+  console.log('👤 Designer: designer@raxwo.com / Designer@2026');
+  console.log('👤 Marketing: marketing@raxwo.com / Marketing@2026');
   console.log('👤 Client: client@techcorp.lk / Client@2026');
   process.exit(0);
 };

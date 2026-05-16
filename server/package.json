@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/seed.js",
+    "ensure-role-logins": "node src/scripts/ensureRoleLogins.js",
     "db:clean-except-admin": "node src/scripts/cleanDatabaseExceptAdmin.js",
     "db:clean-except-admin:yes": "node src/scripts/cleanDatabaseExceptAdmin.js --yes"
   },
