@@ -9,6 +9,8 @@ import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiEye, Fi
 import EmployeeDetail from './EmployeeDetail'
 import EmployeeFormModal from '../../components/admin/EmployeeFormModal'
 import { DEPARTMENTS, EMPLOYEE_STATUSES, STATUS_BADGE } from '../../constants/employeeStatus'
+import { buildEmployeeSavePayload, resolveEmployeeDocUrls } from '../../lib/employeePayload'
+import { mediaUrl } from '../../lib/media'
 
 function buildEmployeesQueryString(filters) {
   const params = new URLSearchParams()
@@ -46,6 +48,21 @@ export default function AdminEmployees() {
   const [nicBackFile, setNicBackFile] = useState(null)
   const [profilePhotoFile, setProfilePhotoFile] = useState(null)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null)
+  const [profilePhotoToRemove, setProfilePhotoToRemove] = useState(false)
+  const [cvToRemove, setCvToRemove] = useState(false)
+  const [agreementToRemove, setAgreementToRemove] = useState(false)
+  const [nicToRemove, setNicToRemove] = useState(false)
+  const [nicBackToRemove, setNicBackToRemove] = useState(false)
+  const [editDocUrls, setEditDocUrls] = useState({
+    cvUrl: '', agreementUrl: '', nicPhotoUrl: '', nicPhotoBackUrl: '',
+  })
+
+  const resetDocRemovals = () => {
+    setCvToRemove(false)
+    setAgreementToRemove(false)
+    setNicToRemove(false)
+    setNicBackToRemove(false)
+  }
   const [viewEmp, setViewEmp] = useState(null)
   /** Full row snapshot while delete modal is open — keeps the row in the list if cache refetches early, and drives modal copy */
   const [deletePendingEmp, setDeletePendingEmp] = useState(null)
@@ -183,46 +200,62 @@ export default function AdminEmployees() {
     setNicBackFile(null)
     setProfilePhotoFile(null)
     setProfilePhotoPreview(null)
+    setProfilePhotoToRemove(false)
+    resetDocRemovals()
+    setEditDocUrls({ cvUrl: '', agreementUrl: '', nicPhotoUrl: '', nicPhotoBackUrl: '' })
     setShowModal(true)
   }
-  const openEdit = emp => {
-    setEditing(emp)
+  const openEdit = async (emp) => {
+    let full = emp
+    try {
+      const { data } = await api.get(`/employees/${emp._id}`)
+      if (data?.employee) full = data.employee
+    } catch {
+      /* use list row if fetch fails */
+    }
+    setEditing(full)
+    setEditDocUrls(resolveEmployeeDocUrls(full))
     ;[
       'department', 'designation', 'basicSalary', 'allowances', 'status', 'epfNumber',
       'idType', 'idNumber', 'dob', 'primaryPhone', 'secondaryPhone', 'address',
       'portfolioUrl', 'gender', 'employmentType', 'branch',
       'etfNumber', 'resignationDate', 'resignationReason',
-    ].forEach(k => setValue(k, emp[k]))
-    setValue('resignationDate', emp.resignationDate ? emp.resignationDate.split('T')[0] : '')
-    setValue('_id', emp._id)
-    setValue('epfEtfEnrolled', emp.epfEtfEnrolled || false)
-    setValue('emergencyContactName', emp?.emergencyContact?.name || '')
-    setValue('emergencyContactPhone', emp?.emergencyContact?.phone || '')
-    setValue('emergencyContactRelationship', emp?.emergencyContact?.relationship || '')
-    setValue('role', emp.userId?.role || 'developer')
-    // Internship fields
-    if (emp.internship) {
-      setValue('internship.startDate', emp.internship.startDate?.split('T')[0] || '')
-      setValue('internship.endDate', emp.internship.endDate?.split('T')[0] || '')
-      setValue('internship.durationWeeks', emp.internship.durationWeeks || '')
-      setValue('internship.university', emp.internship.university || '')
-      setValue('internship.supervisorName', emp.internship.supervisorName || '')
+    ].forEach(k => setValue(k, full[k]))
+    setValue('resignationDate', full.resignationDate ? full.resignationDate.split('T')[0] : '')
+    setValue('epfEtfEnrolled', full.epfEtfEnrolled || false)
+    setValue('emergencyContactName', full?.emergencyContact?.name || '')
+    setValue('emergencyContactPhone', full?.emergencyContact?.phone || '')
+    setValue('emergencyContactRelationship', full?.emergencyContact?.relationship || '')
+    setValue('role', full.userId?.role || 'developer')
+    if (full.internship) {
+      setValue('internship.startDate', full.internship.startDate?.split('T')[0] || '')
+      setValue('internship.endDate', full.internship.endDate?.split('T')[0] || '')
+      setValue('internship.durationWeeks', full.internship.durationWeeks || '')
+      setValue('internship.university', full.internship.university || '')
+      setValue('internship.supervisorName', full.internship.supervisorName || '')
+    }
+    if (full.contract) {
+      setValue('contract.startDate', full.contract.startDate?.split('T')[0] || '')
+      setValue('contract.endDate', full.contract.endDate?.split('T')[0] || '')
     }
     setCvFile(null); setAgreementFile(null); setNicFile(null); setNicBackFile(null)
-    // Use `emp` directly — setEditing is async so `editing` is still the previous value here
-    setProfilePhotoFile(null); setProfilePhotoPreview(emp?.profilePhoto || null)
+    setProfilePhotoFile(null)
+    setProfilePhotoPreview(full?.profilePhoto ? mediaUrl(full.profilePhoto) : null)
+    resetDocRemovals()
     setShowModal(true)
   }
   const closeModal = () => {
     setShowModal(false); setEditing(null); reset()
     setCvFile(null); setAgreementFile(null); setNicFile(null); setNicBackFile(null)
     setProfilePhotoFile(null); setProfilePhotoPreview(null)
+    resetDocRemovals()
+    setEditDocUrls({ cvUrl: '', agreementUrl: '', nicPhotoUrl: '', nicPhotoBackUrl: '' })
   }
   const uploadFile = async (file) => {
     if (!file) return null
     const fd = new FormData()
     fd.append('file', file)
-    const { data } = await api.post('/uploads/file', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const { data } = await api.post('/uploads/file', fd)
     return data?.fileUrl || data?.url || null
   }
 
@@ -230,7 +263,7 @@ export default function AdminEmployees() {
     if (!file) return null
     const fd = new FormData()
     fd.append('image', file)
-    const { data } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const { data } = await api.post('/uploads/image', fd)
     return data?.imageUrl || null
   }
 
@@ -245,31 +278,32 @@ export default function AdminEmployees() {
         nicBackFile ? uploadFile(nicBackFile) : Promise.resolve(null),
         profilePhotoFile ? uploadImage(profilePhotoFile) : Promise.resolve(null),
       ])
-      const payload = {
-        ...d,
-        basicSalary: Number(d.basicSalary) || 0,
-        allowances: Number(d.allowances) || 0,
-        emergencyContact: {
-          name: d.emergencyContactName || '',
-          phone: d.emergencyContactPhone || '',
-          relationship: d.emergencyContactRelationship || '',
-        },
-        ...(cvUrl && { cvUrl }),
-        ...(agreementUrl && { agreementUrl }),
-        ...(nicPhotoUrl && { nicPhotoUrl }),
-        ...(nicPhotoBackUrl && { nicPhotoBackUrl }),
-        ...(profilePhoto && { profilePhoto }),
+      const fileUrls = {}
+      if (cvUrl) fileUrls.cvUrl = cvUrl
+      else if (cvToRemove) fileUrls.cvUrl = ''
+      if (agreementUrl) fileUrls.agreementUrl = agreementUrl
+      else if (agreementToRemove) fileUrls.agreementUrl = ''
+      if (nicPhotoUrl) fileUrls.nicPhotoUrl = nicPhotoUrl
+      else if (nicToRemove) fileUrls.nicPhotoUrl = ''
+      if (nicPhotoBackUrl) fileUrls.nicPhotoBackUrl = nicPhotoBackUrl
+      else if (nicBackToRemove) fileUrls.nicPhotoBackUrl = ''
+      if (profilePhoto) fileUrls.profilePhoto = profilePhoto
+      else if (profilePhotoToRemove) fileUrls.profilePhoto = ''
+
+      const payload = buildEmployeeSavePayload(d, {
+        isEdit: Boolean(editing),
+        fileUrls,
+        includeAllowances: !editing,
+      })
+
+      if (editing) {
+        if (!editing._id) {
+          toast.error('Employee ID missing. Please refresh.')
+          return
+        }
+        return updateMut.mutate({ id: editing._id, data: payload })
       }
-      if (!payload.emergencyContact.name && !payload.emergencyContact.phone) delete payload.emergencyContact
-      delete payload.emergencyContactName
-      delete payload.emergencyContactPhone
-      delete payload.emergencyContactRelationship
-      const targetId = editing ? d._id : null
-      if (editing && !targetId) {
-        toast.error('Employee ID missing. Please refresh.')
-        return
-      }
-      return editing ? updateMut.mutate({ id: targetId, data: payload }) : createMut.mutate(payload)
+      return createMut.mutate(payload)
     } catch(err) {
       toast.error('File upload failed. Please try again.')
     }
@@ -340,7 +374,7 @@ export default function AdminEmployees() {
                     <td>
                       <div className="flex items-center gap-3">
                         {emp.profilePhoto
-                          ? <img src={emp.profilePhoto} alt={emp.userId?.name}
+                          ? <img src={mediaUrl(emp.profilePhoto)} alt={emp.userId?.name}
                               className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-white shadow"/>
                           : <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
                               {emp.userId?.name?.charAt(0).toUpperCase()}
@@ -429,9 +463,21 @@ export default function AdminEmployees() {
                 setNicFile={setNicFile}
                 nicBackFile={nicBackFile}
                 setNicBackFile={setNicBackFile}
+                cvToRemove={cvToRemove}
+                setCvToRemove={setCvToRemove}
+                agreementToRemove={agreementToRemove}
+                setAgreementToRemove={setAgreementToRemove}
+                nicToRemove={nicToRemove}
+                setNicToRemove={setNicToRemove}
+                nicBackToRemove={nicBackToRemove}
+                setNicBackToRemove={setNicBackToRemove}
+                editDocUrls={editDocUrls}
                 profilePhotoPreview={profilePhotoPreview}
+                profilePhotoToRemove={profilePhotoToRemove}
                 setProfilePhotoFile={setProfilePhotoFile}
                 setProfilePhotoPreview={setProfilePhotoPreview}
+                setProfilePhotoToRemove={setProfilePhotoToRemove}
+                editingHasProfilePhoto={Boolean(editing?.profilePhoto)}
                 createPending={createMut.isPending}
                 updatePending={updateMut.isPending}
                 closeModal={closeModal}

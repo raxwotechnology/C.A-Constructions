@@ -12,13 +12,19 @@ exports.getSiteSettings = async (req, res, next) => {
 exports.updateSiteSettings = async (req, res, next) => {
   try {
     const body = { ...req.body };
-    if (body.logoUrl != null && body.logoUrl !== '') {
-      body.logoUrl = toRelativeUploadUrl(body.logoUrl);
+    if ('logoUrl' in body) {
+      const raw = String(body.logoUrl || '').trim();
+      body.logoUrl = raw ? toRelativeUploadUrl(raw) : '';
     }
     let settings = await SiteSetting.findOne();
-    if (!settings) settings = await SiteSetting.create(body);
-    else {
+    if (!settings) {
+      settings = await SiteSetting.create(body);
+    } else {
       Object.assign(settings, body);
+      if ('logoUrl' in body && !String(body.logoUrl || '').trim()) {
+        settings.logoUrl = '';
+        settings.markModified('logoUrl');
+      }
       await settings.save();
     }
     res.json({ success: true, settings });

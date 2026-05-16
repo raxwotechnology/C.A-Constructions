@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { FiSave, FiLock, FiUser } from 'react-icons/fi'
 import { useState } from 'react'
 import { mediaUrl } from '../../lib/media'
+import { applySiteFavicon } from '../../lib/siteFavicon'
 
 export default function AdminSettings() {
   const { user, updateUser } = useAuthStore()
@@ -52,7 +53,7 @@ export default function AdminSettings() {
     queryKey: ['site-settings'],
     queryFn: () => api.get('/site-settings').then((r) => r.data),
   })
-  const { register: reg3, handleSubmit: hs3, formState: { isSubmitting: isSubmittingSite } } = useForm({
+  const { register: reg3, handleSubmit: hs3, setValue: setSiteValue, formState: { isSubmitting: isSubmittingSite } } = useForm({
     values: {
       siteName: siteData?.settings?.siteName || '',
       siteDescription: siteData?.settings?.siteDescription || '',
@@ -73,10 +74,16 @@ export default function AdminSettings() {
 
   const siteMut = useMutation({
     mutationFn: (d) => api.put('/site-settings', d).then((r) => r.data),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast.success('Site settings updated')
       setLogoFile(null)
       setLogoToRemove(false)
+      qc.setQueryData(['site-settings'], data)
+      const savedLogo = (data?.settings?.logoUrl ?? variables?.logoUrl ?? '').trim()
+      const v = data?.settings?.updatedAt
+        ? new Date(data.settings.updatedAt).getTime()
+        : Date.now()
+      applySiteFavicon(savedLogo, v)
       qc.invalidateQueries({ queryKey: ['site-settings'] })
       qc.invalidateQueries({ queryKey: ['epf-records'] })
     },
@@ -208,8 +215,7 @@ export default function AdminSettings() {
         <h3 className="font-bold text-primary font-heading mb-4">Site Settings</h3>
         <form onSubmit={hs3(async (d) => {
           try {
-            let logoUrl = d.logoUrl || ''
-            if (logoToRemove) logoUrl = ''
+            let logoUrl = logoToRemove ? '' : (d.logoUrl || '').trim()
             if (logoFile) {
               const uploaded = await uploadImage(logoFile)
               if (uploaded) logoUrl = uploaded
@@ -245,8 +251,9 @@ export default function AdminSettings() {
                 {((!logoToRemove && siteData?.settings?.logoUrl) || logoFile) && (
                   <button type="button" onClick={() => { 
                     if (window.confirm('Are you sure you want to remove the site logo?')) {
-                      setLogoToRemove(true); 
-                      setLogoFile(null);
+                      setLogoToRemove(true)
+                      setLogoFile(null)
+                      setSiteValue('logoUrl', '')
                     }
                   }} className="text-xs text-red-500 hover:text-red-600 font-medium w-fit">Remove Logo</button>
                 )}

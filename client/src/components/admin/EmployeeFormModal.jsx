@@ -1,9 +1,11 @@
 import { useRef } from 'react'
 import toast from 'react-hot-toast'
 import {
-  FiUser, FiKey, FiBriefcase, FiDollarSign, FiPhone, FiUpload, FiFile, FiLink,
+  FiUser, FiKey, FiBriefcase, FiDollarSign, FiPhone, FiUpload, FiFile, FiLink, FiTrash2,
 } from 'react-icons/fi'
 import { DEPARTMENTS, ROLES, EMPLOYEE_STATUSES } from '../../constants/employeeStatus'
+import { mediaUrl } from '../../lib/media'
+import EmployeePasswordPanel from './EmployeePasswordPanel'
 
 const FormSection = ({ title, icon: Icon, children }) => (
   <div className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
@@ -19,10 +21,17 @@ const FieldError = ({ message }) => (message ? <p className="text-xs text-red-60
 
 const MAX_FILE_MB = 5
 
-function FileUploadField({ label, accept, hint, file, setFile, existingUrl, icon: Icon = FiFile }) {
+function FileUploadField({
+  label, accept, hint, file, setFile, existingUrl, icon: Icon = FiFile,
+  markedForRemoval = false, onRemove, onClearRemoval,
+}) {
   const ref = useRef()
+  const storedUrl = (existingUrl || '').trim()
+  const showExisting = Boolean(storedUrl) && !markedForRemoval
+  const showRemove = Boolean(onRemove) && !markedForRemoval && (showExisting || Boolean(file))
+
   return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-white p-3">
+    <div className={`rounded-lg border border-dashed p-3 ${markedForRemoval ? 'border-amber-200 bg-amber-50/50' : 'border-slate-200 bg-white'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={14} className="text-slate-400 flex-shrink-0" />
@@ -31,21 +40,41 @@ function FileUploadField({ label, accept, hint, file, setFile, existingUrl, icon
             {hint && <p className="text-xs text-slate-400">{hint}</p>}
           </div>
         </div>
-        {existingUrl && (
-          <a href={existingUrl} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline">View</a>
+        {showExisting && (
+          <a href={mediaUrl(storedUrl)} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline shrink-0 whitespace-nowrap">View</a>
         )}
       </div>
-      <div className="mt-2 flex items-center gap-2">
+      {markedForRemoval && (
+        <p className="text-xs text-amber-700 mt-2 font-medium">Will be removed when you save</p>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => ref.current?.click()} className="text-xs px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium">
-          {file ? 'Change' : existingUrl ? 'Replace' : 'Choose file'}
+          {file ? 'Change file' : showExisting ? 'Replace' : 'Choose file'}
         </button>
-        {file && <span className="text-xs text-slate-500 truncate">{file.name}</span>}
+        {file && <span className="text-xs text-slate-500 truncate min-w-0 flex-1">{file.name}</span>}
       </div>
+      {showRemove && (
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm(`Remove ${label}? This takes effect when you save.`)) onRemove()
+          }}
+          className="mt-2 w-full text-xs px-2 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 font-medium inline-flex items-center justify-center gap-1"
+        >
+          <FiTrash2 size={12} /> Remove document
+        </button>
+      )}
+      {markedForRemoval && onClearRemoval && (
+        <button type="button" onClick={onClearRemoval} className="mt-2 w-full text-xs text-slate-600 hover:underline text-center block">
+          Undo remove
+        </button>
+      )}
       <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => {
         const f = e.target.files?.[0]
         if (!f) return
         if (f.size > MAX_FILE_MB * 1024 * 1024) { toast.error(`Max ${MAX_FILE_MB}MB`); return }
         setFile(f)
+        onClearRemoval?.()
       }} />
     </div>
   )
@@ -56,14 +85,16 @@ export default function EmployeeFormModal({
   watchedType, watchedStatus, watchedEpfEnrolled,
   cvFile, setCvFile, agreementFile, setAgreementFile,
   nicFile, setNicFile, nicBackFile, setNicBackFile,
-  profilePhotoPreview, setProfilePhotoFile, setProfilePhotoPreview,
+  cvToRemove, setCvToRemove, agreementToRemove, setAgreementToRemove,
+  nicToRemove, setNicToRemove, nicBackToRemove, setNicBackToRemove,
+  editDocUrls = {},
+  profilePhotoPreview, profilePhotoToRemove, setProfilePhotoFile, setProfilePhotoPreview, setProfilePhotoToRemove,
+  editingHasProfilePhoto = false,
   createPending, updatePending, closeModal,
   onSubmit, handleSubmit, onInvalid,
 }) {
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="p-6 space-y-5">
-      <input type="hidden" {...register('_id')} />
-
       {!editing && (
         <FormSection title="Account" icon={FiKey}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -78,6 +109,8 @@ export default function EmployeeFormModal({
       {editing && (
         <FormSection title="Account" icon={FiKey}>
           <div><label className="form-label">Role</label><select {...register('role')} className="form-select">{ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
+          <p className="text-xs text-slate-500">Login email: <span className="font-medium text-slate-700">{editing.userId?.email}</span></p>
+          <EmployeePasswordPanel employeeId={editing._id} email={editing.userId?.email} />
         </FormSection>
       )}
 
@@ -103,19 +136,55 @@ export default function EmployeeFormModal({
                 if (f.size > 5e6) { toast.error('Max 5MB'); return }
                 setProfilePhotoFile(f)
                 setProfilePhotoPreview(URL.createObjectURL(f))
+                setProfilePhotoToRemove(false)
               }} />
             </label>
-            {profilePhotoPreview && <button type="button" className="ml-2 text-xs text-red-500" onClick={() => { setProfilePhotoFile(null); setProfilePhotoPreview(null) }}>Remove</button>}
+            {(profilePhotoPreview || (editing && editingHasProfilePhoto && !profilePhotoToRemove)) && (
+              <button
+                type="button"
+                className="ml-2 text-xs text-red-500 hover:text-red-600 font-medium"
+                onClick={() => {
+                  setProfilePhotoFile(null)
+                  setProfilePhotoPreview(null)
+                  if (editing) setProfilePhotoToRemove(true)
+                }}
+              >
+                Remove photo
+              </button>
+            )}
+            {profilePhotoToRemove && (
+              <p className="text-xs text-amber-700 mt-1">Photo will be removed when you save</p>
+            )}
           </div>
         </div>
         <div><label className="form-label">Address</label><textarea {...register('address')} rows={2} className="form-input" /></div>
         <div className="space-y-3">
           <p className="text-xs font-semibold text-slate-500 uppercase">Documents</p>
-          <FileUploadField label="CV / Resume" accept=".pdf" hint="PDF" file={cvFile} setFile={setCvFile} existingUrl={editing?.cvUrl} />
-          <FileUploadField label="Agreement" accept=".pdf" file={agreementFile} setFile={setAgreementFile} existingUrl={editing?.agreementUrl} />
+          <FileUploadField
+            label="CV / Resume" accept=".pdf" hint="PDF" file={cvFile} setFile={setCvFile}
+            existingUrl={cvToRemove ? '' : editDocUrls.cvUrl} markedForRemoval={cvToRemove}
+            onRemove={editing ? () => setCvToRemove(true) : undefined}
+            onClearRemoval={editing ? () => setCvToRemove(false) : undefined}
+          />
+          <FileUploadField
+            label="Agreement" accept=".pdf" hint="PDF" file={agreementFile} setFile={setAgreementFile}
+            existingUrl={agreementToRemove ? '' : editDocUrls.agreementUrl} markedForRemoval={agreementToRemove}
+            onRemove={editing ? () => setAgreementToRemove(true) : undefined}
+            onClearRemoval={editing ? () => setAgreementToRemove(false) : undefined}
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FileUploadField label="NIC front" accept=".pdf,image/*" file={nicFile} setFile={setNicFile} existingUrl={editing?.nicPhotoUrl} icon={FiUpload} />
-            <FileUploadField label="NIC back" accept=".pdf,image/*" file={nicBackFile} setFile={setNicBackFile} existingUrl={editing?.nicPhotoBackUrl} icon={FiUpload} />
+            <FileUploadField
+              label="NIC front" accept=".pdf,image/*" file={nicFile} setFile={setNicFile}
+              existingUrl={nicToRemove ? '' : editDocUrls.nicPhotoUrl} icon={FiUpload} markedForRemoval={nicToRemove}
+              onRemove={editing ? () => setNicToRemove(true) : undefined}
+              onClearRemoval={editing ? () => setNicToRemove(false) : undefined}
+            />
+            <FileUploadField
+              label="NIC back" accept=".pdf,image/*" file={nicBackFile} setFile={setNicBackFile}
+              existingUrl={nicBackToRemove ? '' : editDocUrls.nicPhotoBackUrl} icon={FiUpload} markedForRemoval={nicBackToRemove}
+              onRemove={editing ? () => setNicBackToRemove(true) : undefined}
+              onClearRemoval={editing ? () => setNicBackToRemove(false) : undefined}
+            />
           </div>
         </div>
       </FormSection>
@@ -169,7 +238,17 @@ export default function EmployeeFormModal({
       <FormSection title="Salary & statutory" icon={FiDollarSign}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><label className="form-label">Basic salary (LKR)</label><input {...register('basicSalary', { valueAsNumber: true })} type="number" className="form-input" /></div>
-          <div><label className="form-label">Allowances (LKR)</label><input {...register('allowances', { valueAsNumber: true })} type="number" className="form-input" /></div>
+          {editing ? (
+            <div>
+              <label className="form-label">Allowances (LKR)</label>
+              <p className="form-input bg-slate-50 text-slate-700 cursor-default">
+                {(editing.allowances ?? 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">Allowances are managed in payroll, not here.</p>
+            </div>
+          ) : (
+            <div><label className="form-label">Allowances (LKR)</label><input {...register('allowances', { valueAsNumber: true })} type="number" className="form-input" /></div>
+          )}
         </div>
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -194,3 +273,5 @@ export default function EmployeeFormModal({
     </form>
   )
 }
+
+

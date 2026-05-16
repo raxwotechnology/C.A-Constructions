@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Project = require('../models/Project');
@@ -17,6 +18,44 @@ function syncEmploymentTypeFromStatus(body) {
   else if (status === 'active' && body.employmentType === 'intern') {
     body.status = 'internship';
   }
+}
+
+function isValidObjectId(v) {
+  return v && mongoose.Types.ObjectId.isValid(v) && String(new mongoose.Types.ObjectId(v)) === String(v);
+}
+
+function sanitizeEmployeePayload(payload) {
+  delete payload._id;
+  delete payload.name;
+  delete payload.email;
+  delete payload.password;
+
+  ['branch', 'manager'].forEach((key) => {
+    if (payload[key] === '' || payload[key] == null) delete payload[key];
+    else if (!isValidObjectId(payload[key])) delete payload[key];
+  });
+
+  const dateKeys = ['dob', 'resignationDate', 'joinedDate', 'probationEnd'];
+  dateKeys.forEach((key) => {
+    if (payload[key] === '' || payload[key] == null) delete payload[key];
+  });
+
+  if (payload.internship && typeof payload.internship === 'object') {
+    ['startDate', 'endDate', 'convertedAt'].forEach((key) => {
+      if (payload.internship[key] === '' || payload.internship[key] == null) delete payload.internship[key];
+    });
+    if (payload.internship.durationWeeks === '' || Number.isNaN(Number(payload.internship.durationWeeks))) {
+      delete payload.internship.durationWeeks;
+    }
+  }
+
+  if (payload.contract && typeof payload.contract === 'object') {
+    ['startDate', 'endDate', 'renewalDate'].forEach((key) => {
+      if (payload.contract[key] === '' || payload.contract[key] == null) delete payload.contract[key];
+    });
+  }
+
+  return payload;
 }
 
 function applyResignationFields(body) {
@@ -203,7 +242,11 @@ exports.createEmployee = async (req, res, next) => {
 // @route   PUT /api/employees/:id
 exports.updateEmployee = async (req, res, next) => {
   try {
-    const payload = { ...req.body };
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const payload = sanitizeEmployeePayload({ ...req.body });
     delete payload.maxLeavesPerYear;
 
     if (payload.status === 'resigned' && !payload.resignationDate) {
@@ -212,13 +255,21 @@ exports.updateEmployee = async (req, res, next) => {
     syncEmploymentTypeFromStatus(payload);
     applyResignationFields(payload);
 
+    const employeeBefore = await Employee.findById(req.params.id);
+    if (!employeeBefore) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
     // Update role on linked user if provided (admin/manager only)
     if (payload.role) {
-      const employeeDoc = await Employee.findById(req.params.id);
-      if (employeeDoc) {
-        await User.findByIdAndUpdate(employeeDoc.userId, { role: payload.role });
-      }
+      await User.findByIdAndUpdate(employeeBefore.userId, { role: payload.role });
       delete payload.role;
+    }
+
+    if ('profilePhoto' in payload) {
+      const photo = String(payload.profilePhoto || '').trim();
+      payload.profilePhoto = photo;
+      await User.findByIdAndUpdate(employeeBefore.userId, { avatar: photo });
     }
 
     const employee = await Employee.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })

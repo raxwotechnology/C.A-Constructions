@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import useAuthStore from './store/authStore'
 import api from './lib/api'
-import { mediaUrl } from './lib/media'
+import { applySiteFavicon } from './lib/siteFavicon'
 
 // Layouts
 import PublicLayout from './layouts/PublicLayout'
@@ -129,18 +129,12 @@ function DynamicFaviconFromSettings() {
     staleTime: 60_000,
   })
   useEffect(() => {
-    const logo = data?.settings?.logoUrl
-    const v = data?.settings?.updatedAt ? new Date(data.settings.updatedAt).getTime() : ''
-    const href = logo ? `${mediaUrl(logo)}?v=${v}` : '/favicon.svg'
-    let link = document.querySelector("link[rel='icon']")
-    if (!link) {
-      link = document.createElement('link')
-      link.rel = 'icon'
-      document.head.appendChild(link)
-    }
-    link.href = href
-    link.type = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(href) ? 'image/png' : 'image/svg+xml'
-  }, [data])
+    const logoUrl = (data?.settings?.logoUrl || '').trim()
+    const v = data?.settings?.updatedAt
+      ? new Date(data.settings.updatedAt).getTime()
+      : Date.now()
+    applySiteFavicon(logoUrl, v)
+  }, [data?.settings?.logoUrl, data?.settings?.updatedAt])
   return null
 }
 
