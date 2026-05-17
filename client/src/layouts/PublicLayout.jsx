@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
 import { mediaUrl } from '../lib/media'
+import SiteLogo from '../components/branding/SiteLogo'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 
@@ -128,15 +129,7 @@ export default function PublicLayout() {
       }`}>
         <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
           {/* Logo */}
-          <NavLink to="/" className="flex items-center gap-3 group flex-shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
-              <span className="text-white font-bold text-lg font-heading">R</span>
-            </div>
-            <div>
-              <span className="font-heading font-bold text-white text-xl leading-none">Raxwo</span>
-              <p className="text-white/50 text-xs leading-none">Pvt Ltd</p>
-            </div>
-          </NavLink>
+          <SiteLogo to="/" variant="dark" className="flex-shrink-0 group" />
 
           {/* Desktop nav */}
           <nav className="hidden md:flex flex-1 items-center justify-center gap-0.5 min-w-0 overflow-visible">
@@ -374,14 +367,8 @@ export default function PublicLayout() {
         <div className="container-max py-16">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
             <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center">
-                  <span className="text-white font-bold text-lg font-heading">R</span>
-                </div>
-                <div>
-                  <span className="font-heading font-bold text-white text-xl">Raxwo Pvt Ltd</span>
-                  <p className="text-white/50 text-xs">Innovative Software Solutions</p>
-                </div>
+              <div className="mb-4">
+                <SiteLogo to="/" variant="dark" asLink={false} />
               </div>
               <p className="text-white/60 text-sm leading-relaxed max-w-sm">
                 Premium software development company based in Colombo, Sri Lanka. We craft scalable, modern digital solutions for businesses worldwide.

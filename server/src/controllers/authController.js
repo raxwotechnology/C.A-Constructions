@@ -3,10 +3,18 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { getOrCreateReward, awardPoints, handleReferralForNewClient } = require('../services/rewardService');
 const { sendMail } = require('../utils/mailer');
+const { sendClientWelcomeEmail } = require('../services/welcomeEmail');
 const { validateStrongPassword } = require('../utils/passwordValidation');
 const { toRelativeUploadUrl } = require('../utils/uploadsPath');
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
+
+function serializeUser(user) {
+  if (!user) return user;
+  const obj = typeof user.toObject === 'function' ? user.toObject() : { ...user };
+  if (obj.avatar) obj.avatar = toRelativeUploadUrl(obj.avatar);
+  return obj;
+}
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -28,9 +36,15 @@ exports.register = async (req, res, next) => {
         note: 'Account registration reward',
       });
       if (referralCode) await handleReferralForNewClient({ newUserId: user._id, referralCode });
+      try {
+        const mailResult = await sendClientWelcomeEmail(user);
+        if (!mailResult.sent) console.warn('[register] welcome email skipped:', mailResult.reason);
+      } catch (mailErr) {
+        console.warn('[register] welcome email failed:', mailErr.message);
+      }
     }
     const token = generateToken(user._id);
-    res.status(201).json({ success: true, token, user });
+    res.status(201).json({ success: true, token, user: serializeUser(user) });
   } catch (err) { next(err); }
 };
 
@@ -66,14 +80,14 @@ exports.login = async (req, res, next) => {
     }
 
     const token = generateToken(user._id);
-    res.json({ success: true, token, user });
+    res.json({ success: true, token, user: serializeUser(user) });
   } catch (err) { next(err); }
 };
 
 // @desc    Get current user
 // @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
-  res.json({ success: true, user: req.user });
+  res.json({ success: true, user: serializeUser(req.user) });
 };
 
 // @desc    Update profile
@@ -81,13 +95,20 @@ exports.getMe = async (req, res) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const { name, phone, avatar } = req.body;
-    const normalizedAvatar = avatar != null && avatar !== '' ? toRelativeUploadUrl(avatar) : avatar;
+    const updates = {};
+    if (name != null) updates.name = name;
+    if (phone != null) updates.phone = phone;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'avatar')) {
+      updates.avatar = avatar != null && String(avatar).trim() !== ''
+        ? toRelativeUploadUrl(avatar)
+        : '';
+    }
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { name, phone, avatar: normalizedAvatar },
+      updates,
       { new: true, runValidators: true },
     );
-    res.json({ success: true, user });
+    res.json({ success: true, user: serializeUser(user) });
   } catch (err) { next(err); }
 };
 

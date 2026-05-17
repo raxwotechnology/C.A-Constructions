@@ -6,10 +6,12 @@ import toast from 'react-hot-toast'
 import { FiSave, FiLock, FiUser } from 'react-icons/fi'
 import { useState } from 'react'
 import { mediaUrl } from '../../lib/media'
+import UserAvatar from '../../components/ui/UserAvatar'
 import { applySiteFavicon } from '../../lib/siteFavicon'
+import { invalidateSiteBranding, SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding'
 
 export default function AdminSettings() {
-  const { user, updateUser } = useAuthStore()
+  const { user, updateUser, refreshSession } = useAuthStore()
   const qc = useQueryClient()
   const [avatarFile, setAvatarFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
@@ -23,11 +25,12 @@ export default function AdminSettings() {
 
   const profileMut = useMutation({
     mutationFn: d => api.put('/auth/profile', d).then(r => r.data),
-    onSuccess: r => { 
-      updateUser(r.user); 
-      setAvatarFile(null);
-      setAvatarToRemove(false);
-      toast.success('Profile updated') 
+    onSuccess: async (r) => {
+      updateUser(r.user)
+      setAvatarFile(null)
+      setAvatarToRemove(false)
+      await refreshSession()
+      toast.success('Profile updated')
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -36,7 +39,7 @@ export default function AdminSettings() {
     try {
       const fd = new FormData()
       fd.append('image', file)
-      const { data } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const { data } = await api.post('/uploads/image', fd)
       return data.imageUrl
     } catch (err) {
       console.error('Image upload failed:', err)
@@ -50,7 +53,7 @@ export default function AdminSettings() {
   })
 
   const { data: siteData } = useQuery({
-    queryKey: ['site-settings'],
+    queryKey: SITE_SETTINGS_QUERY_KEY,
     queryFn: () => api.get('/site-settings').then((r) => r.data),
   })
   const { register: reg3, handleSubmit: hs3, setValue: setSiteValue, formState: { isSubmitting: isSubmittingSite } } = useForm({
@@ -78,13 +81,13 @@ export default function AdminSettings() {
       toast.success('Site settings updated')
       setLogoFile(null)
       setLogoToRemove(false)
-      qc.setQueryData(['site-settings'], data)
+      qc.setQueryData(SITE_SETTINGS_QUERY_KEY, data)
       const savedLogo = (data?.settings?.logoUrl ?? variables?.logoUrl ?? '').trim()
       const v = data?.settings?.updatedAt
         ? new Date(data.settings.updatedAt).getTime()
         : Date.now()
       applySiteFavicon(savedLogo, v)
-      qc.invalidateQueries({ queryKey: ['site-settings'] })
+      invalidateSiteBranding(qc)
       qc.invalidateQueries({ queryKey: ['epf-records'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
@@ -148,8 +151,8 @@ export default function AdminSettings() {
               <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
                 {avatarFile ? (
                   <img src={URL.createObjectURL(avatarFile)} alt="Preview" className="w-full h-full object-cover" />
-                ) : (!avatarToRemove && user?.avatar) ? (
-                  <img src={mediaUrl(user.avatar)} alt="Avatar" className="w-full h-full object-cover" />
+                ) : !avatarToRemove && user?.avatar ? (
+                  <UserAvatar user={user} className="w-full h-full rounded-full" imgClassName="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400"><FiUser size={30} /></div>
                 )}

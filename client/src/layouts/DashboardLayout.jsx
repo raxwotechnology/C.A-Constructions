@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import useAuthStore from '../store/authStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
-import { mediaUrl } from '../lib/media'
+import SiteLogo from '../components/branding/SiteLogo'
+import UserAvatar from '../components/ui/UserAvatar'
 import { resolveNotificationLink } from '../lib/notificationLink'
 import {
   FiHome, FiUsers, FiCalendar, FiDollarSign, FiFileText, FiBriefcase,
@@ -126,15 +127,6 @@ export default function DashboardLayout({ role }) {
   const notifButtonRef = useRef(null)
   const [notifPos, setNotifPos] = useState({ top: 72, right: 16 })
 
-  const { data: siteRow } = useQuery({
-    queryKey: ['site-settings'],
-    queryFn: () => api.get('/site-settings').then((r) => r.data),
-    staleTime: 60_000,
-  })
-  const siteLogo = siteRow?.settings?.logoUrl
-    ? `${mediaUrl(siteRow.settings.logoUrl)}?v=${siteRow.settings.updatedAt ? new Date(siteRow.settings.updatedAt).getTime() : ''}`
-    : ''
-
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.get('/analytics/notifications').then(r => r.data),
@@ -206,19 +198,10 @@ export default function DashboardLayout({ role }) {
     <div className="h-full flex flex-col bg-white border-r border-slate-200 overflow-hidden">
       {/* Logo */}
       <div className="p-6 border-b border-slate-200">
-        <NavLink to="/" className="flex items-center gap-3">
-          {siteLogo ? (
-            <img src={siteLogo} alt="" className="h-10 w-auto max-w-[140px] object-contain rounded-lg border border-slate-100 bg-white p-1" />
-          ) : (
-            <div className="w-9 h-9 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
-              <span className="text-white font-bold font-heading">R</span>
-            </div>
-          )}
-          <div>
-            <span className="font-heading font-bold text-primary text-lg leading-none">{siteRow?.settings?.siteName || 'Raxwo'}</span>
-            <p className="text-slate-400 text-xs leading-none capitalize">{user?.role} Portal</p>
-          </div>
-        </NavLink>
+        <div>
+          <SiteLogo to="/" variant="light" />
+          <p className="text-slate-400 text-xs capitalize mt-2 pl-1">{user?.role} Portal</p>
+        </div>
       </div>
 
       {/* Nav */}
@@ -251,9 +234,7 @@ export default function DashboardLayout({ role }) {
       {/* User */}
       <div className="p-4 border-t border-slate-200">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
-          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-[#000080] font-semibold text-sm flex-shrink-0">
-            {user?.name?.charAt(0).toUpperCase()}
-          </div>
+          <UserAvatar user={user} className="w-9 h-9 rounded-full flex-shrink-0" imgClassName="w-full h-full object-cover" />
           <div className="flex-1 min-w-0">
             <p className="text-slate-800 text-sm font-medium truncate">{user?.name}</p>
             <p className="text-slate-400 text-xs capitalize truncate">{user?.role}</p>
@@ -354,9 +335,7 @@ export default function DashboardLayout({ role }) {
                 onClick={() => setShowProfileMenu((s) => !s)}
                 className="h-10 px-2 sm:px-2.5 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center gap-2 text-secondary font-semibold text-sm hover:bg-secondary/15 transition-colors"
               >
-                <span className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
-                  {user?.avatar ? <img src={mediaUrl(user.avatar)} alt={user?.name} className="w-full h-full rounded-lg object-cover" /> : user?.name?.charAt(0).toUpperCase()}
-                </span>
+                <UserAvatar user={user} className="w-7 h-7 rounded-lg bg-white" imgClassName="w-full h-full rounded-lg object-cover" />
                 <span className="hidden sm:inline max-w-[8rem] truncate">{user?.name?.split(' ')[0]}</span>
                 <FiChevronDown size={14} className="hidden sm:block" />
               </button>

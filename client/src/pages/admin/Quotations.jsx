@@ -13,6 +13,8 @@ import {
   suggestedExchangeToLKR,
 } from '../../lib/currencies'
 import ConfirmModal from '../../components/ui/ConfirmModal'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
 
 const STATUS_COLOR = {
   draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', confirmed:'badge-green',
@@ -32,6 +34,7 @@ export default function AdminQuotations() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [convertTarget, setConvertTarget] = useState(null)
+  const [clientSelectLabel, setClientSelectLabel] = useState('')
   const prevCurrencyRef = useRef('LKR')
 
   const { register, handleSubmit, reset, setValue, watch, control } = useForm({
@@ -150,8 +153,8 @@ export default function AdminQuotations() {
     q.quotationNo?.toLowerCase().includes(search.toLowerCase())
   )
 
-  const closeModal = () => { setShowModal(false); setEditing(null); reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '' }) }
-  const openCreate = () => { reset({ quotationDate: new Date().toISOString().split('T')[0], items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '' }); setEditing(null); setShowModal(true) }
+  const closeModal = () => { setShowModal(false); setEditing(null); setClientSelectLabel(''); reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '', client: '' }) }
+  const openCreate = () => { reset({ quotationDate: new Date().toISOString().split('T')[0], items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '', client: '' }); setClientSelectLabel(''); setEditing(null); setShowModal(true) }
   const openEdit = (q) => {
     reset({
       client: q.client?._id || q.client,
@@ -169,6 +172,9 @@ export default function AdminQuotations() {
       terms: q.terms || '',
       items: (q.items && q.items.length > 0) ? q.items.map(i => ({ description: i.description || '', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, total: i.total || 0 })) : [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
     })
+    setClientSelectLabel(
+      q.client?.name ? `${q.client.name}${q.client.email ? ` (${q.client.email})` : ''}` : ''
+    )
     setEditing(q)
     setShowModal(true)
   }
@@ -292,10 +298,18 @@ export default function AdminQuotations() {
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="form-label">Client *</label>
-                  <select {...register('client', { required: true })} className={`form-select ${watch('client') === '' ? 'border-red-400' : ''}`}>
-                    <option value="">Select client</option>
-                    {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                  </select></div>
+                  <input type="hidden" {...register('client', { required: true })} />
+                  <SearchableSelect
+                    value={watch('client') || ''}
+                    onChange={(v, opt) => {
+                      setValue('client', v, { shouldDirty: true, shouldValidate: true })
+                      setClientSelectLabel(opt?.label || '')
+                    }}
+                    loadOptions={lookupLoaders.clients()}
+                    placeholder="Search client…"
+                    initialLabel={clientSelectLabel}
+                  />
+                </div>
                 <div><label className="form-label">Service Type</label>
                   <select {...register('serviceType')} className="form-select">
                     {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}

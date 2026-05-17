@@ -235,17 +235,17 @@ export default function AdminLoans() {
               <h3 className="font-bold text-primary font-heading">New Loan</h3>
               <button onClick={() => { setShowCreate(false); setEmpSummary(null) }} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 text-sm font-sans">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label text-xs">Filter by Branch</label>
-                  <select className="form-select py-1.5 text-xs" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+                  <label className="form-label">Filter by Branch</label>
+                  <select className="form-select" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
                     <option value="">All Branches</option>
                     {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label text-xs">Select Employee *</label>
+                  <label className="form-label">Select Employee *</label>
                   <SearchableSelect
                     value={form.employeeId}
                     onChange={(v) => { setForm(s => ({ ...s, employeeId: v })); loadEmployeeSummary(v) }}
@@ -256,11 +256,11 @@ export default function AdminLoans() {
               </div>
 
               {/* Employee Financial Summary */}
-              {loadingSummary && <div className="text-center py-4 text-slate-400 text-sm">Loading employee info…</div>}
+              {loadingSummary && <div className="text-center py-4 text-slate-500">Loading employee info…</div>}
               {empSummary && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">📋 Employee Financial Summary</p>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                  <p className="form-label mb-2">Employee financial summary</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
                     <span className="text-slate-500">Basic Salary:</span><span className="font-semibold text-slate-800">LKR {empSummary.basicSalary?.toLocaleString()}</span>
                     <span className="text-slate-500">Allowances:</span><span className="font-medium text-slate-700">LKR {empSummary.allowances?.toLocaleString()}</span>
                     <span className="text-slate-500">Advance Balance:</span><span className={`font-medium ${empSummary.totalAdvanceBalance > 0 ? 'text-orange-600' : 'text-slate-700'}`}>LKR {empSummary.totalAdvanceBalance?.toLocaleString()}</span>
@@ -301,7 +301,7 @@ export default function AdminLoans() {
               </div>
 
               {(form.totalAmount > 0 || form.taxRate > 0) && (
-                <div className="bg-emerald-50 text-emerald-800 rounded-xl p-3 text-xs space-y-1">
+                <div className="bg-emerald-50 text-emerald-800 rounded-xl p-3 text-sm space-y-1">
                   <div className="flex justify-between"><span>Principal:</span><span>LKR {Number(form.totalAmount||0).toLocaleString()}</span></div>
                   <div className="flex justify-between text-red-600"><span>Interest ({form.taxRate}%):</span><span>+ LKR {Math.round(Number(form.totalAmount||0) * (Number(form.taxRate||0)/100)).toLocaleString()}</span></div>
                   <div className="flex justify-between font-bold border-t border-emerald-200 pt-1 mt-1"><span>Total Payable:</span><span>LKR {calcTotalWithInterest().toLocaleString()}</span></div>
@@ -321,8 +321,8 @@ export default function AdminLoans() {
                   {[{ v: 'salary', label: '💼 Deduct from Salary', desc: 'Automatically deducted in payroll' }, { v: 'separate', label: '💰 Separate Repayment', desc: 'Employee repays independently' }].map(opt => (
                     <label key={opt.v} className={`flex-1 cursor-pointer p-3 rounded-xl border-2 transition-all ${form.deductionType === opt.v ? 'border-secondary bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}>
                       <input type="radio" className="hidden" value={opt.v} checked={form.deductionType === opt.v} onChange={e => setForm(s => ({ ...s, deductionType: e.target.value }))} />
-                      <p className="text-sm font-semibold">{opt.label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{opt.desc}</p>
+                      <p className="font-semibold">{opt.label}</p>
+                      <p className="text-slate-500 mt-0.5">{opt.desc}</p>
                     </label>
                   ))}
                 </div>

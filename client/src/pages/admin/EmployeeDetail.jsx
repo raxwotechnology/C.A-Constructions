@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { getApiBaseUrl } from '../../lib/devApi'
+import { mediaUrl } from '../../lib/media'
 import toast from 'react-hot-toast'
 import {
   FiUser, FiX, FiCheck, FiCreditCard, FiFileText,
@@ -25,6 +26,8 @@ const API_ORIGIN = (() => {
 })()
 const resolveUrl = (url) => {
   if (!url) return url
+  const resolved = mediaUrl(url)
+  if (resolved) return resolved
   if (url.startsWith('http://') || url.startsWith('https://')) return url
   return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`
 }
@@ -47,6 +50,14 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
   const [showRemove, setShowRemove] = useState(false)
 
   const empId = employee?._id
+
+  const { data: fullEmployee } = useQuery({
+    queryKey: ['employee-detail-full', empId],
+    queryFn: () => api.get(`/employees/${empId}`).then((r) => r.data?.employee),
+    enabled: !!empId,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
 
   // ── Dashboard data fetches ──────────────────────────────────────────────────
   const now = new Date()
@@ -124,8 +135,9 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
   })
 
   if (!employee) return null
-  const e = employee
+  const e = fullEmployee || employee
   const u = e.userId || {}
+  const profilePhotoSrc = e.profilePhoto ? mediaUrl(e.profilePhoto) : ''
   const internship = e.internship || {}
   const history = e.historyLog || []
   const docs = e.documents || []
@@ -143,8 +155,8 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
         {/* Header */}
         <div className="flex items-center gap-3 p-5 border-b bg-gradient-to-r from-[#0B1F3A] to-[#1a3a6b] text-white flex-shrink-0">
           <div className="relative flex-shrink-0">
-            {e.profilePhoto
-              ? <img src={e.profilePhoto} alt={u.name}
+            {profilePhotoSrc
+              ? <img src={profilePhotoSrc} alt={u.name}
                   className="w-14 h-14 rounded-xl object-cover border-2 border-white/30 shadow-lg"/>
               : <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center text-white font-bold text-xl border-2 border-white/20">
                   {u.name?.charAt(0) || '?'}

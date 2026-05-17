@@ -17,12 +17,12 @@ function getTransport() {
   });
 }
 
-async function sendMail({ to, subject, html, text }) {
+async function sendMail({ to, subject, html, text, from: fromOverride }) {
   const transport = getTransport();
   if (!transport) {
     return { sent: false, reason: 'SMTP not configured (set SMTP_HOST, SMTP_USER, SMTP_PASS)' };
   }
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const from = fromOverride || process.env.SMTP_FROM || process.env.SMTP_USER;
   await transport.sendMail({ from, to, subject, html, text });
   return { sent: true };
 }

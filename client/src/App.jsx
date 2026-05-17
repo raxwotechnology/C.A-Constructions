@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import useAuthStore from './store/authStore'
 import api from './lib/api'
 import { applySiteFavicon } from './lib/siteFavicon'
+import { SITE_SETTINGS_QUERY_KEY } from './hooks/useSiteBranding'
 
 // Layouts
 import PublicLayout from './layouts/PublicLayout'
@@ -124,9 +125,10 @@ const GuestRoute = ({ children }) => {
 
 function DynamicFaviconFromSettings() {
   const { data } = useQuery({
-    queryKey: ['site-settings'],
+    queryKey: SITE_SETTINGS_QUERY_KEY,
     queryFn: () => api.get('/site-settings').then((r) => r.data),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   })
   useEffect(() => {
     const logoUrl = (data?.settings?.logoUrl || '').trim()
@@ -139,8 +141,11 @@ function DynamicFaviconFromSettings() {
 }
 
 export default function App() {
-  const { initAuth } = useAuthStore()
-  useEffect(() => { initAuth() }, [])
+  useEffect(() => {
+    const { initAuth, refreshSession } = useAuthStore.getState()
+    initAuth()
+    refreshSession()
+  }, [])
 
   return (
     <>

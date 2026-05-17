@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -30,9 +30,10 @@ export default function AdminProjects() {
   const [linkedInvoices, setLinkedInvoices] = useState([])
   const [clientSelectLabel, setClientSelectLabel] = useState('')
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm({ defaultValues: { progress: 0, budget: 0 } })
+  const { register, handleSubmit, reset, setValue, watch } = useForm({ defaultValues: { progress: 0, budget: 0, client: '' } })
 
   const watchedClient = watch('client')
+  const loadClientOptions = useMemo(() => lookupLoaders.clients(), [])
 
   const { data: clientInvData } = useQuery({
     queryKey: ['invoices-for-project-form', watchedClient],
@@ -119,6 +120,7 @@ export default function AdminProjects() {
     const allocs = (p.salaryAllocations || []).map((a) => ({
       employeeId: a.employee?._id || a.employee,
       employeeName: a.employeeName || '',
+      amount: a.amount ?? 0,
       commission: a.commission || 0,
     }))
     setCommissionAllocations(allocs)
@@ -143,12 +145,21 @@ export default function AdminProjects() {
       setCommissionAllocations((s) => s.filter((a) => a.employeeId !== empEmpId))
     } else {
       setSelectedTeam((s) => [...s, empUserId])
-      setCommissionAllocations((s) => [...s, { employeeId: empEmpId, employeeName: emp.userId?.name || '', commission: 0 }])
+      setCommissionAllocations((s) => [...s, {
+        employeeId: empEmpId,
+        employeeName: emp.userId?.name || '',
+        amount: Number(emp.basicSalary) || 0,
+        commission: 0,
+      }])
     }
   }
 
   const updateCommission = (empEmpId, value) => {
     setCommissionAllocations((s) => s.map((a) => (a.employeeId === empEmpId ? { ...a, commission: Number(value || 0) } : a)))
+  }
+
+  const updateBasicSalary = (empEmpId, value) => {
+    setCommissionAllocations((s) => s.map((a) => (a.employeeId === empEmpId ? { ...a, amount: Number(value || 0) } : a)))
   }
 
   const toggleInvoice = (invId) => {
@@ -177,7 +188,7 @@ export default function AdminProjects() {
       salaryAllocations: commissionAllocations.map((a) => ({
         employee: a.employeeId,
         employeeName: a.employeeName,
-        amount: 0,
+        amount: Number(a.amount || 0),
         commission: Number(a.commission || 0),
       })),
     }
@@ -323,13 +334,14 @@ export default function AdminProjects() {
                     <textarea {...register('description', {required: !editing})} rows={2} className="form-input resize-none" placeholder="Project scope and objectives"/></div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div><label className="form-label">Client</label>
+                      <input type="hidden" {...register('client')} />
                       <SearchableSelect
                         value={watchedClient || ''}
                         onChange={(v, opt) => {
                           setValue('client', v, { shouldDirty: true })
                           setClientSelectLabel(opt?.label || '')
                         }}
-                        loadOptions={lookupLoaders.clients()}
+                        loadOptions={loadClientOptions}
                         placeholder="Search client…"
                         clearable
                         initialLabel={clientSelectLabel}
@@ -402,9 +414,10 @@ export default function AdminProjects() {
 
               <div>
                 <h4 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2"><FiUsers size={14}/> Team & Commissions</h4>
-                <p className="text-xs text-gray-400 mb-3">Assign employees and enter a commission for each selected member (required). Salary allocation is not used on projects.</p>
-                <div className="grid grid-cols-[1fr_140px] gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-t-xl text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <p className="text-xs text-gray-400 mb-3">Assign employees with basic salary and commission for each selected member.</p>
+                <div className="grid grid-cols-[1fr_120px_120px] gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-t-xl text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   <span>Employee</span>
+                  <span>Basic salary (LKR)</span>
                   <span>Commission (LKR) *</span>
                 </div>
                 <div className="border border-t-0 border-gray-100 rounded-b-xl overflow-hidden max-h-72 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
@@ -412,7 +425,7 @@ export default function AdminProjects() {
                     const isSelected = selectedTeam.includes(emp.userId?._id)
                     const alloc = commissionAllocations.find((a) => String(a.employeeId) === String(emp._id))
                     return (
-                      <div key={emp._id} className={`grid grid-cols-[1fr_140px] gap-2 items-center px-4 py-2.5 ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
+                      <div key={emp._id} className={`grid grid-cols-[1fr_120px_120px] gap-2 items-center px-4 py-2.5 ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
                         <label className="flex items-center gap-3 cursor-pointer min-w-0">
                           <input type="checkbox" checked={isSelected} onChange={() => toggleTeamMember(emp)} className="w-4 h-4 accent-secondary shrink-0" />
                           <div className="min-w-0">
@@ -421,16 +434,29 @@ export default function AdminProjects() {
                           </div>
                         </label>
                         {isSelected ? (
-                          <input
-                            type="number"
-                            min={0}
-                            className="form-input py-1.5 text-sm"
-                            placeholder="0"
-                            value={alloc?.commission ?? ''}
-                            onChange={(e) => updateCommission(emp._id, e.target.value)}
-                          />
+                          <>
+                            <input
+                              type="number"
+                              min={0}
+                              className="form-input"
+                              placeholder="0"
+                              value={alloc?.amount ?? ''}
+                              onChange={(e) => updateBasicSalary(emp._id, e.target.value)}
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              className="form-input"
+                              placeholder="0"
+                              value={alloc?.commission ?? ''}
+                              onChange={(e) => updateCommission(emp._id, e.target.value)}
+                            />
+                          </>
                         ) : (
-                          <span className="text-xs text-gray-300 text-center">—</span>
+                          <>
+                            <span className="text-xs text-gray-300 text-center">—</span>
+                            <span className="text-xs text-gray-300 text-center">—</span>
+                          </>
                         )}
                       </div>
                     )

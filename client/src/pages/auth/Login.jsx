@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
+import SiteLogo from '../../components/branding/SiteLogo'
 
 export default function Login() {
   const { login } = useAuthStore()
@@ -43,15 +44,7 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-hero flex">
       {/* Left panel */}
       <div className="hidden lg:flex flex-1 flex-col justify-between p-16">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
-            <span className="text-white font-bold text-xl font-heading">R</span>
-          </div>
-          <div>
-            <span className="font-heading font-bold text-white text-2xl">Raxwo</span>
-            <p className="text-white/50 text-xs">Pvt Ltd</p>
-          </div>
-        </Link>
+        <SiteLogo to="/" variant="dark" />
 
         <div>
           <motion.h1
@@ -92,11 +85,8 @@ export default function Login() {
           animate={{ opacity: 1, x: 0 }}
           className="w-full max-w-sm"
         >
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center">
-              <span className="text-white font-bold font-heading">R</span>
-            </div>
-            <span className="font-heading font-bold text-primary text-xl">Raxwo Pvt Ltd</span>
+          <div className="lg:hidden mb-8">
+            <SiteLogo to="/" variant="light" />
           </div>
 
           <h2 className="text-3xl font-bold text-primary font-heading mb-1">Welcome back</h2>

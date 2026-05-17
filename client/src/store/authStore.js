@@ -34,6 +34,24 @@ const useAuthStore = create(
         const { token } = get()
         if (token) api.defaults.headers.common['Authorization'] = `Bearer ${token}`
       },
+
+      /** Reload profile (avatar, name) from API after refresh or server restart */
+      refreshSession: async () => {
+        const { token } = get()
+        if (!token) return null
+        try {
+          const { data } = await api.get('/auth/me')
+          if (data?.user) {
+            set({ user: data.user, isAuthenticated: true })
+            return data.user
+          }
+        } catch {
+          set({ user: null, token: null, isAuthenticated: false })
+          delete api.defaults.headers.common['Authorization']
+          localStorage.removeItem('raxwo-auth')
+        }
+        return null
+      },
     }),
     {
       name: 'raxwo-auth',

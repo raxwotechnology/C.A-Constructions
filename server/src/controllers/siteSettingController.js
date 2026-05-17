@@ -5,7 +5,9 @@ exports.getSiteSettings = async (req, res, next) => {
   try {
     let settings = await SiteSetting.findOne();
     if (!settings) settings = await SiteSetting.create({});
-    res.json({ success: true, settings });
+    const plain = settings.toObject ? settings.toObject() : settings;
+    if (plain.logoUrl) plain.logoUrl = toRelativeUploadUrl(plain.logoUrl);
+    res.json({ success: true, settings: plain });
   } catch (err) { next(err); }
 };
 

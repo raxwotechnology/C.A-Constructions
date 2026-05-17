@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { FiUser, FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
+import SiteLogo from '../../components/branding/SiteLogo'
 
 export default function Register() {
   const { register: registerUser } = useAuthStore()
@@ -16,7 +17,7 @@ export default function Register() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      const user = await registerUser({
+      await registerUser({
         name: data.name,
         email: data.email,
         password: data.password,
@@ -39,12 +40,9 @@ export default function Register() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-10"
       >
-        <Link to="/" className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue">
-            <span className="text-white font-bold font-heading">R</span>
-          </div>
-          <span className="font-heading font-bold text-primary text-xl">Raxwo Pvt Ltd</span>
-        </Link>
+        <div className="mb-8">
+          <SiteLogo to="/" variant="light" />
+        </div>
 
         <h2 className="text-2xl font-bold text-primary font-heading mb-1">Create Account</h2>
         <p className="text-gray-500 mb-8 text-sm">Register as a client to access the portal</p>

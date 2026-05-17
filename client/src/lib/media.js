@@ -1,24 +1,60 @@
 import { getApiBaseUrl } from './devApi'
 
-const API_BASE = getApiBaseUrl()
-const SERVER_ORIGIN = API_BASE.startsWith('http')
-  ? API_BASE.replace(/\/api\/?$/i, '')
-  : ''
-
-export function mediaUrl(url) {
+/** Normalize any stored upload reference to `/uploads/...` */
+export function normalizeUploadPath(url) {
   if (!url) return ''
-  if (/^https?:\/\//i.test(url)) {
-    try {
-      const u = new URL(url)
-      if (u.pathname.startsWith('/uploads/')) {
-        return `${SERVER_ORIGIN}${u.pathname}`
-      }
-    } catch {
-      /* keep absolute URL */
+  const s = String(url).trim()
+  if (!s) return ''
+  try {
+    if (/^https?:\/\//i.test(s)) {
+      const u = new URL(s)
+      if (u.pathname.startsWith('/uploads/')) return u.pathname
+      return s
     }
-    return url
+  } catch {
+    /* ignore */
   }
-  if (url.startsWith('/')) return `${SERVER_ORIGIN}${url}`
-  return `${SERVER_ORIGIN}/${url}`
+  if (s.startsWith('/uploads/')) return s
+  if (s.startsWith('uploads/')) return `/${s}`
+  return s.startsWith('/') ? s : `/${s}`
 }
 
+/** Backend origin for uploads (no /api suffix). */
+export function getUploadsOrigin() {
+  const fromEnv = import.meta.env.VITE_UPLOADS_URL
+  if (fromEnv) return String(fromEnv).replace(/\/$/, '')
+
+  const apiBase = getApiBaseUrl()
+  if (apiBase.startsWith('http')) {
+    return apiBase.replace(/\/api\/?$/i, '') || apiBase
+  }
+  return ''
+}
+
+/**
+ * Build a browser-safe URL for `/uploads/...` files.
+ * - Dev: always relative `/uploads/...` (Vite proxies to the API server).
+ * - Prod: relative when same host; otherwise uses API/uploads origin.
+ */
+export function mediaUrl(url) {
+  const path = normalizeUploadPath(url)
+  if (!path) return ''
+  if (!path.startsWith('/uploads/')) return path
+
+  if (typeof window === 'undefined') {
+    const origin = getUploadsOrigin()
+    return origin ? `${origin}${path}` : path
+  }
+
+  // Local dev: always use same-origin path so Vite `/uploads` proxy works.
+  if (import.meta.env.DEV) {
+    return path
+  }
+
+  const uploadsOrigin = getUploadsOrigin()
+  if (uploadsOrigin && uploadsOrigin !== window.location.origin) {
+    return `${uploadsOrigin}${path}`
+  }
+
+  return path
+}

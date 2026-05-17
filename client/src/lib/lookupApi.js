@@ -15,10 +15,41 @@ export function createLookupLoader(type, extraParams = {}) {
   }
 }
 
+/** Stable loader — uses /lookups/clients, falls back to /clients if lookup fails or is empty */
+async function loadClientOptions({ search = '', page = 1 } = {}) {
+  const limit = 20
+  try {
+    const params = new URLSearchParams({ search, page: String(page), limit: String(limit) })
+    const { data } = await api.get(`/lookups/clients?${params}`)
+    if (data?.options?.length) {
+      return { options: data.options, hasMore: Boolean(data.hasMore) }
+    }
+  } catch {
+    /* fall through to /clients */
+  }
+
+  const { data } = await api.get('/clients')
+  const q = search.trim().toLowerCase()
+  const all = (data?.clients || []).map((c) => ({
+    value: String(c._id),
+    label: `${c.name || 'Client'}${c.email ? ` (${c.email})` : ''}`,
+  }))
+  const filtered = q
+    ? all.filter((o) => o.label.toLowerCase().includes(q))
+    : all
+  const start = (Math.max(1, page) - 1) * limit
+  const slice = filtered.slice(start, start + limit + 1)
+  const hasMore = slice.length > limit
+  return {
+    options: hasMore ? slice.slice(0, limit) : slice,
+    hasMore,
+  }
+}
+
 export const lookupLoaders = {
   employees: (extra = {}) => createLookupLoader('employees', { assignable: '1', ...extra }),
   employeesAll: (extra = {}) => createLookupLoader('employees', extra),
-  clients: () => createLookupLoader('clients'),
+  clients: () => loadClientOptions,
   banks: (extra = {}) => createLookupLoader('banks', extra),
   projects: (extra = {}) => createLookupLoader('projects', extra),
   invoices: () => createLookupLoader('invoices'),

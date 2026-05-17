@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiLock, FiEye, FiEyeOff, FiArrowRight, FiMail } from 'react-icons/fi'
+import SiteLogo from '../../components/branding/SiteLogo'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -49,12 +50,9 @@ export default function ResetPassword() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8"
       >
-        <Link to="/" className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-blue flex items-center justify-center">
-            <span className="text-white font-bold font-heading">R</span>
-          </div>
-          <span className="font-heading font-bold text-primary text-xl">Raxwo</span>
-        </Link>
+        <div className="mb-8">
+          <SiteLogo to="/" variant="light" />
+        </div>
 
         <h1 className="text-2xl font-bold text-primary font-heading mb-1">Set new password</h1>
         <p className="text-gray-500 text-sm mb-6">
