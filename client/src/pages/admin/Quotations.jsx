@@ -180,6 +180,10 @@ export default function AdminQuotations() {
   }
 
   const onSubmit = d => {
+    if (!d.client) {
+      toast.error('Please select a client')
+      return
+    }
     const items = (d.items || []).map(item => ({
       ...item,
       quantity: Number(item.quantity || 1),
@@ -202,6 +206,12 @@ export default function AdminQuotations() {
     }
     if (!payload.branch) delete payload.branch
     if (!payload.project) delete payload.project
+    const validItems = items.filter((i) => i.description?.trim())
+    if (validItems.length === 0) {
+      toast.error('Add at least one line item with a description')
+      return
+    }
+    payload.items = validItems
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 

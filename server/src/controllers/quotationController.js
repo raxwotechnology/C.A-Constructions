@@ -61,7 +61,35 @@ exports.getQuotation = async (req, res, next) => {
 // @route   POST /api/quotations
 exports.createQuotation = async (req, res, next) => {
   try {
-    const quotation = await Quotation.create({ ...req.body, generatedBy: req.user._id });
+    const { client, items = [] } = req.body;
+    if (!client) {
+      return res.status(400).json({ success: false, message: 'Client is required' });
+    }
+    const validItems = (Array.isArray(items) ? items : [])
+      .map((item) => ({
+        ...item,
+        description: String(item.description || '').trim(),
+        quantity: Number(item.quantity || 1),
+        unitPrice: Number(item.unitPrice || 0),
+        discount: Number(item.discount || 0),
+        total: Number(item.total || 0) || Number(item.quantity || 1) * Number(item.unitPrice || 0) * (1 - Number(item.discount || 0) / 100),
+      }))
+      .filter((item) => item.description);
+    if (validItems.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one line item with a description is required' });
+    }
+
+    const payload = {
+      ...req.body,
+      items: validItems,
+      subtotal: Number(req.body.subtotal) || validItems.reduce((s, i) => s + i.total, 0),
+      generatedBy: req.user._id,
+    };
+    if (!payload.title) payload.title = 'Quotation';
+    if (!payload.branch) delete payload.branch;
+    if (!payload.project) delete payload.project;
+
+    const quotation = await Quotation.create(payload);
     await createAuditLog({
       user: req.user,
       action: 'create',

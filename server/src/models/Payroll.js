@@ -58,10 +58,21 @@ const payrollSchema = new mongoose.Schema({
   otherAdditions: [lineItemSchema],
   otherDeductions: [lineItemSchema],
 
+  // ── Extra earnings / penalties (auto-sync) ───────────────────────────────────
+  incentives: { type: Number, default: 0 },
+  penaltyDeduction: { type: Number, default: 0 },
+  totalAdditions: { type: Number, default: 0 },
+
   // ── Totals (calculated) ───────────────────────────────────────────────────────
   grossSalary: { type: Number, default: 0 },
   totalDeductions: { type: Number, default: 0 },
   netSalary: { type: Number, default: 0 },
+
+  // ── Auto-sync metadata ────────────────────────────────────────────────────────
+  lastRecalculatedAt: Date,
+  lastRecalcSource: { type: String, default: '' },
+  recalcVersion: { type: Number, default: 0 },
+  autoSyncEnabled: { type: Boolean, default: true },
 
   // ── Payment ───────────────────────────────────────────────────────────────────
   paymentMethod: {

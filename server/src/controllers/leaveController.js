@@ -3,6 +3,7 @@ const Employee = require('../models/Employee');
 const LeavePolicy = require('../models/LeavePolicy');
 const Notification = require('../models/Notification');
 const { createNotification } = require('../services/notificationService');
+const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
 
 // ─── BALANCE TYPES that consume quota ─────────────────────────────────────────
 const BALANCE_TYPES = ['annual', 'medical', 'casual', 'half_day', 'short_leave', 'maternity', 'paternity'];
@@ -353,6 +354,20 @@ exports.updateLeaveStatus = async (req, res, next) => {
       type: 'leave',
       link: `/${leave.employee.userId.role || 'developer'}/leaves`,
     });
+
+    if (status === 'approved') {
+      const period = monthYearFromDate(leave.startDate || new Date());
+      await triggerPayrollSync({
+        employeeId: leave.employee._id || leave.employee,
+        month: period.month,
+        year: period.year,
+        source: 'leave',
+        module: 'leaves',
+        entityId: leave._id,
+        reason: 'Leave approved — payroll leave deduction updated',
+        user: req.user,
+      });
+    }
 
     res.json({ success: true, leave });
   } catch (err) { next(err); }

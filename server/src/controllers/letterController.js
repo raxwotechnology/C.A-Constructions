@@ -6,6 +6,7 @@ const { buildLetterBodyHtml } = require('../lib/letterTemplatesHtml');
 const { createAuditLog } = require('./auditController');
 const { createNotification } = require('../services/notificationService');
 const { verifyActionPassword } = require('../utils/actionPassword');
+const { toRelativeUploadUrl } = require('../utils/uploadsPath');
 
 function letterAuditSnapshot(doc) {
   if (!doc) return null;
@@ -22,15 +23,21 @@ function letterAuditSnapshot(doc) {
 
 async function getCompany() {
   const s = await SiteSetting.findOne().lean();
+  const logo = s?.logoUrl ? toRelativeUploadUrl(s.logoUrl) : '';
   return {
     name: s?.siteName || 'Raxwo Pvt Ltd',
-    logo: s?.logoUrl || '',
+    logo,
     address: s?.contactAddress || 'Weliweriya, Sri Lanka',
-    email: s?.contactEmail || 'hello@raxwo.com',
+    branchDetails: s?.branchDetails || '',
+    email: s?.adminEmail || s?.contactEmail || 'hello@raxwo.com',
+    adminEmail: s?.adminEmail || s?.contactEmail || '',
+    contactEmail: s?.contactEmail || '',
     phone: s?.contactPhone || '',
     website: s?.websiteUrl || '',
     tagline: s?.siteDescription || '',
     footer: s?.footerText || '',
+    seal: s?.sealUrl || '',
+    signatures: s?.signatures || {},
   };
 }
 

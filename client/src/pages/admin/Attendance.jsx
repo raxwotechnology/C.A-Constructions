@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
+import { lookupLoaders } from '../../lib/lookupApi'
+import SearchableSelect from '../../components/ui/SearchableSelect'
 import toast from 'react-hot-toast'
 import FilterBar from '../../components/ui/FilterBar'
 import ExportBar from '../../components/ui/ExportBar'
@@ -30,6 +32,7 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-LK', { day: '2-dig
 const EMPTY_FORM = {
   employeeId: '', date: new Date().toISOString().split('T')[0],
   status: 'present', checkIn: '', checkOut: '',
+  breakStart: '', breakEnd: '',
   isHalfDay: false, isFullDay: true, notes: '',
 }
 
@@ -116,12 +119,15 @@ export default function AdminAttendance() {
 
   const openEdit = (rec) => {
     setEditingRecord(rec)
+    const lastBreak = (rec.breakTimes || []).slice(-1)[0]
     setForm({
       employeeId: rec.employee?._id || rec.employee,
       date: new Date(rec.date).toISOString().split('T')[0],
       status: rec.status || 'present',
       checkIn: rec.checkIn ? new Date(rec.checkIn).toTimeString().slice(0, 5) : '',
       checkOut: rec.checkOut ? new Date(rec.checkOut).toTimeString().slice(0, 5) : '',
+      breakStart: lastBreak?.breakIn ? new Date(lastBreak.breakIn).toTimeString().slice(0, 5) : '',
+      breakEnd: lastBreak?.breakOut ? new Date(lastBreak.breakOut).toTimeString().slice(0, 5) : '',
       isHalfDay: rec.isHalfDay || false,
       isFullDay: rec.isFullDay !== false,
       notes: rec.notes || '',
@@ -150,6 +156,15 @@ export default function AdminAttendance() {
       d.setHours(Number(h), Number(m), 0, 0)
       payload.checkOut = d.toISOString()
     }
+    if (form.breakStart && form.breakEnd) {
+      const mk = (t) => {
+        const [h, m] = t.split(':')
+        const d = new Date(form.date)
+        d.setHours(Number(h), Number(m), 0, 0)
+        return d.toISOString()
+      }
+      payload.breakTimes = [{ breakIn: mk(form.breakStart), breakOut: mk(form.breakEnd) }]
+    }
     saveMut.mutate(payload)
   }
 
@@ -167,6 +182,8 @@ export default function AdminAttendance() {
     { header: 'Clock In', accessor: r => fmt(r.checkIn) },
     { header: 'Clock Out', accessor: r => fmt(r.checkOut) },
     { header: 'Worked (h)', accessor: r => r.totalWorkedHours || '—' },
+    { header: 'Break (h)', accessor: r => r.breakHours || '—' },
+    { header: 'OT (h)', accessor: r => r.otHours || '—' },
     { header: 'Notes', accessor: r => r.notes || '' },
   ]
 
@@ -397,10 +414,12 @@ export default function AdminAttendance() {
               {!editingRecord && (
                 <div>
                   <label className="form-label">Employee *</label>
-                  <select className="form-select" value={form.employeeId} onChange={e => setForm(s => ({ ...s, employeeId: e.target.value }))}>
-                    <option value="">Select employee</option>
-                    {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
-                  </select>
+                  <SearchableSelect
+                    value={form.employeeId}
+                    onChange={(v) => setForm(s => ({ ...s, employeeId: v }))}
+                    loadOptions={lookupLoaders.employees()}
+                    placeholder="Search employee…"
+                  />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
@@ -421,6 +440,14 @@ export default function AdminAttendance() {
                 <div>
                   <label className="form-label">Clock Out</label>
                   <input type="time" className="form-input" value={form.checkOut} onChange={e => setForm(s => ({ ...s, checkOut: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Break start</label>
+                  <input type="time" className="form-input" value={form.breakStart} onChange={e => setForm(s => ({ ...s, breakStart: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Break end</label>
+                  <input type="time" className="form-input" value={form.breakEnd} onChange={e => setForm(s => ({ ...s, breakEnd: e.target.value }))} />
                 </div>
               </div>
               <div className="flex gap-4">
@@ -465,6 +492,9 @@ export default function AdminAttendance() {
               ['Clock In', fmt(viewRecord.checkIn)],
               ['Clock Out', fmt(viewRecord.checkOut)],
               ['Total Worked', viewRecord.totalWorkedHours ? `${viewRecord.totalWorkedHours} hours` : '—'],
+              ['Break Hours', viewRecord.breakHours ? `${viewRecord.breakHours} hours` : '—'],
+              ['Overtime', viewRecord.otHours ? `${viewRecord.otHours} hours` : '—'],
+              ['Non-worked', viewRecord.nonWorkedHours ? `${viewRecord.nonWorkedHours} hours` : '—'],
               ['Notes', viewRecord.notes || '—'],
             ].map(([label, value]) => (
               <div key={label} className="flex justify-between py-2 border-b border-gray-50 text-sm">

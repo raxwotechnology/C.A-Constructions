@@ -64,6 +64,18 @@ const invoiceSchema = new mongoose.Schema({
     default: 'draft',
   },
 
+  // ── Signatures ───────────────────────────────────────────────────────────────
+  signatures: {
+    authorizer: {
+      data: { type: String, default: '' },
+      name: { type: String, default: '' },
+      title: { type: String, default: 'Authorized Signatory' }
+    },
+    seal: {
+      data: { type: String, default: '' },
+    }
+  },
+
   // ── Legacy PayHere ───────────────────────────────────────────────────────────
   paidAt:     Date,
   paymentRef: { type: String, default: '' },

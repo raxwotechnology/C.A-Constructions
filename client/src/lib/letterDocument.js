@@ -1,5 +1,7 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import { absoluteMediaUrl } from './media'
+import { companyContactLines } from './companyBranding'
 
 function safeImgSrc(u) {
   if (!u || typeof u !== 'string') return ''
@@ -30,16 +32,26 @@ export function buildLetterInnerForPrint({
   bodyHtml,
   signatures,
 }) {
-  const logo = company.logo
-    ? `<img src="${safeImgSrc(company.logo)}" alt="" class="letter-pdf-logo" crossorigin="anonymous"/>`
+  const logoSrc = absoluteMediaUrl(company.logoPath || company.logo)
+  const logo = logoSrc
+    ? `<img src="${safeImgSrc(logoSrc)}" alt="" class="letter-pdf-logo"/>`
     : `<div class="letter-pdf-logo-fallback">${esc((company.name || 'C').charAt(0))}</div>`
 
-  const meta = [company.address, company.phone, company.email, company.website].filter(Boolean).join(' · ')
+  const contactHtml = companyContactLines(company)
+    .map(
+      (l) =>
+        `<div class="letter-pdf-contact-row"><span class="letter-pdf-contact-k">${esc(l.label)}</span> ${esc(l.text)}</div>`,
+    )
+    .join('')
   const tag = company.tagline ? `<p class="letter-pdf-tagline">${esc(company.tagline)}</p>` : ''
 
   const sigs = signatures
     ? `<div class="letter-pdf-sig-grid">${sigCell('HR', signatures.hr)}${sigCell('Manager', signatures.manager)}</div>`
     : `<div class="letter-pdf-sig-grid">${sigCell('HR', null)}${sigCell('Manager', null)}</div>`
+
+  const sealHtml = signatures?.seal?.data
+      ? `<div style="margin-top:24px;text-align:center;"><strong>Company Seal</strong><br/><img src="${safeImgSrc(signatures.seal.data)}" style="max-height:100px;margin-top:8px;"/></div>`
+      : ''
 
   return `
   <div class="letter-pdf-doc">
@@ -48,7 +60,7 @@ export function buildLetterInnerForPrint({
       <div class="letter-pdf-co">
         <h1 class="letter-pdf-co-name">${esc(company.name || 'Company')}</h1>
         ${tag}
-        <p class="letter-pdf-co-meta">${esc(meta)}</p>
+        ${contactHtml ? `<div class="letter-pdf-co-meta">${contactHtml}</div>` : ''}
       </div>
     </header>
     <div class="letter-pdf-meta-row">
@@ -57,7 +69,10 @@ export function buildLetterInnerForPrint({
       <div class="letter-pdf-doc-title">${esc(letterTitle || 'Official Letter')}</div>
     </div>
     <main class="letter-pdf-body letter-pdf-prose">${bodyHtml || ''}</main>
-    ${sigs}
+    <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+      <div style="flex:1;">${sigs}</div>
+      ${sealHtml}
+    </div>
     <footer class="letter-pdf-footer">
       <p>${esc(company.name || '')} · ${esc(company.footer || company.address || '')}</p>
       <p class="letter-pdf-footer-sub">This document was generated electronically and is valid with authorised signatures where applied.</p>
@@ -73,7 +88,9 @@ const PRINT_STYLES = `
   .letter-pdf-co { text-align: right; flex: 1; }
   .letter-pdf-co-name { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
   .letter-pdf-tagline { margin: 4px 0 0; font-size: 10pt; color: #64748b; font-style: italic; }
-  .letter-pdf-co-meta { margin: 8px 0 0; font-size: 9.5pt; color: #475569; line-height: 1.45; }
+  .letter-pdf-co-meta { margin: 8px 0 0; font-size: 9.5pt; color: #475569; line-height: 1.5; text-align: right; }
+  .letter-pdf-contact-row { margin: 2px 0; }
+  .letter-pdf-contact-k { color: #94a3b8; margin-right: 6px; }
   .letter-pdf-meta-row { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: baseline; margin-bottom: 20px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 10pt; }
   .letter-pdf-k { color: #64748b; margin-right: 6px; }
   .letter-pdf-doc-title { flex: 1 1 100%; font-size: 11pt; font-weight: 700; color: #1e3a8a; margin-top: 4px; }

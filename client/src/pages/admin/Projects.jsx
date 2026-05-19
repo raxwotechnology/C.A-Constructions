@@ -414,7 +414,7 @@ export default function AdminProjects() {
 
               <div>
                 <h4 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2"><FiUsers size={14}/> Team & Commissions</h4>
-                <p className="text-xs text-gray-400 mb-3">Assign employees with basic salary and commission for each selected member.</p>
+                <p className="text-xs text-gray-400 mb-3">Assign employees — basic salary is shown from employee records (not editable). Set commission for each selected member.</p>
                 <div className="grid grid-cols-[1fr_120px_120px] gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-t-xl text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   <span>Employee</span>
                   <span>Basic salary (LKR)</span>
@@ -436,12 +436,11 @@ export default function AdminProjects() {
                         {isSelected ? (
                           <>
                             <input
-                              type="number"
-                              min={0}
-                              className="form-input"
-                              placeholder="0"
-                              value={alloc?.amount ?? ''}
-                              onChange={(e) => updateBasicSalary(emp._id, e.target.value)}
+                              type="text"
+                              readOnly
+                              className="form-input bg-slate-50 text-slate-700 cursor-not-allowed"
+                              value={Number(alloc?.amount ?? emp.basicSalary ?? 0).toLocaleString()}
+                              title="Basic salary from employee record (read-only)"
                             />
                             <input
                               type="number"

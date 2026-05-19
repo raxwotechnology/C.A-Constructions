@@ -8,7 +8,11 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiCreditCard, FiSearch, FiEdit2, FiTrash2, FiSend, FiEye } from 'react-icons/fi'
 import InvoiceDetail from './InvoiceDetail'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
 import { INVOICE_CURRENCIES, suggestedExchangeToLKR } from '../../lib/currencies'
+import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
+import SignaturePad from '../../components/admin/SignaturePad'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
@@ -21,6 +25,11 @@ export default function AdminInvoices() {
   const [viewInvoiceId, setViewInvoiceId] = useState(null)
   const [search, setSearch] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [clientSelectLabel, setClientSelectLabel] = useState('')
+  const [signatures, setSignatures] = useState({
+    authorizer: { data: '', name: '', title: 'Authorized Signatory' },
+    seal: { data: '' }
+  })
 
   const { register, handleSubmit, reset, watch, control, setValue } = useForm({
     defaultValues: {
@@ -55,7 +64,11 @@ export default function AdminInvoices() {
     queryKey: ['admin-invoices', branchFilter],
     queryFn: () => api.get(`/invoices${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
   })
-  const { data: clientData } = useQuery({ queryKey: ['clients-list'], queryFn: () => api.get('/auth/users').then(r => r.data) })
+  const { data: clientData } = useQuery({
+    queryKey: ['clients-list'],
+    queryFn: () => api.get('/clients').then(r => r.data).catch(() => api.get('/auth/users').then(r => r.data)),
+    enabled: showModal,
+  })
   const { data: projData } = useQuery({ queryKey: ['projects-list'], queryFn: () => api.get('/projects').then(r => r.data) })
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const { data: quotData } = useQuery({ queryKey: ['quotations'], queryFn: () => api.get('/quotations?status=confirmed').then(r => r.data) })
@@ -126,6 +139,10 @@ export default function AdminInvoices() {
       invoiceDate: new Date().toISOString().split('T')[0],
       items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
     })
+    setSignatures({
+      authorizer: { data: '', name: '', title: 'Authorized Signatory' },
+      seal: { data: '' }
+    })
     setEditing(null)
     setShowModal(true)
   }
@@ -155,6 +172,14 @@ export default function AdminInvoices() {
           }))
         : [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
     })
+    setSignatures({
+      authorizer: { 
+        data: inv.signatures?.authorizer?.data || '', 
+        name: inv.signatures?.authorizer?.name || '', 
+        title: inv.signatures?.authorizer?.title || 'Authorized Signatory' 
+      },
+      seal: { data: inv.signatures?.seal?.data || '' }
+    })
   }
   const closeModal = () => { setShowModal(false); setEditing(null); reset() }
 
@@ -172,6 +197,7 @@ export default function AdminInvoices() {
         project: d.project || undefined,
         currency: d.currency,
         exchangeRateToLKR: Number(d.exchangeRateToLKR) > 0 ? Number(d.exchangeRateToLKR) : 1,
+        signatures,
       }
       updateMut.mutate({ id: editing._id, data: payload })
       return
@@ -181,6 +207,7 @@ export default function AdminInvoices() {
       taxRate: Number(d.taxRate || 0),
       exchangeRateToLKR: Number(d.exchangeRateToLKR) > 0 ? Number(d.exchangeRateToLKR) : 1,
       status: d.status,
+      signatures,
       items: (d.items || []).map((i) => ({
         description: i.description,
         quantity: Number(i.quantity || 1),
@@ -294,10 +321,18 @@ export default function AdminInvoices() {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div><label className="form-label">Client *</label>
-                    <select {...register('client', {required:true})} className={`form-select ${watch('client')===''?'border-red-400':''}`}>
-                      <option value="">Select client</option>
-                      {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                    </select></div>
+                    <input type="hidden" {...register('client', { required: true })} />
+                    <SearchableSelect
+                      value={watch('client') || ''}
+                      onChange={(v, opt) => {
+                        setValue('client', v, { shouldDirty: true, shouldValidate: true })
+                        setClientSelectLabel(opt?.label || '')
+                      }}
+                      loadOptions={lookupLoaders.clients()}
+                      placeholder="Search client…"
+                      initialLabel={clientSelectLabel}
+                    />
+                  </div>
                   <div><label className="form-label">Project (Optional)</label>
                     <select {...register('project')} className="form-select">
                       <option value="">Link to project</option>
@@ -403,6 +438,20 @@ export default function AdminInvoices() {
                     <textarea {...register('notes')} rows={3} className="form-input resize-none" placeholder="Additional notes..."/></div>
                   <div><label className="form-label">Payment Terms</label>
                     <textarea {...register('paymentTerms')} rows={3} className="form-input resize-none" placeholder="Payment terms..."/></div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
+                  <div className="space-y-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Authorizer Signature</p>
+                    <DocumentAssetPicker label="Signature (upload or saved)" value={{ data: signatures.authorizer.data }} onChange={(v) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data: v.data } }))} roleKey="admin" />
+                    <input className="form-input text-sm" placeholder="Signatory name" value={signatures.authorizer.name} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, name: e.target.value } }))} />
+                    <input className="form-input text-sm" placeholder="Signatory title (e.g. Authorized Signatory)" value={signatures.authorizer.title} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, title: e.target.value } }))} />
+                    <SignaturePad label="Draw signature" value={signatures.authorizer.data} onChange={(data) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data } }))} />
+                  </div>
+                  <div className="space-y-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Company Seal</p>
+                    <DocumentAssetPicker label="Seal image" assetType="seal" value={{ data: signatures.seal.data }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))} />
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">

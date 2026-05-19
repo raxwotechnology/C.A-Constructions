@@ -7,6 +7,7 @@ import { lookupLoaders } from '../../lib/lookupApi'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
+import { handlePayrollSyncResponse } from '../../lib/payrollSync'
 import ExportBar from '../../components/ui/ExportBar'
 import { FiPlus, FiX, FiCheck, FiRefreshCw, FiEdit2, FiAlertCircle, FiDollarSign, FiCalendar } from 'react-icons/fi'
 
@@ -63,22 +64,45 @@ export default function AdminLoans() {
 
   const createMut = useMutation({
     mutationFn: p => api.post('/loans', p),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Loan recorded'); setShowCreate(false); setForm(EMPTY); setEmpSummary(null) },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      handlePayrollSyncResponse(qc, res.data, toast)
+      toast.success('Loan recorded')
+      setShowCreate(false); setForm(EMPTY); setEmpSummary(null)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const updateMut = useMutation({
     mutationFn: ({ id, ...p }) => api.put(`/loans/${id}`, p),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Loan updated'); setEditTarget(null) },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      handlePayrollSyncResponse(qc, res.data, toast)
+      toast.success('Loan updated')
+      setEditTarget(null)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const payMut = useMutation({
     mutationFn: ({ id, ...p }) => api.post(`/loans/${id}/pay`, p),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Payment recorded'); setPayTarget(null); setPayForm(PAY_EMPTY) },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      handlePayrollSyncResponse(qc, res.data, toast)
+      toast.success('Payment recorded')
+      setPayTarget(null)
+      setPayForm(PAY_EMPTY)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/loans/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['loans'] }); toast.success('Deleted'); setDeleteId(null); setDeletePassword('') },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      handlePayrollSyncResponse(qc, res.data, toast)
+      toast.success('Deleted')
+      setDeleteId(null)
+      setDeletePassword('')
+    },
     onError: e => toast.error(e.response?.data?.message || 'Delete failed'),
   })
 

@@ -8,7 +8,17 @@ const siteSettingSchema = new mongoose.Schema({
   contactEmail: { type: String, default: '' },
   contactPhone: { type: String, default: '' },
   contactAddress: { type: String, default: 'Weliweriya, Sri Lanka' },
+  branchDetails: { type: String, default: '' },
   websiteUrl: { type: String, default: '' },
+  /** System admin email — notifications, letterheads, agreements */
+  adminEmail: { type: String, default: '' },
+  sealUrl: { type: String, default: '' },
+  letterheadUrl: { type: String, default: '' },
+  signatures: {
+    hr: { url: { type: String, default: '' }, label: { type: String, default: 'HR' } },
+    admin: { url: { type: String, default: '' }, label: { type: String, default: 'Admin' } },
+    manager: { url: { type: String, default: '' }, label: { type: String, default: 'Manager' } },
+  },
   mapLat: { type: Number, default: 7.0289 },
   mapLng: { type: Number, default: 80.0153 },
   mapZoom: { type: Number, default: 13 },

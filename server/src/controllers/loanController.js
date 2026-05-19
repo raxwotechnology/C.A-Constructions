@@ -4,6 +4,12 @@ const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
 const { createAuditLog } = require('./auditController');
 const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
+const {
+  monthYearFromDate,
+  attachSyncResult,
+  syncAllRelevantPayrollsForEmployee,
+  pickPrimarySyncResult,
+} = require('../utils/payrollSyncHook');
 
 // GET /api/loans
 exports.getLoans = async (req, res, next) => {
@@ -41,7 +47,12 @@ exports.getEmployeeLoanSummary = async (req, res, next) => {
     const activeLoans = await Loan.find({
       employee: req.params.employeeId,
       status: 'active',
-      deductionType: 'salary',
+      $or: [
+        { deductionType: 'salary' },
+        { deductionType: { $exists: false } },
+        { deductionType: null },
+        { deductionType: '' },
+      ],
       payrollDeductionPaused: { $ne: true },
     });
 
@@ -92,7 +103,8 @@ exports.getEmployeeLoanSummary = async (req, res, next) => {
 // POST /api/loans
 exports.createLoan = async (req, res, next) => {
   try {
-    const { employeeId, totalAmount, monthlyInstallment, startDate, reason, deductionType, taxRate, repaymentMonths } = req.body;
+    const { employeeId, totalAmount, monthlyInstallment, startDate, reason, deductionType, deductFromSalary, taxRate, repaymentMonths } = req.body;
+    const resolvedDeductionType = deductFromSalary === false ? 'separate' : (deductionType || (deductFromSalary !== false ? 'salary' : 'separate'));
     const principal = Number(totalAmount);
     const months    = Number(repaymentMonths || 0);
     const rate      = Number(taxRate || 0);
@@ -119,7 +131,7 @@ exports.createLoan = async (req, res, next) => {
       totalInstallments: finalInstallments,
       startDate: startDate ? new Date(startDate) : new Date(),
       reason,
-      deductionType: deductionType || 'salary',
+      deductionType: resolvedDeductionType,
       taxRate: rate,
       taxAmount: interestAmt,
       recordedBy: req.user._id,
@@ -146,7 +158,17 @@ exports.createLoan = async (req, res, next) => {
       description: `Recorded a loan of LKR ${finalTotal.toLocaleString()} for employee ${employeeId}`,
     });
 
-    res.status(201).json({ success: true, loan });
+    const period = monthYearFromDate(loan.startDate);
+    const syncResults = await syncAllRelevantPayrollsForEmployee(employeeId, {
+      source: 'loan',
+      module: 'loans',
+      entityId: loan._id,
+      reason: 'Loan created',
+      user: req.user,
+      extraPeriods: [period],
+    });
+
+    res.status(201).json(attachSyncResult({ success: true, loan }, syncResults));
   } catch (err) { next(err); }
 };
 
@@ -197,7 +219,18 @@ exports.updateLoan = async (req, res, next) => {
       description: `Updated terms for loan ${loan._id}`,
     });
 
-    res.json({ success: true, loan });
+    const period = monthYearFromDate(loan.startDate);
+    const empId = loan.employee?._id || loan.employee;
+    const syncResults = await syncAllRelevantPayrollsForEmployee(empId, {
+      source: 'loan',
+      module: 'loans',
+      entityId: loan._id,
+      reason: 'Loan updated',
+      user: req.user,
+      extraPeriods: [period],
+    });
+
+    res.json(attachSyncResult({ success: true, loan }, syncResults));
   } catch (err) { next(err); }
 };
 
@@ -224,10 +257,20 @@ exports.recordPayment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Bank account is required for this payment method' });
     }
 
+    if (payrollId) {
+      const dup = (loan.payments || []).some((p) => String(p.payrollId) === String(payrollId));
+      if (dup) {
+        return res.status(400).json({ success: false, message: 'This installment was already recorded for this payroll' });
+      }
+    }
+
+    const isManual = payMethod !== 'salary_deduction';
     loan.payments.push({
       amount: payAmt,
       date: date || new Date(),
-      payrollId,
+      payrollId: payrollId || undefined,
+      installmentNo: (loan.installmentsPaid || 0) + 1,
+      deductionSource: payrollId ? 'payroll' : 'manual',
       note,
       method: payMethod,
       ...(bankAccount ? { bankAccount } : {}),
@@ -274,7 +317,19 @@ exports.recordPayment = async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, loan });
+    const payDate = date || new Date();
+    const period = monthYearFromDate(payDate);
+    const empId = loan.employee._id || loan.employee;
+    const syncResults = await syncAllRelevantPayrollsForEmployee(empId, {
+      source: 'loan',
+      module: 'loans',
+      entityId: loan._id,
+      reason: 'Manual loan payment recorded',
+      user: req.user,
+      extraPeriods: [period],
+    });
+
+    res.json(attachSyncResult({ success: true, loan }, syncResults));
   } catch (err) { next(err); }
 };
 
@@ -289,7 +344,15 @@ exports.deleteLoan = async (req, res, next) => {
       user: req.user, action: 'delete', module: 'loans', entityId: loan._id, entityName: `Loan deleted`,
       description: `Deleted loan ${loan._id} (outstanding was LKR ${loan.outstandingBalance.toLocaleString()})`,
     });
+    const empId = loan.employee;
     await loan.deleteOne();
-    res.json({ success: true, message: 'Loan deleted' });
+    const syncResults = await syncAllRelevantPayrollsForEmployee(empId, {
+      source: 'loan',
+      module: 'loans',
+      entityId: req.params.id,
+      reason: 'Loan deleted',
+      user: req.user,
+    });
+    res.json(attachSyncResult({ success: true, message: 'Loan deleted' }, syncResults));
   } catch (err) { next(err); }
 };

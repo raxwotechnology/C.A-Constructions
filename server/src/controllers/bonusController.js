@@ -2,6 +2,7 @@ const BonusTarget = require('../models/BonusTarget');
 const Employee = require('../models/Employee');
 const Payroll = require('../models/Payroll');
 const { createNotification } = require('../services/notificationService');
+const { triggerPayrollSync, monthYearFromDate, attachSyncResult } = require('../utils/payrollSyncHook');
 
 exports.createTarget = async (req, res, next) => {
   try {
@@ -60,15 +61,21 @@ exports.markAchieved = async (req, res, next) => {
     if (payrollId) target.linkedPayroll = payrollId;
     await target.save();
 
-    // If a payrollId was passed, we add the bonus to that draft payroll
-    if (payrollId) {
-      const payroll = await Payroll.findById(payrollId);
-      if (payroll && payroll.status === 'draft') {
-        payroll.bonus = (payroll.bonus || 0) + target.bonusAmount;
-        payroll.grossSalary += target.bonusAmount;
-        payroll.netSalary += target.bonusAmount;
-        await payroll.save();
-      }
+    const period = monthYearFromDate(target.achievedAt || new Date());
+    const sync = await triggerPayrollSync({
+      employeeId: target.employee._id || target.employee,
+      month: period.month,
+      year: period.year,
+      source: 'bonus',
+      module: 'bonus_targets',
+      entityId: target._id,
+      reason: `Target achieved: ${target.targetName}`,
+      user: req.user,
+    });
+
+    if (sync.payroll?._id) {
+      target.linkedPayroll = sync.payroll._id;
+      await target.save();
     }
 
     await createNotification({
@@ -79,6 +86,6 @@ exports.markAchieved = async (req, res, next) => {
       link: '/developer/payslips'
     });
 
-    res.json({ success: true, target });
+    res.json(attachSyncResult({ success: true, target }, sync));
   } catch (err) { next(err); }
 };

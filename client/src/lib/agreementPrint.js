@@ -32,10 +32,15 @@ export function buildAgreementBodyHtml(opts) {
   } = opts
   const initials = escapeHtml((siteName || 'C').trim().slice(0, 2).toUpperCase())
   const logoInner = logoUrl
-    ? `<img src="${safeImgSrc(logoUrl)}" alt="" crossorigin="anonymous" style="max-width:100%;max-height:100%;object-fit:contain;"/>`
+    ? `<img src="${safeImgSrc(logoUrl)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;"/>`
     : `<span style="font-size:26px;font-weight:800;color:#0f172a;font-family:system-ui,Segoe UI,sans-serif;letter-spacing:-0.02em;">${initials}</span>`
-  const meta = [address, phone, email].filter(Boolean).join(' · ')
-  const loc = locationLine || ''
+  const contactRows = [
+    address ? `<div><span style="color:#94a3b8">Address:</span> ${escapeHtml(address)}</div>` : '',
+    phone ? `<div><span style="color:#94a3b8">Tel:</span> ${escapeHtml(phone)}</div>` : '',
+    email ? `<div><span style="color:#94a3b8">Email:</span> ${escapeHtml(email)}</div>` : '',
+    websiteUrl ? `<div><span style="color:#94a3b8">Web:</span> <a href="${escapeHtml(websiteUrl)}" style="color:#2563eb;text-decoration:none">${escapeHtml(websiteUrl)}</a></div>` : '',
+    locationLine ? `<div><span style="color:#94a3b8">Branch:</span> ${escapeHtml(locationLine)}</div>` : '',
+  ].filter(Boolean).join('')
 
   const sigBlock = (heading, data, name) => {
     if (!data) {
@@ -49,6 +54,10 @@ export function buildAgreementBodyHtml(opts) {
       ? `<div style="margin-top:14px;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10pt;"><strong>Witness</strong>${signatures.witness.name ? `: ${escapeHtml(signatures.witness.name)}` : ''}${signatures.witness.data ? `<br/><img src="${safeImgSrc(signatures.witness.data)}" style="max-height:72px;margin-top:6px;border:1px solid #f1f5f9;"/>` : ''}</div>`
       : ''
 
+  const sealHtml = signatures?.seal?.data
+      ? `<div style="margin-top:14px;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10pt;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;"><strong>Company Seal</strong><img src="${safeImgSrc(signatures.seal.data)}" style="max-height:96px;margin-top:6px;"/></div>`
+      : ''
+
   return `
     <div style="margin-bottom:28px;padding:22px 24px;border-radius:14px;background:linear-gradient(135deg,#f8fafc 0%,#e8eef5 55%,#f1f5f9 100%);border:1px solid #cbd5e1;box-shadow:0 10px 30px rgba(15,23,42,0.06);">
       <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
@@ -58,9 +67,7 @@ export function buildAgreementBodyHtml(opts) {
         <div style="flex:1;min-width:200px;">
           <p style="margin:0;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:#64748b;font-family:system-ui,Segoe UI,sans-serif;font-weight:600;">Official agreement</p>
           <h1 style="margin:8px 0 0;font-size:24px;font-weight:800;color:#0c1a2e;font-family:Georgia,serif;line-height:1.15;letter-spacing:-0.02em;">${escapeHtml(siteName || 'Company')}</h1>
-          ${meta ? `<p style="margin:10px 0 0;font-size:10.5pt;color:#475569;font-family:system-ui,Segoe UI,sans-serif;line-height:1.45;">${escapeHtml(meta)}</p>` : ''}
-          ${websiteUrl ? `<p style="margin:6px 0 0;font-size:10pt;color:#2563eb;font-family:system-ui,Segoe UI,sans-serif;"><a href="${escapeHtml(websiteUrl)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(websiteUrl)}</a></p>` : ''}
-          ${loc ? `<p style="margin:6px 0 0;font-size:9.5pt;color:#64748b;font-family:system-ui,Segoe UI,sans-serif;">${escapeHtml(loc)}</p>` : ''}
+          ${contactRows ? `<div style="margin:10px 0 0;font-size:10pt;color:#475569;font-family:system-ui,Segoe UI,sans-serif;line-height:1.65;text-align:left">${contactRows}</div>` : ''}
         </div>
       </div>
     </div>
@@ -71,7 +78,10 @@ export function buildAgreementBodyHtml(opts) {
       ${sigBlock('Service provider', signatures?.provider?.data, signatures?.provider?.signerName)}
       ${sigBlock('Client / counterparty', signatures?.client?.data, signatures?.client?.signerName)}
     </div>
-    ${witness}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      ${witness}
+      ${sealHtml}
+    </div>
   `
 }
 

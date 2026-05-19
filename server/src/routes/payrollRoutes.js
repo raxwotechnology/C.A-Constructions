@@ -3,7 +3,8 @@ const router = express.Router();
 const {
   generatePayroll, generateAllPayroll, getPayrolls, getMyPayrolls, getEmployeePayrollPreview,
   reviewPayroll, approvePayroll, updatePayroll, markPaid,
-  getEpfSummary, addOvertime, getOvertime,
+  getEpfSummary, addOvertime, getOvertime, deleteOvertime,
+  syncPayroll, reopenPayroll, getRecalcLogs, getEmployeeFinancialSummary, getPayrollLiveSnapshot,
   initiateSalaryPayHere, salaryPayHereNotify,
   updateEpfRecord, deletePayroll,
 } = require('../controllers/payrollController');
@@ -11,8 +12,14 @@ const { protect, authorize } = require('../middleware/auth');
 
 router.post('/generate', protect, authorize('admin'), generatePayroll);
 router.post('/generate-all', protect, authorize('admin'), generateAllPayroll);
+router.post('/sync', protect, authorize('admin'), syncPayroll);
+router.get('/recalc-logs', protect, authorize('admin'), getRecalcLogs);
+router.get('/employee-summary/:employeeId', protect, authorize('admin'), getEmployeeFinancialSummary);
+router.get('/live-snapshot/:employeeId', protect, authorize('admin'), getPayrollLiveSnapshot);
 router.post('/overtime', protect, authorize('admin'), addOvertime);
+router.delete('/overtime/:id', protect, authorize('admin'), deleteOvertime);
 router.get('/overtime', protect, authorize('admin'), getOvertime);
+router.put('/:id/reopen', protect, authorize('admin'), reopenPayroll);
 router.get('/preview/:employeeId', protect, authorize('admin'), getEmployeePayrollPreview);
 router.post('/payhere/notify', salaryPayHereNotify);
 router.get('/epf-summary', protect, authorize('admin'), getEpfSummary);

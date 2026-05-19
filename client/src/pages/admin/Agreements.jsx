@@ -9,9 +9,10 @@ import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiSearch, FiDownload, FiClock } from 'react-icons/fi'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
-import { mediaUrl } from '../../lib/media'
+import { buildAgreementPrintOpts } from '../../lib/companyBranding'
 import { openAgreementPrint, downloadAgreementPdf } from '../../lib/agreementPrint'
 import SignaturePad from '../../components/admin/SignaturePad'
+import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 
 const AGREEMENT_TYPES = [
   { value: 'client_project', label: 'Client Project Agreement' },
@@ -25,6 +26,7 @@ const EMPTY_SIG = () => ({
   provider: { data: '', signerName: '' },
   client: { data: '', signerName: '' },
   witness: { name: '', data: '' },
+  seal: { data: '' },
 })
 
 export default function Agreements() {
@@ -86,26 +88,17 @@ export default function Agreements() {
   const projects = projectsData?.projects || []
   const invoices = invoicesData?.invoices || []
 
-  const buildPrintOptsWithSite = (s, agr, html) => ({
-    siteName: s.siteName,
-    logoUrl: s.logoUrl ? `${mediaUrl(s.logoUrl)}${s.updatedAt ? `?v=${new Date(s.updatedAt).getTime()}` : ''}` : '',
-    address: s.contactAddress,
-    phone: s.contactPhone,
-    email: s.contactEmail,
-    websiteUrl: s.websiteUrl || '',
-    locationLine:
-      s.mapLat != null && s.mapLng != null
-        ? `Location: ${Number(s.mapLat).toFixed(4)}, ${Number(s.mapLng).toFixed(4)} (map ref.)`
-        : '',
-    title: agr?.title || watch('title'),
-    agreementNo: agr?.agreementNo || '—',
-    agreementDate: (() => {
-      const d = agr?.agreementDate || (watch('agreementDate') ? new Date(watch('agreementDate')) : null)
-      return d ? new Date(d).toLocaleDateString('en-LK') : new Date().toLocaleDateString('en-LK')
-    })(),
-    bodyHtml: html,
-    signatures: agr?.signatures || signatures,
-  })
+  const buildPrintOptsWithSite = (s, agr, html) => {
+    const base = buildAgreementPrintOpts(s, agr, html, agr?.signatures || signatures)
+    return {
+      ...base,
+      title: agr?.title || watch('title'),
+      agreementDate: (() => {
+        const d = agr?.agreementDate || (watch('agreementDate') ? new Date(watch('agreementDate')) : null)
+        return d ? new Date(d).toLocaleDateString('en-LK') : new Date().toLocaleDateString('en-LK')
+      })(),
+    }
+  }
 
   const fetchFreshSiteSettings = async () => {
     const res = await qc.fetchQuery({
@@ -235,6 +228,7 @@ export default function Agreements() {
             provider: { data: agr.signatures.provider?.data || '', signerName: agr.signatures.provider?.signerName || '' },
             client: { data: agr.signatures.client?.data || '', signerName: agr.signatures.client?.signerName || '' },
             witness: { name: agr.signatures.witness?.name || '', data: agr.signatures.witness?.data || '' },
+            seal: { data: agr.signatures.seal?.data || '' },
           }
         : EMPTY_SIG()
     )
@@ -706,6 +700,7 @@ export default function Agreements() {
 
                     <div className="w-full xl:w-80 shrink-0 space-y-4 border border-slate-200 rounded-xl p-4 bg-slate-50/80">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Digital signatures</p>
+                      <DocumentAssetPicker label="Provider signature (upload or saved)" value={{ data: signatures.provider.data }} onChange={(v) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data: v.data } }))} roleKey="hr" />
                       <input
                         className="form-input text-sm"
                         placeholder="Provider signatory name"
@@ -713,7 +708,7 @@ export default function Agreements() {
                         onChange={(e) => setSignatures((s) => ({ ...s, provider: { ...s.provider, signerName: e.target.value } }))}
                       />
                       <SignaturePad
-                        label="Provider"
+                        label="Provider (draw)"
                         value={signatures.provider.data}
                         onChange={(data) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data } }))}
                       />
@@ -739,6 +734,7 @@ export default function Agreements() {
                         value={signatures.witness.data}
                         onChange={(data) => setSignatures((s) => ({ ...s, witness: { ...s.witness, data } }))}
                       />
+                      <DocumentAssetPicker label="Company seal" assetType="seal" value={{ data: signatures.seal?.data || '' }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))} />
                     </div>
                   </motion.div>
                 )}

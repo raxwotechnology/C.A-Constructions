@@ -57,6 +57,9 @@ const agreementSchema = new mongoose.Schema({
       data: { type: String, default: '' },
       signedAt: Date,
     },
+    seal: {
+      data: { type: String, default: '' },
+    },
   },
 
   history: [{

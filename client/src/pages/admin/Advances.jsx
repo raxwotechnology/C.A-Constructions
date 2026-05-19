@@ -6,6 +6,7 @@ import api from '../../lib/api'
 import { lookupLoaders } from '../../lib/lookupApi'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import toast from 'react-hot-toast'
+import { handlePayrollSyncResponse } from '../../lib/payrollSync'
 import ExportBar from '../../components/ui/ExportBar'
 import { FiPlus, FiX, FiCheck, FiRefreshCw, FiCreditCard } from 'react-icons/fi'
 
@@ -63,9 +64,10 @@ export default function AdminAdvances() {
 
   const createMut = useMutation({
     mutationFn: p => api.post('/advances', p),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['advances'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      handlePayrollSyncResponse(qc, res.data, toast)
       toast.success('Advance recorded')
       setShowCreate(false)
       setForm(EMPTY)
@@ -219,7 +221,7 @@ export default function AdminAdvances() {
                       <p className="text-xs text-slate-400">{empSummary.activeAdvancesCount} active case(s)</p>
                     </div>
                     <div className="bg-white rounded-lg p-3 border border-emerald-100">
-                      <p className="text-xs text-slate-500">Available advance balance</p>
+                      <p className="text-xs text-slate-500">Available balance</p>
                       <p className="text-lg font-bold text-emerald-700">LKR {empSummary.availableAdvanceBalance?.toLocaleString()}</p>
                       <p className="text-xs text-slate-400">Recorded on employee</p>
                     </div>

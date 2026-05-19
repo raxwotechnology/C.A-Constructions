@@ -33,9 +33,12 @@ import {
   FiChevronDown,
   FiTrash2,
 } from 'react-icons/fi'
-import { mediaUrl } from '../../lib/media'
+import { absoluteMediaUrl } from '../../lib/media'
+import { buildCompanyFromSettings, companyContactLines } from '../../lib/companyBranding'
+import { useSiteBranding } from '../../hooks/useSiteBranding'
 import { openLetterPrint, downloadLetterPdf } from '../../lib/letterDocument'
 import SignaturePad from '../../components/admin/SignaturePad'
+import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 
 const LETTER_TYPES = [
@@ -71,6 +74,7 @@ export default function AdminLetters() {
   const [signatures, setSignatures] = useState({
     hr: { data: '', name: '', title: 'Human Resources' },
     manager: { data: '', name: '', title: 'Line Manager' },
+    seal: { data: '' }
   })
   const [selectedTplId, setSelectedTplId] = useState('')
   const [showLetterTemplates, setShowLetterTemplates] = useState(false)
@@ -93,19 +97,16 @@ export default function AdminLetters() {
     queryKey: ['employees-list'],
     queryFn: () => api.get(assignableEmployeesUrl()).then((r) => r.data),
   })
-  const { data: companyData } = useQuery({
-    queryKey: ['letter-company-info'],
-    queryFn: () => api.get('/letters/company-info').then((r) => r.data),
-  })
+  const { settings: siteSettings } = useSiteBranding()
 
   const company = useMemo(() => {
-    const c = companyData?.company || {}
+    const co = buildCompanyFromSettings(siteSettings)
     return {
-      ...c,
-      logo: c.logo ? mediaUrl(c.logo) : '',
-      footer: c.footer || c.address || '',
+      ...co,
+      logo: co.logoPath || co.logo ? absoluteMediaUrl(co.logoPath || co.logo) : '',
+      footer: co.footer || co.address || '',
     }
-  }, [companyData])
+  }, [siteSettings])
 
   const letterQuillModules = useMemo(
     () => ({
@@ -137,6 +138,7 @@ export default function AdminLetters() {
           name: letter.signatures?.manager?.name || '',
           title: letter.signatures?.manager?.title || 'Line Manager',
         },
+        seal: { data: letter.signatures?.seal?.data || '' }
       })
       setEditMode(false)
       setLetterEditHtmlSource(false)
@@ -159,6 +161,7 @@ export default function AdminLetters() {
           name: letter.signatures?.manager?.name || '',
           title: letter.signatures?.manager?.title || 'Line Manager',
         },
+        seal: { data: letter.signatures?.seal?.data || '' }
       })
       setEditMode(false)
       setLetterEditHtmlSource(false)
@@ -257,6 +260,7 @@ export default function AdminLetters() {
         name: l.signatures?.manager?.name || '',
         title: l.signatures?.manager?.title || 'Line Manager',
       },
+      seal: { data: l.signatures?.seal?.data || '' }
     })
   }
 
@@ -744,7 +748,11 @@ export default function AdminLetters() {
                         <div className="min-w-0">
                           <p className="text-lg font-bold text-primary leading-tight">{company.name}</p>
                           {company.tagline ? <p className="text-xs text-slate-500 mt-1 italic">{company.tagline}</p> : null}
-                          <p className="text-xs text-slate-500 mt-2 leading-relaxed">{[company.address, company.phone, company.email, company.website].filter(Boolean).join(' · ')}</p>
+                          <div className="text-xs text-slate-500 mt-2 leading-relaxed space-y-0.5 text-right">
+                            {companyContactLines(company).map((l) => (
+                              <p key={l.label}><span className="text-slate-400">{l.label}:</span> {l.text}</p>
+                            ))}
+                          </div>
                         </div>
                       </div>
                       <div className="text-right text-xs text-slate-500 shrink-0 space-y-0.5">
@@ -803,10 +811,13 @@ export default function AdminLetters() {
                 </div>
                 <aside className="w-full lg:w-72 shrink-0 p-4 bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-200 space-y-4 overflow-y-auto max-h-[40vh] lg:max-h-none">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Signatures (print / PDF)</p>
+                  <DocumentAssetPicker label="HR signature (upload or saved)" value={{ data: signatures.hr.data }} onChange={(v) => setSignatures((s) => ({ ...s, hr: { ...s.hr, data: v.data } }))} roleKey="hr" />
                   <input className="form-input text-xs" placeholder="HR signatory name" value={signatures.hr.name} onChange={(e) => setSignatures((s) => ({ ...s, hr: { ...s.hr, name: e.target.value } }))} />
-                  <SignaturePad label="HR" value={signatures.hr.data} onChange={(data) => setSignatures((s) => ({ ...s, hr: { ...s.hr, data } }))} />
+                  <SignaturePad label="HR (draw)" value={signatures.hr.data} onChange={(data) => setSignatures((s) => ({ ...s, hr: { ...s.hr, data } }))} />
+                  <DocumentAssetPicker label="Manager signature" value={{ data: signatures.manager.data }} onChange={(v) => setSignatures((s) => ({ ...s, manager: { ...s.manager, data: v.data } }))} roleKey="manager" />
                   <input className="form-input text-xs" placeholder="Manager name" value={signatures.manager.name} onChange={(e) => setSignatures((s) => ({ ...s, manager: { ...s.manager, name: e.target.value } }))} />
-                  <SignaturePad label="Manager" value={signatures.manager.data} onChange={(data) => setSignatures((s) => ({ ...s, manager: { ...s.manager, data } }))} />
+                  <SignaturePad label="Manager (draw)" value={signatures.manager.data} onChange={(data) => setSignatures((s) => ({ ...s, manager: { ...s.manager, data } }))} />
+                  <DocumentAssetPicker label="Company seal" assetType="seal" value={{ data: signatures.seal?.data || '' }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))} />
                   <button
                     type="button"
                     className="btn-primary w-full btn-sm justify-center"

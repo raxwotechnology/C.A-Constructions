@@ -316,7 +316,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
               <div>
                 <h1 style={{ margin: 0, fontSize: 22, color: '#0f172a' }}>{site.siteName || 'Raxwo Pvt Ltd'}</h1>
                 <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b' }}>
-                  {[site.contactAddress, site.contactPhone, site.contactEmail].filter(Boolean).join(' · ')}
+                  {[site.contactAddress, site.contactPhone, site.contactEmail, site.websiteUrl, site.branchDetails].filter(Boolean).join(' · ')}
                 </p>
               </div>
             </div>
@@ -434,6 +434,25 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                     <p style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#334155' }}>{inv.paymentTerms}</p>
                   </>
                 )}
+              </div>
+            )}
+
+            {(inv.signatures?.authorizer?.data || inv.signatures?.seal?.data) && (
+              <div style={{ marginTop: 48, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'end' }}>
+                <div>
+                  {inv.signatures.authorizer?.data && (
+                    <img src={mediaUrl(inv.signatures.authorizer.data)} alt="" style={{ maxHeight: 80, marginBottom: 8 }} />
+                  )}
+                  <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: 8, width: 240 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold' }}>{inv.signatures.authorizer?.name || ''}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{inv.signatures.authorizer?.title || 'Authorized Signatory'}</p>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {inv.signatures.seal?.data && (
+                    <img src={mediaUrl(inv.signatures.seal.data)} alt="Company Seal" style={{ maxHeight: 100 }} />
+                  )}
+                </div>
               </div>
             )}
           </div>

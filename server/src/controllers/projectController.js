@@ -6,6 +6,7 @@ const Payroll  = require('../models/Payroll');
 const path = require('path');
 const fs   = require('fs');
 const { createNotification } = require('../services/notificationService');
+const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
 const {
   validateInvoicesBelongToClient,
   normalizeInvoiceIds,
@@ -222,17 +223,18 @@ exports.updateProject = async (req, res, next) => {
               let bonusAmt = target.bonusAmount || 0;
               if (target.bonusPercentage > 0) bonusAmt += (emp.basicSalary || 0) * (target.bonusPercentage / 100);
               if (bonusAmt > 0) {
-                const month = now.getMonth() + 1;
-                const year  = now.getFullYear();
-                const payroll = await Payroll.findOne({ employee: emp._id, month, year });
-                if (payroll && payroll.status !== 'paid') {
-                  payroll.bonus       = (payroll.bonus || 0) + bonusAmt;
-                  payroll.bonusNote   = `Target achieved: ${target.title}`;
-                  payroll.grossSalary = (payroll.grossSalary || 0) + bonusAmt;
-                  payroll.netSalary   = (payroll.netSalary   || 0) + bonusAmt;
-                  await payroll.save();
-                  target.bonusAdded = true;
-                }
+                const period = monthYearFromDate(now);
+                await triggerPayrollSync({
+                  employeeId: emp._id,
+                  month: period.month,
+                  year: period.year,
+                  source: 'project_target',
+                  module: 'projects',
+                  entityId: target._id,
+                  reason: `Target achieved: ${target.title}`,
+                  user: req.user,
+                });
+                target.bonusAdded = true;
               }
               // Notify employee
               await createNotification({
@@ -267,6 +269,22 @@ exports.updateProject = async (req, res, next) => {
     if (project.client) {
       await createNotification({ recipient: project.client, title: 'Project Updated', message: `Project "${project.title}" has been updated.`, type: 'project', link: '/my-projects' });
     }
+
+    const period = monthYearFromDate();
+    const empIds = new Set((project.salaryAllocations || []).map((a) => String(a.employee)));
+    for (const empId of empIds) {
+      await triggerPayrollSync({
+        employeeId: empId,
+        month: period.month,
+        year: period.year,
+        source: 'project',
+        module: 'projects',
+        entityId: project._id,
+        reason: 'Project commissions/allocations updated',
+        user: req.user,
+      });
+    }
+
     res.json({ success: true, project });
   } catch (err) { next(err); }
 };

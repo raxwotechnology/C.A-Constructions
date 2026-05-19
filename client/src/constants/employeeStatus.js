@@ -1,5 +1,7 @@
 export const EMPLOYEE_STATUSES = [
   { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'suspended', label: 'Suspended' },
   { value: 'internship', label: 'Internship' },
   { value: 'contract', label: 'Contract' },
   { value: 'on_leave', label: 'On leave' },
@@ -7,8 +9,19 @@ export const EMPLOYEE_STATUSES = [
   { value: 'terminated', label: 'Terminated' },
 ]
 
+/** Quick filters for employee list */
+export const EMPLOYEE_STATUS_FILTERS = [
+  { value: '', label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'resigned', label: 'Resigned' },
+]
+
 export const STATUS_BADGE = {
   active: 'badge-green',
+  inactive: 'badge-gray',
+  suspended: 'badge-red',
   internship: 'badge-yellow',
   contract: 'badge-purple',
   on_leave: 'badge-blue',

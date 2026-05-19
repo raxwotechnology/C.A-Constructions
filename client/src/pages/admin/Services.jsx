@@ -4,8 +4,9 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown, FiArchive, FiCheck, FiDollarSign, FiLayers } from 'react-icons/fi'
+import FeatureTagInput from '../../components/ui/FeatureTagInput'
 
-const EMPTY_SERVICE = { title: '', description: '', features: '', priceText: '', imageUrl: '', active: true, order: 0, type: 'service', category: '' }
+const EMPTY_SERVICE = { title: '', description: '', features: [], priceText: '', imageUrl: '', active: true, order: 0, type: 'service', category: '' }
 const EMPTY_PKG = { name: '', price: '', currency: 'LKR', billingCycle: 'one-time', features: '', duration: '', discount: '', promotionLabel: '', isPopular: false }
 const BILLING = ['one-time', 'monthly', 'quarterly', 'yearly']
 
@@ -76,7 +77,7 @@ export default function AdminServices() {
 
   const openEdit = (s) => {
     setEditing(s)
-    setForm({ title: s.title, description: s.description, features: (s.features || []).join(', '), priceText: s.priceText, imageUrl: s.imageUrl, active: s.active, order: s.order || 0, type: s.type || 'service', category: s.category || '' })
+    setForm({ title: s.title, description: s.description, features: Array.isArray(s.features) ? s.features : [], priceText: s.priceText, imageUrl: s.imageUrl, active: s.active, order: s.order || 0, type: s.type || 'service', category: s.category || '' })
     setImageFile(null)
     setShowModal(true)
   }
@@ -220,8 +221,12 @@ export default function AdminServices() {
                   <textarea className="form-input" rows="3" value={form.description} onChange={e => setForm(s => ({ ...s, description: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="form-label">Features (comma-separated)</label>
-                  <input className="form-input" placeholder="Feature 1, Feature 2..." value={form.features} onChange={e => setForm(s => ({ ...s, features: e.target.value }))} />
+                  <label className="form-label">Service features</label>
+                  <FeatureTagInput
+                    value={form.features}
+                    onChange={(tags) => setForm(s => ({ ...s, features: tags }))}
+                    placeholder="Type a feature and press Enter"
+                  />
                 </div>
                 <div className="grid md:grid-cols-2 gap-3">
                   <div>

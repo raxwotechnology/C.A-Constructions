@@ -1,5 +1,7 @@
 const Attendance = require('../models/Attendance');
 const Employee = require('../models/Employee');
+const { computeAttendanceHours } = require('../utils/attendanceHours');
+const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
 
 // Helper: get start of today as a Date
 const todayStart = () => {
@@ -34,25 +36,43 @@ exports.markAttendance = async (req, res, next) => {
     const targetDate = date ? new Date(date) : new Date();
     targetDate.setHours(0, 0, 0, 0);
 
+    const parsedBreaks = Array.isArray(breakTimes)
+      ? breakTimes.map((b) => ({
+        breakIn: b?.breakIn ? new Date(b.breakIn) : undefined,
+        breakOut: b?.breakOut ? new Date(b.breakOut) : undefined,
+        notes: b?.notes || '',
+      }))
+      : undefined;
+
+    const ci = checkIn !== undefined ? (checkIn ? new Date(checkIn) : null) : undefined;
+    const co = checkOut !== undefined ? (checkOut ? new Date(checkOut) : null) : undefined;
+
+    const hours = computeAttendanceHours({
+      checkIn: ci,
+      checkOut: co,
+      breakTimes: parsedBreaks || [],
+      status,
+      isHalfDay: Boolean(isHalfDay),
+    });
+
     const update = {
       employee: employeeId,
       date: targetDate,
       status,
       isHalfDay: Boolean(isHalfDay),
       isFullDay: Boolean(isFullDay),
-      otHours: Number(otHours),
+      otHours: hours.overtimeHours || Number(otHours),
       otAmount: Number(otAmount),
       notes,
       markedBy: req.user._id,
-      ...(checkIn !== undefined && { checkIn: checkIn ? new Date(checkIn) : null }),
-      ...(checkOut !== undefined && { checkOut: checkOut ? new Date(checkOut) : null }),
-      ...(Array.isArray(breakTimes) && {
-        breakTimes: breakTimes.map((b) => ({
-          breakIn: b?.breakIn ? new Date(b.breakIn) : undefined,
-          breakOut: b?.breakOut ? new Date(b.breakOut) : undefined,
-          notes: b?.notes || '',
-        })),
-      }),
+      totalWorkedHours: hours.totalWorkedHours,
+      breakHours: hours.breakHours,
+      leaveHours: hours.leaveHours,
+      nonWorkedHours: hours.nonWorkedHours,
+      missingHours: hours.missingHours,
+      ...(ci !== undefined && { checkIn: ci }),
+      ...(co !== undefined && { checkOut: co }),
+      ...(parsedBreaks && { breakTimes: parsedBreaks }),
     };
 
     const attendance = await Attendance.findOneAndUpdate(
@@ -60,6 +80,19 @@ exports.markAttendance = async (req, res, next) => {
       { $set: update },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
+
+    const period = monthYearFromDate(targetDate);
+    await triggerPayrollSync({
+      employeeId,
+      month: period.month,
+      year: period.year,
+      source: 'attendance',
+      module: 'attendance',
+      entityId: attendance._id,
+      reason: 'Attendance marked/updated',
+      user: req.user,
+    });
+
     res.status(200).json({ success: true, attendance });
   } catch (err) { next(err); }
 };
@@ -122,18 +155,28 @@ exports.clockOut = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'You have already clocked out today' });
     }
 
-    // Calculate worked hours
-    const workedMs = now - new Date(existing.checkIn);
-    const totalBreakMs = (existing.breakTimes || []).reduce((acc, b) => {
-      if (b.breakIn && b.breakOut) return acc + (new Date(b.breakOut) - new Date(b.breakIn));
-      return acc;
-    }, 0);
-    const netWorkedMs = Math.max(0, workedMs - totalBreakMs);
-    const totalWorkedHours = parseFloat((netWorkedMs / 3600000).toFixed(2));
+    const hours = computeAttendanceHours({
+      checkIn: existing.checkIn,
+      checkOut: now,
+      breakTimes: existing.breakTimes || [],
+      status: existing.status,
+      isHalfDay: existing.isHalfDay,
+    });
 
     const attendance = await Attendance.findOneAndUpdate(
       { employee: employee._id, date: today },
-      { $set: { checkOut: now, totalWorkedHours, markedBy: req.user._id } },
+      {
+        $set: {
+          checkOut: now,
+          totalWorkedHours: hours.totalWorkedHours,
+          breakHours: hours.breakHours,
+          leaveHours: hours.leaveHours,
+          nonWorkedHours: hours.nonWorkedHours,
+          missingHours: hours.missingHours,
+          otHours: hours.overtimeHours,
+          markedBy: req.user._id,
+        },
+      },
       { new: true }
     );
     res.status(200).json({ success: true, attendance, message: 'Clocked out successfully' });
@@ -270,12 +313,56 @@ exports.getAttendance = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.updateAttendance = async (req, res, next) => {
   try {
+    const existing = await Attendance.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Record not found' });
+
+    const body = { ...req.body };
+    if (body.checkIn) body.checkIn = new Date(body.checkIn);
+    if (body.checkOut) body.checkOut = new Date(body.checkOut);
+    if (Array.isArray(body.breakTimes)) {
+      body.breakTimes = body.breakTimes.map((b) => ({
+        breakIn: b?.breakIn ? new Date(b.breakIn) : undefined,
+        breakOut: b?.breakOut ? new Date(b.breakOut) : undefined,
+        notes: b?.notes || '',
+      }));
+    }
+
+    const hours = computeAttendanceHours({
+      checkIn: body.checkIn ?? existing.checkIn,
+      checkOut: body.checkOut ?? existing.checkOut,
+      breakTimes: body.breakTimes ?? existing.breakTimes,
+      status: body.status ?? existing.status,
+      isHalfDay: body.isHalfDay ?? existing.isHalfDay,
+    });
+
     const record = await Attendance.findByIdAndUpdate(
       req.params.id,
-      { $set: { ...req.body, markedBy: req.user._id } },
+      {
+        $set: {
+          ...body,
+          totalWorkedHours: hours.totalWorkedHours,
+          breakHours: hours.breakHours,
+          leaveHours: hours.leaveHours,
+          nonWorkedHours: hours.nonWorkedHours,
+          missingHours: hours.missingHours,
+          otHours: hours.overtimeHours || body.otHours || existing.otHours,
+          markedBy: req.user._id,
+        },
+      },
       { new: true, runValidators: true }
     );
-    if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
+    const period = monthYearFromDate(record.date);
+    await triggerPayrollSync({
+      employeeId: record.employee,
+      month: period.month,
+      year: period.year,
+      source: 'attendance',
+      module: 'attendance',
+      entityId: record._id,
+      reason: 'Attendance record updated',
+      user: req.user,
+    });
+
     res.json({ success: true, attendance: record });
   } catch (err) { next(err); }
 };

@@ -8,21 +8,72 @@ import { formatMoney, chartMoneyTick } from '../../lib/currencies'
 
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-// Simulated marketing analyzer data
+// Simulated marketing analyzer data (per platform)
+const PLATFORM_CONFIG = {
+  facebook: { base: 12000, label: 'Facebook', icon: '📘', audience: '25–44 business owners' },
+  instagram: { base: 8500, label: 'Instagram', icon: '📷', audience: '18–34 visual-first users' },
+  tiktok: { base: 45000, label: 'TikTok', icon: '🎵', audience: '16–28 Gen Z creators' },
+  linkedin: { base: 6200, label: 'LinkedIn', icon: '💼', audience: 'B2B professionals & decision makers' },
+  youtube: { base: 15800, label: 'YouTube', icon: '▶️', audience: 'Tutorial & product research viewers' },
+}
+
 const genSocialData = (platform) => {
-  const base = platform === 'facebook' ? 12000 : platform === 'instagram' ? 8500 : 45000
+  const cfg = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.instagram
+  const base = cfg.base
+  const isVideo = platform === 'youtube' || platform === 'tiktok'
+  const isLinkedIn = platform === 'linkedin'
+  const followers = base + Math.floor(Math.random() * 2000)
+  const engagementRate = (Math.random() * 4 + (isLinkedIn ? 0.8 : 1)).toFixed(2)
+  const recommendations = [
+    isLinkedIn
+      ? 'Publish thought-leadership posts twice weekly with industry hashtags'
+      : isVideo
+        ? 'Add keyword-rich titles and end-screen CTAs on top-performing videos'
+        : 'Increase carousel posts with clear CTAs to drive profile visits',
+    isVideo
+      ? 'Batch-record 4 short videos per session to maintain upload consistency'
+      : 'Reply to comments within 2 hours to boost engagement signals',
+    'Run A/B tests on posting times using insights from the last 30 days',
+    isLinkedIn
+      ? 'Share employee advocacy content to expand organic reach'
+      : 'Refresh cover art and bio links to match current campaigns',
+  ]
   return {
-    followers: base + Math.floor(Math.random() * 2000),
+    platform: cfg.label,
+    icon: cfg.icon,
+    followers,
+    subscribers: isVideo ? followers : null,
     followersGrowth: (Math.random() * 8 + 1).toFixed(1),
-    engagementRate: (Math.random() * 4 + 1).toFixed(2),
+    engagementRate,
     reach: Math.floor(base * 2.5),
     impressions: Math.floor(base * 4),
-    postsThisMonth: Math.floor(Math.random() * 20 + 10),
+    postsThisMonth: Math.floor(Math.random() * 20 + (isVideo ? 4 : 10)),
+    videosThisMonth: isVideo ? Math.floor(Math.random() * 8 + 2) : 0,
     avgLikes: Math.floor(Math.random() * 500 + 100),
     avgComments: Math.floor(Math.random() * 50 + 10),
-    bestTime: ['9:00 AM', '12:00 PM', '6:00 PM'][Math.floor(Math.random() * 3)],
-    topHashtags: ['#digitalmarketing', '#webdesign', '#seo', '#branding', '#socialmedia'].slice(0, 4),
-    growthData: Array.from({ length: 7 }, (_, i) => ({ day: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i], followers: base + i * Math.floor(Math.random() * 200 + 50), engagement: (Math.random() * 5 + 1).toFixed(1) }))
+    avgViews: isVideo ? Math.floor(base * 1.8 + Math.random() * 5000) : 0,
+    watchTimeHours: isVideo ? Math.floor(Math.random() * 400 + 120) : 0,
+    bestTime: ['9:00 AM', '12:00 PM', '6:00 PM', '8:00 PM'][Math.floor(Math.random() * 4)],
+    topHashtags: isLinkedIn
+      ? ['#B2B', '#Leadership', '#SaaS', '#Hiring'].slice(0, 4)
+      : isVideo
+        ? ['#tutorial', '#howto', '#review', '#tips'].slice(0, 4)
+        : ['#digitalmarketing', '#webdesign', '#seo', '#branding'].slice(0, 4),
+    audienceInsight: cfg.audience,
+    seoTips: isVideo
+      ? ['Optimize video titles with primary keywords', 'Add chapters for retention', 'Use custom thumbnails with contrast']
+      : ['Use alt text on images', 'Pin top-performing posts', 'Cross-link to website landing pages'],
+    recommendations,
+    contentPerformance: [
+      { type: isVideo ? 'Tutorial' : isLinkedIn ? 'Article' : 'Carousel', score: 92 },
+      { type: isVideo ? 'Short' : 'Reel', score: 87 },
+      { type: 'Promo', score: 74 },
+    ],
+    growthData: Array.from({ length: 7 }, (_, i) => ({
+      day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
+      followers: base + i * Math.floor(Math.random() * 200 + 50),
+      engagement: (Math.random() * 5 + 1).toFixed(1),
+    })),
   }
 }
 
@@ -271,10 +322,10 @@ export default function AdminAIAnalyzer() {
             <div className="flex items-center gap-4 flex-wrap">
               <h3 className="font-bold text-primary">Social Media Analytics</h3>
               <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-                {['facebook','instagram','tiktok'].map(p => (
+                {['facebook','instagram','tiktok','linkedin','youtube'].map(p => (
                   <button key={p} onClick={() => setSocialPlatform(p)}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${socialPlatform === p ? 'bg-white shadow text-secondary' : 'text-slate-500'}`}>
-                    {p === 'facebook' ? '📘' : p === 'instagram' ? '📷' : '🎵'} {p}
+                    {PLATFORM_CONFIG[p]?.icon || '📱'} {p}
                   </button>
                 ))}
               </div>
@@ -295,10 +346,10 @@ export default function AdminAIAnalyzer() {
             <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} className="space-y-5">
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'Followers', val: socialData.followers.toLocaleString(), sub: `+${socialData.followersGrowth}% growth`, color: 'kpi-blue' },
-                  { label: 'Engagement Rate', val: `${socialData.engagementRate}%`, sub: 'avg per post', color: 'kpi-green' },
-                  { label: 'Monthly Reach', val: socialData.reach.toLocaleString(), sub: 'unique accounts', color: 'kpi-purple' },
-                  { label: 'Avg Likes', val: socialData.avgLikes, sub: `Best time: ${socialData.bestTime}`, color: 'kpi-orange' },
+                  { label: socialData.subscribers ? 'Subscribers' : 'Followers', val: (socialData.subscribers || socialData.followers).toLocaleString(), sub: `+${socialData.followersGrowth}% growth`, color: 'kpi-blue' },
+                  { label: 'Engagement Rate', val: `${socialData.engagementRate}%`, sub: 'avg per post/video', color: 'kpi-green' },
+                  { label: 'Monthly Reach', val: socialData.reach.toLocaleString(), sub: `${socialData.impressions.toLocaleString()} impressions`, color: 'kpi-purple' },
+                  { label: socialData.avgViews ? 'Avg Views' : 'Avg Likes', val: (socialData.avgViews || socialData.avgLikes).toLocaleString(), sub: `Best time: ${socialData.bestTime}`, color: 'kpi-orange' },
                 ].map(c => (
                   <div key={c.label} className={`kpi-card ${c.color}`}>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{c.label}</p>
@@ -321,12 +372,24 @@ export default function AdminAIAnalyzer() {
                 </ResponsiveContainer>
               </div>
               <div className="card card-body">
-                <h4 className="font-bold text-primary mb-3">🏷️ Top Hashtags</h4>
-                <div className="flex flex-wrap gap-2">
+                <h4 className="font-bold text-primary mb-3">👥 Audience & recommendations</h4>
+                <p className="text-sm text-slate-600 mb-3">{socialData.audienceInsight}</p>
+                <ul className="space-y-1.5 mb-4">
+                  {(socialData.recommendations || []).map((r, i) => (
+                    <li key={i} className="text-sm text-slate-600 flex gap-2"><FiZap size={14} className="text-secondary shrink-0"/>{r}</li>
+                  ))}
+                </ul>
+                <h4 className="font-bold text-primary mb-2">🏷️ Top hashtags / SEO</h4>
+                <div className="flex flex-wrap gap-2 mb-3">
                   {socialData.topHashtags.map((h, i) => (
                     <span key={i} className="px-3 py-1.5 bg-gradient-to-r from-secondary/10 to-blue-100 text-secondary text-sm font-semibold rounded-full border border-secondary/20">{h}</span>
                   ))}
                 </div>
+                <ul className="space-y-1">
+                  {(socialData.seoTips || []).map((t, i) => (
+                    <li key={i} className="text-xs text-slate-500">• {t}</li>
+                  ))}
+                </ul>
               </div>
             </motion.div>
           )}
@@ -341,6 +404,8 @@ export default function AdminAIAnalyzer() {
               { title: 'Facebook Analysis', icon: '📘', desc: 'Page performance, ad reach, audience demographics', color: 'from-blue-600 to-blue-700' },
               { title: 'Instagram Analysis', icon: '📷', desc: 'Profile analytics, story performance, hashtag reach', color: 'from-pink-500 to-rose-600' },
               { title: 'TikTok Analysis', icon: '🎵', desc: 'Video performance, trending sounds, creator analytics', color: 'from-slate-800 to-slate-900' },
+              { title: 'LinkedIn Analysis', icon: '💼', desc: 'Follower growth, engagement, B2B audience insights', color: 'from-blue-700 to-blue-900' },
+              { title: 'YouTube Analysis', icon: '▶️', desc: 'Subscribers, watch time, video SEO optimization', color: 'from-red-600 to-red-800' },
               { title: 'Competitor Analysis', icon: '🔍', desc: 'Compare with competitors, market positioning', color: 'from-amber-500 to-orange-600' },
               { title: 'Campaign Analysis', icon: '🎯', desc: 'Ad performance, ROI, conversion tracking', color: 'from-emerald-500 to-teal-600' },
               { title: 'Ad Performance', icon: '💰', desc: 'CPC, CTR, ROAS, budget optimization', color: 'from-purple-500 to-violet-600' },

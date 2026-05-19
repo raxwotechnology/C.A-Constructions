@@ -8,7 +8,8 @@ import toast from 'react-hot-toast'
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiEye, FiAlertCircle } from 'react-icons/fi'
 import EmployeeDetail from './EmployeeDetail'
 import EmployeeFormModal from '../../components/admin/EmployeeFormModal'
-import { DEPARTMENTS, EMPLOYEE_STATUSES, STATUS_BADGE } from '../../constants/employeeStatus'
+import { DEPARTMENTS, EMPLOYEE_STATUSES, EMPLOYEE_STATUS_FILTERS, STATUS_BADGE } from '../../constants/employeeStatus'
+import ExportBar from '../../components/ui/ExportBar'
 import { buildEmployeeSavePayload, resolveEmployeeDocUrls } from '../../lib/employeePayload'
 import { mediaUrl } from '../../lib/media'
 
@@ -75,17 +76,19 @@ export default function AdminEmployees() {
 
   const [empTypeFilter, setEmpTypeFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
 
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', deptFilter, empTypeFilter, branchFilter],
+    queryKey: ['employees', deptFilter, empTypeFilter, branchFilter, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (deptFilter) params.set('department', deptFilter)
       if (empTypeFilter) params.set('employmentType', empTypeFilter)
       if (branchFilter) params.set('branch', branchFilter)
+      if (statusFilter) params.set('status', statusFilter)
       const qs = params.toString()
       const { data: json } = await api.get(qs ? `/employees?${qs}` : '/employees')
       return json
@@ -324,6 +327,16 @@ export default function AdminEmployees() {
           <h1 className="page-title">Employees</h1>
           <p className="page-subtitle">{data?.count || 0} total employees</p>
         </div>
+        <ExportBar
+          data={employees}
+          columns={[
+            { header: 'Name', accessor: (e) => e.userId?.name || '—' },
+            { header: 'Emp No', accessor: 'employeeNo' },
+            { header: 'Department', accessor: 'department' },
+            { header: 'Status', accessor: 'status' },
+          ]}
+          title="Employee List"
+        />
         <button type="button" onClick={openCreate} className="btn-primary"><FiPlus size={16}/> Add Employee</button>
       </div>
 
@@ -353,6 +366,11 @@ export default function AdminEmployees() {
         <select value={branchFilter} onChange={e=>setBranchFilter(e.target.value)} className="form-select sm:w-44">
           <option value="">All Branches</option>
           {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+        </select>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="form-select sm:w-44">
+          {EMPLOYEE_STATUS_FILTERS.map(s => (
+            <option key={s.value || 'all'} value={s.value}>{s.label}</option>
+          ))}
         </select>
       </div>
 

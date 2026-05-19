@@ -37,7 +37,7 @@ export function invalidateSiteBranding(queryClient) {
   queryClient.invalidateQueries({
     predicate: (q) => {
       const root = q.queryKey?.[0]
-      return root === 'site-settings' || String(root || '').startsWith('site-settings')
+      return root === 'site-settings' || String(root || '').startsWith('site-settings') || root === 'letter-company-info'
     },
   })
 }

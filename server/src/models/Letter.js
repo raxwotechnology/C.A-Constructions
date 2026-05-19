@@ -24,6 +24,7 @@ const letterSchema = new mongoose.Schema({
   signatures: {
     hr: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
     manager: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
+    seal: { data: { type: String, default: '' } },
   },
 }, { timestamps: true });
 

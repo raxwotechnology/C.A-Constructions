@@ -9,14 +9,18 @@ import { mediaUrl } from '../../lib/media'
 import UserAvatar from '../../components/ui/UserAvatar'
 import { applySiteFavicon } from '../../lib/siteFavicon'
 import { invalidateSiteBranding, SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding'
+import LetterheadPreview from '../../components/branding/LetterheadPreview'
 
 export default function AdminSettings() {
   const { user, updateUser, refreshSession } = useAuthStore()
   const qc = useQueryClient()
   const [avatarFile, setAvatarFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
+  const [sealFile, setSealFile] = useState(null)
+  const [sigFiles, setSigFiles] = useState({ hr: null, admin: null, manager: null })
   const [avatarToRemove, setAvatarToRemove] = useState(false)
   const [logoToRemove, setLogoToRemove] = useState(false)
+  const [sealToRemove, setSealToRemove] = useState(false)
 
   const { register: reg1, handleSubmit: hs1, formState: { isSubmitting: isSubmittingProfile } } = useForm({
     values: { name: user?.name, phone: user?.phone }
@@ -56,7 +60,7 @@ export default function AdminSettings() {
     queryKey: SITE_SETTINGS_QUERY_KEY,
     queryFn: () => api.get('/site-settings').then((r) => r.data),
   })
-  const { register: reg3, handleSubmit: hs3, setValue: setSiteValue, formState: { isSubmitting: isSubmittingSite } } = useForm({
+  const { register: reg3, handleSubmit: hs3, setValue: setSiteValue, watch: watchSite, formState: { isSubmitting: isSubmittingSite } } = useForm({
     values: {
       siteName: siteData?.settings?.siteName || '',
       siteDescription: siteData?.settings?.siteDescription || '',
@@ -65,7 +69,15 @@ export default function AdminSettings() {
       contactEmail: siteData?.settings?.contactEmail || '',
       contactPhone: siteData?.settings?.contactPhone || '',
       contactAddress: siteData?.settings?.contactAddress || '',
+      branchDetails: siteData?.settings?.branchDetails || '',
+      adminEmail: siteData?.settings?.adminEmail || '',
       websiteUrl: siteData?.settings?.websiteUrl || '',
+      sealUrl: siteData?.settings?.sealUrl || '',
+      signatures: {
+        hr: { url: siteData?.settings?.signatures?.hr?.url || '', label: siteData?.settings?.signatures?.hr?.label || 'HR' },
+        admin: { url: siteData?.settings?.signatures?.admin?.url || '', label: siteData?.settings?.signatures?.admin?.label || 'Admin' },
+        manager: { url: siteData?.settings?.signatures?.manager?.url || '', label: siteData?.settings?.signatures?.manager?.label || 'Manager' },
+      },
       mapLat: siteData?.settings?.mapLat ?? 7.0289,
       mapLng: siteData?.settings?.mapLng ?? 80.0153,
       mapZoom: siteData?.settings?.mapZoom ?? 13,
@@ -221,9 +233,11 @@ export default function AdminSettings() {
         </form>
       </div>
 
-      {/* System info */}
+      {/* Letterhead & site branding — used on Agreements, Letters, invoices */}
       <div className="card card-body">
-        <h3 className="font-bold text-primary font-heading mb-4">Site Settings</h3>
+        <h3 className="font-bold text-primary font-heading mb-1">Letterhead & company details</h3>
+        <p className="text-xs text-gray-500 mb-4">Logo, address, phone, and email appear in the header of Agreements and Letters when you print or export PDF.</p>
+        <LetterheadPreview settings={{ ...(siteData?.settings || {}), ...watchSite() }} />
         <form onSubmit={hs3(async (d) => {
           try {
             let logoUrl = logoToRemove ? '' : (d.logoUrl || '').trim()
@@ -231,7 +245,19 @@ export default function AdminSettings() {
               const uploaded = await uploadImage(logoFile)
               if (uploaded) logoUrl = uploaded
             }
-            siteMut.mutate({ ...d, logoUrl })
+            let sealUrl = sealToRemove ? '' : (d.sealUrl || '').trim()
+            if (sealFile) {
+              const uploaded = await uploadImage(sealFile)
+              if (uploaded) sealUrl = uploaded
+            }
+            const signatures = { ...(d.signatures || {}) }
+            for (const key of ['hr', 'admin', 'manager']) {
+              if (sigFiles[key]) {
+                const uploaded = await uploadImage(sigFiles[key])
+                if (uploaded) signatures[key] = { ...signatures[key], url: uploaded }
+              }
+            }
+            siteMut.mutate({ ...d, logoUrl, sealUrl, signatures })
           } catch (e) {
             toast.error(e.message)
           }
@@ -274,11 +300,21 @@ export default function AdminSettings() {
           <div><label className="form-label">Description</label><textarea {...reg3('siteDescription')} className="form-input min-h-20" /></div>
           <div><label className="form-label">Footer Details</label><textarea {...reg3('footerText')} className="form-input min-h-20" /></div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="form-label">Contact Email</label><input {...reg3('contactEmail')} className="form-input" /></div>
-            <div><label className="form-label">Contact Phone</label><input {...reg3('contactPhone')} className="form-input" /></div>
+            <div><label className="form-label">General contact email (optional)</label><input {...reg3('contactEmail')} className="form-input" /></div>
+            <div><label className="form-label">Telephone (letterhead)</label><input {...reg3('contactPhone')} className="form-input" /></div>
           </div>
-          <div><label className="form-label">Contact Address</label><input {...reg3('contactAddress')} className="form-input" placeholder="Weliweriya, Sri Lanka" /></div>
+          <div><label className="form-label">Address (letterhead)</label><input {...reg3('contactAddress')} className="form-input" placeholder="Weliweriya, Sri Lanka" /></div>
+          <div><label className="form-label">Email (letterhead — Agreements & Letters)</label><input {...reg3('adminEmail')} className="form-input" placeholder="notifications@company.com" /></div>
+          <div><label className="form-label">Branch / location details</label><textarea {...reg3('branchDetails')} className="form-input min-h-16" /></div>
           <div><label className="form-label">Website URL</label><input {...reg3('websiteUrl')} className="form-input" placeholder="https://www.example.com" /></div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {['hr', 'admin', 'manager'].map((key) => (
+              <div key={key}><label className="form-label capitalize">{key} signature upload</label>
+                <input type="file" accept="image/*" className="form-input text-sm" onChange={(e) => setSigFiles((s) => ({ ...s, [key]: e.target.files?.[0] || null }))} />
+              </div>
+            ))}
+          </div>
+          <div><label className="form-label">Company seal upload</label><input type="file" accept="image/*" className="form-input text-sm mb-4" onChange={(e) => setSealFile(e.target.files?.[0] || null)} /></div>
           <div className="grid grid-cols-3 gap-4">
             <div><label className="form-label">Map Latitude</label><input type="number" step="any" {...reg3('mapLat', { valueAsNumber: true })} className="form-input" /></div>
             <div><label className="form-label">Map Longitude</label><input type="number" step="any" {...reg3('mapLng', { valueAsNumber: true })} className="form-input" /></div>

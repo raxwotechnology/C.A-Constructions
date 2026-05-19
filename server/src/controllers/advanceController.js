@@ -2,6 +2,7 @@ const Advance = require('../models/Advance');
 const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
 const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
+const { triggerPayrollSync, monthYearFromDate, attachSyncResult } = require('../utils/payrollSyncHook');
 
 // GET /api/advances
 exports.getAdvances = async (req, res, next) => {
@@ -131,7 +132,19 @@ exports.createAdvance = async (req, res, next) => {
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
       .populate('bankAccount', 'bankName accountNumber');
 
-    res.status(201).json({ success: true, advance: populated });
+    const period = monthYearFromDate(advance.date);
+    const sync = await triggerPayrollSync({
+      employeeId,
+      month: period.month,
+      year: period.year,
+      source: 'advance',
+      module: 'advances',
+      entityId: advance._id,
+      reason: 'Advance created',
+      user: req.user,
+    });
+
+    res.status(201).json(attachSyncResult({ success: true, advance: populated }, sync));
   } catch (err) { next(err); }
 };
 
@@ -166,7 +179,19 @@ exports.recordRepayment = async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, advance });
+    const period = monthYearFromDate(date || new Date());
+    const sync = await triggerPayrollSync({
+      employeeId: advance.employee._id || advance.employee,
+      month: period.month,
+      year: period.year,
+      source: 'advance',
+      module: 'advances',
+      entityId: advance._id,
+      reason: 'Advance repayment',
+      user: req.user,
+    });
+
+    res.json(attachSyncResult({ success: true, advance }, sync));
   } catch (err) { next(err); }
 };
 
@@ -195,7 +220,19 @@ exports.deleteAdvance = async (req, res, next) => {
     await Employee.findByIdAndUpdate(advance.employee._id || advance.employee, {
       $inc: { advanceBalance: -advance.outstandingBalance },
     });
+    const empId = advance.employee._id || advance.employee;
+    const period = monthYearFromDate();
     await advance.deleteOne();
-    res.json({ success: true, message: 'Advance deleted' });
+    const sync = await triggerPayrollSync({
+      employeeId: empId,
+      month: period.month,
+      year: period.year,
+      source: 'advance',
+      module: 'advances',
+      entityId: req.params.id,
+      reason: 'Advance deleted',
+      user: req.user,
+    });
+    res.json(attachSyncResult({ success: true, message: 'Advance deleted' }, sync));
   } catch (err) { next(err); }
 };

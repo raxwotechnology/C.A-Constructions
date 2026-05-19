@@ -58,3 +58,16 @@ export function mediaUrl(url) {
 
   return path
 }
+
+/** Full URL for print/PDF/html2canvas (same-origin in dev via Vite proxy). */
+export function absoluteMediaUrl(url) {
+  const path = mediaUrl(url)
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  if (typeof window !== 'undefined') {
+    const origin = window.location.origin
+    return path.startsWith('/') ? `${origin}${path}` : `${origin}/${path}`
+  }
+  const origin = getUploadsOrigin()
+  return origin ? `${origin}${path.startsWith('/') ? path : `/${path}`}` : path
+}

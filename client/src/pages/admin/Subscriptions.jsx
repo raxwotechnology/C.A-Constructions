@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
 import toast from 'react-hot-toast'
 import {
   FiPlus, FiSearch, FiEdit2, FiTrash2, FiFileText,
@@ -347,10 +349,12 @@ export default function AdminSubscriptions() {
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="form-label">Client *</label>
-                <select className="form-select" value={form.client} onChange={e => f('client')(e.target.value)}>
-                  <option value="">Select Client</option>
-                  {clients.map(c => <option key={c._id} value={c._id}>{c.name} ({c.email})</option>)}
-                </select>
+                <SearchableSelect
+                  value={form.client}
+                  onChange={(v) => f('client')(v)}
+                  loadOptions={lookupLoaders.clients()}
+                  placeholder="Search client…"
+                />
                 {clients.length === 0 && <p className="text-xs text-amber-500 mt-1">No client accounts found. Create a client first.</p>}
               </div>
               <div>

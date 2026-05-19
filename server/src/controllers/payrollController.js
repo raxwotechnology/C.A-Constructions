@@ -13,6 +13,15 @@ const { appendBankTransaction, isLedgerBankMethod } = require('../utils/bankLedg
 const { getStatutoryRates } = require('../utils/statutoryRates');
 const { calculateMonthlyIncomeTax } = require('../services/incomeTaxService');
 const IncomeTaxRecord = require('../models/IncomeTaxRecord');
+const PayrollRecalcLog = require('../models/PayrollRecalcLog');
+const PayrollAdjustment = require('../models/PayrollAdjustment');
+const {
+  syncPayrollForEmployee,
+  computePayrollSnapshot,
+  triggerPayrollSync,
+  monthYearFromDate,
+} = require('../services/payrollEngine');
+const { attachSyncResult } = require('../utils/payrollSyncHook');
 
 // Internal audit logging helper (does not throw)
 const createAuditLog = async ({ user, action, module, entityId, entityName, description, severity = 'info' }) => {
@@ -101,6 +110,98 @@ async function computeProjectAllocations(employee, month, year) {
   return { projectSalaryAlloc, projectCommissionAlloc, projectLines };
 }
 
+// @desc    Full live payroll snapshot (single source of truth for UI preview)
+// @route   GET /api/payroll/live-snapshot/:employeeId
+exports.getPayrollLiveSnapshot = async (req, res, next) => {
+  try {
+    const employeeId = req.params.employeeId;
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ success: false, message: 'employeeId, month, and year are required' });
+    }
+
+    const employee = await Employee.findById(employeeId).populate('userId', 'name email');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const snapshot = await computePayrollSnapshot(employeeId, month, year);
+    const taxCalc = snapshot._taxCalc;
+    delete snapshot._taxCalc;
+
+    const { projectSalaryAlloc, projectCommissionAlloc, projectLines } = await computeProjectAllocations(employee, month, year);
+    const autoCommission = await computeAutoCommission(employee, month, year);
+
+    const activeLoans = await Loan.find({
+      employee: employeeId,
+      status: 'active',
+      $or: [
+        { deductionType: 'salary' },
+        { deductionType: { $exists: false } },
+        { deductionType: null },
+        { deductionType: '' },
+      ],
+      payrollDeductionPaused: { $ne: true },
+    }).select('reason monthlyInstallment outstandingBalance installmentsPaid totalInstallments deductionType startDate');
+
+    const activeAdvances = await Advance.find({ employee: employeeId, status: 'active' })
+      .select('amount outstandingBalance monthlyDeduction reason');
+
+    const existingPayroll = await Payroll.findOne({ employee: employeeId, month, year })
+      .select('status loanDeduction netSalary _id');
+
+    res.json({
+      success: true,
+      employee: {
+        _id: employee._id,
+        userId: employee.userId,
+        name: employee.userId?.name,
+        employeeNo: employee.employeeNo,
+        department: employee.department,
+        designation: employee.designation,
+        basicSalary: employee.basicSalary || 0,
+        allowances: employee.allowances || 0,
+        epfEtfEnrolled: Boolean(employee.epfEtfEnrolled),
+        advanceBalance: employee.advanceBalance || 0,
+        loanBalance: employee.loanBalance || 0,
+      },
+      period: { month, year },
+      snapshot,
+      projectPreview: {
+        projectSalaryAlloc,
+        projectCommissionAlloc,
+        autoCommission,
+        totalProjectCommissions: projectCommissionAlloc + autoCommission,
+        projectLines,
+      },
+      activeLoans: activeLoans.map((l) => ({
+        _id: l._id,
+        reason: l.reason,
+        monthlyInstallment: l.monthlyInstallment,
+        outstandingBalance: l.outstandingBalance,
+        installmentsPaid: l.installmentsPaid || 0,
+        totalInstallments: l.totalInstallments || 0,
+        deductionType: l.deductionType || 'salary',
+        startDate: l.startDate,
+      })),
+      activeAdvances: activeAdvances.map((a) => ({
+        _id: a._id,
+        amount: a.amount,
+        outstandingBalance: a.outstandingBalance,
+        monthlyDeduction: a.monthlyDeduction,
+        reason: a.reason,
+      })),
+      incomeTax: {
+        taxAmount: snapshot.incomeTaxDeduction || 0,
+        monthlyTaxable: taxCalc?.monthlyTaxable,
+      },
+      existingPayroll,
+    });
+  } catch (err) {
+    console.error('[payroll] live-snapshot failed:', err.message);
+    next(err);
+  }
+};
+
 exports.getEmployeePayrollPreview = async (req, res, next) => {
   try {
     const employeeId = req.params.employeeId || req.query.employeeId;
@@ -114,6 +215,7 @@ exports.getEmployeePayrollPreview = async (req, res, next) => {
 
     const { projectSalaryAlloc, projectCommissionAlloc, projectLines } = await computeProjectAllocations(employee, month, year);
     const { autoCommission } = await computeAutoCommission(employee, month, year);
+    const snapshot = await computePayrollSnapshot(employeeId, month, year).catch(() => null);
 
     res.json({
       success: true,
@@ -123,6 +225,12 @@ exports.getEmployeePayrollPreview = async (req, res, next) => {
         autoCommission,
         totalProjectCommissions: projectCommissionAlloc + autoCommission,
         projectLines,
+        loanDeduction: snapshot?.loanDeduction ?? 0,
+        advanceDeduction: snapshot?.advanceDeduction ?? 0,
+        leaveDeduction: snapshot?.leaveDeduction ?? 0,
+        grossSalary: snapshot?.grossSalary ?? 0,
+        netSalary: snapshot?.netSalary ?? 0,
+        deductedLoans: snapshot?.deductedLoans ?? [],
       },
     });
   } catch (err) { next(err); }
@@ -134,133 +242,47 @@ exports.generatePayroll = async (req, res, next) => {
   try {
     const {
       month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0,
-      deductions = 0, advanceDeduction: manualAdvance = 0, loanDeduction: manualLoan = 0,
-      leaveDeduction = 0, notes, continueLoanDeduction = true,
+      deductions = 0, notes,
     } = req.body;
 
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
-    const activeLoans = await Loan.find({
-      employee: employeeId,
-      status: 'active',
-      deductionType: 'salary',
-      payrollDeductionPaused: { $ne: true },
-    });
-    const autoLoanDeduct = activeLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0);
-    const loanDeduction = Number(manualLoan) || autoLoanDeduct;
-    const deductedLoans = activeLoans.map((l) => l._id);
-
-    const activeAdvances = await Advance.find({ employee: employeeId, status: 'active' });
-    const autoAdvanceDeduct = activeAdvances.reduce((sum, a) => {
-      const due = Math.min(Number(a.monthlyDeduction || 0) || Number(a.outstandingBalance || 0), Number(a.outstandingBalance || 0));
-      return sum + due;
-    }, 0);
-    const advanceDeduction = Number(manualAdvance) || autoAdvanceDeduct;
-    const deductedAdvances = activeAdvances.filter((a) => (a.outstandingBalance || 0) > 0).map((a) => a._id);
-
-    // Auto-calculate Overtime
-    const otRecords = await Overtime.find({ employee: employeeId, month, year });
-    const autoOtPay = otRecords.reduce((sum, r) => sum + (r.amount || 0), 0);
-    const autoOtHours = otRecords.reduce((sum, r) => sum + (r.hours || 0), 0);
-    const otPay = overtime || autoOtPay;
-    const otHours = autoOtHours;
-
-    // Check if payroll already exists
     const exists = await Payroll.findOne({ employee: employeeId, month, year });
     if (exists && exists.status === 'paid') {
       return res.status(400).json({ success: false, message: 'Cannot regenerate a payroll that is already marked as PAID' });
     }
 
-    const basicSalary = employee.basicSalary || 0;
+    const sync = await syncPayrollForEmployee(employeeId, month, year, {
+      source: 'manual_generate',
+      module: 'payroll',
+      user: req.user,
+      reason: 'Manual payroll generation',
+      createIfMissing: true,
+      overrides: {
+        allowances: Number(allowances),
+        overtime: Number(overtime),
+        commissions: Number(commissions),
+        bonus: Number(bonus),
+        deductions: Number(deductions),
+        notes,
+      },
+    });
 
-    const { projectSalaryAlloc, projectCommissionAlloc, projectLines } = await computeProjectAllocations(employee, month, year);
-    const { autoCommission } = await computeAutoCommission(employee, month, year);
-    const totalCommissions = Number(commissions) + autoCommission + projectCommissionAlloc;
-
-    // OT records
-    const otRows = await Overtime.find({ employee: employeeId, month, year });
-    const overtimeTotal = otRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    const finalOvertime = Number(overtime) + overtimeTotal;
-
-    const grossSalary = basicSalary + projectSalaryAlloc + Number(allowances) + finalOvertime + totalCommissions + Number(bonus);
-
-    const taxCalc = await calculateMonthlyIncomeTax(employee, month, year, grossSalary);
-    const incomeTaxDeduction = Number(taxCalc.taxAmount || 0);
-
-    const { fractions: R } = await getStatutoryRates();
-    const epfEmployee = employee.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployee) : 0;
-    const epfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployer) : 0;
-    const etfEmployer = employee.epfEtfEnrolled ? Math.round(basicSalary * R.etfEmployer) : 0;
-    const totalDeductions = Number(deductions) + Number(advanceDeduction) + Number(loanDeduction) + Number(leaveDeduction) + epfEmployee + incomeTaxDeduction;
-    const netSalary = grossSalary - totalDeductions;
-
-    const payload = {
-      employee: employeeId, month, year,
-      basicSalary, allowances: Number(allowances) + projectSalaryAlloc,
-      overtime: finalOvertime, commissions: totalCommissions,
-      projectCommissions: projectCommissionAlloc + autoCommission,
-      projectAllocations: projectLines,
-      bonus,
-      deductions: Number(deductions),
-      advanceDeduction: Number(advanceDeduction),
-      loanDeduction,
-      deductedLoans,
-      deductedAdvances,
-      continueLoanDeduction: continueLoanDeduction !== false,
-      leaveDeduction: Number(leaveDeduction), leaveDeductionDays: 0,
-      incomeTaxDeduction,
-      epfEmployee, epfEmployer, etfEmployer,
-      grossSalary, totalDeductions, netSalary,
-      generatedBy: req.user._id, notes,
-      status: 'draft',
-    };
-
-    let payroll;
-    if (exists) {
-      payroll = await Payroll.findByIdAndUpdate(exists._id, payload, { new: true });
-    } else {
-      payroll = await Payroll.create(payload);
+    const payroll = sync.payroll;
+    if (!payroll) {
+      return res.status(500).json({ success: false, message: sync.message || 'Payroll sync failed' });
     }
-
-    if (incomeTaxDeduction > 0 || taxCalc.config) {
-      await IncomeTaxRecord.findOneAndUpdate(
-        { employee: employeeId, month, year },
-        {
-          employee: employeeId,
-          month,
-          year,
-          config: taxCalc.config?._id,
-          taxableIncome: taxCalc.monthlyTaxable,
-          taxAmount: incomeTaxDeduction,
-          exemptionsApplied: (taxCalc.exemptions || []).reduce((s, e) => s + Number(e.amount || 0), 0),
-          payroll: payroll._id,
-          branch: employee.branch,
-          status: incomeTaxDeduction > 0 ? 'deducted' : 'calculated',
-          paymentMethod: 'payroll',
-        },
-        { upsert: true },
-      );
-    }
-
-    await payroll.populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
-
 
     await createNotification({
-      recipient: payroll.employee.userId?._id,
+      recipient: payroll.employee?.userId?._id,
       title: 'Payroll Generated',
-      message: `Your payroll for ${month}/${year} has been generated (status: draft). EPF (employee): LKR ${Number(payroll.epfEmployee || 0).toLocaleString()}, EPF (employer): LKR ${Number(payroll.epfEmployer || 0).toLocaleString()}, ETF (employer): LKR ${Number(payroll.etfEmployer || 0).toLocaleString()}.`,
+      message: `Your payroll for ${month}/${year} has been generated (status: ${payroll.status}). Net: LKR ${Number(payroll.netSalary || 0).toLocaleString()}.`,
       type: 'payroll',
       link: '/developer/payslips',
     });
 
-    
-    await createAuditLog({
-      user: req.user, action: 'create', module: 'payroll', entityId: payroll._id, entityName: `Payroll ${month}/${year}`,
-      description: `Generated payroll for employee ${employeeId}`,
-    });
-
-    res.status(201).json({ success: true, payroll });
+    res.status(201).json(attachSyncResult({ success: true, payroll, breakdown: sync.breakdown }, sync));
   } catch (err) { next(err); }
 };
 
@@ -274,93 +296,21 @@ exports.generateAllPayroll = async (req, res, next) => {
     const employees = await Employee.find(query);
     const results = [];
     const errors = [];
-    const { fractions: R } = await getStatutoryRates();
 
     for (const emp of employees) {
       try {
-        const exists = await Payroll.findOne({ employee: emp._id, month, year });
-        if (exists && exists.status === 'paid') { errors.push({ employeeId: emp._id, message: 'Already paid' }); continue; }
-
-        const basicSalary = emp.basicSalary;
-        const allowances = emp.allowances || 0;
-        
-        // Auto-calculate Loan Deduction
-        const activeLoans = await Loan.find({
-          employee: emp._id, status: 'active', deductionType: 'salary', payrollDeductionPaused: { $ne: true },
+        const sync = await syncPayrollForEmployee(emp._id, month, year, {
+          source: 'bulk_generate',
+          module: 'payroll',
+          user: req.user,
+          reason: 'Bulk payroll generation',
+          createIfMissing: true,
         });
-        const loanDeduction = activeLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0);
-        const deductedLoans = activeLoans.map((l) => l._id);
-
-        const activeAdvances = await Advance.find({ employee: emp._id, status: 'active' });
-        const advanceDeduction = activeAdvances.reduce((sum, a) => {
-          const due = Math.min(Number(a.monthlyDeduction || 0) || Number(a.outstandingBalance || 0), Number(a.outstandingBalance || 0));
-          return sum + due;
-        }, 0);
-        const deductedAdvances = activeAdvances.filter((a) => (a.outstandingBalance || 0) > 0).map((a) => a._id);
-
-        // Auto-calculate Overtime
-        const otRows = await Overtime.find({ employee: emp._id, month, year });
-        const overtime = otRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-        const otHours = otRows.reduce((sum, row) => sum + Number(row.hours || 0), 0);
-
-        const { projectSalaryAlloc, projectCommissionAlloc, projectLines } = await computeProjectAllocations(emp, month, year);
-        const { autoCommission } = await computeAutoCommission(emp, month, year);
-        const totalCommissions = autoCommission + projectCommissionAlloc;
-        const grossSalary = basicSalary + allowances + projectSalaryAlloc + overtime + totalCommissions;
-
-        const taxCalc = await calculateMonthlyIncomeTax(emp, month, year, grossSalary);
-        const incomeTaxDeduction = Number(taxCalc.taxAmount || 0);
-        
-        const epfEmployee = emp.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployee) : 0;
-        const epfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * R.epfEmployer) : 0;
-        const etfEmployer = emp.epfEtfEnrolled ? Math.round(basicSalary * R.etfEmployer) : 0;
-        
-        const totalDeductions = loanDeduction + advanceDeduction + epfEmployee + incomeTaxDeduction;
-        const netSalary = grossSalary - totalDeductions;
-
-        const payload = {
-          employee: emp._id, month, year,
-          basicSalary, allowances: allowances + projectSalaryAlloc,
-          otHours, overtime,
-          commissions: totalCommissions,
-          projectCommissions: projectCommissionAlloc + autoCommission,
-          projectAllocations: projectLines,
-          advanceDeduction,
-          deductedAdvances,
-          loanDeduction, deductedLoans,
-          incomeTaxDeduction,
-          epfEmployee, epfEmployer, etfEmployer,
-          grossSalary, totalDeductions, netSalary,
-          generatedBy: req.user._id,
-          status: 'draft',
-        };
-
-        let payroll;
-        if (exists) {
-          payroll = await Payroll.findByIdAndUpdate(exists._id, payload, { new: true });
-        } else {
-          payroll = await Payroll.create(payload);
+        if (sync.skipped && sync.reason === 'paid_locked') {
+          errors.push({ employeeId: emp._id, message: 'Already paid' });
+          continue;
         }
-
-        if (incomeTaxDeduction > 0 || taxCalc.config) {
-          await IncomeTaxRecord.findOneAndUpdate(
-            { employee: emp._id, month, year },
-            {
-              employee: emp._id,
-              month,
-              year,
-              config: taxCalc.config?._id,
-              taxableIncome: taxCalc.monthlyTaxable,
-              taxAmount: incomeTaxDeduction,
-              payroll: payroll._id,
-              branch: emp.branch,
-              status: incomeTaxDeduction > 0 ? 'deducted' : 'calculated',
-              paymentMethod: 'payroll',
-            },
-            { upsert: true },
-          );
-        }
-        results.push(payroll);
+        if (sync.payroll) results.push(sync.payroll);
       } catch (e) {
         errors.push({ employeeId: emp._id, message: e.message });
       }
@@ -380,8 +330,8 @@ exports.getPayrolls = async (req, res, next) => {
   try {
     const { month, year, employee, status, branch } = req.query;
     let query = {};
-    if (month) query.month = month;
-    if (year) query.year = year;
+    if (month) query.month = Number(month);
+    if (year) query.year = Number(year);
     if (status) query.status = status;
     if (employee) {
       query.employee = employee;
@@ -596,6 +546,8 @@ exports.markPaid = async (req, res, next) => {
         if (remainingAdvance <= 0) break;
         const advance = await Advance.findById(advId);
         if (!advance || advance.status !== 'active') continue;
+        const dupPayroll = (advance.repayments || []).some((r) => String(r.payrollId) === String(payroll._id));
+        if (dupPayroll) continue;
         const repayAmt = Math.min(remainingAdvance, advance.outstandingBalance || 0, advance.monthlyDeduction || advance.outstandingBalance || 0);
         if (repayAmt <= 0) continue;
         advance.repayments.push({
@@ -618,13 +570,20 @@ exports.markPaid = async (req, res, next) => {
       for (const loanId of payroll.deductedLoans) {
         const loan = await Loan.findById(loanId);
         if (loan && loan.status === 'active') {
-          const installment = loan.monthlyInstallment || 0;
+          const alreadyPaid = (loan.payments || []).some((p) => String(p.payrollId) === String(payroll._id));
+          if (alreadyPaid) continue;
+
+          const installment = Math.min(loan.monthlyInstallment || 0, loan.outstandingBalance || 0);
+          if (installment <= 0) continue;
+
           loan.payments.push({
             amount: installment,
             date: new Date(),
             payrollId: payroll._id,
+            installmentNo: (loan.installmentsPaid || 0) + 1,
+            deductionSource: 'payroll',
             note: `Auto-deducted from ${MONTHS[payroll.month - 1]} payroll`,
-            method: 'salary_deduction'
+            method: 'salary_deduction',
           });
           loan.totalPaid = (loan.totalPaid || 0) + installment;
           loan.installmentsPaid = (loan.installmentsPaid || 0) + 1;
@@ -784,7 +743,150 @@ exports.addOvertime = async (req, res, next) => {
       addedBy: req.user._id,
     });
 
-    res.status(201).json({ success: true, overtime: row });
+    const sync = await triggerPayrollSync({
+      employeeId,
+      month,
+      year,
+      source: 'overtime',
+      module: 'payroll',
+      entityId: row._id,
+      reason: 'Overtime added',
+      user: req.user,
+    });
+
+    res.status(201).json(attachSyncResult({ success: true, overtime: row }, sync));
+  } catch (err) { next(err); }
+};
+
+// @desc    Delete overtime row
+// @route   DELETE /api/payroll/overtime/:id
+exports.deleteOvertime = async (req, res, next) => {
+  try {
+    const row = await Overtime.findByIdAndDelete(req.params.id);
+    if (!row) return res.status(404).json({ success: false, message: 'Overtime record not found' });
+
+    const sync = await triggerPayrollSync({
+      employeeId: row.employee,
+      month: row.month,
+      year: row.year,
+      source: 'overtime',
+      module: 'payroll',
+      entityId: req.params.id,
+      reason: 'Overtime deleted',
+      user: req.user,
+    });
+
+    res.json(attachSyncResult({ success: true, message: 'Overtime deleted' }, sync));
+  } catch (err) { next(err); }
+};
+
+// @desc    Force sync payroll for employee/month
+// @route   POST /api/payroll/sync
+exports.syncPayroll = async (req, res, next) => {
+  try {
+    const { employeeId, month, year, force } = req.body;
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ success: false, message: 'employeeId, month, and year are required' });
+    }
+    const sync = await syncPayrollForEmployee(employeeId, month, year, {
+      source: 'manual_sync',
+      module: 'payroll',
+      user: req.user,
+      reason: 'Admin triggered payroll sync',
+      force: force === true,
+    });
+    if (!sync.success) return res.status(400).json(sync);
+    res.json(attachSyncResult({ success: true, ...sync }, sync));
+  } catch (err) { next(err); }
+};
+
+// @desc    Reopen finalized (approved) payroll to draft for recalculation
+// @route   PUT /api/payroll/:id/reopen
+exports.reopenPayroll = async (req, res, next) => {
+  try {
+    const payroll = await Payroll.findById(req.params.id);
+    if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
+    if (payroll.status === 'paid') {
+      return res.status(400).json({ success: false, message: 'Paid payroll cannot be reopened. Use adjustment entries.' });
+    }
+    await Payroll.findByIdAndUpdate(req.params.id, {
+      status: 'draft',
+      approvedBy: null,
+      approvedAt: null,
+    });
+    const sync = await syncPayrollForEmployee(payroll.employee, payroll.month, payroll.year, {
+      source: 'reopen',
+      module: 'payroll',
+      entityId: payroll._id,
+      user: req.user,
+      reason: 'Payroll reopened by admin',
+      force: true,
+    });
+    res.json(attachSyncResult({ success: true, message: 'Payroll reopened and recalculated' }, sync));
+  } catch (err) { next(err); }
+};
+
+// @desc    Payroll recalculation audit log
+// @route   GET /api/payroll/recalc-logs
+exports.getRecalcLogs = async (req, res, next) => {
+  try {
+    const { employeeId, payrollId, month, year, limit = 50 } = req.query;
+    const q = {};
+    if (employeeId) q.employee = employeeId;
+    if (payrollId) q.payroll = payrollId;
+    if (month) q.month = Number(month);
+    if (year) q.year = Number(year);
+    const logs = await PayrollRecalcLog.find(q)
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(limit) || 50, 200))
+      .populate('user', 'name email');
+    res.json({ success: true, count: logs.length, logs });
+  } catch (err) { next(err); }
+};
+
+// @desc    Employee financial summary (live balances + payroll)
+// @route   GET /api/payroll/employee-summary/:employeeId
+exports.getEmployeeFinancialSummary = async (req, res, next) => {
+  try {
+    const employeeId = req.params.employeeId;
+    const month = Number(req.query.month) || monthYearFromDate().month;
+    const year = Number(req.query.year) || monthYearFromDate().year;
+
+    const [employee, loans, advances, overtime, payroll, targets, adjustments] = await Promise.all([
+      Employee.findById(employeeId).populate('userId', 'name email'),
+      Loan.find({ employee: employeeId }).sort({ createdAt: -1 }).limit(20),
+      Advance.find({ employee: employeeId }).sort({ createdAt: -1 }).limit(20),
+      Overtime.find({ employee: employeeId, month, year }),
+      Payroll.findOne({ employee: employeeId, month, year }),
+      BonusTarget.find({ employee: employeeId, status: 'achieved' }).sort({ achievedAt: -1 }).limit(10),
+      PayrollAdjustment.find({ employee: employeeId, status: 'pending' }).sort({ createdAt: -1 }),
+    ]);
+
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const preview = await computePayrollSnapshot(employeeId, month, year).catch(() => null);
+
+    res.json({
+      success: true,
+      summary: {
+        employee: {
+          _id: employee._id,
+          name: employee.userId?.name,
+          employeeNo: employee.employeeNo,
+          basicSalary: employee.basicSalary,
+          advanceBalance: employee.advanceBalance,
+          loanBalance: employee.loanBalance,
+        },
+        period: { month, year },
+        payroll,
+        preview,
+        loans,
+        advances,
+        overtime,
+        bonusHistory: targets,
+        pendingAdjustments: adjustments,
+      },
+    });
   } catch (err) { next(err); }
 };
 

@@ -8,7 +8,8 @@ import { lookupLoaders } from '../../lib/lookupApi'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import toast from 'react-hot-toast'
 import { formatMoney } from '../../lib/currencies'
-import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo, FiAlertCircle } from 'react-icons/fi'
+import { handlePayrollSyncResponse } from '../../lib/payrollSync'
+import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -58,12 +59,17 @@ const printPayslip = (p) => {
   ${r('Overtime Pay', p.otPay||p.overtime, 'add')}
   ${r('Bonus'+(p.bonusNote?' ('+p.bonusNote+')':''), p.bonus, 'add')}
   ${r('Commissions', p.commissions, 'add')}
+  ${r('Project Commissions', p.projectCommissions, 'add')}
   <div class="row" style="font-weight:600"><span>Gross Salary</span><span>LKR ${Number(p.grossSalary||0).toLocaleString()}</span></div>
   <div class="sec-title">Deductions</div>
-  ${r('EPF Employee (8%)', p.epfEmployee, 'ded')}
+  ${r('EPF Employee', p.epfEmployee, 'ded')}
+  ${r('Income Tax', p.incomeTaxDeduction, 'ded')}
   ${r('Advance Deduction', p.advanceDeduction||p.advancePayment, 'ded')}
   ${r('Loan Deduction', p.loanDeduction, 'ded')}
+  ${r('Leave Deduction', p.leaveDeduction, 'ded')}
+  ${r('Late Penalties', p.penaltyDeduction, 'ded')}
   ${r('Other Deductions', p.deductions, 'ded')}
+  <div class="row" style="font-weight:600;margin-top:6px"><span>Total Deductions</span><span>LKR ${Number(p.totalDeductions||0).toLocaleString()}</span></div>
   <div class="net"><span>Net Salary</span><span>LKR ${Number(p.netSalary||0).toLocaleString()}</span></div>
   <div class="sec-title">Statutory (Employer Contributions — Informational)</div>
   ${r('EPF Employer (12%)', p.epfEmployer)}
@@ -88,9 +94,6 @@ export default function AdminPayroll() {
   const [loanDeduction, setLoanDeduction] = useState(0)
   const [continueLoanDeduction, setContinueLoanDeduction] = useState(true)
   const [leaveDeduction, setLeaveDeduction] = useState(0)
-  const [autoLoadedSummary, setAutoLoadedSummary] = useState(null)
-  const [projectPayrollPreview, setProjectPayrollPreview] = useState(null)
-  const [loadingEmpSummary, setLoadingEmpSummary] = useState(false)
   const [otEmployeeId, setOtEmployeeId] = useState('')
   const [otAmount, setOtAmount] = useState(0)
   const [otHours, setOtHours] = useState(0)
@@ -126,70 +129,56 @@ export default function AdminPayroll() {
     queryKey: ['overtime', month, year, otEmployeeId],
     queryFn: () => api.get(`/payroll/overtime?month=${month}&year=${year}${otEmployeeId ? `&employeeId=${otEmployeeId}` : ''}`).then(r => r.data),
   })
-  const { data: previewOtData } = useQuery({
-    queryKey: ['overtime', month, year, selectedEmployee],
-    queryFn: () => api.get(`/payroll/overtime?month=${month}&year=${year}&employeeId=${selectedEmployee}`).then(r => r.data),
-    enabled: !!selectedEmployee
-  })
   const payrolls = data?.payrolls || []
   const activeEmployees = empData?.employees || []
   const otRecords = otData?.records || []
-  const selectedEmp = useMemo(() => activeEmployees.find(e => e._id === selectedEmployee), [activeEmployees, selectedEmployee])
 
-  const { data: taxPreviewData } = useQuery({
-    queryKey: ['tax-preview', selectedEmployee, month, year, selectedEmp?.basicSalary],
-    queryFn: () => api.post('/income-tax/calculate', {
-      employeeId: selectedEmployee,
-      month,
-      year,
-      monthlyTaxableIncome: selectedEmp?.basicSalary || 0,
-    }).then(r => r.data),
-    enabled: !!selectedEmployee && !!selectedEmp,
+  const {
+    data: livePayrollData,
+    isLoading: livePayrollLoading,
+    isError: livePayrollError,
+    error: livePayrollErr,
+    refetch: refetchLivePayroll,
+  } = useQuery({
+    queryKey: ['payroll-live-snapshot', selectedEmployee, month, year],
+    queryFn: () => api.get(`/payroll/live-snapshot/${selectedEmployee}?month=${month}&year=${year}`).then(r => r.data),
+    enabled: !!selectedEmployee,
+    staleTime: 0,
   })
 
-  // Auto-load employee loan/advance summary when employee is selected
-  const loadProjectPayrollPreview = async (empId, m = month, y = year) => {
-    if (!empId) {
-      setProjectPayrollPreview(null)
-      return
-    }
-    try {
-      const { data } = await api.get(`/payroll/preview/${empId}?month=${m}&year=${y}`)
-      setProjectPayrollPreview(data.preview || null)
-    } catch {
-      setProjectPayrollPreview(null)
-    }
-  }
+  const liveSnap = livePayrollData?.snapshot
+  const liveEmp = livePayrollData?.employee
+  const projectPayrollPreview = livePayrollData?.projectPreview
+  const activeLoans = livePayrollData?.activeLoans || []
+  const activeAdvances = livePayrollData?.activeAdvances || []
 
-  const handleSelectEmployee = async (empId) => {
-    setSelectedEmployee(empId)
-    setAutoLoadedSummary(null)
-    setProjectPayrollPreview(null)
-    setCommissions(0)
-    setAdvanceDeduction(0)
-    setLoanDeduction(0)
-    setContinueLoanDeduction(true)
-    if (!empId) return
-    setLoadingEmpSummary(true)
-    try {
-      const [loanRes] = await Promise.all([
-        api.get(`/loans/employee-summary/${empId}`),
-        loadProjectPayrollPreview(empId),
-      ])
-      const s = loanRes.data.summary
-      setAutoLoadedSummary(s)
-      const salaryLoans = s.activeLoans || []
-      const autoLoanDeduct = salaryLoans.reduce((sum, l) => sum + (l.monthlyInstallment || 0), 0)
-      setLoanDeduction(autoLoanDeduct)
-      setAdvanceDeduction(s.suggestedAdvanceDeduction || 0)
-      setAllowances(s.allowances || 0)
-    } catch { /* ignore */ }
-    setLoadingEmpSummary(false)
-  }
+  const selectedEmp = useMemo(() => {
+    if (liveEmp) {
+      return {
+        _id: liveEmp._id,
+        userId: liveEmp.userId || { name: liveEmp.name },
+        department: liveEmp.department,
+        designation: liveEmp.designation,
+        basicSalary: liveEmp.basicSalary,
+        epfEtfEnrolled: liveEmp.epfEtfEnrolled,
+        allowances: liveEmp.allowances,
+      }
+    }
+    return activeEmployees.find(e => String(e._id) === String(selectedEmployee))
+  }, [liveEmp, activeEmployees, selectedEmployee])
 
+  // Sync form fields from server payroll engine when snapshot loads
   useEffect(() => {
-    if (selectedEmployee) loadProjectPayrollPreview(selectedEmployee, month, year)
-  }, [month, year])
+    if (!liveSnap) return
+    setLoanDeduction(Number(liveSnap.loanDeduction || 0))
+    setAdvanceDeduction(Number(liveSnap.advanceDeduction || 0))
+    setLeaveDeduction(Number(liveSnap.leaveDeduction || 0))
+    setAllowances(Number(liveSnap.allowances ?? liveEmp?.allowances ?? 0))
+    setBonus(Number(liveSnap.bonus || 0))
+    const manualComm = Math.max(0, Number(liveSnap.commissions || 0) - Number(liveSnap.projectCommissions || 0))
+    setCommissions(manualComm)
+    setOtherDeductions(Number(liveSnap.deductions || 0))
+  }, [liveSnap, liveEmp])
 
   const generateAllMut = useMutation({
     mutationFn: () => api.post('/payroll/generate-all', { month, year, branch: branchFilter }),
@@ -200,12 +189,37 @@ export default function AdminPayroll() {
     mutationFn: () => api.post('/payroll/generate', { 
       month, year, employeeId: selectedEmployee, 
       allowances, commissions, bonus, deductions: otherDeductions, 
-      advanceDeduction, loanDeduction, leaveDeduction, paymentMethod,
+      paymentMethod,
       continueLoanDeduction,
       bankAccount: payBank
     }),
-    onSuccess: () => { qc.invalidateQueries(['payroll']); toast.success('Payroll generated'); setShowReplaceConfirm(false) },
+    onSuccess: (res) => {
+      handlePayrollSyncResponse(qc, res.data, toast)
+      qc.invalidateQueries({ queryKey: ['payroll'] })
+      qc.invalidateQueries({ queryKey: ['payroll-live-snapshot'] })
+      toast.success('Payroll generated')
+      setShowReplaceConfirm(false)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const syncPayrollMut = useMutation({
+    mutationFn: ({ employeeId, force }) => api.post('/payroll/sync', { employeeId, month, year, force }),
+    onSuccess: (res) => {
+      handlePayrollSyncResponse(qc, res.data, toast)
+      qc.invalidateQueries({ queryKey: ['payroll'] })
+      refetch()
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Sync failed'),
+  })
+  const reopenMut = useMutation({
+    mutationFn: id => api.put(`/payroll/${id}/reopen`),
+    onSuccess: (res) => {
+      handlePayrollSyncResponse(qc, res.data, toast)
+      qc.invalidateQueries({ queryKey: ['payroll'] })
+      refetch()
+      toast.success('Payroll reopened and recalculated')
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Reopen failed'),
   })
   const addOtMut = useMutation({
     mutationFn: () => api.post('/payroll/overtime', { employeeId: otEmployeeId, month, year, amount: Number(otAmount), hours: Number(otHours), note: otNote }),
@@ -319,24 +333,32 @@ export default function AdminPayroll() {
     }
   }
 
-  // Preview salary calculation
   const projectCommissionTotal = projectPayrollPreview?.totalProjectCommissions || 0
 
   const previewCalc = useMemo(() => {
-    if (!selectedEmp) return null
-    const basic = selectedEmp.basicSalary || 0
-    const otTotal = (previewOtData?.records || []).reduce((sum, r) => sum + Number(r.amount), 0)
-    const gross = basic + Number(allowances) + projectCommissionTotal + Number(commissions) + Number(bonus) + otTotal
-    const epfEnrolled = selectedEmp.epfEtfEnrolled || false
-    const epfEmp = epfEnrolled ? Math.round(basic * 0.08) : 0
-    const epfEmpl = epfEnrolled ? Math.round(basic * 0.12) : 0
-    const etf = epfEnrolled ? Math.round(basic * 0.03) : 0
-    const totalAdvance = autoLoadedSummary?.totalAdvanceBalance || 0
-    const deductedAdvance = Number(advanceDeduction) || 0
-    const incomeTax = Number(taxPreviewData?.taxAmount || 0)
-    const net = gross - epfEmp - incomeTax - deductedAdvance - Number(loanDeduction) - Number(otherDeductions) - Number(leaveDeduction)
-    return { basic, otTotal, gross, epfEmp, epfEmpl, etf, net, epfEnrolled, totalAdvance, deductedAdvance, projectCommissionTotal, incomeTax }
-  }, [selectedEmp, allowances, commissions, bonus, otherDeductions, advanceDeduction, loanDeduction, leaveDeduction, previewOtData, autoLoadedSummary, projectCommissionTotal, taxPreviewData])
+    if (!liveSnap || !selectedEmp) return null
+    return {
+      basic: liveSnap.basicSalary || 0,
+      otTotal: liveSnap.overtime || liveSnap.otPay || 0,
+      gross: liveSnap.grossSalary || 0,
+      epfEmp: liveSnap.epfEmployee || 0,
+      epfEmpl: liveSnap.epfEmployer || 0,
+      etf: liveSnap.etfEmployer || 0,
+      net: liveSnap.netSalary || 0,
+      epfEnrolled: Boolean(selectedEmp.epfEtfEnrolled),
+      totalAdvance: activeAdvances.reduce((s, a) => s + Number(a.outstandingBalance || 0), 0),
+      deductedAdvance: liveSnap.advanceDeduction || 0,
+      projectCommissionTotal: liveSnap.projectCommissions || projectCommissionTotal,
+      incomeTax: liveSnap.incomeTaxDeduction || livePayrollData?.incomeTax?.taxAmount || 0,
+      loanDeduction: liveSnap.loanDeduction || 0,
+      leaveDeduction: liveSnap.leaveDeduction || 0,
+      penaltyDeduction: liveSnap.penaltyDeduction || 0,
+      bonus: liveSnap.bonus || 0,
+      commissions: liveSnap.commissions || 0,
+      allowances: liveSnap.allowances || 0,
+      incentives: liveSnap.incentives || 0,
+    }
+  }, [liveSnap, selectedEmp, activeAdvances, projectCommissionTotal, livePayrollData])
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -389,33 +411,55 @@ export default function AdminPayroll() {
           <p className="text-xs text-gray-400">Project commissions from assigned projects are auto-included when you generate payroll. OT from attendance is also auto-fetched.</p>
           <div>
             <label className="form-label">Employee</label>
-            <SearchableSelect
-              value={selectedEmployee}
-              onChange={(v) => handleSelectEmployee(v)}
-              loadOptions={lookupLoaders.employees({ branch: branchFilter })}
-              placeholder="Search employee…"
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SearchableSelect
+                  value={selectedEmployee}
+                  onChange={(v) => setSelectedEmployee(v)}
+                  loadOptions={lookupLoaders.employees({ branch: branchFilter })}
+                  placeholder="Search employee…"
+                />
+              </div>
+              {selectedEmployee && (
+                <button
+                  type="button"
+                  onClick={() => refetchLivePayroll()}
+                  disabled={livePayrollLoading}
+                  className="btn-ghost px-3 self-end"
+                  title="Refresh live calculation"
+                >
+                  <FiRefreshCw size={16} className={livePayrollLoading ? 'animate-spin' : ''} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Auto-loaded employee summary */}
-          {loadingEmpSummary && <div className="text-center py-3 text-slate-400 text-sm animate-pulse">Loading employee data…</div>}
-          {autoLoadedSummary && (
+          {livePayrollLoading && selectedEmployee && (
+            <div className="text-center py-3 text-slate-400 text-sm animate-pulse">Calculating live payroll…</div>
+          )}
+          {livePayrollError && selectedEmployee && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+              Could not load payroll: {livePayrollErr?.response?.data?.message || livePayrollErr?.message || 'Server error'}
+              <button type="button" onClick={() => refetchLivePayroll()} className="ml-2 underline font-semibold">Retry</button>
+            </div>
+          )}
+          {liveEmp && liveSnap && !livePayrollLoading && (
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
-              <p className="font-bold text-slate-600 uppercase tracking-wide mb-1.5 flex items-center gap-1"><FiUser size={12} /> Auto-loaded: {autoLoadedSummary.name}</p>
+              <p className="font-bold text-slate-600 uppercase tracking-wide mb-1.5 flex items-center gap-1"><FiUser size={12} /> {liveEmp.name}</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-600">
-                <span>Basic Salary:</span><span className="font-semibold">{formatMoney(autoLoadedSummary.basicSalary || 0)}</span>
-                <span>Total Advance:</span><span className={autoLoadedSummary.totalAdvanceBalance > 0 ? 'text-orange-600 font-medium' : ''}>{autoLoadedSummary.totalAdvanceBalance > 0 ? formatMoney(autoLoadedSummary.totalAdvanceBalance) : 'None'}</span>
-                <span>Suggested Deduction:</span><span className="font-semibold text-orange-600">{formatMoney(autoLoadedSummary.suggestedAdvanceDeduction || 0)}</span>
-                <span>Active Loans:</span><span className={autoLoadedSummary.activeLoansCount > 0 ? 'text-red-600 font-medium' : 'text-emerald-600'}>{autoLoadedSummary.activeLoansCount} loan(s)</span>
-                <span>Monthly Loan Deduction:</span><span className="font-semibold text-red-500">{formatMoney(autoLoadedSummary.totalMonthlyLoanDeductions || 0)}</span>
+                <span>Active Loans:</span><span className={activeLoans.length > 0 ? 'text-red-600 font-medium' : 'text-emerald-600'}>{activeLoans.length} loan(s)</span>
+                <span>Loan Deduction (engine):</span><span className="font-semibold text-red-500">{formatMoney(liveSnap.loanDeduction || 0)}</span>
+                <span>Active Advances:</span><span>{activeAdvances.length}</span>
+                <span>Advance Deduction:</span><span className="font-semibold text-orange-600">{formatMoney(liveSnap.advanceDeduction || 0)}</span>
               </div>
-              {autoLoadedSummary.activeLoans?.map((loan) => (
+              {activeLoans.map((loan) => (
                 <p key={loan._id} className="text-slate-500 mt-1">
-                  {loan.reason || 'Loan'}: {formatMoney(loan.monthlyInstallment || 0)}/mo · paid {loan.installmentsPaid || 0}/{loan.totalInstallments || 0} · {loan.remainingMonths ?? 0} mo left · {formatMoney(loan.outstandingBalance || 0)} balance
+                  {loan.reason || 'Loan'}: {formatMoney(loan.monthlyInstallment || 0)}/mo · {loan.deductionType === 'salary' ? '✓ salary deduct' : 'separate'} · {formatMoney(loan.outstandingBalance || 0)} left
                 </p>
               ))}
-              {(autoLoadedSummary.totalMonthlyLoanDeductions > 0 || autoLoadedSummary.suggestedAdvanceDeduction > 0) && (
-                <p className="mt-1 text-blue-600 flex items-center gap-1"><FiAlertCircle size={11} /> Deductions auto-filled below</p>
+              {livePayrollData?.existingPayroll?.status === 'approved' && (
+                <p className="mt-2 text-amber-700 font-medium">Payroll is approved — use ↻ Reopen in the table to apply new deductions.</p>
               )}
             </div>
           )}
@@ -431,14 +475,15 @@ export default function AdminPayroll() {
                 <span>Total Advance:</span><span className="font-medium">{formatMoney(previewCalc.totalAdvance)}</span>
                 <span>Deducted Advance:</span><span className="text-orange-600 font-medium">- {formatMoney(previewCalc.deductedAdvance)}</span>
                 <span>Overtime (Auto):</span><span className={previewCalc.otTotal > 0 ? "font-bold text-orange-600" : "font-medium"}>LKR {previewCalc.otTotal.toLocaleString()}</span>
-                <span>Allowances:</span><span className="font-medium">LKR {Number(allowances).toLocaleString()}</span>
+                <span>Allowances:</span><span className="font-medium">LKR {Number(previewCalc.allowances || 0).toLocaleString()}</span>
                 <span>Project commissions:</span><span className="font-medium text-purple-700">LKR {Number(previewCalc.projectCommissionTotal || 0).toLocaleString()}</span>
-                <span>Additional commission:</span><span className="font-medium">LKR {Number(commissions).toLocaleString()}</span>
-                <span>Bonus:</span><span className="font-medium">LKR {Number(bonus).toLocaleString()}</span>
+                <span>Commissions (total):</span><span className="font-medium">LKR {Number(previewCalc.commissions || 0).toLocaleString()}</span>
+                <span>Bonus / targets:</span><span className="font-medium">LKR {Number(previewCalc.bonus || 0).toLocaleString()}</span>
                 <span className="border-t border-blue-200 pt-1">Gross:</span><span className="font-bold border-t border-blue-200 pt-1">LKR {previewCalc.gross.toLocaleString()}</span>
-                <span className="text-purple-600">Income tax (est.):</span><span className="text-purple-600 font-medium">- LKR {Number(taxPreviewData?.taxAmount || 0).toLocaleString()}</span>
-                <span className="text-red-600">EPF (8% emp):</span><span className="text-red-600 font-medium">- LKR {previewCalc.epfEmp.toLocaleString()}</span>
-                <span className="text-orange-600">Loan Deduction:</span><span className="text-orange-600 font-medium">- {formatMoney(loanDeduction)}</span>
+                <span className="text-purple-600">Income tax:</span><span className="text-purple-600 font-medium">- LKR {Number(previewCalc.incomeTax || 0).toLocaleString()}</span>
+                <span className="text-red-600">EPF (employee):</span><span className="text-red-600 font-medium">- LKR {previewCalc.epfEmp.toLocaleString()}</span>
+                <span className="text-orange-600">Loan Deduction:</span><span className="text-orange-600 font-medium">- {formatMoney(previewCalc.loanDeduction)}</span>
+                <span className="text-orange-600">Leave / penalties:</span><span className="text-orange-600 font-medium">- {formatMoney((previewCalc.leaveDeduction || 0) + (previewCalc.penaltyDeduction || 0))}</span>
                 <span className="text-orange-600">Other Deductions:</span><span className="text-orange-600 font-medium">- {formatMoney(otherDeductions)}</span>
                 <span className="font-bold text-green-700 border-t border-blue-200 pt-1">Net Salary:</span>
                 <span className="font-bold text-green-700 border-t border-blue-200 pt-1">{formatMoney(previewCalc.net)}</span>
@@ -573,13 +618,13 @@ export default function AdminPayroll() {
         <table className="table">
           <thead><tr>
             <th>Employee</th><th>Basic</th><th>OT</th><th>Commissions</th><th>Bonus</th>
-            <th>Gross</th><th>EPF(emp)</th><th>Net Pay</th><th>Status</th><th>Actions</th>
+            <th>Loan</th><th>Gross</th><th>EPF(emp)</th><th>Net Pay</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={10} className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></td></tr>
+              <tr><td colSpan={11} className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></td></tr>
             ) : filteredPayrolls.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-12 text-gray-400">
+              <tr><td colSpan={11} className="text-center py-12 text-gray-400">
                 <FiDollarSign size={36} className="mx-auto mb-2 opacity-30"/>
                 No matching payroll found for {MONTHS[month-1]} {year}.
               </td></tr>
@@ -600,6 +645,10 @@ export default function AdminPayroll() {
                 <td className="text-orange-600">{p.overtime > 0 ? `LKR ${p.overtime.toLocaleString()}` : '—'}</td>
                 <td className="text-purple-600">{p.commissions > 0 ? `LKR ${(p.commissions||0).toLocaleString()}` : '—'}</td>
                 <td className="text-green-600">{p.bonus > 0 ? `LKR ${(p.bonus||0).toLocaleString()}` : '—'}</td>
+                <td className="text-red-600 text-xs font-medium">
+                  {(p.loanDeduction||0) > 0 ? `− LKR ${p.loanDeduction.toLocaleString()}` : '—'}
+                  {(p.deductedLoans?.length > 0) && <span className="block text-[10px] text-blue-500">salary deduct</span>}
+                </td>
                 <td className="font-medium">LKR {(p.grossSalary||0).toLocaleString()}</td>
                 <td className="text-red-500 text-xs">LKR {(p.epfEmployee||0).toLocaleString()}</td>
                 <td className="font-bold text-green-700">LKR {(p.netSalary||0).toLocaleString()}</td>
@@ -609,6 +658,26 @@ export default function AdminPayroll() {
                     <button onClick={() => setPreviewPayroll(p)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="View Details">
                       <FiInfo size={14}/>
                     </button>
+                    {(p.status === 'draft' || p.status === 'reviewed') && (
+                      <button
+                        onClick={() => syncPayrollMut.mutate({ employeeId: p.employee?._id })}
+                        disabled={syncPayrollMut.isPending}
+                        className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg"
+                        title="Recalculate from loans/advances/OT"
+                      >
+                        <FiRefreshCw size={14} className={syncPayrollMut.isPending ? 'animate-spin' : ''}/>
+                      </button>
+                    )}
+                    {p.status === 'approved' && (
+                      <button
+                        onClick={() => reopenMut.mutate(p._id)}
+                        disabled={reopenMut.isPending}
+                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"
+                        title="Reopen & recalculate (e.g. after new loan)"
+                      >
+                        <FiRefreshCw size={14}/>
+                      </button>
+                    )}
                     {p.status === 'draft' && (
                       <button onClick={() => reviewMut.mutate(p._id)} className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg" title="Mark Reviewed">
                         <FiCheck size={14}/>
