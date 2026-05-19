@@ -17,6 +17,16 @@ const siteSettingSchema = new mongoose.Schema({
   epfEmployeeRate: { type: Number, default: 8, min: 0, max: 50 },
   epfEmployerRate: { type: Number, default: 12, min: 0, max: 50 },
   etfEmployerRate: { type: Number, default: 3, min: 0, max: 50 },
+
+  smsEnabled: { type: Boolean, default: true },
+  smsModules: {
+    payroll: { type: Boolean, default: true },
+    leave: { type: Boolean, default: true },
+    project: { type: Boolean, default: true },
+    hr: { type: Boolean, default: true },
+    financial: { type: Boolean, default: true },
+    system: { type: Boolean, default: true },
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('SiteSetting', siteSettingSchema);

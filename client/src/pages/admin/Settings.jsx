@@ -69,9 +69,17 @@ export default function AdminSettings() {
       mapLat: siteData?.settings?.mapLat ?? 7.0289,
       mapLng: siteData?.settings?.mapLng ?? 80.0153,
       mapZoom: siteData?.settings?.mapZoom ?? 13,
-      epfEmployeeRate: siteData?.settings?.epfEmployeeRate ?? 8,
       epfEmployerRate: siteData?.settings?.epfEmployerRate ?? 12,
       etfEmployerRate: siteData?.settings?.etfEmployerRate ?? 3,
+      smsEnabled: siteData?.settings?.smsEnabled ?? true,
+      smsModules: {
+        payroll: siteData?.settings?.smsModules?.payroll ?? true,
+        leave: siteData?.settings?.smsModules?.leave ?? true,
+        project: siteData?.settings?.smsModules?.project ?? true,
+        hr: siteData?.settings?.smsModules?.hr ?? true,
+        financial: siteData?.settings?.smsModules?.financial ?? true,
+        system: siteData?.settings?.smsModules?.system ?? true,
+      }
     },
   })
 
@@ -291,6 +299,34 @@ export default function AdminSettings() {
                 <label className="form-label">ETF employer (%)</label>
                 <input type="number" step="0.01" min={0} max={50} {...reg3('etfEmployerRate', { valueAsNumber: true })} className="form-input" />
               </div>
+            </div>
+          </div>
+          <div className="border-t border-slate-100 pt-4 mt-4">
+            <h4 className="font-bold text-sm text-slate-800 mb-4">SMS Notification System</h4>
+            <div className="flex items-center gap-3 mb-4">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" {...reg3('smsEnabled')} className="sr-only peer" />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+              <span className="text-sm font-medium text-gray-700">Enable Master SMS System</span>
+            </div>
+            
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6">
+              {[
+                { name: 'payroll', label: 'Payroll & Salary' },
+                { name: 'leave', label: 'Leave Approvals' },
+                { name: 'project', label: 'Projects & Tasks' },
+                { name: 'hr', label: 'Letters & HR' },
+                { name: 'financial', label: 'Loans & Advances' },
+                { name: 'system', label: 'System & Target' },
+              ].map(m => (
+                <div key={m.name} className="flex flex-col">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" {...reg3(`smsModules.${m.name}`)} className="form-checkbox text-blue-600 rounded" />
+                    <span className="text-sm text-gray-700">{m.label}</span>
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
           <button type="submit" className="btn-primary" disabled={siteMut.isPending || isSubmittingSite}>

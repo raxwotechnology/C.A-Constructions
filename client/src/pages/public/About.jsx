@@ -1,15 +1,15 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { FiArrowRight, FiAward, FiUsers, FiTarget, FiGlobe, FiHeart, FiZap, FiShield, FiTrendingUp } from 'react-icons/fi'
+import { useQuery } from '@tanstack/react-query'
+import api from '../../lib/api'
 
-const team = [
-  { name: 'Rajan Perera', role: 'CEO & Founder', dept: 'Leadership', initials: 'RP', color: 'bg-blue-500' },
-  { name: 'Amali Silva', role: 'CTO', dept: 'Engineering', initials: 'AS', color: 'bg-purple-500' },
-  { name: 'Nimal Fernando', role: 'Head of Design', dept: 'Design', initials: 'NF', color: 'bg-green-500' },
-  { name: 'Sanduni Jayawardena', role: 'HR Manager', dept: 'Human Resources', initials: 'SJ', color: 'bg-orange-500' },
-  { name: 'Kasun Rathnayake', role: 'Lead Engineer', dept: 'Engineering', initials: 'KR', color: 'bg-red-500' },
-  { name: 'Malini Gunawardena', role: 'Project Manager', dept: 'Operations', initials: 'MG', color: 'bg-teal-500' },
-]
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
+const resolveImg = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return `${SERVER_URL}${url}`
+}
 
 const values = [
   { icon: FiZap, title: 'Innovation First', desc: 'We embrace new technologies and creative approaches to solve complex problems.', color: 'bg-yellow-50 text-yellow-600' },
@@ -29,9 +29,24 @@ const milestones = [
   { year: '2026', title: 'Raxwo Portal Launch', desc: 'Launched our proprietary HRM platform to streamline internal operations.' },
 ]
 
-const fadeUp = { hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }
+const fadeUp = { 
+  hidden: { opacity: 0, y: 40, scale: 0.96 }, 
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { type: 'spring', stiffness: 100, damping: 20 }
+  } 
+}
 
 export default function About() {
+  const { data } = useQuery({
+    queryKey: ['public-leaders'],
+    queryFn: () => api.get('/leaders').then(r => r.data.leaders),
+  })
+  
+  const team = data || []
+
   return (
     <div className="overflow-x-hidden">
       {/* Hero */}
@@ -41,14 +56,14 @@ export default function About() {
           <div className="absolute -bottom-20 -left-40 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl" />
         </div>
         <div className="container-max relative z-10 text-center">
-          <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.15 } } }}>
-            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-sm mb-6">
-              <FiAward size={14} /> Trusted by 120+ businesses
+          <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.2, delayChildren: 0.1 } } }}>
+            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-sm mb-6 shadow-xl">
+              <FiAward size={14} className="text-accent" /> Trusted by 120+ businesses
             </motion.div>
-            <motion.h1 variants={fadeUp} className="text-5xl lg:text-6xl font-bold text-white font-heading leading-tight mb-6">
-              About <span className="bg-gradient-to-r from-blue-300 to-blue-100 bg-clip-text text-transparent">Raxwo</span>
+            <motion.h1 variants={fadeUp} className="text-3xl lg:text-5xl font-bold text-white font-heading leading-tight mb-6 tracking-tight">
+              About <span className="bg-gradient-to-r from-blue-300 to-blue-100 bg-clip-text text-transparent drop-shadow-2xl">Raxwo</span>
             </motion.h1>
-            <motion.p variants={fadeUp} className="text-white/70 text-xl max-w-2xl mx-auto">
+            <motion.p variants={fadeUp} className="text-white/80 text-xl max-w-2xl mx-auto leading-relaxed">
               We are a passionate team of engineers, designers, and strategists building the future of software — from Colombo, Sri Lanka, for the world.
             </motion.p>
           </motion.div>
@@ -112,10 +127,10 @@ export default function About() {
             {values.map((v, i) => (
               <motion.div
                 key={v.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ delay: i * 0.1, type: 'spring', stiffness: 100 }}
                 className="card card-body card-hover group"
               >
                 <div className={`w-12 h-12 rounded-2xl ${v.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
@@ -145,8 +160,8 @@ export default function About() {
                   key={m.year}
                   initial={{ opacity: 0, x: -30 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  viewport={{ once: true, margin: '-50px' }}
+                  transition={{ delay: i * 0.15, type: 'spring', stiffness: 80 }}
                   className="flex gap-6"
                 >
                   <div className="w-16 flex-shrink-0 flex flex-col items-center">
@@ -177,15 +192,23 @@ export default function About() {
             {team.map((member, i) => (
               <motion.div
                 key={member.name}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
+                initial={{ opacity: 0, y: 30, scale: 0.96 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ delay: i * 0.1, type: 'spring', stiffness: 100 }}
                 className="card card-body card-hover text-center group"
               >
-                <div className={`w-20 h-20 ${member.color} rounded-2xl flex items-center justify-center text-white font-bold text-2xl font-heading mx-auto mb-4 group-hover:scale-105 transition-transform shadow-lg`}>
-                  {member.initials}
-                </div>
+                {member.imageUrl ? (
+                  <img
+                    src={resolveImg(member.imageUrl)}
+                    alt={member.name}
+                    className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 shadow-lg group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className={`w-20 h-20 ${member.color} rounded-2xl flex items-center justify-center text-white font-bold text-2xl font-heading mx-auto mb-4 group-hover:scale-105 transition-transform shadow-lg`}>
+                    {member.initials}
+                  </div>
+                )}
                 <h3 className="font-semibold text-primary font-heading">{member.name}</h3>
                 <p className="text-secondary text-sm font-medium mt-0.5">{member.role}</p>
                 <span className="badge badge-gray mt-2">{member.dept}</span>

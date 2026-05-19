@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiDatabase, FiLayers, FiArrowRight, FiCheck } from 'react-icons/fi'
 import api from '../../lib/api'
+import TiltCard from '../../components/ui/TiltCard'
 
 const services = [
   {
@@ -56,8 +57,7 @@ export default function Services() {
     queryFn: () => api.get('/content/services').then((r) => r.data),
   })
   const dynamicServices = data?.services || []
-  const displayServices = dynamicServices.length > 0
-    ? dynamicServices.map((s) => ({
+  const displayServices = dynamicServices.map((s) => ({
       ...s,
       icon: ({ FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiDatabase, FiLayers }[s.icon]) || FiCode,
       gradientStyle: { backgroundImage: `linear-gradient(135deg, ${s.colorFrom || '#3b82f6'}, ${s.colorTo || '#1d4ed8'})` },
@@ -65,7 +65,6 @@ export default function Services() {
       features: s.features || [],
       price: s.priceText || '',
     }))
-    : services
 
   return (
     <div>
@@ -76,12 +75,36 @@ export default function Services() {
           <div className="absolute bottom-10 left-20 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl" />
         </div>
         <div className="container-max relative">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <span className="badge bg-white/10 text-white border border-white/20 mb-4">What We Offer</span>
-            <h1 className="text-5xl font-bold text-white font-heading mb-4">Our Services</h1>
-            <p className="text-white/70 max-w-2xl mx-auto text-lg">
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.95, filter: 'blur(10px)' }} 
+            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }} 
+            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+            className="flex flex-col items-center"
+          >
+            <motion.span 
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, type: 'spring' }}
+              className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2"
+            >
+              What We Offer
+            </motion.span>
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl"
+            >
+              Our Services
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="text-white/80 max-w-2xl mx-auto text-xl leading-relaxed"
+            >
               Premium software development services tailored for businesses in Sri Lanka and beyond.
-            </p>
+            </motion.p>
           </motion.div>
         </div>
       </section>
@@ -93,31 +116,35 @@ export default function Services() {
             {displayServices.map((s, i) => (
               <motion.div
                 key={s.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className="card card-body card-hover group"
+                initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ delay: i * 0.1, type: 'spring', stiffness: 100 }}
+                className="h-full"
               >
-                <div className={`w-14 h-14 rounded-2xl ${s.gradientStyle ? '' : `bg-gradient-to-br ${s.color}`} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform`} style={s.gradientStyle || undefined}>
-                  <s.icon size={24} className="text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-primary font-heading mb-2">{s.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed mb-4">{s.desc}</p>
-                <ul className="space-y-2 mb-5">
-                  {s.features.map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                      <FiCheck className="text-accent flex-shrink-0" size={14} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <span className="text-secondary font-semibold text-sm">{s.price}</span>
-                  <Link to="/contact" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
-                    Get quote <FiArrowRight size={14} />
-                  </Link>
-                </div>
+                <TiltCard className="h-full">
+                  <div className="card card-body card-hover group h-full bg-white/80">
+                    <div className={`w-14 h-14 rounded-2xl ${s.gradientStyle ? '' : `bg-gradient-to-br ${s.color}`} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform`} style={{ ...s.gradientStyle, transform: 'translateZ(40px)' }}>
+                      <s.icon size={24} className="text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-primary font-heading mb-2" style={{ transform: 'translateZ(30px)' }}>{s.title}</h3>
+                    <p className="text-gray-500 text-sm leading-relaxed mb-4" style={{ transform: 'translateZ(20px)' }}>{s.desc}</p>
+                    <ul className="space-y-2 mb-5 flex-1" style={{ transform: 'translateZ(25px)' }}>
+                      {s.features.map(f => (
+                        <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
+                          <FiCheck className="text-accent flex-shrink-0" size={14} />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100" style={{ transform: 'translateZ(10px)' }}>
+                      <span className="text-secondary font-semibold text-sm">{s.price}</span>
+                      <Link to="/contact" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
+                        Get quote <FiArrowRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+                </TiltCard>
               </motion.div>
             ))}
           </div>

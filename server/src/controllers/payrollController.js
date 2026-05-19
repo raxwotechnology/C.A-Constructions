@@ -566,11 +566,22 @@ exports.markPaid = async (req, res, next) => {
 
     await createNotification({
       recipient: payroll.employee?.userId?._id,
-      title: 'Salary Credited',
+      title: 'Salary Credited 💰',
       message: `Salary credited for ${payroll.month}/${payroll.year}. Net: LKR ${Number(payroll.netSalary || 0).toLocaleString()}`,
       type: 'payroll',
       link: '/developer/payslips',
     });
+
+    // Send payslip email
+    const emailService = require('../services/emailService');
+    if (payroll.employee?.userId?.email) {
+      await emailService.sendPayslipReadyEmail(
+        payroll.employee.userId.email,
+        payroll.employee.userId.name,
+        payroll.month, payroll.year,
+        payroll.netSalary
+      );
+    }
 
     // Sync with EpfRecord
     await EpfRecord.findOneAndUpdate(
@@ -645,6 +656,18 @@ exports.markPaid = async (req, res, next) => {
       user: req.user, action: 'pay', module: 'payroll', entityId: payroll._id, entityName: `Payroll ${payroll.month}/${payroll.year}`,
       description: `Marked payroll as paid for ${payroll.employee?.userId?.name}`,
     });
+
+    if (payroll.employee?.userId) {
+      const { createNotification } = require('../services/notificationService');
+      const userId = payroll.employee.userId._id || payroll.employee.userId;
+      await createNotification({
+        recipient: userId,
+        title: 'Salary Deposited',
+        message: `Your salary for ${payroll.month}/${payroll.year} has been processed and paid via ${payroll.paymentMethod.replace(/_/g, ' ')}.`,
+        type: 'payroll',
+        link: '/developer/payslips'
+      });
+    }
 
     res.json({ success: true, payroll });
   } catch (err) { next(err); }

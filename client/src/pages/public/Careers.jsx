@@ -30,10 +30,36 @@ export default function Careers() {
           <div className="absolute top-10 right-20 w-64 h-64 bg-secondary/15 rounded-full blur-3xl" />
         </div>
         <div className="container-max relative">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-            <span className="badge bg-white/10 text-white border border-white/20 mb-4">We're Hiring</span>
-            <h1 className="text-5xl font-bold text-white font-heading mb-4">Join Our Team</h1>
-            <p className="text-white/70 max-w-2xl mx-auto text-lg">Build your career at Raxwo. Work on exciting projects with brilliant minds in a collaborative, growth-focused environment.</p>
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.95, filter: 'blur(10px)' }} 
+            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }} 
+            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+            className="text-center mb-12 flex flex-col items-center"
+          >
+            <motion.span 
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, type: 'spring' }}
+              className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2"
+            >
+              We're Hiring
+            </motion.span>
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl"
+            >
+              Join Our Team
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="text-white/80 max-w-2xl mx-auto text-xl leading-relaxed"
+            >
+              Build your career at Raxwo. Work on exciting projects with brilliant minds in a collaborative, growth-focused environment.
+            </motion.p>
           </motion.div>
 
           {/* Why Raxwo */}
@@ -42,12 +68,18 @@ export default function Careers() {
               { icon: '🚀', title: 'Exciting Projects', desc: 'Work on cutting-edge systems for diverse industries' },
               { icon: '📈', title: 'Career Growth', desc: 'Clear advancement paths with mentorship and training' },
               { icon: '💰', title: 'Competitive Pay', desc: 'Market-leading salaries with EPF/ETF and bonuses' },
-            ].map(p => (
-              <div key={p.title} className="glass-card p-6 text-center">
-                <div className="text-3xl mb-3">{p.icon}</div>
-                <h3 className="font-semibold text-white font-heading mb-1">{p.title}</h3>
-                <p className="text-white/60 text-sm">{p.desc}</p>
-              </div>
+            ].map((p, i) => (
+              <motion.div 
+                key={p.title} 
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 + (i * 0.1), type: 'spring' }}
+                className="glass-card p-6 text-center hover:scale-105 transition-transform duration-300"
+              >
+                <div className="text-4xl mb-4">{p.icon}</div>
+                <h3 className="font-semibold text-white font-heading mb-2 text-lg">{p.title}</h3>
+                <p className="text-white/70 text-sm leading-relaxed">{p.desc}</p>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -82,11 +114,11 @@ export default function Careers() {
               {jobs.map((job, i) => (
                 <motion.div
                   key={job._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  className="card card-body card-hover flex flex-col md:flex-row md:items-center gap-4"
+                  initial={{ opacity: 0, x: -30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: '-50px' }}
+                  transition={{ delay: i * 0.1, type: 'spring', stiffness: 100 }}
+                  className="card card-body card-hover flex flex-col md:flex-row md:items-center gap-4 group"
                 >
                   <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
                     <FiBriefcase className="text-secondary" size={20} />

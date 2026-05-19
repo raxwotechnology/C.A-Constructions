@@ -3,7 +3,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const { getLoans, createLoan, updateLoan, recordPayment, deleteLoan, getEmployeeLoanSummary } = require('../controllers/loanController');
 
-router.use(protect, authorize('admin', 'manager'));
+router.use(protect, authorize('admin'));
 router.get('/', getLoans);
 router.get('/employee-summary/:employeeId', getEmployeeLoanSummary);
 router.post('/', createLoan);

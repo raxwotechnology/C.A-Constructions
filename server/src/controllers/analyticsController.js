@@ -12,6 +12,8 @@ const FinanceEntry = require('../models/FinanceEntry');
 const Advance = require('../models/Advance');
 const Loan = require('../models/Loan');
 const BankAccount = require('../models/BankAccount');
+const Request = require('../models/Request');
+const WorkLog = require('../models/WorkLog');
 const { createNotification } = require('../services/notificationService');
 
 const dateRange = (start, end) => ({
@@ -60,6 +62,7 @@ exports.getDashboard = async (req, res, next) => {
       pendingLeaves, insufficientLeaves,
       totalSubscriptions, activeSubscriptions, overdueSubscriptions,
       pendingInvoices, draftPayrolls, adminCount,
+      pendingRequests, pendingWorkLogs,
     ] = await Promise.all([
       Employee.countDocuments(empMatch),
       Employee.countDocuments({ ...empMatch, status: 'active' }),
@@ -80,6 +83,8 @@ exports.getDashboard = async (req, res, next) => {
       Invoice.countDocuments({ ...invMatch, status: 'unpaid' }),
       Payroll.countDocuments({ ...relatedEmpMatch, status: 'draft' }),
       User.countDocuments({ role: 'admin' }),
+      Request.countDocuments({ status: 'pending' }),
+      WorkLog.countDocuments({ approvalStatus: 'pending' }),
     ]);
 
     // Outstanding advance & loan balances
@@ -262,6 +267,7 @@ exports.getDashboard = async (req, res, next) => {
         pendingLeaves, insufficientLeaves,
         totalSubscriptions, activeSubscriptions, overdueSubscriptions,
         pendingInvoices, draftPayrolls,
+        pendingRequests, pendingWorkLogs,
         outstandingAdvances, outstandingLoans, expiredInterns,
         totalRevenue, totalExpenses,
         netProfit: totalRevenue - totalExpenses,

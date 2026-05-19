@@ -4,6 +4,7 @@ const Employee = require('../models/Employee');
 const SiteSetting = require('../models/SiteSetting');
 const { buildLetterBodyHtml } = require('../lib/letterTemplatesHtml');
 const { createAuditLog } = require('./auditController');
+const { createNotification } = require('../services/notificationService');
 const { verifyActionPassword } = require('../utils/actionPassword');
 
 function letterAuditSnapshot(doc) {
@@ -149,6 +150,14 @@ exports.generateLetter = async (req, res, next) => {
       changes: { before: null, after: letterAuditSnapshot(populated.toObject()) },
       ipAddress: req.ip || '',
       userAgent: req.get('user-agent') || '',
+    });
+
+    await createNotification({
+      recipient: employee.userId._id,
+      title: 'New Letter Issued',
+      message: `A new ${typeLabels[type] || type} letter has been issued to you.`,
+      type: 'hr',
+      link: '/employee/letters'
     });
 
     res.status(201).json({ success: true, letter: populated });

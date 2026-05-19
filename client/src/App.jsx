@@ -68,11 +68,16 @@ import AdminBankManagement from './pages/admin/BankManagement'
 import BankTransactionHistory from './pages/admin/BankTransactionHistory'
 import AdminCheques from './pages/admin/Cheques'
 import IncomeTax from './pages/admin/IncomeTax'
+import AdminRequests from './pages/admin/Requests'
+import ToolAssignments from './pages/admin/ToolAssignments'
+import AdminSmsLogs from './pages/admin/SmsLogs'
+import AdminLeaders from './pages/admin/AdminLeaders'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
 import ManagerTeam from './pages/manager/Team'
 import ManagerReports from './pages/manager/Reports'
 import ManagerProfile from './pages/manager/Profile'
+import ManagerRequests from './pages/manager/Requests'
 import MessagesCenter from './pages/shared/MessagesCenter'
 import NotificationDetail from './pages/shared/NotificationDetail'
 
@@ -87,6 +92,9 @@ import DeveloperLetters from './pages/employee/Letters'
 import DeveloperAttendance from './pages/employee/Attendance'
 import DeveloperNotifications from './pages/employee/Notifications'
 import DeveloperExport from './pages/employee/Export'
+import EmployeeRequests from './pages/employee/Requests'
+import MyTools from './pages/employee/MyTools'
+import EmployeePerformance from './pages/employee/Performance'
 
 // Client pages
 import ClientProjects from './pages/client/Projects'
@@ -98,6 +106,7 @@ import ClientNotifications from './pages/client/Notifications'
 import ClientBooking from './pages/client/Booking'
 import ClientFeedback from './pages/client/Feedback'
 import ClientRewards from './pages/client/Rewards'
+import ClientServices from './pages/client/Services'
 
 // Guard components
 const ProtectedRoute = ({ children, roles }) => {
@@ -171,6 +180,7 @@ export default function App() {
         <Route path="/my-account" element={<ProtectedRoute roles={['client']}><ClientProfile /></ProtectedRoute>} />
         <Route path="/feedback" element={<ClientFeedback />} />
         <Route path="/rewards" element={<ProtectedRoute roles={['client']}><ClientRewards /></ProtectedRoute>} />
+        <Route path="/our-services" element={<ProtectedRoute roles={['client']}><ClientServices /></ProtectedRoute>} />
       </Route>
 
       {/* Auth */}
@@ -212,6 +222,8 @@ export default function App() {
         <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
         <Route path="branches" element={<AdminBranches />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
+        <Route path="sms-logs" element={<AdminSmsLogs />} />
+        <Route path="leaders" element={<AdminLeaders />} />
         <Route path="quotations" element={<AdminQuotations />} />
         <Route path="agreements" element={<Agreements />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
@@ -225,6 +237,8 @@ export default function App() {
         <Route path="bank-transactions" element={<BankTransactionHistory />} />
         <Route path="cheques" element={<AdminCheques />} />
         <Route path="income-tax" element={<IncomeTax />} />
+        <Route path="requests" element={<AdminRequests />} />
+        <Route path="tool-assignments" element={<ToolAssignments />} />
       </Route>
 
       {/* Manager */}
@@ -236,7 +250,9 @@ export default function App() {
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="profile" element={<ManagerProfile />} />
         <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="requests" element={<ManagerRequests />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
+        <Route path="leaves" element={<AdminLeaves />} />
       </Route>
 
       {/* Developer */}
@@ -252,6 +268,9 @@ export default function App() {
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
         <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="requests" element={<EmployeeRequests />} />
+        <Route path="tools" element={<MyTools />} />
+        <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
       </Route>
@@ -269,6 +288,9 @@ export default function App() {
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
         <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="requests" element={<EmployeeRequests />} />
+        <Route path="tools" element={<MyTools />} />
+        <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
       </Route>
@@ -286,6 +308,9 @@ export default function App() {
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
         <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="requests" element={<EmployeeRequests />} />
+        <Route path="tools" element={<MyTools />} />
+        <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
       </Route>

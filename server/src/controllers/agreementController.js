@@ -3,6 +3,7 @@ const AgreementTemplate = require('../models/AgreementTemplate');
 const Project = require('../models/Project');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
+const { createNotification } = require('../services/notificationService');
 
 const POPULATE = [
   { path: 'client', select: 'name email phone' },
@@ -123,6 +124,17 @@ exports.createAgreement = async (req, res, next) => {
     const populated = await Agreement.findById(agreement._id)
       .populate(POPULATE)
       .populate({ path: 'history.user', select: 'name' });
+
+    if (agreement.client) {
+      await createNotification({
+        recipient: agreement.client,
+        title: 'New Agreement Created',
+        message: `An agreement (${agreement.title}) has been generated for your review.`,
+        type: 'financial',
+        link: `/my-account`
+      });
+    }
+
     res.status(201).json({ success: true, agreement: populated });
   } catch (err) { next(err); }
 };

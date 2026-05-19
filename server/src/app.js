@@ -45,6 +45,9 @@ const agreementRoutes = require('./routes/agreementRoutes');
 const epfRecordRoutes = require('./routes/epfRecordRoutes');
 const targetRoutes = require('./routes/targetRoutes');
 const attendancePolicyRoutes = require('./routes/attendancePolicyRoutes');
+const requestRoutes = require('./routes/requestRoutes');
+const toolAssignmentRoutes = require('./routes/toolAssignmentRoutes');
+const smsRoutes = require('./routes/smsRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -137,6 +140,10 @@ app.use('/api/cheques', require('./routes/chequeRoutes'));
 app.use('/api/income-tax', require('./routes/incomeTaxRoutes'));
 app.use('/api/targets', targetRoutes);
 app.use('/api/attendance-policies', attendancePolicyRoutes);
+app.use('/api/requests', requestRoutes);
+app.use('/api/tool-assignments', toolAssignmentRoutes);
+app.use('/api/sms', smsRoutes);
+app.use('/api/leaders', require('./routes/leaderRoutes'));
 
 ensureDefaultRules().catch(() => {});
 

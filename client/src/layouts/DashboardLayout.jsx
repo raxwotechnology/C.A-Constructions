@@ -12,7 +12,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload,
-  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget
+  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
@@ -48,6 +48,7 @@ const adminNav = [
     { to: '/admin/bookings', label: 'Bookings', icon: FiBook },
     { to: '/admin/services', label: 'Services & Products', icon: FiLayers },
     { to: '/admin/portfolio', label: 'Portfolio', icon: FiPieChart },
+    { to: '/admin/leaders', label: 'Leaders', icon: FiUsers },
     { to: '/admin/rewards', label: 'Rewards & Loyalty', icon: FiGift },
     { to: '/admin/feedback', label: 'Feedback', icon: FiMessageSquare },
   ]},
@@ -65,7 +66,10 @@ const adminNav = [
   { group: 'System', items: [
     { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: FiShield },
+    { to: '/admin/sms-logs', label: 'SMS Logs', icon: FiMessageSquare },
     { to: '/admin/messages', label: 'Messages', icon: FiMessageSquare },
+    { to: '/admin/requests', label: 'Requests', icon: FiClipboard },
+    { to: '/admin/tool-assignments', label: 'Tool Assignments', icon: FiKey },
     { to: '/admin/settings', label: 'Settings', icon: FiSettings },
   ]},
 ]
@@ -75,9 +79,12 @@ const managerNav = [
     { to: '/manager', label: 'Dashboard', icon: FiHome, exact: true },
     { to: '/manager/projects', label: 'Project Tracking', icon: FiFolder },
     { to: '/manager/team', label: 'Team Management', icon: FiUsers },
-    { to: '/manager/reports', label: 'Reports', icon: FiPieChart },
+    { to: '/manager/leaves', label: 'Leave Approvals', icon: FiCalendar },
     { to: '/manager/work-logs', label: 'Work Logs', icon: FiCheckSquare },
+    { to: '/manager/requests', label: 'Employee Requests', icon: FiClipboard },
+    { to: '/manager/reports', label: 'Reports', icon: FiPieChart },
     { to: '/manager/messages', label: 'Messages', icon: FiMessageSquare },
+    { to: '/manager/profile', label: 'My Profile', icon: FiUser },
   ]},
 ]
 
@@ -88,6 +95,9 @@ const developerNav = [
     { to: '/developer/profile', label: 'My Profile', icon: FiUser },
     { to: '/developer/tasks', label: 'Assigned Tasks', icon: FiCheckSquare },
     { to: '/developer/work-logs', label: 'Daily Work Log', icon: FiClipboard },
+    { to: '/developer/requests', label: 'My Requests', icon: FiFileText },
+    { to: '/developer/tools', label: 'My Tools', icon: FiKey },
+    { to: '/developer/performance', label: 'Performance', icon: FiTrendingUp },
   ]},
   { group: 'Compensation', items: [
     { to: '/developer/attendance', label: 'Attendance', icon: FiClipboard },

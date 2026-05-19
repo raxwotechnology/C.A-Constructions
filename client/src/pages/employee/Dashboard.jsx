@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
-import { FiCalendar, FiDollarSign, FiCheckSquare, FiFileText, FiClock, FiTrendingUp } from 'react-icons/fi'
+import { FiCalendar, FiDollarSign, FiCheckSquare, FiFileText, FiClock, FiTrendingUp, FiKey, FiTarget } from 'react-icons/fi'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar } from 'recharts'
 
 export default function EmployeeDashboard() {
@@ -59,10 +59,13 @@ export default function EmployeeDashboard() {
 
   const quickLinks = [
     { label: 'My Projects', to: '/developer/projects', icon: FiTrendingUp, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
-    { label: 'Request Leave', to: '/developer/leaves', icon: FiCalendar, color: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
+    { label: 'Request Leave', to: '/developer/leaves', icon: FiCalendar, color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
     { label: 'View Payslips', to: '/developer/payslips', icon: FiDollarSign, color: 'bg-green-50 text-green-600 hover:bg-green-100' },
     { label: 'My Tasks', to: '/developer/tasks', icon: FiCheckSquare, color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
-    { label: 'Notifications', to: '/developer/notifications', icon: FiFileText, color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
+    { label: 'My Tools', to: '/developer/tools', icon: FiKey, color: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' },
+    { label: 'My Requests', to: '/developer/requests', icon: FiFileText, color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
+    { label: 'Performance', to: '/developer/performance', icon: FiTarget, color: 'bg-rose-50 text-rose-600 hover:bg-rose-100' },
+    { label: 'Work Logs', to: '/developer/work-logs', icon: FiClock, color: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100' },
   ]
 
   return (
@@ -104,11 +107,11 @@ export default function EmployeeDashboard() {
       </div>
 
       {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
         {quickLinks.map(q => (
-          <Link key={q.label} to={q.to} className={`dashboard-shell p-4 flex items-center gap-3 transition-colors ${q.color}`}>
-            <q.icon size={18}/>
-            <span className="text-sm font-medium">{q.label}</span>
+          <Link key={q.label} to={q.to} className={`dashboard-shell p-3 flex flex-col items-center gap-2 text-center transition-colors ${q.color} rounded-2xl`}>
+            <q.icon size={20}/>
+            <span className="text-xs font-medium leading-tight">{q.label}</span>
           </Link>
         ))}
       </div>

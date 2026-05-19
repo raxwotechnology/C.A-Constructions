@@ -18,6 +18,8 @@ const taskSchema = new mongoose.Schema({
   priority:    { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
   dueDate:     Date,
   completedAt: Date,
+  progress:    { type: Number, default: 0, min: 0, max: 100 },
+  notes:       { type: String, default: '' },
 }, { timestamps: true });
 
 const projectNoteSchema = new mongoose.Schema({

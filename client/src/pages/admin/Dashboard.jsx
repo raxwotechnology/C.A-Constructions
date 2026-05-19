@@ -400,7 +400,21 @@ export default function AdminDashboard() {
                 <FiArrowRight size={13} className="text-indigo-500"/>
               </Link>
             )}
-            {!kpis.pendingLeaves && !kpis.overdueSubscriptions && !kpis.pendingInvoices && !kpis.newApplications && (
+            {(kpis.pendingRequests > 0) && (
+              <Link to="/admin/requests" className="flex items-center gap-3 p-3 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition-colors">
+                <FiActivity size={15} className="text-violet-600 flex-shrink-0"/>
+                <div className="flex-1"><p className="text-sm font-semibold text-violet-800">{kpis.pendingRequests} Pending Employee Request{kpis.pendingRequests!==1?'s':''}</p><p className="text-xs text-violet-600">Requires approval</p></div>
+                <FiArrowRight size={13} className="text-violet-500"/>
+              </Link>
+            )}
+            {(kpis.pendingWorkLogs > 0) && (
+              <Link to="/admin/work-logs" className="flex items-center gap-3 p-3 bg-cyan-50 border border-cyan-200 rounded-xl hover:bg-cyan-100 transition-colors">
+                <FiClock size={15} className="text-cyan-600 flex-shrink-0"/>
+                <div className="flex-1"><p className="text-sm font-semibold text-cyan-800">{kpis.pendingWorkLogs} Work Log{kpis.pendingWorkLogs!==1?'s':''} Awaiting Review</p><p className="text-xs text-cyan-600">Employee daily logs pending approval</p></div>
+                <FiArrowRight size={13} className="text-cyan-500"/>
+              </Link>
+            )}
+            {!kpis.pendingLeaves && !kpis.overdueSubscriptions && !kpis.pendingInvoices && !kpis.newApplications && !kpis.pendingRequests && !kpis.pendingWorkLogs && (
               <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
                 <FiCheckCircle size={18} className="text-green-600"/>
                 <p className="text-sm font-semibold text-green-800">All clear — no pending actions!</p>

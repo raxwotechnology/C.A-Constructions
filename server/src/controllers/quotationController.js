@@ -1,6 +1,7 @@
 const Quotation = require('../models/Quotation');
 const Invoice = require('../models/Invoice');
 const { createAuditLog } = require('./auditController');
+const { createNotification } = require('../services/notificationService');
 const { allocateInvoiceNoFromQuotationNo } = require('../utils/allocateInvoiceNoFromQuotation');
 
 function quotationAuditSummary(doc) {
@@ -72,6 +73,16 @@ exports.createQuotation = async (req, res, next) => {
       ipAddress: req.ip || '',
       userAgent: req.get('user-agent') || '',
     });
+    if (quotation.client) {
+      await createNotification({
+        recipient: quotation.client,
+        title: 'New Quotation',
+        message: `A new quotation (${quotation.quotationNo}) has been generated for you.`,
+        type: 'financial',
+        link: `/my-account`
+      });
+    }
+
     res.status(201).json({ success: true, quotation });
   } catch (err) { next(err); }
 };

@@ -107,6 +107,18 @@ exports.createProject = async (req, res, next) => {
         type: 'project', link: '/my-projects',
       });
     }
+
+    if (project.assignedEmployees?.length > 0) {
+      for (const empId of project.assignedEmployees) {
+        await createNotification({
+          recipient: empId,
+          title: 'New Project Assignment',
+          message: `You have been assigned to project "${project.title}".`,
+          type: 'project', link: '/developer/projects',
+        });
+      }
+    }
+
     const populated = await Project.findById(project._id).populate(POPULATE);
     res.status(201).json({ success: true, project: populated });
   } catch (err) { next(err); }
@@ -154,6 +166,34 @@ exports.updateProject = async (req, res, next) => {
     const COMPLETION_STATUSES = ['completed', 'completed_payment_pending', 'paid_completed'];
     const wasNotCompleted = !COMPLETION_STATUSES.includes(oldProject?.status);
     const isNowCompleted  = COMPLETION_STATUSES.includes(project.status);
+
+    // ── Notify Client on Status Change ──────────────────────────────
+    if (project.client && oldProject?.status !== project.status) {
+      const { createNotification } = require('../services/notificationService');
+      await createNotification({
+        recipient: project.client,
+        title: 'Project Status Updated',
+        message: `Your project "${project.title}" status has been updated to "${project.status.replace(/_/g, ' ')}".`,
+        type: 'project',
+        link: '/my-projects'
+      });
+    }
+
+    // ── Notify newly assigned employees ─────────────────────────────
+    if (project.assignedEmployees?.length > 0) {
+      const oldAssigned = oldProject?.assignedEmployees?.map(e => String(e)) || [];
+      const newAssigned = project.assignedEmployees.map(e => String(e));
+      const newlyAssigned = newAssigned.filter(e => !oldAssigned.includes(e));
+
+      for (const empId of newlyAssigned) {
+        await createNotification({
+          recipient: empId,
+          title: 'New Project Assignment',
+          message: `You have been added to project "${project.title}".`,
+          type: 'project', link: '/developer/projects',
+        });
+      }
+    }
 
     if (wasNotCompleted && isNowCompleted && project.assignedEmployees?.length) {
       for (const userId of project.assignedEmployees) {

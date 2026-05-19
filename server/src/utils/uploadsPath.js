@@ -9,7 +9,7 @@ function getUploadsRoot() {
   return path.resolve(__dirname, '../../uploads');
 }
 
-function ensureUploadSubdirs(subs = ['documents', 'images', 'cvs', 'agreements', 'bills']) {
+function ensureUploadSubdirs(subs = ['documents', 'images', 'cvs', 'agreements', 'bills', 'worklogs', 'requests']) {
   const root = getUploadsRoot();
   subs.forEach((sub) => {
     fs.mkdirSync(path.join(root, sub), { recursive: true });

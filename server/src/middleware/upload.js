@@ -148,3 +148,26 @@ exports.uploadDocument = multer({
   },
   limits: { fileSize: 5 * 1024 * 1024 }
 }).single('document');
+
+// ── Leader photo upload ──────────────────────────────────
+const leaderStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = uploadSubdir('leaders');
+    ensureDir(dir);
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `leader-${unique}${path.extname(file.originalname)}`);
+  }
+});
+
+exports.uploadLeaderPhoto = multer({
+  storage: leaderStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files allowed'), false);
+  },
+  limits: { fileSize: 3 * 1024 * 1024 } // 3MB
+}).single('image');
+
