@@ -11,6 +11,7 @@ const {
   getLetterTemplates,
   createLetterTemplate,
   deleteLetterTemplate,
+  duplicateLetterTemplate,
 } = require('../controllers/letterController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -18,6 +19,7 @@ router.post('/generate', protect, authorize('admin', 'manager'), generateLetter)
 router.get('/company-info', protect, getCompanyInfo);
 router.get('/templates', protect, authorize('admin', 'manager'), getLetterTemplates);
 router.post('/templates', protect, authorize('admin', 'manager'), createLetterTemplate);
+router.post('/templates/:templateId/duplicate', protect, authorize('admin', 'manager'), duplicateLetterTemplate);
 router.delete('/templates/:templateId', protect, authorize('admin', 'manager'), deleteLetterTemplate);
 router.get('/', protect, authorize('admin', 'manager'), getLetters);
 router.get('/my', protect, getMyLetters);

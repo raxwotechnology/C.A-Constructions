@@ -40,6 +40,7 @@ import { openLetterPrint, downloadLetterPdf } from '../../lib/letterDocument'
 import SignaturePad from '../../components/admin/SignaturePad'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
+import EnterpriseLetterBuilder from '../../components/admin/EnterpriseLetterBuilder'
 
 const LETTER_TYPES = [
   { value: 'offer', label: 'Offer letter', Icon: FiMail, accent: 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/40' },
@@ -81,6 +82,10 @@ export default function AdminLetters() {
   const [tplPwdOpen, setTplPwdOpen] = useState(false)
   const [letterPwdOpen, setLetterPwdOpen] = useState(false)
   const [letterDeleteId, setLetterDeleteId] = useState(null)
+  
+  const [showBuilder, setShowBuilder] = useState(false)
+  const [builderEmployee, setBuilderEmployee] = useState(null)
+  const [builderInitialData, setBuilderInitialData] = useState(null)
 
   const { register, handleSubmit, reset, watch, setValue } = useForm()
   const selectedType = watch('type')
@@ -208,7 +213,30 @@ export default function AdminLetters() {
     onError: (e) => toast.error(e.response?.data?.message || 'Could not delete letter'),
   })
 
-  const onSubmit = (d) =>
+  const onSubmit = (d) => {
+    if (d.type === 'custom') {
+      const emp = (empData?.employees || []).find(e => e._id === d.employeeId)
+      setBuilderEmployee(emp)
+      
+      let initData = null
+      if (selectedTplId) {
+        const t = templates.find((x) => x._id === selectedTplId)
+        if (t) {
+          initData = {
+            title: t.name,
+            content: t.content,
+            structuredData: t.structuredData,
+            type: 'custom'
+          }
+        }
+      }
+      
+      setBuilderInitialData(initData) // New custom letter
+      setShowModal(false)
+      setShowBuilder(true)
+      return
+    }
+
     generateMut.mutate({
       employeeId: d.employeeId,
       type: d.type,
@@ -226,12 +254,10 @@ export default function AdminLetters() {
         workingHours: d.workingHours,
         workingDays: d.workingDays,
         hourlyRate: d.hourlyRate,
-        letterTitle: d.letterTitle,
-        customBody: d.customBody,
-        signatoryTitle: d.signatoryTitle,
         reportingManager: d.reportingManager,
       },
     })
+  }
 
   const openModal = (type = '') => {
     setPrefilledType(type)
@@ -306,6 +332,35 @@ export default function AdminLetters() {
     if (!t) return
     if (t.type) setValue('type', t.type)
     toast.success(`Loaded template: ${t.name}`)
+  }
+
+  if (showBuilder) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col">
+        <EnterpriseLetterBuilder 
+          initialData={builderInitialData}
+          employee={builderEmployee}
+          company={company}
+          employeesList={empData?.employees || []}
+          letterTypesList={LETTER_TYPES}
+          onSave={(payload) => {
+             if (builderInitialData?._id) {
+               updateMut.mutate({ id: builderInitialData._id, payload: { ...payload, type: payload.dbLetterType } })
+             } else {
+               generateMut.mutate({ 
+                 employeeId: payload.dbEmployeeId || (builderEmployee ? builderEmployee._id : 'custom'), 
+                 type: payload.dbLetterType || 'custom', 
+                 approvalStatus: 'none', 
+                 data: payload 
+               })
+             }
+             setShowBuilder(false)
+          }}
+          onCancel={() => setShowBuilder(false)}
+          isSaving={generateMut.isPending || updateMut.isPending}
+        />
+      </div>
+    )
   }
 
   return (
@@ -510,6 +565,7 @@ export default function AdminLetters() {
                   <label className="form-label">Employee *</label>
                   <select {...register('employeeId', { required: true })} className="form-select">
                     <option value="">Select employee</option>
+                    <option value="custom">-- External / Custom (No Employee) --</option>
                     {(empData?.employees || []).map((e) => (
                       <option key={e._id} value={e._id}>
                         {e.userId?.name} — {e.designation}
@@ -643,22 +699,7 @@ export default function AdminLetters() {
                     </div>
                   </div>
                 )}
-                {selectedType === 'custom' && (
-                  <>
-                    <div>
-                      <label className="form-label">Letter title *</label>
-                      <input {...register('letterTitle', { required: selectedType === 'custom' })} className="form-input" placeholder="e.g. Official communication" />
-                    </div>
-                    <div>
-                      <label className="form-label">Body *</label>
-                      <textarea {...register('customBody', { required: selectedType === 'custom' })} rows={8} className="form-input resize-y min-h-[140px] leading-relaxed" placeholder="Use paragraphs (blank line between paragraphs). Content appears in the branded document." />
-                    </div>
-                    <div>
-                      <label className="form-label">Signatory title</label>
-                      <input {...register('signatoryTitle')} className="form-input" placeholder="e.g. Director HR" />
-                    </div>
-                  </>
-                )}
+                {/* 'custom' type form fields removed as it launches builder */}
 
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">
@@ -692,15 +733,22 @@ export default function AdminLetters() {
                   <button
                     type="button"
                     onClick={() => {
-                      setEditMode((m) => {
-                        const next = !m
-                        if (!next) setLetterEditHtmlSource(false)
-                        return next
-                      })
+                      if (preview.type === 'custom') {
+                        setBuilderInitialData(preview)
+                        setBuilderEmployee(preview.employee)
+                        setPreview(null)
+                        setShowBuilder(true)
+                      } else {
+                        setEditMode((m) => {
+                          const next = !m
+                          if (!next) setLetterEditHtmlSource(false)
+                          return next
+                        })
+                      }
                     }}
                     className={`btn-outline btn-sm ${editMode ? 'border-amber-300 text-amber-700' : ''}`}
                   >
-                    <FiEdit2 size={14} /> {editMode ? 'Done editing' : 'Edit letter'}
+                    <FiEdit2 size={14} /> {preview.type === 'custom' ? 'Open Builder' : (editMode ? 'Done editing' : 'Edit letter')}
                   </button>
                   {editMode && (
                     <button

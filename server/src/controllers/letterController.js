@@ -51,12 +51,15 @@ exports.getLetterTemplates = async (req, res, next) => {
 
 exports.createLetterTemplate = async (req, res, next) => {
   try {
-    const { name, type, content } = req.body;
+    const { name, type, content, category, description, structuredData } = req.body;
     if (!name || !String(name).trim()) return res.status(400).json({ success: false, message: 'Template name required' });
     const t = await LetterTemplate.create({
       name: name.trim(),
       type: type || 'custom',
+      category: category || 'General',
+      description: description || '',
       content: content || '',
+      structuredData: structuredData || null,
       createdBy: req.user._id,
     });
     await createAuditLog({
@@ -103,21 +106,51 @@ exports.deleteLetterTemplate = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+exports.duplicateLetterTemplate = async (req, res, next) => {
+  try {
+    const src = await LetterTemplate.findById(req.params.templateId).lean();
+    if (!src) return res.status(404).json({ success: false, message: 'Template not found' });
+    const copy = await LetterTemplate.create({
+      name: `${src.name} (Copy)`,
+      type: src.type || 'custom',
+      category: src.category || 'General',
+      description: src.description || '',
+      content: src.content || '',
+      structuredData: src.structuredData || null,
+      createdBy: req.user._id,
+    });
+    await createAuditLog({
+      user: req.user,
+      action: 'create',
+      module: 'letters',
+      entityId: String(copy._id),
+      entityName: copy.name,
+      description: `Letter template duplicated: "${copy.name}"`,
+      changes: { before: null, after: { name: copy.name, type: copy.type } },
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
+    });
+    res.status(201).json({ success: true, template: copy });
+  } catch (err) { next(err); }
+};
+
 // @desc    Generate letter
 // @route   POST /api/letters/generate
 exports.generateLetter = async (req, res, next) => {
   try {
     const { employeeId, type, data = {}, approvalStatus } = req.body;
-    const employee = await Employee.findById(employeeId)
-      .populate('userId', 'name email')
-      .populate('branch', 'name')
-      .populate('manager', 'name');
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    let employee = null;
+    
+    if (employeeId && employeeId !== 'custom') {
+      employee = await Employee.findById(employeeId)
+        .populate('userId', 'name email')
+        .populate('branch', 'name')
+        .populate('manager', 'name');
+      if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
 
     const company = await getCompany();
     data.issuedByName = req.user.name;
-    const content = buildLetterBodyHtml(type, employee, data, company);
-
     const typeLabels = {
       offer: 'Offer',
       appointment: 'Appointment',
@@ -129,18 +162,22 @@ exports.generateLetter = async (req, res, next) => {
       salary: 'Salary Confirmation',
       confirmation: 'Employment Confirmation',
       service_agreement: 'Service Agreement',
-      custom: data.letterTitle || 'Custom',
+      custom: data.title || data.letterTitle || 'Custom',
     };
-    const title = `${typeLabels[type] || type} — ${employee.userId.name}`;
+    const title = data.title || `${typeLabels[type] || type}${employee ? ` — ${employee.userId.name}` : ''}`;
+
+    const content = data.content ? data.content : buildLetterBodyHtml(type, employee || {}, data, company);
 
     const letter = await Letter.create({
-      employee: employeeId,
+      employee: employee ? employee._id : undefined,
       type,
       title,
       content,
       bodyFormat: 'html',
       issuedBy: req.user._id,
       approvalStatus: approvalStatus && ['none', 'pending', 'approved'].includes(approvalStatus) ? approvalStatus : 'none',
+      structuredData: data.structuredData || null,
+      signatures: data.signatures || undefined,
     });
 
     const populated = await Letter.findById(letter._id)
@@ -153,19 +190,21 @@ exports.generateLetter = async (req, res, next) => {
       module: 'letters',
       entityId: String(letter._id),
       entityName: letter.letterRef || title,
-      description: `Letter generated: ${title} (${type}) for ${employee.userId?.name || 'employee'}`,
+      description: `Letter generated: ${title} (${type})${employee ? ` for ${employee.userId?.name}` : ' (External)'}`,
       changes: { before: null, after: letterAuditSnapshot(populated.toObject()) },
       ipAddress: req.ip || '',
       userAgent: req.get('user-agent') || '',
     });
 
-    await createNotification({
-      recipient: employee.userId._id,
-      title: 'New Letter Issued',
-      message: `A new ${typeLabels[type] || type} letter has been issued to you.`,
-      type: 'hr',
-      link: '/employee/letters'
-    });
+    if (employee && employee.userId) {
+      await createNotification({
+        recipient: employee.userId._id,
+        title: 'New Letter Issued',
+        message: `A new ${typeLabels[type] || type} letter has been issued to you.`,
+        type: 'letter',
+        link: '/employee/letters'
+      });
+    }
 
     res.status(201).json({ success: true, letter: populated });
   } catch (err) { next(err); }
@@ -217,17 +256,20 @@ exports.updateLetter = async (req, res, next) => {
     const prev = await Letter.findById(req.params.id).lean();
     if (!prev) return res.status(404).json({ success: false, message: 'Letter not found' });
 
-    const { title, content, type, approvalStatus, signatures } = req.body;
+    const { title, content, type, approvalStatus, signatures, structuredData } = req.body;
     const update = {
       ...(title ? { title } : {}),
       ...(content !== undefined ? { content } : {}),
       ...(type ? { type } : {}),
       ...(approvalStatus && ['none', 'pending', 'approved'].includes(approvalStatus) ? { approvalStatus } : {}),
+      ...(structuredData !== undefined ? { structuredData } : {}),
     };
     if (signatures && typeof signatures === 'object') {
       update.signatures = {
         hr: { ...prev.signatures?.hr, ...signatures.hr },
         manager: { ...prev.signatures?.manager, ...signatures.manager },
+        director: { ...prev.signatures?.director, ...signatures.director },
+        seal: { ...prev.signatures?.seal, ...signatures.seal },
       };
     }
     const letter = await Letter.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })

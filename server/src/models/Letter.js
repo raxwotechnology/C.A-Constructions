@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const letterSchema = new mongoose.Schema({
-  employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+  employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   type: {
     type: String,
     enum: ['offer', 'appointment', 'confirmation', 'experience', 'salary', 'service_agreement', 'epf_confirmation', 'warning', 'termination', 'internship', 'contract', 'part_time', 'resignation', 'custom'],
@@ -25,7 +25,9 @@ const letterSchema = new mongoose.Schema({
     hr: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
     manager: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
     seal: { data: { type: String, default: '' } },
+    director: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
   },
+  structuredData: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 
 letterSchema.pre('save', async function letterRefPre(next) {
