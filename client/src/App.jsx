@@ -71,6 +71,7 @@ import IncomeTax from './pages/admin/IncomeTax'
 import AdminRequests from './pages/admin/Requests'
 import ToolAssignments from './pages/admin/ToolAssignments'
 import AdminSmsLogs from './pages/admin/SmsLogs'
+import AdminEmailLogs from './pages/admin/EmailLogs'
 import AdminLeaders from './pages/admin/AdminLeaders'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
@@ -154,6 +155,18 @@ export default function App() {
     const { initAuth, refreshSession } = useAuthStore.getState()
     initAuth()
     refreshSession()
+
+    // When user returns to the tab after inactivity, re-validate session & refresh avatar/profile
+    let lastRefresh = Date.now()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastRefresh > 60_000) {
+        lastRefresh = Date.now()
+        const { token } = useAuthStore.getState()
+        if (token) useAuthStore.getState().refreshSession()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
 
   return (
@@ -223,6 +236,7 @@ export default function App() {
         <Route path="branches" element={<AdminBranches />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
         <Route path="sms-logs" element={<AdminSmsLogs />} />
+        <Route path="email-logs" element={<AdminEmailLogs />} />
         <Route path="leaders" element={<AdminLeaders />} />
         <Route path="quotations" element={<AdminQuotations />} />
         <Route path="agreements" element={<Agreements />} />

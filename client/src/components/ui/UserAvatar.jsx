@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { mediaUrl, normalizeUploadPath } from '../../lib/media'
 
 export default function UserAvatar({ user, className = '', imgClassName = 'w-full h-full object-cover' }) {
   const [broken, setBroken] = useState(false)
-  const src = user?.avatar && !broken ? mediaUrl(normalizeUploadPath(user.avatar) || user.avatar) : ''
+  const avatarPath = user?.avatar || ''
+
+  // Reset broken state whenever the avatar URL changes (e.g. after re-fetch or user change)
+  useEffect(() => { setBroken(false) }, [avatarPath])
+
+  const src = avatarPath && !broken ? mediaUrl(normalizeUploadPath(avatarPath) || avatarPath) : ''
   const initial = user?.name?.charAt(0)?.toUpperCase() || '?'
 
   if (!src) {

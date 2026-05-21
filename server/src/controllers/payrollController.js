@@ -532,6 +532,12 @@ exports.markPaid = async (req, res, next) => {
         payroll.netSalary
       );
     }
+    
+    if (payroll.employee?.userId?.phone || payroll.employee?.phone) {
+      const { sendSms } = require('../services/smsService');
+      const phone = payroll.employee?.userId?.phone || payroll.employee?.phone;
+      await sendSms(phone, `Salary for ${payroll.month}/${payroll.year} has been credited. Net: LKR ${Number(payroll.netSalary || 0).toLocaleString()}`, payroll.employee?.userId?.name, 'payroll');
+    }
 
     // Sync with EpfRecord
     await EpfRecord.findOneAndUpdate(

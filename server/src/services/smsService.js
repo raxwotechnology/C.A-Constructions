@@ -57,8 +57,11 @@ const sendSms = async (phone, message, recipientName = 'Unknown', module = 'syst
   }
 
   try {
-    const url = `${SMSLENZ_URL}?id=${SMSLENZ_USER_ID}&pw=${SMSLENZ_API_KEY}&to=${formattedPhone}&text=${encodeURIComponent(message)}&mask=${SMSLENZ_SENDER_ID}`;
-    const response = await axios.get(url);
+    const https = require('https');
+    const agent = new https.Agent({ rejectUnauthorized: false });
+    // Some SMS APIs use 'msg' instead of 'text' or require /sendsms endpoint
+    const url = `${SMSLENZ_URL}/sendsms?id=${SMSLENZ_USER_ID}&pw=${SMSLENZ_API_KEY}&to=${formattedPhone}&text=${encodeURIComponent(message)}&msg=${encodeURIComponent(message)}&mask=${SMSLENZ_SENDER_ID}`;
+    const response = await axios.get(url, { httpsAgent: agent });
 
     // Some APIs return 200 OK but with a text body like "error" or "success".
     // Adjust based on SMSLenz actual response

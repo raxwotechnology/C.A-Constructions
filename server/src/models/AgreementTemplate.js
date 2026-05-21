@@ -5,6 +5,7 @@ const agreementTemplateSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     content: { type: String, default: '' },
     agreementType: { type: String, default: 'custom' },
+    hasFrame: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

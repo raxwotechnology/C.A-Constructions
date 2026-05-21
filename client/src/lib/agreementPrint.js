@@ -29,6 +29,7 @@ export function buildAgreementBodyHtml(opts) {
     agreementDate,
     bodyHtml,
     signatures,
+    hasFrame,
   } = opts
   const initials = escapeHtml((siteName || 'C').trim().slice(0, 2).toUpperCase())
   const logoInner = logoUrl
@@ -58,7 +59,11 @@ export function buildAgreementBodyHtml(opts) {
       ? `<div style="margin-top:14px;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:10pt;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;"><strong>Company Seal</strong><img src="${safeImgSrc(signatures.seal.data)}" style="max-height:96px;margin-top:6px;"/></div>`
       : ''
 
+  const frameWrapperOpen = hasFrame ? `<div style="border: 12px double #1e3a8a; border-radius: 8px; outline: 2px solid #1e3a8a; outline-offset: -8px; padding: 32px; background: #fff;">` : ''
+  const frameWrapperClose = hasFrame ? `</div>` : ''
+
   return `
+    ${frameWrapperOpen}
     <div style="margin-bottom:28px;padding:22px 24px;border-radius:14px;background:linear-gradient(135deg,#f8fafc 0%,#e8eef5 55%,#f1f5f9 100%);border:1px solid #cbd5e1;box-shadow:0 10px 30px rgba(15,23,42,0.06);">
       <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
         <div style="flex-shrink:0;width:88px;height:88px;border-radius:14px;background:#fff;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(15,23,42,0.08);overflow:hidden;padding:8px;">
@@ -82,6 +87,7 @@ export function buildAgreementBodyHtml(opts) {
       ${witness}
       ${sealHtml}
     </div>
+    ${frameWrapperClose}
   `
 }
 

@@ -12,7 +12,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload,
-  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey
+  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey, FiMail
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
@@ -66,6 +66,7 @@ const adminNav = [
   { group: 'System', items: [
     { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: FiShield },
+    { to: '/admin/email-logs', label: 'Email Logs', icon: FiMail },
     { to: '/admin/sms-logs', label: 'SMS Logs', icon: FiMessageSquare },
     { to: '/admin/messages', label: 'Messages', icon: FiMessageSquare },
     { to: '/admin/requests', label: 'Requests', icon: FiClipboard },

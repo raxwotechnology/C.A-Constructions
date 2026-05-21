@@ -109,6 +109,16 @@ exports.createQuotation = async (req, res, next) => {
         type: 'financial',
         link: `/my-account`
       });
+
+      const populatedQ = await Quotation.findById(quotation._id).populate('client');
+      if (populatedQ.client?.email) {
+        const { sendQuotationEmail } = require('../services/emailService');
+        await sendQuotationEmail(populatedQ.client.email, populatedQ.client.name, quotation.quotationNo, quotation.total, quotation.expiryDate || new Date());
+      }
+      if (populatedQ.client?.phone) {
+        const { sendSms } = require('../services/smsService');
+        await sendSms(populatedQ.client.phone, `Hi ${populatedQ.client.name}, Quotation ${quotation.quotationNo} has been generated for LKR ${Number(quotation.total).toLocaleString()}.`, populatedQ.client.name, 'quotation');
+      }
     }
 
     res.status(201).json({ success: true, quotation });

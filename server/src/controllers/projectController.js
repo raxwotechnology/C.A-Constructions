@@ -107,6 +107,15 @@ exports.createProject = async (req, res, next) => {
         message: `Your project "${project.title}" has been created and is in ${project.status} stage.`,
         type: 'project', link: '/my-projects',
       });
+      const populatedProj = await Project.findById(project._id).populate('client');
+      if (populatedProj.client?.email) {
+        const { sendProjectAssignedEmail } = require('../services/emailService');
+        await sendProjectAssignedEmail(populatedProj.client.email, populatedProj.client.name, project.title);
+      }
+      if (populatedProj.client?.phone) {
+        const { sendSms } = require('../services/smsService');
+        await sendSms(populatedProj.client.phone, `Hi ${populatedProj.client.name}, your project "${project.title}" has been created.`, populatedProj.client.name, 'project');
+      }
     }
 
     if (project.assignedEmployees?.length > 0) {

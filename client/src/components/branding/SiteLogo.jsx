@@ -18,9 +18,19 @@ export default function SiteLogo({
   const isDark = variant === 'dark'
   const showLogoImg = Boolean(logoSrc && settings?.logoUrl && !logoBroken)
 
+  // Reset broken state when the logo source changes
   useEffect(() => {
     setLogoBroken(false)
   }, [logoSrc, settings?.logoUrl])
+
+  // Auto-retry loading the logo when the user returns to the tab (fixes disappearing after inactivity)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') setLogoBroken(false)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
 
   const nameCls = isDark ? 'text-white' : 'text-primary'
   const tagCls = isDark ? 'text-white/50' : 'text-slate-400'

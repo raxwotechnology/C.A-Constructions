@@ -38,7 +38,7 @@ exports.getAgreementTemplates = async (req, res, next) => {
 // ── POST /api/agreements/templates ────────────────────────────────────────────
 exports.createAgreementTemplate = async (req, res, next) => {
   try {
-    const { name, content, agreementType } = req.body;
+    const { name, content, agreementType, hasFrame } = req.body;
     if (!name || !String(name).trim()) {
       return res.status(400).json({ success: false, message: 'Template name is required' });
     }
@@ -46,6 +46,7 @@ exports.createAgreementTemplate = async (req, res, next) => {
       name: name.trim(),
       content: content || '',
       agreementType: agreementType || 'custom',
+      hasFrame: hasFrame || false,
       createdBy: req.user._id,
     });
     res.status(201).json({ success: true, template });
@@ -97,7 +98,7 @@ exports.createAgreement = async (req, res, next) => {
   try {
     const {
       agreementType, title, client, project, invoice, subscription, content, status,
-      signatures, approvalStatus, agreementDate,
+      signatures, approvalStatus, agreementDate, hasFrame,
     } = req.body;
 
     let finalContent = content || '';
@@ -117,6 +118,7 @@ exports.createAgreement = async (req, res, next) => {
       signatures: signatures || undefined,
       approvalStatus: approvalStatus || 'none',
       agreementDate: agreementDate ? new Date(agreementDate) : undefined,
+      hasFrame: hasFrame || false,
       createdBy: req.user._id,
       history: [{ action: 'created', detail: title || 'Agreement', user: req.user._id }],
     });

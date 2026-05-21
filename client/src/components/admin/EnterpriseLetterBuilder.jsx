@@ -92,6 +92,7 @@ export default function EnterpriseLetterBuilder({
     // Settings
     primaryColor: initialData?.structuredData?.primaryColor || '#1e3a8a',
     fontFamily: initialData?.structuredData?.fontFamily || "'Segoe UI', system-ui, sans-serif",
+    documentFrame: initialData?.structuredData?.documentFrame || false,
   }
 
   // Restore sections if exists
@@ -140,7 +141,7 @@ export default function EnterpriseLetterBuilder({
     return (
       <div className="bg-white shadow-xl rounded-xl border border-slate-200 overflow-hidden mx-auto max-w-[794px] min-h-[1123px] relative print:shadow-none print:border-none flex flex-col">
         <style dangerouslySetInnerHTML={{__html: `
-          .enterprise-letter { font-family: ${formData.fontFamily}; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 48px; display: flex; flex-direction: column; min-height: 100%; flex: 1; }
+          .enterprise-letter { font-family: ${formData.fontFamily}; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 48px; display: flex; flex-direction: column; min-height: 100%; flex: 1; ${formData.documentFrame ? `border: 12px double ${formData.primaryColor}; border-radius: 8px; outline: 2px solid ${formData.primaryColor}; outline-offset: -8px; padding: 36px;` : ''} }
           .enterprise-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${formData.primaryColor}; padding-bottom: 20px; margin-bottom: 24px; }
           .enterprise-logo { max-height: 60px; max-width: 220px; object-fit: contain; }
           .enterprise-co-info { text-align: right; }
@@ -174,6 +175,11 @@ export default function EnterpriseLetterBuilder({
       {/* Toolbar */}
       <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
+          <button type="button" onClick={onCancel} className="btn-ghost btn-sm gap-2 mr-2 border border-slate-200 hover:bg-slate-100">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back
+          </button>
+          <div className="h-6 w-[1px] bg-slate-200"></div>
           <h2 className="font-bold text-slate-800 flex items-center gap-2">
             <FiLayout className="text-primary" /> Enterprise Letter Builder
           </h2>
@@ -199,14 +205,11 @@ export default function EnterpriseLetterBuilder({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={onCancel} className="btn-ghost btn-sm">
-            <FiX /> Cancel
-          </button>
           <button 
             type="button" 
             onClick={handleSubmit(handleSave)} 
             disabled={isSaving}
-            className="btn-primary btn-sm"
+            className="btn-primary btn-sm px-6"
           >
             {isSaving ? <span className="spinner" /> : <><FiSave /> Save Letter</>}
           </button>
@@ -240,6 +243,10 @@ export default function EnterpriseLetterBuilder({
                         <option value="'Inter', sans-serif">Clean (Inter)</option>
                       </select>
                     </div>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                      <input type="checkbox" {...register('documentFrame')} className="form-checkbox text-primary rounded" />
+                      Add decorative border frame
+                    </label>
                   </div>
 
                   <div className="space-y-3">
@@ -419,7 +426,7 @@ export default function EnterpriseLetterBuilder({
               <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-slate-100">
                 <div className="bg-white shadow-xl rounded-xl border border-slate-200 mx-auto max-w-[794px] min-h-[1123px] relative flex flex-col">
                   <style dangerouslySetInnerHTML={{__html: `
-                    .enterprise-letter { font-family: ${formData.fontFamily}; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 48px; display: flex; flex-direction: column; min-height: 100%; flex: 1; }
+                    .enterprise-letter { font-family: ${formData.fontFamily}; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 48px; display: flex; flex-direction: column; min-height: 100%; flex: 1; ${formData.documentFrame ? `border: 12px double ${formData.primaryColor}; border-radius: 8px; outline: 2px solid ${formData.primaryColor}; outline-offset: -8px; padding: 36px;` : ''} }
                     .enterprise-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${formData.primaryColor}; padding-bottom: 20px; margin-bottom: 24px; }
                     .enterprise-logo { max-height: 60px; max-width: 220px; object-fit: contain; }
                     .enterprise-co-info { text-align: right; }

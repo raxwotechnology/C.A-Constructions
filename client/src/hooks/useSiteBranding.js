@@ -14,8 +14,9 @@ export function useSiteBranding() {
   const { data, isLoading, isFetching } = useQuery({
     queryKey: SITE_SETTINGS_QUERY_KEY,
     queryFn: () => api.get('/site-settings').then((r) => r.data),
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,        // 5 minutes — reduces unnecessary refetches
+    refetchOnWindowFocus: true,    // refresh logo/branding when user returns to tab
+    refetchOnReconnect: true,      // refresh after network recovery
   })
 
   const settings = data?.settings || {}

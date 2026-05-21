@@ -702,8 +702,8 @@ export default function AdminLetters() {
                 {/* 'custom' type form fields removed as it launches builder */}
 
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">
-                    Cancel
+                  <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center gap-2">
+                    <FiChevronDown className="rotate-90" /> Back
                   </button>
                   <button type="submit" disabled={generateMut.isPending} className="btn-primary flex-1 justify-center">
                     {generateMut.isPending ? <span className="spinner" /> : 'Generate'}
@@ -781,8 +781,13 @@ export default function AdminLetters() {
                   <button type="button" onClick={() => handlePdf({ ...preview, content: editContent })} className="btn-outline btn-sm">
                     <FiDownload size={14} /> PDF
                   </button>
-                  <button type="button" onClick={() => { setPreview(null); setEditMode(false); setLetterEditHtmlSource(false) }} className="p-2 hover:bg-slate-200 rounded-lg">
-                    <FiX />
+                  <button 
+                    type="button" 
+                    onClick={() => { setPreview(null); setEditMode(false); setLetterEditHtmlSource(false) }} 
+                    className="btn-ghost btn-sm gap-2 border border-slate-200 ml-1 hover:bg-slate-200"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back
                   </button>
                 </div>
               </div>

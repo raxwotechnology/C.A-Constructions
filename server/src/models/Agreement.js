@@ -23,6 +23,7 @@ const agreementSchema = new mongoose.Schema({
   // ── Content ───────────────────────────────────────────────────────────────
   content: { type: String, default: '' },   // rich HTML content
   templateId: String,                        // template used to generate
+  hasFrame: { type: Boolean, default: false },
 
   // ── Status ────────────────────────────────────────────────────────────────
   status: {

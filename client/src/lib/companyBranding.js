@@ -110,5 +110,6 @@ export function buildAgreementPrintOpts(settings, agr, bodyHtml, signatures) {
       : new Date().toLocaleDateString('en-LK'),
     bodyHtml: bodyHtml || '',
     signatures: signatures || agr?.signatures,
+    hasFrame: agr?.hasFrame || false,
   }
 }

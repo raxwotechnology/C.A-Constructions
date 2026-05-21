@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,13 +6,14 @@ import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiSearch, FiDownload, FiClock } from 'react-icons/fi'
+import { FiPlus, FiX, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiSearch, FiDownload, FiClock, FiRotateCcw, FiRotateCw, FiMove } from 'react-icons/fi'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import { buildAgreementPrintOpts } from '../../lib/companyBranding'
 import { openAgreementPrint, downloadAgreementPdf } from '../../lib/agreementPrint'
 import SignaturePad from '../../components/admin/SignaturePad'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
+import { FiBookmark, FiEdit } from 'react-icons/fi'
 
 const AGREEMENT_TYPES = [
   { value: 'client_project', label: 'Client Project Agreement' },
@@ -49,6 +50,7 @@ export default function Agreements() {
       subscription: '',
       title: '',
       agreementDate: new Date().toISOString().split('T')[0],
+      hasFrame: false,
     },
   })
 
@@ -57,6 +59,21 @@ export default function Agreements() {
   const [search, setSearch] = useState('')
   const [signatures, setSignatures] = useState(EMPTY_SIG())
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const tplQuillRef = useRef(null)
+  
+  const TEMPLATE_TOKENS = [
+    { label: 'Client Name', value: '{{ClientName}}' },
+    { label: 'Project Name', value: '{{ProjectName}}' },
+    { label: 'Invoice No', value: '{{InvoiceNo}}' },
+    { label: 'Agreement Date', value: '{{AgreementDate}}' },
+    { label: 'Total Amount', value: '{{TotalAmount}}' },
+    { label: 'Company Name', value: '{{CompanyName}}' },
+  ]
+  
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState(null)
+  const [templateContent, setTemplateContent] = useState('')
+  const [templateHasFrame, setTemplateHasFrame] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['agreements'],
@@ -118,7 +135,7 @@ export default function Agreements() {
   })
 
   const createMut = useMutation({
-    mutationFn: (d) => api.post('/agreements', { ...d, content: editorContent, signatures }),
+    mutationFn: (d) => api.post('/agreements', { ...d, content: editorContent, signatures, hasFrame: watch('hasFrame') }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['agreements'] })
       toast.success('Agreement created')
@@ -162,10 +179,14 @@ export default function Agreements() {
   })
 
   const createTplMut = useMutation({
-    mutationFn: (body) => api.post('/agreements/templates', body),
+    mutationFn: (body) => {
+      if (body._id) return api.put(`/agreements/templates/${body._id}`, body)
+      return api.post('/agreements/templates', body)
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['agreement-templates'] })
       toast.success('Template saved')
+      setEditingTemplate(null)
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to save template'),
   })
@@ -193,6 +214,7 @@ export default function Agreements() {
       subscription: '',
       title: '',
       agreementDate: new Date().toISOString().split('T')[0],
+      hasFrame: false,
     })
   }
 
@@ -205,6 +227,7 @@ export default function Agreements() {
       subscription: '',
       title: '',
       agreementDate: new Date().toISOString().split('T')[0],
+      hasFrame: false,
     })
     setEditorContent('')
     setSignatures(EMPTY_SIG())
@@ -221,6 +244,7 @@ export default function Agreements() {
     setValue('project', agr.project?._id || '')
     setValue('invoice', agr.invoice?._id || '')
     setValue('agreementDate', agr.agreementDate ? new Date(agr.agreementDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+    setValue('hasFrame', agr.hasFrame || false)
     setEditorContent(agr.content || '')
     setSignatures(
       agr.signatures
@@ -242,7 +266,7 @@ export default function Agreements() {
   }
 
   const handleSave = (data) => {
-    const payload = { ...data, content: editorContent, signatures }
+    const payload = { ...data, content: editorContent, signatures, hasFrame: data.hasFrame }
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
@@ -267,6 +291,7 @@ export default function Agreements() {
     if (!t) return
     setEditorContent(t.content || '')
     setValue('agreementType', t.agreementType || 'custom')
+    setValue('hasFrame', t.hasFrame || false)
     setStep(2)
     toast.success(`Loaded template: ${t.name}`)
   }
@@ -274,7 +299,7 @@ export default function Agreements() {
   const saveCurrentAsTemplate = () => {
     const name = window.prompt('Template name')
     if (!name || !name.trim()) return
-    createTplMut.mutate({ name: name.trim(), content: editorContent, agreementType: watch('agreementType') })
+    createTplMut.mutate({ name: name.trim(), content: editorContent, agreementType: watch('agreementType'), hasFrame: watch('hasFrame') })
   }
 
   const type = watch('agreementType')
@@ -344,9 +369,14 @@ export default function Agreements() {
           <h1 className="page-title">Agreements</h1>
           <p className="page-subtitle">Corporate agreements, templates, signatures, and approvals</p>
         </div>
-        <button type="button" onClick={openCreate} className="btn-primary">
-          <FiPlus size={15} /> New agreement
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setShowTemplatesModal(true)} className="btn-outline">
+            <FiBookmark size={15} /> Manage templates
+          </button>
+          <button type="button" onClick={openCreate} className="btn-primary">
+            <FiPlus size={15} /> New agreement
+          </button>
+        </div>
       </div>
 
       <div className="card overflow-hidden border border-slate-200 shadow-sm">
@@ -638,6 +668,12 @@ export default function Agreements() {
                         <label className="form-label">Agreement date</label>
                         <input type="date" {...register('agreementDate')} className="form-input" />
                       </div>
+                      <div className="col-span-full">
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                          <input type="checkbox" {...register('hasFrame')} className="form-checkbox text-primary rounded" />
+                          Add decorative frame to document
+                        </label>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -687,10 +723,15 @@ export default function Agreements() {
                           className="flex-1 agreement-quill"
                           modules={{
                             toolbar: [
-                              [{ header: [1, 2, 3, false] }],
+                              [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
+                              [{ header: [1, 2, 3, 4, 5, 6, false] }],
                               ['bold', 'italic', 'underline', 'strike'],
-                              [{ list: 'ordered' }, { list: 'bullet' }],
-                              ['link'],
+                              [{ color: [] }, { background: [] }],
+                              [{ script: 'sub' }, { script: 'super' }],
+                              [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }],
+                              [{ align: [] }],
+                              ['blockquote', 'code-block'],
+                              ['link', 'image', 'video'],
                               ['clean'],
                             ],
                           }}
@@ -765,6 +806,180 @@ export default function Agreements() {
                   'Save agreement'
                 )}
               </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {showTemplatesModal && createPortal(
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[999999]" onClick={() => setShowTemplatesModal(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-6 border-b flex justify-between items-center bg-slate-50 shrink-0">
+              <h2 className="text-xl font-bold font-heading text-slate-800">Agreement Templates</h2>
+              <button type="button" onClick={() => setShowTemplatesModal(false)} className="p-2 hover:bg-slate-200 rounded-lg">
+                <FiX size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 flex gap-6 flex-col md:flex-row">
+              <div className="w-full md:w-1/3 shrink-0 flex flex-col gap-3">
+                <button
+                  type="button"
+                  className="btn-primary w-full"
+                  onClick={() => {
+                    setEditingTemplate({ name: 'New Template', agreementType: 'custom' })
+                    setTemplateContent('')
+                    setTemplateHasFrame(false)
+                  }}
+                >
+                  <FiPlus /> Create Template
+                </button>
+                <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 bg-white border border-slate-200 rounded-xl p-2">
+                  {templates.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center p-4">No templates created yet.</p>
+                  ) : (
+                    templates.map(t => (
+                      <div key={t._id} className={`p-3 rounded-lg border cursor-pointer transition-colors ${editingTemplate?._id === t._id ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => {
+                        setEditingTemplate(t)
+                        setTemplateContent(t.content || '')
+                        setTemplateHasFrame(t.hasFrame || false)
+                      }}>
+                        <p className="font-semibold text-sm text-slate-800 truncate">{t.name}</p>
+                        <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">{t.agreementType}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 flex flex-col min-h-[400px]">
+                {editingTemplate ? (
+                  <div className="flex flex-col h-full gap-4">
+                    <div className="flex gap-3">
+                      <input 
+                        className="form-input flex-1 font-bold" 
+                        placeholder="Template Name"
+                        value={editingTemplate.name}
+                        onChange={(e) => setEditingTemplate({...editingTemplate, name: e.target.value})}
+                      />
+                      <select 
+                        className="form-select w-48"
+                        value={editingTemplate.agreementType}
+                        onChange={(e) => setEditingTemplate({...editingTemplate, agreementType: e.target.value})}
+                      >
+                        {AGREEMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={templateHasFrame}
+                          onChange={(e) => setTemplateHasFrame(e.target.checked)}
+                          className="form-checkbox text-primary rounded" 
+                        />
+                        Add decorative frame to document
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => tplQuillRef.current?.getEditor()?.history?.undo()} title="Undo (Ctrl+Z)" className="p-1.5 text-slate-500 hover:bg-slate-200 rounded">
+                          <FiRotateCcw size={14} />
+                        </button>
+                        <button type="button" onClick={() => tplQuillRef.current?.getEditor()?.history?.redo()} title="Redo (Ctrl+Y)" className="p-1.5 text-slate-500 hover:bg-slate-200 rounded">
+                          <FiRotateCw size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Smart Tokens (Drag & Drop)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {TEMPLATE_TOKENS.map(tk => (
+                          <div 
+                            key={tk.value} 
+                            className="bg-white border border-slate-200 text-xs font-mono px-2 py-1 rounded shadow-sm flex items-center gap-1 cursor-grab active:cursor-grabbing hover:border-primary hover:text-primary transition-colors"
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', tk.value)
+                            }}
+                          >
+                            <FiMove size={10} className="text-slate-400" /> {tk.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-h-[250px] border border-slate-200 rounded-lg overflow-hidden flex flex-col">
+                      <ReactQuill
+                        ref={tplQuillRef}
+                        theme="snow"
+                        value={templateContent}
+                        onChange={setTemplateContent}
+                        className="flex-1 agreement-quill flex flex-col"
+                        modules={{
+                          history: { delay: 1000, maxStack: 100, userOnly: true },
+                          toolbar: [
+                            [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
+                            [{ header: [1, 2, 3, 4, 5, 6, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ color: [] }, { background: [] }],
+                            [{ script: 'sub' }, { script: 'super' }],
+                            [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }],
+                            [{ align: [] }],
+                            ['blockquote', 'code-block'],
+                            ['link', 'image', 'video'],
+                            ['clean'],
+                          ],
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      {editingTemplate._id && (
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            if (window.confirm('Delete template?')) {
+                              deleteTplMut.mutate(editingTemplate._id)
+                              setEditingTemplate(null)
+                            }
+                          }}
+                          className="btn-ghost text-red-600 mr-auto"
+                        >
+                          Delete
+                        </button>
+                      )}
+                      <button type="button" onClick={() => setEditingTemplate(null)} className="btn-outline">Cancel</button>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          if (!editingTemplate.name.trim()) return toast.error('Name required')
+                          createTplMut.mutate({
+                            _id: editingTemplate._id,
+                            name: editingTemplate.name,
+                            agreementType: editingTemplate.agreementType,
+                            content: templateContent,
+                            hasFrame: templateHasFrame
+                          })
+                        }} 
+                        className="btn-primary"
+                        disabled={createTplMut.isPending}
+                      >
+                        {createTplMut.isPending ? <span className="spinner" /> : 'Save Template'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                    <FiBookmark size={48} className="mb-4 opacity-30" />
+                    <p>Select a template to edit or create a new one.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         </div>,

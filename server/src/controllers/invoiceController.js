@@ -156,6 +156,16 @@ exports.createInvoice = async (req, res, next) => {
       link: '/invoices',
     });
 
+    const populatedInv = await Invoice.findById(invoice._id).populate('client');
+    if (populatedInv.client?.email) {
+      const { sendInvoiceEmail } = require('../services/emailService');
+      await sendInvoiceEmail(populatedInv.client.email, populatedInv.client.name, invoice.invoiceNo, invoice.total, dueDate || invoiceDate);
+    }
+    if (populatedInv.client?.phone) {
+      const { sendSms } = require('../services/smsService');
+      await sendSms(populatedInv.client.phone, `Hi ${populatedInv.client.name}, Invoice ${invoice.invoiceNo} for LKR ${Number(invoice.total).toLocaleString()} has been issued.`, populatedInv.client.name, 'invoice');
+    }
+
     await syncProjectsForInvoice(invoice._id);
 
     res.status(201).json({ success: true, invoice });

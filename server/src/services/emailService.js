@@ -5,6 +5,7 @@
  * Set SMTP_* env vars in .env to enable sending.
  */
 const { sendMail } = require('../utils/mailer');
+const EmailLog = require('../models/EmailLog');
 
 const FROM = process.env.SMTP_FROM || 'noreply@raxwo.net';
 const APP_URL = process.env.APP_URL || 'https://raxwo.net';
@@ -26,14 +27,40 @@ const wrap = (content) => `<!DOCTYPE html>
 const btn = (label, url) =>
   `<p style="margin:20px 0;"><a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:600;font-size:14px;">${label}</a></p>`;
 
-const safe = (fn) => async (...args) => {
+const safe = (fn, moduleName = 'system') => async (...args) => {
   try { return await fn(...args); }
-  catch (err) { console.warn('[emailService] Failed to send email:', err?.message); }
+  catch (err) { 
+    console.warn('[emailService] Failed to send email:', err?.message); 
+    // We try to extract email and subject if they were passed, but since it's generic, 
+    // we do the logging inside a custom send function below for better tracking.
+  }
+};
+
+// Wrapper around sendMail to include logging
+const sendLoggedMail = async (options, moduleName = 'system') => {
+  try {
+    await sendMail(options);
+    await EmailLog.create({
+      recipientEmail: options.to,
+      subject: options.subject,
+      module: moduleName,
+      status: 'sent'
+    }).catch(() => {});
+  } catch (error) {
+    console.warn('[emailService] Failed to send email:', error?.message);
+    await EmailLog.create({
+      recipientEmail: options.to || 'unknown',
+      subject: options.subject || 'unknown',
+      module: moduleName,
+      status: 'failed',
+      error: error?.message || 'Unknown error'
+    }).catch(() => {});
+  }
 };
 
 /* ─── Leave Notifications ────────────────────────────────────────────────────── */
-exports.sendLeaveSubmittedEmail = safe(async (employeeEmail, employeeName, leaveType, days, startDate) => {
-  await sendMail({
+exports.sendLeaveSubmittedEmail = async (employeeEmail, employeeName, leaveType, days, startDate) => {
+  await sendLoggedMail({
     from: FROM, to: employeeEmail,
     subject: `Leave Request Submitted — ${leaveType}`,
     html: wrap(`
@@ -42,12 +69,12 @@ exports.sendLeaveSubmittedEmail = safe(async (employeeEmail, employeeName, leave
       <p>You will be notified once it is reviewed by your manager.</p>
       ${btn('View My Leaves', `${APP_URL}/developer/leaves`)}
     `),
-  });
-});
+  }, 'leave');
+};
 
-exports.sendLeaveDecisionEmail = safe(async (employeeEmail, employeeName, leaveType, status, reason) => {
+exports.sendLeaveDecisionEmail = async (employeeEmail, employeeName, leaveType, status, reason) => {
   const approved = status === 'approved';
-  await sendMail({
+  await sendLoggedMail({
     from: FROM, to: employeeEmail,
     subject: `Leave Request ${approved ? 'Approved ✅' : 'Rejected ❌'} — ${leaveType}`,
     html: wrap(`
@@ -56,13 +83,13 @@ exports.sendLeaveDecisionEmail = safe(async (employeeEmail, employeeName, leaveT
       ${reason ? `<div style="background:${approved ? '#f0fdf4' : '#fef2f2'};border-left:4px solid ${approved ? '#16a34a' : '#dc2626'};padding:12px;border-radius:4px;margin:12px 0;font-size:14px;">${reason}</div>` : ''}
       ${btn('View Details', `${APP_URL}/developer/leaves`)}
     `),
-  });
-});
+  }, 'leave');
+};
 
 /* ─── Request Notifications ─────────────────────────────────────────────────── */
-exports.sendRequestSubmittedEmail = safe(async (managerEmails, employeeName, subject, type) => {
+exports.sendRequestSubmittedEmail = async (managerEmails, employeeName, subject, type) => {
   if (!managerEmails?.length) return;
-  await sendMail({
+  await sendLoggedMail({
     from: FROM, to: managerEmails.join(','),
     subject: `New Employee Request: ${subject}`,
     html: wrap(`
@@ -73,12 +100,12 @@ exports.sendRequestSubmittedEmail = safe(async (managerEmails, employeeName, sub
       <p>Please review and take action in the admin panel.</p>
       ${btn('Review Request', `${APP_URL}/admin/requests`)}
     `),
-  });
-});
+  }, 'request');
+};
 
-exports.sendRequestDecisionEmail = safe(async (employeeEmail, employeeName, subject, status, note) => {
+exports.sendRequestDecisionEmail = async (employeeEmail, employeeName, subject, status, note) => {
   const approved = status.includes('approved');
-  await sendMail({
+  await sendLoggedMail({
     from: FROM, to: employeeEmail,
     subject: `Request ${approved ? 'Approved ✅' : 'Rejected ❌'}: ${subject}`,
     html: wrap(`
@@ -87,24 +114,24 @@ exports.sendRequestDecisionEmail = safe(async (employeeEmail, employeeName, subj
       ${note ? `<div style="background:#f1f5f9;padding:12px;border-radius:8px;margin:12px 0;font-size:14px;"><strong>Note:</strong> ${note}</div>` : ''}
       ${btn('View My Requests', `${APP_URL}/developer/requests`)}
     `),
-  });
-});
+  }, 'request');
+};
 
 /* ─── Work Log Notifications ─────────────────────────────────────────────────── */
-exports.sendWorkLogSubmittedEmail = safe(async (managerEmails, employeeName, date, taskCount) => {
+exports.sendWorkLogSubmittedEmail = async (managerEmails, employeeName, date, taskCount) => {
   if (!managerEmails?.length) return;
-  await sendMail({
+  await sendLoggedMail({
     from: FROM, to: managerEmails.join(','),
     subject: `Work Log Submitted — ${employeeName} (${new Date(date).toLocaleDateString('en-LK')})`,
     html: wrap(`
       <p><strong>${employeeName}</strong> has submitted a work log for <strong>${new Date(date).toLocaleDateString('en-LK')}</strong> with <strong>${taskCount} task(s)</strong> completed.</p>
       ${btn('Review Work Log', `${APP_URL}/admin/work-logs`)}
     `),
-  });
-});
+  }, 'work_log');
+};
 
-exports.sendWorkLogApprovedEmail = safe(async (employeeEmail, employeeName, date, note) => {
-  await sendMail({
+exports.sendWorkLogApprovedEmail = async (employeeEmail, employeeName, date, note) => {
+  await sendLoggedMail({
     from: FROM, to: employeeEmail,
     subject: `Work Log Approved ✅ — ${new Date(date).toLocaleDateString('en-LK')}`,
     html: wrap(`
@@ -113,12 +140,12 @@ exports.sendWorkLogApprovedEmail = safe(async (employeeEmail, employeeName, date
       ${note ? `<div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:12px;border-radius:4px;margin:12px 0;font-size:14px;">${note}</div>` : ''}
       ${btn('View My Work Logs', `${APP_URL}/developer/work-logs`)}
     `),
-  });
-});
+  }, 'work_log');
+};
 
 /* ─── Tool Assignment Notifications ─────────────────────────────────────────── */
-exports.sendToolAssignedEmail = safe(async (employeeEmail, employeeName, toolName, accessUrl) => {
-  await sendMail({
+exports.sendToolAssignedEmail = async (employeeEmail, employeeName, toolName, accessUrl) => {
+  await sendLoggedMail({
     from: FROM, to: employeeEmail,
     subject: `New Tool Access Assigned: ${toolName} 🔑`,
     html: wrap(`
@@ -127,11 +154,11 @@ exports.sendToolAssignedEmail = safe(async (employeeEmail, employeeName, toolNam
       ${accessUrl ? `<p>Direct access: <a href="${accessUrl}" style="color:#2563eb;">${accessUrl}</a></p>` : ''}
       ${btn('View My Tools', `${APP_URL}/developer/tools`)}
     `),
-  });
-});
+  }, 'tool');
+};
 
-exports.sendToolRevokedEmail = safe(async (employeeEmail, employeeName, toolName) => {
-  await sendMail({
+exports.sendToolRevokedEmail = async (employeeEmail, employeeName, toolName) => {
+  await sendLoggedMail({
     from: FROM, to: employeeEmail,
     subject: `Tool Access Revoked: ${toolName}`,
     html: wrap(`
@@ -140,13 +167,13 @@ exports.sendToolRevokedEmail = safe(async (employeeEmail, employeeName, toolName
       <p>If you believe this is an error, please contact HR or your manager.</p>
       ${btn('View My Tools', `${APP_URL}/developer/tools`)}
     `),
-  });
-});
+  }, 'tool');
+};
 
 /* ─── Payroll Notifications ─────────────────────────────────────────────────── */
-exports.sendPayslipReadyEmail = safe(async (employeeEmail, employeeName, month, year, netSalary) => {
+exports.sendPayslipReadyEmail = async (employeeEmail, employeeName, month, year, netSalary) => {
   const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
-  await sendMail({
+  await sendLoggedMail({
     from: FROM, to: employeeEmail,
     subject: `Your Payslip for ${monthName} ${year} is Ready 💰`,
     html: wrap(`
@@ -158,11 +185,11 @@ exports.sendPayslipReadyEmail = safe(async (employeeEmail, employeeName, month, 
       </div>
       ${btn('View Payslip', `${APP_URL}/developer/payslips`)}
     `),
-  });
-});
+  }, 'payroll');
+};
 
 /* ─── Payroll Batch Notify (Admin trigger) ───────────────────────────────────── */
-exports.sendBatchPayslipEmails = safe(async (payrolls) => {
+exports.sendBatchPayslipEmails = async (payrolls) => {
   for (const p of payrolls) {
     if (p.employee?.userId?.email) {
       await exports.sendPayslipReadyEmail(
@@ -174,4 +201,52 @@ exports.sendBatchPayslipEmails = safe(async (payrolls) => {
       );
     }
   }
-});
+};
+
+/* ─── Quotation, Invoice, Project Notifications ──────────────────────────────── */
+exports.sendQuotationEmail = async (clientEmail, clientName, quotationNo, total, expiryDate) => {
+  await sendLoggedMail({
+    from: FROM, to: clientEmail,
+    subject: `Quotation ${quotationNo} from Raxwo Technology`,
+    html: wrap(`
+      <p>Hi <strong>${clientName}</strong>,</p>
+      <p>We have generated a new quotation (<strong>${quotationNo}</strong>) for your request.</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:16px;border-radius:8px;margin:16px 0;">
+        <p style="margin:0;"><strong>Total Amount:</strong> LKR ${Number(total).toLocaleString()}</p>
+        <p style="margin:4px 0 0;"><strong>Valid Until:</strong> ${new Date(expiryDate).toLocaleDateString('en-LK')}</p>
+      </div>
+      <p>Please log in to your client portal to view or download the full document.</p>
+      ${btn('View Quotation', `${APP_URL}/client-portal`)}
+    `),
+  }, 'quotation');
+};
+
+exports.sendInvoiceEmail = async (clientEmail, clientName, invoiceNo, total, dueDate) => {
+  await sendLoggedMail({
+    from: FROM, to: clientEmail,
+    subject: `Invoice ${invoiceNo} from Raxwo Technology`,
+    html: wrap(`
+      <p>Hi <strong>${clientName}</strong>,</p>
+      <p>A new invoice (<strong>${invoiceNo}</strong>) has been generated for your account.</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:16px;border-radius:8px;margin:16px 0;">
+        <p style="margin:0;"><strong>Total Amount:</strong> LKR ${Number(total).toLocaleString()}</p>
+        <p style="margin:4px 0 0;"><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-LK')}</p>
+      </div>
+      <p>Please log in to your client portal to view, download, or make a payment.</p>
+      ${btn('View Invoice', `${APP_URL}/client-portal`)}
+    `),
+  }, 'invoice');
+};
+
+exports.sendProjectAssignedEmail = async (clientEmail, clientName, projectTitle) => {
+  await sendLoggedMail({
+    from: FROM, to: clientEmail,
+    subject: `Project Update: ${projectTitle}`,
+    html: wrap(`
+      <p>Hi <strong>${clientName}</strong>,</p>
+      <p>A new project <strong>"${projectTitle}"</strong> has been initiated and assigned to your account.</p>
+      <p>You can track the progress, milestones, and deliverables through your client portal.</p>
+      ${btn('View Project', `${APP_URL}/client-portal`)}
+    `),
+  }, 'project');
+};

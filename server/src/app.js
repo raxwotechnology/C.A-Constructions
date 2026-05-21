@@ -48,6 +48,7 @@ const attendancePolicyRoutes = require('./routes/attendancePolicyRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const toolAssignmentRoutes = require('./routes/toolAssignmentRoutes');
 const smsRoutes = require('./routes/smsRoutes');
+const emailLogRoutes = require('./routes/emailLogRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -98,7 +99,27 @@ const UPLOADS_ROOT = ensureUploadSubdirs();
 console.log(`📁 Uploads directory: ${UPLOADS_ROOT}`);
 
 // Static files — serve /uploads/** from the server uploads folder
-app.use('/uploads', express.static(UPLOADS_ROOT, { maxAge: '7d', fallthrough: true }));
+// Use etag + short max-age with must-revalidate so images recover after temporary failures
+app.use('/uploads', express.static(UPLOADS_ROOT, {
+  maxAge: '1h',
+  etag: true,
+  lastModified: true,
+  fallthrough: true,
+}));
+
+// If an upload is missing, return 404 with no-cache so it can recover when re-uploaded
+app.use('/uploads', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.status(404).send(`
+    <html>
+      <head><title>File Not Found</title></head>
+      <body style="font-family: system-ui, sans-serif; text-align: center; padding: 50px;">
+        <h2>File Not Found</h2>
+        <p>The requested file could not be found on the server. It may have been removed or not uploaded correctly.</p>
+      </body>
+    </html>
+  `);
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -143,6 +164,7 @@ app.use('/api/attendance-policies', attendancePolicyRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/tool-assignments', toolAssignmentRoutes);
 app.use('/api/sms', smsRoutes);
+app.use('/api/email-logs', emailLogRoutes);
 app.use('/api/leaders', require('./routes/leaderRoutes'));
 
 ensureDefaultRules().catch(() => {});
