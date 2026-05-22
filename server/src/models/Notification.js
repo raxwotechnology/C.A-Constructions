@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema({
   message: { type: String, required: true },
   type: {
     type: String,
-    enum: ['leave', 'payroll', 'project', 'recruitment', 'payment', 'system', 'letter', 'attendance', 'booking', 'birthday', 'reward', 'voucher', 'referral', 'subscription', 'hosting', 'domain'],
+    enum: ['leave', 'payroll', 'project', 'recruitment', 'payment', 'system', 'letter', 'attendance', 'booking', 'birthday', 'reward', 'voucher', 'referral', 'subscription', 'hosting', 'domain', 'financial', 'quotation', 'invoice'],
     default: 'system'
   },
   link: String,

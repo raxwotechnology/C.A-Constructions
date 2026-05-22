@@ -26,7 +26,12 @@ exports.getQuotations = async (req, res, next) => {
     const { status, client, startDate, endDate } = req.query;
     const query = {};
     if (status) query.status = status;
-    if (client) query.client = client;
+    if (req.user.role === 'client') {
+      if (!req.user.client) return res.json({ success: true, count: 0, quotations: [] });
+      query.client = req.user.client;
+    } else if (client) {
+      query.client = client;
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -113,11 +118,11 @@ exports.createQuotation = async (req, res, next) => {
       const populatedQ = await Quotation.findById(quotation._id).populate('client');
       if (populatedQ.client?.email) {
         const { sendQuotationEmail } = require('../services/emailService');
-        await sendQuotationEmail(populatedQ.client.email, populatedQ.client.name, quotation.quotationNo, quotation.total, quotation.expiryDate || new Date());
+        await sendQuotationEmail(populatedQ.client.email, populatedQ.client.name, quotation);
       }
       if (populatedQ.client?.phone) {
-        const { sendSms } = require('../services/smsService');
-        await sendSms(populatedQ.client.phone, `Hi ${populatedQ.client.name}, Quotation ${quotation.quotationNo} has been generated for LKR ${Number(quotation.total).toLocaleString()}.`, populatedQ.client.name, 'quotation');
+        const { sendQuotationSms } = require('../services/smsService');
+        await sendQuotationSms(populatedQ.client.phone, populatedQ.client.name, quotation.quotationNo, quotation.total);
       }
     }
 

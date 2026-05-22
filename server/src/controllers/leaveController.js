@@ -173,6 +173,14 @@ exports.requestLeave = async (req, res, next) => {
       link: '/admin/leaves',
     })));
 
+    const { sendLeaveSubmittedEmail } = require('../services/emailService');
+    const populatedEmp = await Employee.findById(employee._id).populate('userId');
+    if (populatedEmp?.userId?.email) {
+      await sendLeaveSubmittedEmail(populatedEmp.userId.email, populatedEmp.userId.name, {
+        leaveType, days, startDate: start
+      });
+    }
+
     res.status(201).json({ success: true, leave });
   } catch (err) { next(err); }
 };
@@ -354,6 +362,20 @@ exports.updateLeaveStatus = async (req, res, next) => {
       type: 'leave',
       link: `/${leave.employee.userId.role || 'developer'}/leaves`,
     });
+
+    const populatedEmp = await Employee.findById(leave.employee._id).populate('userId');
+    const { sendLeaveDecisionEmail } = require('../services/emailService');
+    const { sendLeaveDecisionSms } = require('../services/smsService');
+    
+    if (populatedEmp?.userId?.email) {
+      await sendLeaveDecisionEmail(populatedEmp.userId.email, populatedEmp.userId.name, {
+        leaveType: leave.leaveType, status, reason: rejectedReason || remarks
+      });
+    }
+    if (populatedEmp?.userId?.phone || populatedEmp?.phone) {
+      const phone = populatedEmp.userId?.phone || populatedEmp.phone;
+      await sendLeaveDecisionSms(phone, populatedEmp.userId?.name, leave.leaveType, status);
+    }
 
     if (status === 'approved') {
       const period = monthYearFromDate(leave.startDate || new Date());

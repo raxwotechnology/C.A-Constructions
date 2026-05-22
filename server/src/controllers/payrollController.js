@@ -511,7 +511,7 @@ exports.markPaid = async (req, res, next) => {
     }
 
     const payroll = await Payroll.findByIdAndUpdate(req.params.id, updatePayload, { new: true })
-      .populate({ path: 'employee', populate: { path: 'userId', select: '_id name email' } });
+      .populate({ path: 'employee', populate: { path: 'userId', select: '_id name email phone' } });
     if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
 
     await createNotification({
@@ -528,15 +528,15 @@ exports.markPaid = async (req, res, next) => {
       await emailService.sendPayslipReadyEmail(
         payroll.employee.userId.email,
         payroll.employee.userId.name,
-        payroll.month, payroll.year,
-        payroll.netSalary
+        { month: payroll.month, year: payroll.year, netSalary: payroll.netSalary }
       );
     }
     
     if (payroll.employee?.userId?.phone || payroll.employee?.phone) {
-      const { sendSms } = require('../services/smsService');
+      const { sendPayslipSms } = require('../services/smsService');
       const phone = payroll.employee?.userId?.phone || payroll.employee?.phone;
-      await sendSms(phone, `Salary for ${payroll.month}/${payroll.year} has been credited. Net: LKR ${Number(payroll.netSalary || 0).toLocaleString()}`, payroll.employee?.userId?.name, 'payroll');
+      const monthName = new Date(payroll.year, payroll.month - 1).toLocaleString('default', { month: 'long' });
+      await sendPayslipSms(phone, payroll.employee?.userId?.name, monthName, payroll.netSalary);
     }
 
     // Sync with EpfRecord

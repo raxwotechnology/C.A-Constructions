@@ -14,3 +14,5 @@ server.listen(PORT, () => {
   console.log(`🚀 Raxwo Server running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
 });
+
+require('./services/cronService');

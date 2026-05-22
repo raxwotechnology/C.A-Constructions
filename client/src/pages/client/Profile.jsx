@@ -1,11 +1,14 @@
 import { useForm } from 'react-hook-form'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
-import { FiSave, FiUser, FiLock } from 'react-icons/fi'
+import { FiSave, FiUser, FiLock, FiFolder, FiCreditCard, FiFileText, FiArrowRight, FiCheckCircle, FiClock, FiStar } from 'react-icons/fi'
 import { useState } from 'react'
 import { validateStrongPassword, passwordStrengthHints } from '../../lib/passwordValidation'
+import { formatMoney } from '../../lib/currencies'
 
 export default function ClientProfile() {
   const { user, updateUser } = useAuthStore()
@@ -16,6 +19,18 @@ export default function ClientProfile() {
     confirmPassword: '',
   })
   const [passwordLoading, setPasswordLoading] = useState(false)
+
+  const { data: projData } = useQuery({ queryKey: ['client-projects'], queryFn: () => api.get('/projects').then(r => r.data) })
+  const { data: invData }  = useQuery({ queryKey: ['client-invoices'], queryFn: () => api.get('/invoices').then(r => r.data) })
+  const { data: quotData } = useQuery({ queryKey: ['client-quotations'], queryFn: () => api.get('/quotations').then(r => r.data) })
+
+  const projects = projData?.projects || []
+  const invoices = invData?.invoices || []
+  const quotations = quotData?.quotations || []
+
+  const activeProjects = projects.filter(p => p.status === 'active')
+  const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue')
+  const pendingQuotations = quotations.filter(q => q.status === 'draft' || q.status === 'sent')
 
   const { register: reg1, handleSubmit: hs1 } = useForm({
     defaultValues: { name: user?.name, phone: user?.phone },
@@ -39,19 +54,10 @@ export default function ClientProfile() {
     e.preventDefault()
     const { currentPassword, newPassword, confirmPassword } = passwordForm
 
-    if (!currentPassword?.trim()) {
-      toast.error('Enter your current password')
-      return
-    }
+    if (!currentPassword?.trim()) { return toast.error('Enter your current password') }
     const strengthErr = validateStrongPassword(newPassword)
-    if (strengthErr) {
-      toast.error(strengthErr)
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error('New password and confirmation do not match')
-      return
-    }
+    if (strengthErr) { return toast.error(strengthErr) }
+    if (newPassword !== confirmPassword) { return toast.error('New password and confirmation do not match') }
 
     setPasswordLoading(true)
     try {
@@ -69,132 +75,230 @@ export default function ClientProfile() {
   }
 
   return (
-    <div className="animate-fade-in">
-      <section className="bg-gradient-hero pt-32 pb-10">
-        <div className="container-max">
-          <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-white mt-2">My Account</h1>
-          <p className="text-white/75 mt-2">Manage your account details securely.</p>
+    <div className="animate-fade-in pb-12">
+      <section className="bg-gradient-hero pt-32 pb-16 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-white rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" />
+        </div>
+        <div className="container-max relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-4xl font-bold border border-white/30 shadow-xl relative overflow-hidden">
+              {avatarFile ? (
+                <img src={URL.createObjectURL(avatarFile)} alt="" className="w-full h-full object-cover" />
+              ) : user?.avatar ? (
+                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div>
+              <p className="text-white/70 text-sm font-medium tracking-wide uppercase mb-1">Premium Client Portal</p>
+              <h1 className="text-3xl md:text-5xl font-heading font-bold text-white drop-shadow-md">{user?.name}</h1>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="badge bg-white/20 text-white border-white/10 px-3 py-1"><FiStar className="inline mr-1" /> Client</span>
+                <span className="text-white/80 text-sm">{user?.email}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="section-padding bg-slate-50">
-        <div className="container-max space-y-6 max-w-5xl">
-          <div className="page-header">
-            <div>
-              <h2 className="page-title">Profile</h2>
-              <p className="page-subtitle">Personal details and security</p>
-            </div>
+      <section className="container-max mt-8">
+        <div className="grid lg:grid-cols-12 gap-6">
+          {/* Left Column: Profile Settings */}
+          <div className="lg:col-span-5 space-y-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card card-body shadow-sm border-slate-200">
+              <div className="flex items-center gap-3 mb-5 border-b border-slate-100 pb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                  <FiUser className="text-blue-600" size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">Personal Information</h3>
+                  <p className="text-xs text-slate-500">Update your contact details</p>
+                </div>
+              </div>
+
+              <form onSubmit={hs1(async (d) => {
+                  const avatar = await uploadAvatar()
+                  profileMut.mutate({ ...d, avatar })
+                })} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label text-xs">Full Name</label>
+                    <input {...reg1('name')} className="form-input bg-slate-50" />
+                  </div>
+                  <div>
+                    <label className="form-label text-xs">Phone Number</label>
+                    <input {...reg1('phone')} placeholder="+94 77 xxx xxxx" className="form-input bg-slate-50" />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label text-xs">Email Address (Read-only)</label>
+                  <input value={user?.email} disabled className="form-input bg-slate-100 text-slate-400 cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="form-label text-xs">Profile Picture</label>
+                  <input type="file" accept="image/*" className="form-input bg-slate-50 text-sm file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
+                </div>
+                <button type="submit" disabled={profileMut.isPending} className="btn-primary w-full justify-center mt-2 py-2.5">
+                  {profileMut.isPending ? <span className="spinner" /> : <><FiSave size={16} /> Save Profile</>}
+                </button>
+              </form>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card card-body shadow-sm border-slate-200">
+              <div className="flex items-center gap-3 mb-5 border-b border-slate-100 pb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                  <FiLock className="text-red-500" size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">Account Security</h3>
+                  <p className="text-xs text-slate-500">Change your password</p>
+                </div>
+              </div>
+
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div>
+                  <label className="form-label text-xs">Current Password</label>
+                  <input type="password" placeholder="••••••••" className="form-input bg-slate-50" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm(s => ({ ...s, currentPassword: e.target.value }))} required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label text-xs">New Password</label>
+                    <input type="password" placeholder="••••••••" className="form-input bg-slate-50" value={passwordForm.newPassword} onChange={(e) => setPasswordForm(s => ({ ...s, newPassword: e.target.value }))} required minLength={8} />
+                  </div>
+                  <div>
+                    <label className="form-label text-xs">Confirm Password</label>
+                    <input type="password" placeholder="••••••••" className="form-input bg-slate-50" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm(s => ({ ...s, confirmPassword: e.target.value }))} required minLength={8} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight">{passwordStrengthHints()}</p>
+                <button type="submit" disabled={passwordLoading} className="btn-danger w-full justify-center mt-2 py-2.5">
+                  {passwordLoading ? <span className="spinner" /> : <><FiLock size={16} /> Update Security</>}
+                </button>
+              </form>
+            </motion.div>
           </div>
 
-          <div className="card card-body">
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b">
-              <div className="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary text-2xl font-bold">
-                {user?.name?.charAt(0).toUpperCase()}
+          {/* Right Column: Business Overview */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Business KPI */}
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="grid grid-cols-3 gap-4">
+              <div className="card p-5 bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200 shadow-sm flex flex-col justify-center">
+                <p className="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Active Projects</p>
+                <h3 className="text-3xl font-black text-blue-900">{activeProjects.length}</h3>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-primary font-heading">{user?.name}</h2>
-                <p className="text-gray-500 text-sm">{user?.email}</p>
-                <span className="badge badge-blue mt-1 capitalize">{user?.role}</span>
+              <div className="card p-5 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200 shadow-sm flex flex-col justify-center">
+                <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">Due Invoices</p>
+                <h3 className="text-3xl font-black text-emerald-900">{pendingInvoices.length}</h3>
               </div>
+              <div className="card p-5 bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200 shadow-sm flex flex-col justify-center">
+                <p className="text-xs text-purple-600 font-bold uppercase tracking-wider mb-1">Quotations</p>
+                <h3 className="text-3xl font-black text-purple-900">{quotations.length}</h3>
+              </div>
+            </motion.div>
+
+            {/* Active Projects */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="card shadow-sm border-slate-200 overflow-hidden">
+              <div className="bg-slate-50/80 px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FiFolder className="text-blue-600" />
+                  <h3 className="font-bold text-slate-800">Active Projects</h3>
+                </div>
+                <Link to="/my-projects" className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">View All <FiArrowRight size={12}/></Link>
+              </div>
+              <div className="p-2">
+                {activeProjects.length === 0 ? (
+                  <p className="text-center text-sm text-slate-400 py-6">No active projects currently.</p>
+                ) : (
+                  <div className="divide-y divide-slate-50">
+                    {activeProjects.slice(0, 3).map(p => (
+                      <div key={p._id} className="p-3 hover:bg-slate-50 rounded-lg transition-colors group">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-semibold text-slate-800 text-sm group-hover:text-blue-600 transition-colors">{p.title}</h4>
+                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{p.progress || 0}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${p.progress || 0}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Recent Invoices & Quotations grid */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Invoices */}
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="card shadow-sm border-slate-200 overflow-hidden flex flex-col">
+                <div className="bg-slate-50/80 px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FiCreditCard className="text-emerald-600" />
+                    <h3 className="font-bold text-slate-800">Pending Invoices</h3>
+                  </div>
+                  <Link to="/payments" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">View All</Link>
+                </div>
+                <div className="p-2 flex-1 flex flex-col">
+                  {pendingInvoices.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-6">
+                      <FiCheckCircle size={24} className="mb-2 opacity-50" />
+                      <p className="text-sm">All caught up!</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-50">
+                      {pendingInvoices.slice(0, 3).map(inv => (
+                        <div key={inv._id} className="p-3 flex justify-between items-center hover:bg-slate-50 rounded-lg">
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">{inv.invoiceNo}</p>
+                            <p className="text-xs text-slate-500">{new Date(inv.dueDate).toLocaleDateString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-emerald-600">{formatMoney(inv.total)}</p>
+                            <span className={`text-[10px] font-bold uppercase ${inv.status === 'overdue' ? 'text-red-500' : 'text-slate-400'}`}>{inv.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Quotations */}
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="card shadow-sm border-slate-200 overflow-hidden flex flex-col">
+                <div className="bg-slate-50/80 px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FiFileText className="text-purple-600" />
+                    <h3 className="font-bold text-slate-800">Recent Quotations</h3>
+                  </div>
+                  {/* Note: The client quotation page might not exist, but we show the data here */}
+                </div>
+                <div className="p-2 flex-1 flex flex-col">
+                  {pendingQuotations.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-6">
+                      <FiClock size={24} className="mb-2 opacity-50" />
+                      <p className="text-sm">No pending quotes</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-50">
+                      {pendingQuotations.slice(0, 3).map(q => (
+                        <div key={q._id} className="p-3 flex justify-between items-center hover:bg-slate-50 rounded-lg">
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">{q.quotationNo}</p>
+                            <p className="text-xs text-slate-500 truncate max-w-[120px]">{q.title}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-purple-600">{formatMoney(q.total)}</p>
+                            <span className="text-[10px] font-bold uppercase text-slate-400">{q.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </div>
-
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center">
-                <FiUser className="text-secondary" size={16} />
-              </div>
-              <div>
-                <h3 className="font-bold text-primary font-heading">Personal Information</h3>
-              </div>
-            </div>
-
-            <form
-              onSubmit={hs1(async (d) => {
-                const avatar = await uploadAvatar()
-                profileMut.mutate({ ...d, avatar })
-              })}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Full Name</label>
-                  <input {...reg1('name')} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Phone</label>
-                  <input {...reg1('phone')} placeholder="+94 77 xxx xxxx" className="form-input" />
-                </div>
-              </div>
-              <div>
-                <label className="form-label">Email (cannot change)</label>
-                <input value={user?.email} disabled className="form-input bg-gray-50 text-gray-400 cursor-not-allowed" />
-              </div>
-              <div>
-                <label className="form-label">Profile picture</label>
-                <input type="file" accept="image/*" className="form-input" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
-              </div>
-              <button type="submit" disabled={profileMut.isPending} className="btn-primary">
-                {profileMut.isPending ? <span className="spinner" /> : <><FiSave size={14} /> Save Changes</>}
-              </button>
-            </form>
-          </div>
-
-          <div className="card card-body">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center">
-                <FiLock className="text-red-500" size={16} />
-              </div>
-              <div>
-                <h3 className="font-bold text-primary font-heading">Change Password</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{passwordStrengthHints()}</p>
-              </div>
-            </div>
-
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              <div>
-                <label className="form-label">Current Password</label>
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  className="form-input"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm((s) => ({ ...s, currentPassword: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">New Password</label>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    className="form-input"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm((s) => ({ ...s, newPassword: e.target.value }))}
-                    required
-                    minLength={8}
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Confirm New Password</label>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    className="form-input"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm((s) => ({ ...s, confirmPassword: e.target.value }))}
-                    required
-                    minLength={8}
-                  />
-                </div>
-              </div>
-              <button type="submit" disabled={passwordLoading} className="btn-danger">
-                {passwordLoading ? <span className="spinner" /> : <><FiLock size={14} /> Update Password</>}
-              </button>
-            </form>
           </div>
         </div>
       </section>

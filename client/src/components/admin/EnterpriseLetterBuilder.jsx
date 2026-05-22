@@ -49,6 +49,7 @@ export default function EnterpriseLetterBuilder({
     // DB Meta
     dbEmployeeId: initialData?.employee?._id || initialData?.employee || employee?._id || '',
     dbLetterType: initialData?.type || 'custom',
+    letterName: initialData?.title || 'Custom Letter',
 
     // Info
     letterRef: initialData?.letterRef || `LTR-${new Date().getFullYear()}-XXXX`,
@@ -117,7 +118,7 @@ export default function EnterpriseLetterBuilder({
     const finalHtml = parts.full
     
     const payload = {
-      title: data.subject,
+      title: data.letterName || data.subject,
       content: finalHtml,
       dbEmployeeId: data.dbEmployeeId,
       dbLetterType: data.dbLetterType,
@@ -316,6 +317,10 @@ export default function EnterpriseLetterBuilder({
                       <div className="border-t border-blue-200 pt-3 mt-3">
                         <label className="form-label text-xs font-semibold text-blue-800 mb-1">System Tracking (Internal)</label>
                         <div className="space-y-2">
+                          <div>
+                            <label className="form-label text-xs">Letter Name (For Dashboard)</label>
+                            <input {...register('letterName')} className="form-input text-xs" />
+                          </div>
                           <select {...register('dbEmployeeId')} className="form-select text-xs">
                             <option value="">-- Select Employee --</option>
                             {employeesList.map(e => (

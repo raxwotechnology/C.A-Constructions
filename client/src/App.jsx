@@ -9,6 +9,7 @@ import { SITE_SETTINGS_QUERY_KEY } from './hooks/useSiteBranding'
 // Layouts
 import PublicLayout from './layouts/PublicLayout'
 import DashboardLayout from './layouts/DashboardLayout'
+import WhatsAppButton from './components/ui/WhatsAppButton'
 
 // Public pages
 import Home from './pages/public/Home'
@@ -42,6 +43,7 @@ import AdminSubscriptions from './pages/admin/Subscriptions'
 import AdminInvoices from './pages/admin/Invoices'
 import AdminLetters from './pages/admin/Letters'
 import AdminAnalytics from './pages/admin/Analytics'
+import AdminSocialAnalytics from './pages/admin/SocialAnalytics'
 import AdminSettings from './pages/admin/Settings'
 import CandidateProfile from './pages/admin/CandidateProfile'
 import AdminBookings from './pages/admin/Bookings'
@@ -56,6 +58,7 @@ import AdminPortfolio from './pages/admin/Portfolio'
 import AdminRewards from './pages/admin/Rewards'
 import AdminAIAnalyzer from './pages/admin/AIAnalyzer'
 import AdminBranches from './pages/admin/Branches'
+import Meetings from './pages/shared/Meetings'
 import AdminAuditLogs from './pages/admin/AuditLogs'
 import AdminQuotations from './pages/admin/Quotations'
 import AdminPettyCash from './pages/admin/PettyCash'
@@ -172,6 +175,7 @@ export default function App() {
   return (
     <>
       <DynamicFaviconFromSettings />
+      <WhatsAppButton />
       <Routes>
       {/* Public Website */}
       <Route element={<PublicLayout />}>
@@ -188,6 +192,7 @@ export default function App() {
         <Route path="/booking" element={<ProtectedRoute roles={['client']}><ClientBooking /></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute roles={['client']}><ClientInvoices /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute roles={['client']}><ClientMessages /></ProtectedRoute>} />
+        <Route path="/meetings" element={<ProtectedRoute roles={['client']}><Meetings /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute roles={['client']}><ClientNotifications /></ProtectedRoute>} />
         <Route path="/notifications/:id" element={<ProtectedRoute roles={['client']}><NotificationDetail /></ProtectedRoute>} />
         <Route path="/my-account" element={<ProtectedRoute roles={['client']}><ClientProfile /></ProtectedRoute>} />
@@ -219,6 +224,7 @@ export default function App() {
         <Route path="invoices" element={<AdminInvoices />} />
         <Route path="letters" element={<AdminLetters />} />
         <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
@@ -253,20 +259,54 @@ export default function App() {
         <Route path="income-tax" element={<IncomeTax />} />
         <Route path="requests" element={<AdminRequests />} />
         <Route path="tool-assignments" element={<ToolAssignments />} />
+        <Route path="meetings" element={<Meetings />} />
       </Route>
 
       {/* Manager */}
       <Route path="/manager" element={<ProtectedRoute roles={['manager']}><DashboardLayout role="manager" /></ProtectedRoute>}>
-        <Route index element={<ManagerDashboard />} />
-        <Route path="projects" element={<ManagerProjects />} />
-        <Route path="team" element={<ManagerTeam />} />
-        <Route path="reports" element={<ManagerReports />} />
-        <Route path="messages" element={<MessagesCenter />} />
-        <Route path="profile" element={<ManagerProfile />} />
-        <Route path="work-logs" element={<WorkLogs />} />
-        <Route path="requests" element={<ManagerRequests />} />
-        <Route path="notifications/:id" element={<NotificationDetail />} />
+        <Route index element={<AdminDashboard />} />
+        <Route path="employees" element={<AdminEmployees />} />
         <Route path="leaves" element={<AdminLeaves />} />
+        <Route path="epf" element={<AdminEPF />} />
+        <Route path="recruitment" element={<AdminRecruitment />} />
+        <Route path="recruitment/candidates/:id" element={<CandidateProfile />} />
+        <Route path="projects" element={<AdminProjects />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
+        <Route path="subscriptions" element={<AdminSubscriptions />} />
+        <Route path="clients" element={<AdminClients />} />
+        <Route path="clients/:id" element={<AdminClientProfile />} />
+        <Route path="invoices" element={<AdminInvoices />} />
+        <Route path="letters" element={<AdminLetters />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
+        <Route path="settings" element={<AdminSettings />} />
+        <Route path="messages" element={<MessagesCenter />} />
+        <Route path="notifications/:id" element={<NotificationDetail />} />
+        <Route path="bookings" element={<AdminBookings />} />
+        <Route path="feedback" element={<AdminFeedbacks />} />
+        <Route path="attendance" element={<AdminAttendance />} />
+        <Route path="performance" element={<AdminPerformance />} />
+        <Route path="exports" element={<AdminExports />} />
+        <Route path="services" element={<AdminServices />} />
+        <Route path="portfolio" element={<AdminPortfolio />} />
+        <Route path="rewards" element={<AdminRewards />} />
+        <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
+        <Route path="audit-logs" element={<AdminAuditLogs />} />
+        <Route path="sms-logs" element={<AdminSmsLogs />} />
+        <Route path="email-logs" element={<AdminEmailLogs />} />
+        <Route path="leaders" element={<AdminLeaders />} />
+        <Route path="quotations" element={<AdminQuotations />} />
+        <Route path="agreements" element={<Agreements />} />
+        <Route path="petty-cash" element={<AdminPettyCash />} />
+        <Route path="advances" element={<AdminAdvances />} />
+        <Route path="loans" element={<AdminLoans />} />
+        <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="leave-policies" element={<PolicyManagement />} />
+        <Route path="policies" element={<PolicyManagement />} />
+        <Route path="cheques" element={<AdminCheques />} />
+        <Route path="requests" element={<AdminRequests />} />
+        <Route path="tool-assignments" element={<ToolAssignments />} />
+        <Route path="meetings" element={<Meetings />} />
       </Route>
 
       {/* Developer */}
@@ -280,6 +320,7 @@ export default function App() {
         <Route path="export" element={<DeveloperExport />} />
         <Route path="letters" element={<DeveloperLetters />} />
         <Route path="messages" element={<MessagesCenter />} />
+        <Route path="meetings" element={<Meetings />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="requests" element={<EmployeeRequests />} />
@@ -287,6 +328,7 @@ export default function App() {
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
+        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
 
       {/* Designer */}
@@ -300,6 +342,7 @@ export default function App() {
         <Route path="export" element={<DeveloperExport />} />
         <Route path="letters" element={<DeveloperLetters />} />
         <Route path="messages" element={<MessagesCenter />} />
+        <Route path="meetings" element={<Meetings />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="requests" element={<EmployeeRequests />} />
@@ -307,6 +350,7 @@ export default function App() {
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
+        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
 
       {/* Marketing */}
@@ -320,6 +364,7 @@ export default function App() {
         <Route path="export" element={<DeveloperExport />} />
         <Route path="letters" element={<DeveloperLetters />} />
         <Route path="messages" element={<MessagesCenter />} />
+        <Route path="meetings" element={<Meetings />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="requests" element={<EmployeeRequests />} />
@@ -327,6 +372,7 @@ export default function App() {
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
+        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
 
       <Route path="/unauthorized" element={

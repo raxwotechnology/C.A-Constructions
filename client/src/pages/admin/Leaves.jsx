@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
+import ExportBar from '../../components/ui/ExportBar'
 import { FiCheck, FiX, FiCalendar, FiPlus, FiEye, FiEdit2, FiTrash2, FiFilter } from 'react-icons/fi'
 
 const TYPE_COLORS = {
@@ -121,6 +122,18 @@ export default function AdminLeaves() {
 
   const pendingCount = leaves.filter(l => l.status === 'pending').length
 
+  const exportColumns = [
+    { header: 'Employee', accessor: r => r.employee?.userId?.name || '—' },
+    { header: 'Emp No', accessor: r => r.employee?.employeeNo || '—' },
+    { header: 'Leave Type', accessor: r => r.leaveType?.replace('_', ' ') || '—' },
+    { header: 'Status', accessor: r => r.status },
+    { header: 'Start Date', accessor: r => fmt(r.startDate) },
+    { header: 'End Date', accessor: r => fmt(r.endDate) },
+    { header: 'Days', accessor: r => r.days },
+    { header: 'Reason', accessor: r => r.reason || '—' },
+    { header: 'Remarks', accessor: r => r.remarks || '—' },
+  ]
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -129,9 +142,22 @@ export default function AdminLeaves() {
           <h1 className="page-title">Leave Management</h1>
           <p className="page-subtitle">{pendingCount} pending · {leaves.length} total</p>
         </div>
-        <button onClick={() => setShowAssign(true)} className="btn-primary">
-          <FiPlus size={16}/> Assign Leave
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <ExportBar 
+            data={leaves} 
+            columns={exportColumns} 
+            title="Leave Report"
+            filters={{ 
+              Status: statusFilter || 'All', 
+              Branch: branchFilter || 'All', 
+              From: dateFrom || 'Any', 
+              To: dateTo || 'Any' 
+            }} 
+          />
+          <button onClick={() => setShowAssign(true)} className="btn-primary">
+            <FiPlus size={16}/> Assign Leave
+          </button>
+        </div>
       </div>
 
       {/* KPI */}

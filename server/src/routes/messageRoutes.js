@@ -6,11 +6,13 @@ const {
   getThreads,
   getThreadMessages,
   sendMessage,
+  createGroup,
 } = require('../controllers/messageController');
 
 router.get('/contacts', protect, getContacts);
 router.get('/threads', protect, getThreads);
-router.get('/threads/:userId', protect, getThreadMessages);
+router.get('/threads/:id', protect, getThreadMessages);
 router.post('/', protect, sendMessage);
+router.post('/groups', protect, createGroup);
 
 module.exports = router;

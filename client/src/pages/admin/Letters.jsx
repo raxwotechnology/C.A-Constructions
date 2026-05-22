@@ -335,8 +335,8 @@ export default function AdminLetters() {
   }
 
   if (showBuilder) {
-    return (
-      <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col">
+    return createPortal(
+      <div className="fixed inset-0 z-[99999] bg-slate-50 flex flex-col">
         <EnterpriseLetterBuilder 
           initialData={builderInitialData}
           employee={builderEmployee}
@@ -359,7 +359,8 @@ export default function AdminLetters() {
           onCancel={() => setShowBuilder(false)}
           isSaving={generateMut.isPending || updateMut.isPending}
         />
-      </div>
+      </div>,
+      document.body
     )
   }
 

@@ -9,7 +9,11 @@ import SearchableSelect from '../../components/ui/SearchableSelect'
 import toast from 'react-hot-toast'
 import { formatMoney } from '../../lib/currencies'
 import { handlePayrollSyncResponse } from '../../lib/payrollSync'
-import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
+import ExportBar from '../../components/ui/ExportBar'
+import { useSiteBranding } from '../../hooks/useSiteBranding'
+import { buildCompanyFromSettings, companyContactLines } from '../../lib/companyBranding'
+import { absoluteMediaUrl } from '../../lib/media'
+import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo, FiAlertCircle, FiRefreshCw, FiFileText } from 'react-icons/fi'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -26,14 +30,25 @@ function isLedgerBankMethod(method) {
   return false;
 }
 
-const printPayslip = (p) => {
-  const w = window.open('', '_blank')
+function buildPayslipHtml(p, company = {}) {
+  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   const r = (label, val, cls='') => val > 0 ? `<div class="row ${cls}"><span>${label}</span><span>LKR ${Number(val||0).toLocaleString()}</span></div>` : ''
-  w.document.write(`<!DOCTYPE html><html><head><title>Payslip ${MONTHS[p.month-1]} ${p.year}</title>
+  const logoUrl = absoluteMediaUrl(company.logoPath || company.logo)
+  const contacts = companyContactLines(company)
+  const contactHtml = contacts.map(c => `<span>${esc(c.label)}: ${esc(c.text)}</span>`).join(' &middot; ')
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Payslip ${MONTHS[p.month-1]} ${p.year}</title>
   <style>
-    *{box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:680px;margin:32px auto;padding:20px;color:#111}
-    .hdr{background:#0B1F3A;color:#fff;padding:20px 24px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between}
-    .hdr h2{margin:0;font-size:18px}.hdr p{margin:4px 0 0;opacity:.65;font-size:12px}
+    *{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,Arial,sans-serif;max-width:680px;margin:32px auto;padding:20px;color:#111}
+    .co-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:3px solid #1e3a8a;margin-bottom:20px}
+    .co-logo{max-height:56px;object-fit:contain}
+    .co-logo-fb{width:52px;height:52px;border-radius:10px;background:#1e3a8a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800}
+    .co-info{text-align:right;flex:1;min-width:180px}
+    .co-name{margin:0;font-size:18px;font-weight:800;color:#0f172a}
+    .co-tagline{margin:4px 0 0;font-size:10pt;color:#64748b;font-style:italic}
+    .co-contacts{margin:8px 0 0;font-size:9pt;color:#475569;line-height:1.6}
+    .slip-title{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+    .slip-title h3{margin:0;font-size:14px;font-weight:700;color:#1e3a8a}
+    .slip-title .status{font-size:11px;font-weight:700;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:#dbeafe;color:#1e40af}
     .info{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px}
     .info-row{display:flex;justify-content:space-between;font-size:12px;color:#555;padding:3px 0;border-bottom:1px solid #f0f0f0}
     .info-row span:last-child{font-weight:600;color:#111}
@@ -41,17 +56,26 @@ const printPayslip = (p) => {
     .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
     .add{color:#16a34a}.ded{color:#dc2626}
     .net{background:#f0fdf4;border-radius:8px;padding:12px 16px;margin-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:15px;color:#15803d}
-    .foot{margin-top:20px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #f0f0f0;padding-top:10px}
+    .foot{margin-top:20px;font-size:9px;color:#9ca3af;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px}
+    @media print{body{margin:0;padding:12mm}}
   </style></head><body>
-  <div class="hdr">
-    <div><h2>Raxwo Technology (Pvt) Ltd</h2><p>Official Payslip — ${MONTHS[p.month-1]} ${p.year}</p></div>
-    <div style="text-align:right"><p style="opacity:.65;font-size:11px">Status</p><p style="font-size:13px;font-weight:700">${(p.status||'').toUpperCase()}</p></div>
+  <div class="co-header">
+    <div>${logoUrl ? `<img src="${logoUrl}" alt="" class="co-logo"/>` : `<div class="co-logo-fb">${esc((company.name||'C').charAt(0))}</div>`}</div>
+    <div class="co-info">
+      <h1 class="co-name">${esc(company.name || 'Company')}</h1>
+      ${company.tagline ? `<p class="co-tagline">${esc(company.tagline)}</p>` : ''}
+      ${contactHtml ? `<div class="co-contacts">${contactHtml}</div>` : ''}
+    </div>
+  </div>
+  <div class="slip-title">
+    <h3>Official Payslip — ${esc(MONTHS[p.month-1])} ${p.year}</h3>
+    <span class="status">${esc((p.status||'').toUpperCase())}</span>
   </div>
   <div class="info">
-    <div class="info-row"><span>Employee</span><span>${p.employee?.userId?.name||'N/A'}</span></div>
-    <div class="info-row"><span>Emp No</span><span>${p.employee?.employeeNo||'N/A'}</span></div>
-    <div class="info-row"><span>Department</span><span>${p.employee?.department||'—'}</span></div>
-    <div class="info-row"><span>Designation</span><span>${p.employee?.designation||'—'}</span></div>
+    <div class="info-row"><span>Employee</span><span>${esc(p.employee?.userId?.name||'N/A')}</span></div>
+    <div class="info-row"><span>Emp No</span><span>${esc(p.employee?.employeeNo||'N/A')}</span></div>
+    <div class="info-row"><span>Department</span><span>${esc(p.employee?.department||'—')}</span></div>
+    <div class="info-row"><span>Designation</span><span>${esc(p.employee?.designation||'—')}</span></div>
   </div>
   <div class="sec-title">Earnings</div>
   ${r('Basic Salary', p.basicSalary)}
@@ -74,10 +98,42 @@ const printPayslip = (p) => {
   <div class="sec-title">Statutory (Employer Contributions — Informational)</div>
   ${r('EPF Employer (12%)', p.epfEmployer)}
   ${r('ETF Employer (3%)', p.etfEmployer)}
-  <div class="foot">Computer-generated payslip — no signature required &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
-  </body></html>`)
-  w.document.close(); w.print()
+  <div class="foot">${esc(company.name || '')} ${company.footer || company.address ? '· ' + esc(company.footer || company.address) : ''}<br/>Computer-generated payslip — no signature required &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
+  </body></html>`
 }
+
+async function downloadPayslipPdf(p, company = {}) {
+  const html2canvas = (await import('html2canvas')).default
+  const { jsPDF } = await import('jspdf')
+  const wrap = document.createElement('div')
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:680px;padding:0;background:#fff;box-sizing:border-box;'
+  wrap.innerHTML = buildPayslipHtml(p, company).replace(/^.*<body>/s, '').replace(/<\/body>.*$/s, '')
+  // inject styles
+  const styleMatch = buildPayslipHtml(p, company).match(/<style>([\s\S]*?)<\/style>/)
+  if (styleMatch) {
+    const st = document.createElement('style'); st.textContent = styleMatch[1]; wrap.prepend(st)
+  }
+  document.body.appendChild(wrap)
+  try {
+    const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' })
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
+    const pageW = pdf.internal.pageSize.getWidth()
+    const pageH = pdf.internal.pageSize.getHeight()
+    const margin = 10
+    const imgW = pageW - margin * 2
+    const imgH = (canvas.height * imgW) / canvas.width
+    let heightLeft = imgH, y = margin
+    pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH)
+    heightLeft -= pageH - margin * 2
+    while (heightLeft > 0) { y = margin - (imgH - heightLeft); pdf.addPage(); pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH); heightLeft -= pageH - margin * 2 }
+    const empName = (p.employee?.userId?.name || 'payslip').replace(/[^\w-]+/g, '_')
+    pdf.save(`Payslip_${empName}_${MONTHS[p.month-1]}_${p.year}.pdf`)
+    toast.success('Pay slip PDF downloaded')
+  } finally { document.body.removeChild(wrap) }
+}
+
+const PAYROLL_METHODS_NEEDING_BANK = ['bank_transfer', 'online_transfer', 'card_payment', 'payhere']
 
 export default function AdminPayroll() {
   const qc = useQueryClient()
@@ -360,17 +416,55 @@ export default function AdminPayroll() {
     }
   }, [liveSnap, selectedEmp, activeAdvances, projectCommissionTotal, livePayrollData])
 
+  const { settings: siteSettings } = useSiteBranding()
+  const company = useMemo(() => buildCompanyFromSettings(siteSettings), [siteSettings])
+
+  const payrollExportColumns = [
+    { header: 'Employee', accessor: r => r.employee?.userId?.name || '—' },
+    { header: 'Emp No', accessor: r => r.employee?.employeeNo || '—' },
+    { header: 'Basic', accessor: r => r.basicSalary || 0 },
+    { header: 'Allowances', accessor: r => r.allowances || 0 },
+    { header: 'OT', accessor: r => r.overtime || 0 },
+    { header: 'Commissions', accessor: r => r.commissions || 0 },
+    { header: 'Bonus', accessor: r => r.bonus || 0 },
+    { header: 'Gross', accessor: r => r.grossSalary || 0 },
+    { header: 'EPF(emp)', accessor: r => r.epfEmployee || 0 },
+    { header: 'Loan Ded.', accessor: r => r.loanDeduction || 0 },
+    { header: 'Net Pay', accessor: r => r.netSalary || 0 },
+    { header: 'Status', accessor: r => r.status },
+  ]
+
+  const handlePrintSlip = (p) => {
+    const w = window.open('', '_blank')
+    if (!w) return
+    w.document.write(buildPayslipHtml(p, company))
+    w.document.close()
+    w.onload = () => w.print()
+  }
+
+  const handleDownloadSlip = (p) => {
+    downloadPayslipPdf(p, company)
+  }
+
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="page-header">
+      <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Payroll</h1>
           <p className="page-subtitle">Manage monthly salary, EPF/ETF & project allocations</p>
         </div>
-        <button onClick={() => { if(window.confirm(`Generate payroll for ALL active employees for ${MONTHS[month-1]} ${year}?`)) generateAllMut.mutate() }}
-          disabled={generateAllMut.isPending} className="btn-primary">
-          {generateAllMut.isPending ? <span className="spinner"/> : <><FiPlay size={15}/> Generate All</>}
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <ExportBar 
+            data={filteredPayrolls} 
+            columns={payrollExportColumns} 
+            title="Payroll Report"
+            filters={{ Month: `${MONTHS[month-1]} ${year}`, Branch: branchFilter || 'All' }} 
+          />
+          <button onClick={() => { if(window.confirm(`Generate payroll for ALL active employees for ${MONTHS[month-1]} ${year}?`)) generateAllMut.mutate() }}
+            disabled={generateAllMut.isPending} className="btn-primary">
+            {generateAllMut.isPending ? <span className="spinner"/> : <><FiPlay size={15}/> Generate All</>}
+          </button>
+        </div>
       </div>
 
       {/* Period & Search */}
@@ -397,10 +491,6 @@ export default function AdminPayroll() {
             <option value="">All Branches</option>
             {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
-        </div>
-        <div className="flex gap-2 self-end">
-          <button className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600" title="Export PDF"><FiInfo size={16} /></button>
-          <button className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600" title="Export Excel"><FiDollarSign size={16} /></button>
         </div>
       </div>
 
@@ -693,11 +783,12 @@ export default function AdminPayroll() {
                         <FiDollarSign size={14}/>
                       </button>
                     )}
-                    {p.status === 'paid' && (
-                      <button onClick={() => printPayslip(p)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="View Payslip">
-                        <FiUser size={14}/>
-                      </button>
-                    )}
+                    <button onClick={() => handlePrintSlip(p)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Print Payslip">
+                      <FiUser size={14}/>
+                    </button>
+                    <button onClick={() => handleDownloadSlip(p)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Download PDF Slip">
+                      <FiFileText size={14}/>
+                    </button>
                     {p.status !== 'paid' && (
                       <button onClick={() => { 
                         setEditPayroll(p); 

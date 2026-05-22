@@ -15,6 +15,7 @@ import {
   FiUsers,
   FiServer,
   FiLayers,
+  FiVideo,
 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -261,6 +262,7 @@ export default function PublicLayout() {
                             <NavLink to="/payments" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Payments</NavLink>
                             <NavLink to="/booking" className="btn-ghost w-full justify-start text-sm"><FiCalendar size={14} /> Booking</NavLink>
                             <NavLink to="/messages" className="btn-ghost w-full justify-start text-sm"><FiMessageSquare size={14} /> Messages</NavLink>
+                            <NavLink to="/meetings" className="btn-ghost w-full justify-start text-sm"><FiVideo size={14} /> Meetings</NavLink>
                             <NavLink to="/rewards" className="btn-ghost w-full justify-start text-sm"><FiGift size={14} /> Rewards</NavLink>
                             <NavLink to="/notifications" className="btn-ghost w-full justify-start text-sm"><FiBell size={14} /> Notifications</NavLink>
                             <div className="my-1 border-t border-slate-100" />
@@ -335,6 +337,7 @@ export default function PublicLayout() {
                     <NavLink to="/my-subscriptions" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Subscriptions</NavLink>
                     <NavLink to="/payments" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Payments</NavLink>
                     <NavLink to="/messages" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Messages</NavLink>
+                    <NavLink to="/meetings" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Meetings</NavLink>
                     <NavLink to="/rewards" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Rewards</NavLink>
                     <NavLink to="/booking" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Booking</NavLink>
                     <NavLink to="/notifications" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Notifications</NavLink>

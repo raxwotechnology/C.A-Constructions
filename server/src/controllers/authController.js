@@ -301,6 +301,19 @@ exports.createClient = async (req, res, next) => {
       note: 'Account registration reward',
     });
     if (referralCode) await handleReferralForNewClient({ newUserId: user._id, referralCode });
+
+    try {
+      const { sendClientWelcomeEmail } = require('../services/emailService');
+      await sendClientWelcomeEmail(user, password || 'Client@2026');
+      
+      if (user.phone) {
+        const { sendClientWelcomeSms } = require('../services/smsService');
+        await sendClientWelcomeSms(user.phone, user.name, user.email, password || 'Client@2026');
+      }
+    } catch (msgErr) {
+      console.warn('[createClient] Welcome notifications failed:', msgErr.message);
+    }
+
     res.status(201).json({ success: true, user });
   } catch (err) { next(err); }
 };

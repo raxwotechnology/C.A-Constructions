@@ -249,6 +249,9 @@ export default function AdminProjects() {
                 <span className={`badge capitalize ${statusColor[p.status]||'badge-gray'}`}>{p.status?.replace('_',' ')}</span>
                 <span className={`badge capitalize ${priorityColor[p.priority]||'badge-gray'}`}>{p.priority}</span>
                 {p.serviceType && <span className="badge badge-navy">{p.serviceType}</span>}
+                <span className={`badge capitalize ${paymentStatusColor[p.paymentStatus] || paymentStatusColor['unpaid']}`}>
+                  {p.paymentStatus === 'none' ? 'Unpaid' : p.paymentStatus}
+                </span>
               </div>
               <div className="flex gap-1">
                 <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>

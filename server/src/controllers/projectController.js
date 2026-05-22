@@ -109,16 +109,20 @@ exports.createProject = async (req, res, next) => {
       });
       const populatedProj = await Project.findById(project._id).populate('client');
       if (populatedProj.client?.email) {
-        const { sendProjectAssignedEmail } = require('../services/emailService');
-        await sendProjectAssignedEmail(populatedProj.client.email, populatedProj.client.name, project.title);
+        const { sendProjectAssignedClientEmail } = require('../services/emailService');
+        await sendProjectAssignedClientEmail(populatedProj.client.email, populatedProj.client.name, project);
       }
       if (populatedProj.client?.phone) {
-        const { sendSms } = require('../services/smsService');
-        await sendSms(populatedProj.client.phone, `Hi ${populatedProj.client.name}, your project "${project.title}" has been created.`, populatedProj.client.name, 'project');
+        const { sendProjectAssignedClientSms } = require('../services/smsService');
+        await sendProjectAssignedClientSms(populatedProj.client.phone, populatedProj.client.name, project.title);
       }
     }
 
     if (project.assignedEmployees?.length > 0) {
+      const { sendProjectAssignedEmployeeEmail } = require('../services/emailService');
+      const { sendProjectAssignedEmployeeSms } = require('../services/smsService');
+      const populatedProj = await Project.findById(project._id).populate('client');
+      const User = require('../models/User');
       for (const empId of project.assignedEmployees) {
         await createNotification({
           recipient: empId,
@@ -126,6 +130,10 @@ exports.createProject = async (req, res, next) => {
           message: `You have been assigned to project "${project.title}".`,
           type: 'project', link: '/developer/projects',
         });
+        const empUser = await User.findById(empId);
+        const pDetails = { title: project.title, deadline: project.deadline, clientName: populatedProj?.client?.name };
+        if (empUser?.email) await sendProjectAssignedEmployeeEmail(empUser.email, empUser.name, pDetails);
+        if (empUser?.phone) await sendProjectAssignedEmployeeSms(empUser.phone, empUser.name, project.title);
       }
     }
 
@@ -150,7 +158,7 @@ exports.updateProject = async (req, res, next) => {
       await applyInvoiceLinks(payload);
     }
 
-    const oldProject = await Project.findById(req.params.id).select('status assignedEmployees title');
+    const oldProject = await Project.findById(req.params.id).select('status assignedEmployees title client');
     let project = await Project.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
@@ -189,19 +197,47 @@ exports.updateProject = async (req, res, next) => {
       });
     }
 
+    // ── Notify Client if newly assigned to project ──────────────────
+    const oldClientStr = oldProject?.client ? String(oldProject.client) : null;
+    const newClientStr = project.client ? String(project.client._id || project.client) : null;
+    
+    if (newClientStr && newClientStr !== oldClientStr) {
+      const { sendProjectAssignedClientEmail } = require('../services/emailService');
+      const { sendProjectAssignedClientSms } = require('../services/smsService');
+      const popProj = await Project.findById(project._id).populate('client');
+      
+      if (popProj.client?.email) {
+        await sendProjectAssignedClientEmail(popProj.client.email, popProj.client.name, project);
+      }
+      if (popProj.client?.phone) {
+        await sendProjectAssignedClientSms(popProj.client.phone, popProj.client.name, project.title);
+      }
+    }
+
     // ── Notify newly assigned employees ─────────────────────────────
     if (project.assignedEmployees?.length > 0) {
       const oldAssigned = oldProject?.assignedEmployees?.map(e => String(e)) || [];
       const newAssigned = project.assignedEmployees.map(e => String(e));
       const newlyAssigned = newAssigned.filter(e => !oldAssigned.includes(e));
 
-      for (const empId of newlyAssigned) {
-        await createNotification({
-          recipient: empId,
-          title: 'New Project Assignment',
-          message: `You have been added to project "${project.title}".`,
-          type: 'project', link: '/developer/projects',
-        });
+      if (newlyAssigned.length > 0) {
+        const { sendProjectAssignedEmployeeEmail } = require('../services/emailService');
+        const { sendProjectAssignedEmployeeSms } = require('../services/smsService');
+        const popProj = await Project.findById(project._id).populate('client');
+        const User = require('../models/User');
+
+        for (const empId of newlyAssigned) {
+          await createNotification({
+            recipient: empId,
+            title: 'New Project Assignment',
+            message: `You have been added to project "${project.title}".`,
+            type: 'project', link: '/developer/projects',
+          });
+          const empUser = await User.findById(empId);
+          const pDetails = { title: project.title, deadline: project.deadline, clientName: popProj?.client?.name };
+          if (empUser?.email) await sendProjectAssignedEmployeeEmail(empUser.email, empUser.name, pDetails);
+          if (empUser?.phone) await sendProjectAssignedEmployeeSms(empUser.phone, empUser.name, project.title);
+        }
       }
     }
 

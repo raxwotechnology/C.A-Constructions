@@ -327,17 +327,19 @@ export default function AdminEmployees() {
           <h1 className="page-title">Employees</h1>
           <p className="page-subtitle">{data?.count || 0} total employees</p>
         </div>
-        <ExportBar
-          data={employees}
-          columns={[
-            { header: 'Name', accessor: (e) => e.userId?.name || '—' },
-            { header: 'Emp No', accessor: 'employeeNo' },
-            { header: 'Department', accessor: 'department' },
-            { header: 'Status', accessor: 'status' },
-          ]}
-          title="Employee List"
-        />
-        <button type="button" onClick={openCreate} className="btn-primary"><FiPlus size={16}/> Add Employee</button>
+        <div className="flex items-center gap-3">
+          <ExportBar
+            data={employees}
+            columns={[
+              { header: 'Name', accessor: (e) => e.userId?.name || '—' },
+              { header: 'Emp No', accessor: 'employeeNo' },
+              { header: 'Department', accessor: 'department' },
+              { header: 'Status', accessor: 'status' },
+            ]}
+            title="Employee List"
+          />
+          <button type="button" onClick={openCreate} className="btn-primary"><FiPlus size={16}/> Add Employee</button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">

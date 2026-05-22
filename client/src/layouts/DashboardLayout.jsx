@@ -12,7 +12,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload,
-  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey, FiMail
+  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey, FiMail, FiVideo
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
@@ -48,6 +48,7 @@ const adminNav = [
     { to: '/admin/bookings', label: 'Bookings', icon: FiBook },
     { to: '/admin/services', label: 'Services & Products', icon: FiLayers },
     { to: '/admin/portfolio', label: 'Portfolio', icon: FiPieChart },
+    { to: '/admin/social-analytics', label: 'Social Analytics', icon: FiPieChart },
     { to: '/admin/leaders', label: 'Leaders', icon: FiUsers },
     { to: '/admin/rewards', label: 'Rewards & Loyalty', icon: FiGift },
     { to: '/admin/feedback', label: 'Feedback', icon: FiMessageSquare },
@@ -69,25 +70,33 @@ const adminNav = [
     { to: '/admin/email-logs', label: 'Email Logs', icon: FiMail },
     { to: '/admin/sms-logs', label: 'SMS Logs', icon: FiMessageSquare },
     { to: '/admin/messages', label: 'Messages', icon: FiMessageSquare },
+    { to: '/admin/meetings', label: 'Meetings', icon: FiVideo },
     { to: '/admin/requests', label: 'Requests', icon: FiClipboard },
     { to: '/admin/tool-assignments', label: 'Tool Assignments', icon: FiKey },
     { to: '/admin/settings', label: 'Settings', icon: FiSettings },
   ]},
 ]
 
-const managerNav = [
-  { group: 'Overview', items: [
-    { to: '/manager', label: 'Dashboard', icon: FiHome, exact: true },
-    { to: '/manager/projects', label: 'Project Tracking', icon: FiFolder },
-    { to: '/manager/team', label: 'Team Management', icon: FiUsers },
-    { to: '/manager/leaves', label: 'Leave Approvals', icon: FiCalendar },
-    { to: '/manager/work-logs', label: 'Work Logs', icon: FiCheckSquare },
-    { to: '/manager/requests', label: 'Employee Requests', icon: FiClipboard },
-    { to: '/manager/reports', label: 'Reports', icon: FiPieChart },
-    { to: '/manager/messages', label: 'Messages', icon: FiMessageSquare },
-    { to: '/manager/profile', label: 'My Profile', icon: FiUser },
-  ]},
+const excludedManagerPaths = [
+  '/admin/financial-reports',
+  '/admin/payroll',
+  '/admin/income-tax',
+  '/admin/branches',
+  '/admin/bank-management',
+  '/admin/bank-transactions',
+  '/admin/financial',
+  '/admin/finance-entries',
 ]
+
+const managerNav = adminNav.map(group => ({
+  ...group,
+  items: group.items
+    .filter(item => !excludedManagerPaths.includes(item.to))
+    .map(item => ({
+      ...item,
+      to: item.to.replace('/admin', '/manager')
+    }))
+})).filter(group => group.items.length > 0)
 
 const developerNav = [
   { group: 'My Workspace', items: [
@@ -99,6 +108,7 @@ const developerNav = [
     { to: '/developer/requests', label: 'My Requests', icon: FiFileText },
     { to: '/developer/tools', label: 'My Tools', icon: FiKey },
     { to: '/developer/performance', label: 'Performance', icon: FiTrendingUp },
+    { to: '/developer/social-analytics', label: 'Social Analytics', icon: FiBarChart2 },
   ]},
   { group: 'Compensation', items: [
     { to: '/developer/attendance', label: 'Attendance', icon: FiClipboard },
@@ -107,6 +117,7 @@ const developerNav = [
     { to: '/developer/export', label: 'Export Center', icon: FiDownload },
     { to: '/developer/letters', label: 'Letters', icon: FiFileText },
     { to: '/developer/messages', label: 'Messages', icon: FiMessageSquare },
+    { to: '/developer/meetings', label: 'Meetings', icon: FiVideo },
     { to: '/developer/notifications', label: 'Notifications', icon: FiBell },
   ]},
 ]

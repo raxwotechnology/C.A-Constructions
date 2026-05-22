@@ -10,6 +10,7 @@ const siteSettingSchema = new mongoose.Schema({
   contactAddress: { type: String, default: 'Weliweriya, Sri Lanka' },
   branchDetails: { type: String, default: '' },
   websiteUrl: { type: String, default: '' },
+  whatsappNumber: { type: String, default: '' },
   /** System admin email — notifications, letterheads, agreements */
   adminEmail: { type: String, default: '' },
   sealUrl: { type: String, default: '' },
@@ -36,7 +37,8 @@ const siteSettingSchema = new mongoose.Schema({
     hr: { type: Boolean, default: true },
     financial: { type: Boolean, default: true },
     system: { type: Boolean, default: true },
-  }
+  },
+  messageAutoDeleteDays: { type: Number, default: 0 }, // 0 = disabled
 }, { timestamps: true });
 
 module.exports = mongoose.model('SiteSetting', siteSettingSchema);

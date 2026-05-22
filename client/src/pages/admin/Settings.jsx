@@ -71,6 +71,7 @@ export default function AdminSettings() {
       contactAddress: siteData?.settings?.contactAddress || '',
       branchDetails: siteData?.settings?.branchDetails || '',
       adminEmail: siteData?.settings?.adminEmail || '',
+      whatsappNumber: siteData?.settings?.whatsappNumber || '',
       websiteUrl: siteData?.settings?.websiteUrl || '',
       sealUrl: siteData?.settings?.sealUrl || '',
       signatures: {
@@ -91,7 +92,8 @@ export default function AdminSettings() {
         hr: siteData?.settings?.smsModules?.hr ?? true,
         financial: siteData?.settings?.smsModules?.financial ?? true,
         system: siteData?.settings?.smsModules?.system ?? true,
-      }
+      },
+      messageAutoDeleteDays: siteData?.settings?.messageAutoDeleteDays ?? 0,
     },
   })
 
@@ -303,6 +305,7 @@ export default function AdminSettings() {
             <div><label className="form-label">General contact email (optional)</label><input {...reg3('contactEmail')} className="form-input" /></div>
             <div><label className="form-label">Telephone (letterhead)</label><input {...reg3('contactPhone')} className="form-input" /></div>
           </div>
+          <div><label className="form-label">WhatsApp Number (Floating Button)</label><input {...reg3('whatsappNumber')} className="form-input" placeholder="e.g. 94771234567" /></div>
           <div><label className="form-label">Address (letterhead)</label><input {...reg3('contactAddress')} className="form-input" placeholder="Weliweriya, Sri Lanka" /></div>
           <div><label className="form-label">Email (letterhead — Agreements & Letters)</label><input {...reg3('adminEmail')} className="form-input" placeholder="notifications@company.com" /></div>
           <div><label className="form-label">Branch / location details</label><textarea {...reg3('branchDetails')} className="form-input min-h-16" /></div>
@@ -365,7 +368,17 @@ export default function AdminSettings() {
               ))}
             </div>
           </div>
-          <button type="submit" className="btn-primary" disabled={siteMut.isPending || isSubmittingSite}>
+
+          <div className="pt-4 border-t border-slate-100">
+            <h4 className="font-semibold text-gray-700 mb-4">Chat & Messaging</h4>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+              <label className="form-label">Message Auto-Delete Duration (Days)</label>
+              <p className="text-xs text-gray-500 mb-2">Set to 0 to disable auto-deletion. Messages older than this will be permanently removed.</p>
+              <input type="number" min="0" step="1" {...reg3('messageAutoDeleteDays', { valueAsNumber: true })} className="form-input max-w-xs" />
+            </div>
+          </div>
+          
+          <button type="submit" className="btn-primary mt-6" disabled={siteMut.isPending || isSubmittingSite}>
             {siteMut.isPending || isSubmittingSite ? <span className="spinner"/> : 'Save Site Settings'}
           </button>
         </form>

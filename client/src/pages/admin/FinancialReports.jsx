@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
+import ExportBar from '../../components/ui/ExportBar'
 import { FiDownload, FiTrendingUp, FiTrendingDown, FiDollarSign, FiPieChart, FiFilter } from 'react-icons/fi'
 
 const PAYMENT_METHODS = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other']
@@ -104,9 +105,25 @@ export default function FinancialReports() {
           <h1 className="page-title">Financial Reports</h1>
           <p className="page-subtitle">Profit & Loss, Income & Expense breakdown by branch, category, and payment method.</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => exportReport('excel')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Excel</button>
-          <button onClick={() => exportReport('pdf')} className="btn-outline btn-sm gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"><FiDownload size={13}/> PDF</button>
+        <div className="flex gap-2 flex-wrap">
+          <ExportBar 
+            data={[
+              ...incomeEntries.map(e => ({ ...e, type: 'Income' })),
+              ...expenseEntries.map(e => ({ ...e, type: 'Expense' })),
+            ]} 
+            columns={[
+              { header: 'Type', accessor: r => r.type || '—' },
+              { header: 'Date', accessor: r => r.date ? new Date(r.date).toLocaleDateString() : '—' },
+              { header: 'Category', accessor: r => r.category || '—' },
+              { header: 'Title', accessor: r => r.title || '—' },
+              { header: 'Method', accessor: r => r.paymentMethod || 'Cash' },
+              { header: 'Amount', accessor: r => r.amount || 0 },
+            ]} 
+            title="Financial Report"
+            filters={{ From: from, To: to, Branch: branchFilter || 'All', Method: paymentMethod || 'All' }}
+          />
+          <button onClick={() => exportReport('excel')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Server Excel</button>
+          <button onClick={() => exportReport('pdf')} className="btn-outline btn-sm gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"><FiDownload size={13}/> Server PDF</button>
         </div>
       </div>
 

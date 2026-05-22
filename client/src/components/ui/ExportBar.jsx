@@ -3,7 +3,25 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FiDownload, FiPrinter, FiX, FiCheck, FiFileText } from 'react-icons/fi'
 import toast from 'react-hot-toast'
+import { useSiteBranding } from '../../hooks/useSiteBranding'
+import { buildCompanyFromSettings, companyContactLines } from '../../lib/companyBranding'
+import { absoluteMediaUrl } from '../../lib/media'
 
+const loadImgBase64 = (url) => new Promise((resolve) => {
+  if (!url) return resolve(null);
+  const img = new Image();
+  img.crossOrigin = 'Anonymous';
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    resolve(canvas.toDataURL('image/png'));
+  };
+  img.onerror = () => resolve(null);
+  img.src = url;
+});
 /**
  * ExportBar — PDF, Excel, and Print export buttons with preview confirmation modal
  *
@@ -33,6 +51,8 @@ export default function ExportBar({
     .join(' · ')
 
   const previewRows = data.slice(0, 5)
+  const { settings } = useSiteBranding()
+  const company = buildCompanyFromSettings(settings)
 
   // ── Built-in PDF export via jsPDF + jsPDF-autoTable ────────────────────────
   const doPDF = async () => {
@@ -40,20 +60,78 @@ export default function ExportBar({
       const { default: jsPDF } = await import('jspdf')
       const { default: autoTable } = await import('jspdf-autotable')
       const doc = new jsPDF({ orientation: 'landscape' })
+      const rightX = doc.internal.pageSize.width - 14;
 
-      // Header
-      doc.setFontSize(16)
-      doc.setTextColor(0, 0, 128)
-      doc.text('Raxwo Technology', 14, 18)
-      doc.setFontSize(11)
-      doc.setTextColor(80, 80, 80)
-      doc.text(title, 14, 26)
-      if (filterSummary) doc.text(`Filters: ${filterSummary}`, 14, 33)
+      // Load logo
+      const logoUrl = absoluteMediaUrl(company.logoPath || company.logo)
+      let logoBase64 = null
+      if (logoUrl) {
+        logoBase64 = await loadImgBase64(logoUrl)
+      }
+
+      // Draw Header
+      if (logoBase64) {
+        // preserve aspect ratio, max height 20
+        doc.addImage(logoBase64, 'PNG', 14, 14, 20, 20, '', 'FAST');
+      } else {
+        doc.setFillColor(30, 58, 138);
+        doc.roundedRect(14, 14, 16, 16, 3, 3, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text((company.name || 'C').charAt(0), 22, 25, { align: 'center' });
+      }
+
+      // Company Info (Right Aligned)
+      doc.setFontSize(18);
+      doc.setTextColor(15, 23, 42); // #0f172a
+      doc.setFont('helvetica', 'bold');
+      doc.text(company.name || 'Company', rightX, 18, { align: 'right' });
+      
+      let contactY = 24;
+      if (company.tagline) {
+         doc.setFontSize(10);
+         doc.setTextColor(100, 116, 139);
+         doc.setFont('helvetica', 'italic');
+         doc.text(company.tagline, rightX, contactY, { align: 'right' });
+         contactY += 6;
+      }
+
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'normal');
+      const contacts = companyContactLines(company);
+      contacts.forEach(c => {
+         doc.text(`${c.label}: ${c.text}`, rightX, contactY, { align: 'right' });
+         contactY += 5;
+      });
+
+      // Separator Line
+      const lineY = Math.max(38, contactY + 2);
+      doc.setDrawColor(30, 58, 138); // #1e3a8a
+      doc.setLineWidth(0.8);
+      doc.line(14, lineY, rightX, lineY);
+
+      // Report Title & Metadata
+      let contentY = lineY + 10;
+      doc.setFontSize(14)
+      doc.setTextColor(15, 23, 42)
+      doc.setFont('helvetica', 'bold')
+      doc.text(title, 14, contentY)
+      contentY += 6;
+
       doc.setFontSize(9)
-      doc.text(`Generated: ${new Date().toLocaleString()}  |  Records: ${data.length}`, 14, 40)
+      doc.setTextColor(100, 116, 139)
+      doc.setFont('helvetica', 'normal')
+      if (filterSummary) {
+        doc.text(`Filters: ${filterSummary}`, 14, contentY)
+        contentY += 5;
+      }
+      doc.text(`Generated: ${new Date().toLocaleString()}  |  Records: ${data.length}`, 14, contentY)
+      contentY += 6;
 
       autoTable(doc, {
-        startY: 46,
+        startY: contentY,
         head: [columns.map(c => c.header)],
         body: data.map(row => columns.map(c =>
           typeof c.accessor === 'function' ? c.accessor(row) : (row[c.accessor] ?? '')
