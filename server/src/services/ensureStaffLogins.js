@@ -53,9 +53,10 @@ async function upsertStaffUser(spec, { resetPassword = false } = {}) {
     console.log(`[staff-logins] Updated ${email} role/active`);
   }
 
-  if (user && ['developer', 'designer', 'marketing', 'manager'].includes(spec.role)) {
-    await ensureEmployeeProfile(user, spec);
-  }
+  // Disabled so the Employees table stays completely empty as requested:
+  // if (user && ['developer', 'designer', 'marketing', 'manager'].includes(spec.role)) {
+  //   await ensureEmployeeProfile(user, spec);
+  // }
   return user;
 }
 
