@@ -42,3 +42,31 @@ exports.resendEmail = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.sendCustomEmail = async (req, res, next) => {
+  try {
+    const { emails, subject, message } = req.body;
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      return res.status(400).json({ success: false, message: 'No recipients provided' });
+    }
+    if (!subject || !message) {
+      return res.status(400).json({ success: false, message: 'Subject and message are required' });
+    }
+
+    const promises = emails.map(email => 
+      sendLoggedMail({
+        to: email,
+        subject,
+        text: message,
+        html: message.replace(/\n/g, '<br/>'),
+        category: 'custom'
+      }, req.user?._id)
+    );
+
+    await Promise.all(promises);
+
+    res.json({ success: true, message: `Custom emails sent to ${emails.length} recipients` });
+  } catch (err) {
+    next(err);
+  }
+};

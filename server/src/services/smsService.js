@@ -42,7 +42,18 @@ const sendSms = async (phone, message, recipientName = 'Unknown', module = 'syst
     };
 
     const response = await axios.post(url, payload, { httpsAgent: agent });
-    await SmsLog.create({ recipientName, recipientPhone: formattedPhone, message, module, status: 'sent', response: response.data });
+    const resData = response.data;
+
+    // SMSLenz returns { error: true, success: false, message: '...' } on failure
+    // even with HTTP 200. We must check the response body.
+    if (resData?.error === true || resData?.success === false) {
+      const errorMsg = resData?.message || 'API rejected the request';
+      console.error(`[SMS] API error for ${recipientName} (${formattedPhone}): ${errorMsg}`);
+      await SmsLog.create({ recipientName, recipientPhone: formattedPhone, message, module, status: 'failed', response: errorMsg });
+      return false;
+    }
+
+    await SmsLog.create({ recipientName, recipientPhone: formattedPhone, message, module, status: 'sent', response: resData });
     console.log(`[SMS] Sent successfully to ${recipientName} (${formattedPhone})`);
     return true;
   } catch (error) {

@@ -24,6 +24,24 @@ router.get('/logs', protect, authorize('admin', 'manager'), async (req, res, nex
   } catch (err) { next(err); }
 });
 
+// Send custom SMS
+router.post('/send-custom', protect, authorize('admin', 'manager'), async (req, res, next) => {
+  try {
+    const { recipients, message } = req.body;
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ success: false, message: 'No recipients provided' });
+    }
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    const promises = recipients.map(r => sendSms(r.phone, message, r.name, 'custom'));
+    await Promise.all(promises);
+
+    res.json({ success: true, message: `Custom SMS dispatched to ${recipients.length} recipients` });
+  } catch (err) { next(err); }
+});
+
 // Resend failed SMS
 router.post('/resend/:id', protect, authorize('admin', 'manager'), async (req, res, next) => {
   try {

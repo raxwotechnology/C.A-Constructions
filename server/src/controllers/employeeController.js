@@ -10,6 +10,8 @@ const Payroll = require('../models/Payroll');
 const Performance = require('../models/Performance');
 const { ASSIGNED_STATUSES, INACTIVE_STATUSES } = require('../utils/employeeFilters');
 const { sendMail, smtpConfigured } = require('../utils/mailer');
+const { sendLoggedMail } = require('../services/emailService');
+const { sendSms } = require('../services/smsService');
 
 function syncEmploymentTypeFromStatus(body) {
   const status = body.status;
@@ -234,6 +236,43 @@ exports.createEmployee = async (req, res, next) => {
       user: req.user, action: 'create', module: 'employees', entityId: employee._id, entityName: name,
       description: `Created new employee profile for ${name} (${employeeNo})`,
     });
+
+    // Send welcome email and SMS to new employee
+    try {
+      const loginPassword = password || 'Raxwo@2026';
+      const loginUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '') + '/login';
+      await sendLoggedMail({
+        to: email,
+        subject: 'Welcome to Raxwo ERP — Your Account Details',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+            <h2 style="color:#1e40af">Welcome to Raxwo ERP, ${name}! 🎉</h2>
+            <p>Your employee account has been created. Here are your login credentials:</p>
+            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:16px 0">
+              <p><strong>Portal:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Password:</strong> ${loginPassword}</p>
+              <p><strong>Employee No:</strong> ${employeeNo}</p>
+            </div>
+            <p style="color:#ef4444">Please change your password after your first login.</p>
+            <p>— Raxwo Team</p>
+          </div>`,
+        text: `Welcome to Raxwo ERP, ${name}! Login: ${loginUrl} | Email: ${email} | Password: ${loginPassword} | Employee No: ${employeeNo}`,
+        category: 'hr'
+      });
+
+      if (primaryPhone) {
+        await sendSms(
+          primaryPhone,
+          `Welcome to Raxwo ERP, ${name}! Your employee account is ready. Login at ${loginUrl} using your email. Employee No: ${employeeNo}.`,
+          name,
+          'hr'
+        );
+      }
+    } catch (notifErr) {
+      console.warn('[createEmployee] Welcome notifications failed:', notifErr.message);
+    }
+
     res.status(201).json({ success: true, employee: populated });
   } catch (err) { next(err); }
 };
