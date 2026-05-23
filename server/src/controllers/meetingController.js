@@ -17,7 +17,7 @@ function generateJitsiLink(topic) {
 
 exports.createMeeting = async (req, res, next) => {
   try {
-    const { topic, startTime, duration, agenda } = req.body;
+    const { topic, startTime, duration, agenda, meetingType, client } = req.body;
 
     if (!topic || !startTime || !duration) {
       return res.status(400).json({ success: false, message: 'Topic, start time, and duration are required' });
@@ -56,6 +56,8 @@ exports.createMeeting = async (req, res, next) => {
       startUrl: meetingData.start_url,
       joinUrl: meetingData.join_url,
       provider,
+      meetingType: meetingType || 'internal',
+      client: client || null,
       createdBy: req.user._id,
       status: 'upcoming'
     });
@@ -75,7 +77,24 @@ exports.createMeeting = async (req, res, next) => {
 
 exports.getMeetings = async (req, res, next) => {
   try {
-    const meetings = await Meeting.find().sort({ startTime: -1 }).populate('createdBy', 'name');
+    let query = {};
+    if (req.user.role !== 'admin') {
+      if (req.user.role === 'client') {
+        query = { meetingType: 'client', client: req.user._id };
+      } else {
+        query = {
+          $or: [
+            { createdBy: req.user._id },
+            { sharedWith: req.user._id }
+          ]
+        };
+      }
+    }
+
+    const meetings = await Meeting.find(query)
+      .sort({ startTime: -1 })
+      .populate('createdBy', 'name')
+      .populate('client', 'companyName contactPerson');
 
     const now = new Date();
 
@@ -137,7 +156,59 @@ exports.deleteMeeting = async (req, res, next) => {
 
     meeting.status = 'inactive';
     await meeting.save();
-
     res.json({ success: true, message: 'Meeting deleted' });
   } catch (err) { next(err); }
+};
+
+const { sendLoggedMail } = require('../services/emailService');
+
+exports.shareViaEmail = async (req, res, next) => {
+  try {
+    const { emails, subject, content } = req.body;
+    
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid email addresses provided' });
+    }
+
+    // Process all emails in parallel
+    const promises = emails.map(email => 
+      sendLoggedMail({
+        to: email,
+        subject: subject || 'Meeting Invitation',
+        text: content || 'Join my meeting',
+        html: `<div style="font-family: sans-serif; white-space: pre-wrap;">${content}</div>`,
+        category: 'Meeting'
+      }, req.user?._id)
+    );
+
+    await Promise.allSettled(promises);
+
+    res.json({ success: true, message: `Emails dispatched to ${emails.length} recipients` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.shareMeeting = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userIds } = req.body;
+    
+    if (!userIds || !Array.isArray(userIds)) {
+      return res.status(400).json({ success: false, message: 'userIds array is required' });
+    }
+
+    const meeting = await Meeting.findById(id);
+    if (!meeting) {
+      return res.status(404).json({ success: false, message: 'Meeting not found' });
+    }
+
+    // Sync users to sharedWith array
+    meeting.sharedWith = userIds;
+    await meeting.save();
+
+    res.json({ success: true, message: 'Meeting sharing updated' });
+  } catch (err) {
+    next(err);
+  }
 };

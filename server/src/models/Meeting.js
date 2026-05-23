@@ -10,7 +10,10 @@ const meetingSchema = new mongoose.Schema({
   joinUrl: { type: String, required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   status: { type: String, enum: ['upcoming', 'active', 'ended', 'inactive'], default: 'upcoming' },
-  provider: { type: String, enum: ['zoom', 'jitsi'], default: 'zoom' }
+  provider: { type: String, enum: ['zoom', 'jitsi'], default: 'zoom' },
+  meetingType: { type: String, enum: ['internal', 'client'], default: 'internal' },
+  client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: false },
+  sharedWith: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Meeting', meetingSchema);

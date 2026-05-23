@@ -306,7 +306,7 @@ export default function AdminQuotations() {
               <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="form-label">Client *</label>
                   <input type="hidden" {...register('client', { required: true })} />
                   <SearchableSelect
@@ -327,7 +327,7 @@ export default function AdminQuotations() {
               </div>
               <div><label className="form-label">Subject / Title</label>
                 <input {...register('title')} className="form-input" placeholder="e.g. ERP System Development Proposal (optional)"/></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="form-label">Branch</label>
                   <select {...register('branch')} className="form-select">
                     <option value="">— None —</option>
@@ -363,7 +363,7 @@ export default function AdminQuotations() {
                 <div><label className="form-label">Exchange rate (1 {watchedCurrency} → LKR)</label>
                   <input {...register('exchangeRateToLKR', { valueAsNumber: true })} type="number" step="0.01" min="0.01" className="form-input" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div><label className="form-label">Quotation Date</label>
                   <input {...register('quotationDate')} type="date" className="form-input"/></div>
                 <div><label className="form-label">Valid Until</label>

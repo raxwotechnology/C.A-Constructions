@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiMail, FiSearch, FiCheckCircle, FiXCircle } from 'react-icons/fi'
 import api from '../../lib/api'
 import { format } from 'date-fns'
+import toast from 'react-hot-toast'
 
 export default function EmailLogs() {
+  const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [moduleFilter, setModuleFilter] = useState('')
@@ -68,6 +70,7 @@ export default function EmailLogs() {
               <th>Status</th>
               <th>Error</th>
               <th>Sent At</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -89,6 +92,20 @@ export default function EmailLogs() {
                 </td>
                 <td className="text-xs text-red-500 max-w-xs truncate">{log.error || '-'}</td>
                 <td className="text-xs text-slate-500">{format(new Date(log.sentAt), 'PP p')}</td>
+                <td>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm('Resend this email?')) {
+                        api.post(`/email-logs/${log._id}/resend`)
+                          .then(() => toast.success('Resend triggered!'))
+                          .catch(e => toast.error(e.response?.data?.message || 'Failed to resend'))
+                      }
+                    }}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-semibold flex items-center gap-1"
+                  >
+                    Resend
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

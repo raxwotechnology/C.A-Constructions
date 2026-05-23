@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { FiVideo, FiCopy, FiUsers, FiTrash2, FiPlay, FiX, FiShare2, FiSend, FiLink } from 'react-icons/fi'
+import { FiVideo, FiCopy, FiUsers, FiTrash2, FiPlay, FiX, FiShare2, FiSend, FiLink, FiSearch } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
@@ -19,6 +19,9 @@ export default function Meetings() {
   const [shareMeeting, setShareMeeting] = useState(null)
   const [selectedUsersToShare, setSelectedUsersToShare] = useState([])
   const [shareMessage, setShareMessage] = useState('')
+  const [activeMeetingRoom, setActiveMeetingRoom] = useState(null) // For in-app iframe meeting
+
+  const [activeTab, setActiveTab] = useState('internal') // 'internal' | 'client'
 
   const { data: contactsData } = useQuery({
     queryKey: ['message-contacts'],
@@ -27,12 +30,22 @@ export default function Meetings() {
   })
   const contacts = contactsData?.users || []
 
+  const { data: clientsData } = useQuery({
+    queryKey: ['clients-list'],
+    queryFn: () => api.get('/clients').then(r => r.data),
+    enabled: isAdmin,
+  })
+  const clients = clientsData?.clients || []
+
   const { data: meetingsData, isLoading } = useQuery({
     queryKey: ['meetings'],
     queryFn: () => api.get('/meetings').then(r => r.data),
     refetchInterval: 30000,
   })
-  const meetings = meetingsData?.meetings || []
+  const allMeetings = meetingsData?.meetings || []
+  
+  // Filter meetings by tab
+  const meetings = allMeetings.filter(m => (m.meetingType || 'internal') === activeTab)
 
   const { data: attendeesData, isLoading: isLoadingAttendees } = useQuery({
     queryKey: ['meeting-attendees', selectedMeeting],
@@ -41,9 +54,10 @@ export default function Meetings() {
   })
   const attendees = attendeesData?.participants || []
 
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm({
-    defaultValues: { duration: 60 }
+  const { register, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm({
+    defaultValues: { duration: 60, meetingType: 'internal', client: '' }
   })
+  const watchMeetingType = watch('meetingType')
 
   const createMut = useMutation({
     mutationFn: d => api.post('/meetings/create', d).then(r => r.data),
@@ -70,14 +84,38 @@ export default function Meetings() {
       const promises = selectedUsersToShare.map(userId => 
         api.post('/messages', { recipientId: userId, content: shareMessage })
       )
+      if (!shareMeeting.isCustom && shareMeeting._id) {
+        promises.push(api.post(`/meetings/${shareMeeting._id}/share`, { userIds: selectedUsersToShare }))
+      }
       await Promise.all(promises)
     },
     onSuccess: () => {
-      toast.success('Meeting link shared successfully!')
+      toast.success('Meeting link shared via message successfully!')
       setShareMeeting(null)
       setSelectedUsersToShare([])
+      qc.invalidateQueries(['meetings'])
     },
     onError: () => toast.error('Failed to share meeting')
+  })
+
+  const shareEmailMut = useMutation({
+    mutationFn: async (emails) => {
+      await api.post('/meetings/share-email', {
+        emails,
+        subject: `Meeting Invitation: ${shareMeeting?.topic || 'Raxwo ERP Meeting'}`,
+        content: shareMessage
+      })
+      if (!shareMeeting.isCustom && shareMeeting._id) {
+        await api.post(`/meetings/${shareMeeting._id}/share`, { userIds: selectedUsersToShare })
+      }
+    },
+    onSuccess: () => {
+      toast.success('Meeting invitations sent via email successfully!')
+      setShareMeeting(null)
+      setSelectedUsersToShare([])
+      qc.invalidateQueries(['meetings'])
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed to send emails')
   })
 
   const copyLink = (link) => {
@@ -108,28 +146,44 @@ export default function Meetings() {
   )
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in w-full overflow-hidden">
       <SectionHeader 
-        title="Zoom Meetings" 
-        subtitle="Manage and join virtual meetings" 
+        title="Virtual Meetings" 
+        subtitle="Manage internal and client meetings" 
         action={isAdmin && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
             <button 
               onClick={() => {
                 setShareMeeting({ isCustom: true, joinUrl: '' });
                 setShareMessage('🎥 Join my Meeting!\n\n📌 Topic: \n📅 Date: \n🕐 Time: \n\n🔗 Join Link: ');
                 setSelectedUsersToShare([]);
               }} 
-              className="px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 border-2 border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-500 hover:text-blue-600 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              className="px-4 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 border-2 border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-500 hover:text-blue-600 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
             >
               <FiShare2 size={18} /> Share External Link
             </button>
-            <button onClick={() => setShowCreate(true)} className="btn-primary shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 transition-all duration-200">
+            <button onClick={() => { reset(); setShowCreate(true); }} className="btn-primary shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 transition-all duration-200 justify-center">
               <FiVideo size={18} /> Create Meeting
             </button>
           </div>
         )}
       />
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar">
+        <button 
+          onClick={() => setActiveTab('internal')}
+          className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'internal' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Internal Meetings
+        </button>
+        <button 
+          onClick={() => setActiveTab('client')}
+          className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'client' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Client Meetings
+        </button>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (
@@ -137,7 +191,7 @@ export default function Meetings() {
         ) : meetings.length === 0 ? (
           <div className="col-span-full text-center py-10 bg-white rounded-2xl border border-slate-100">
             <FiVideo size={48} className="mx-auto text-slate-300 mb-3" />
-            <h3 className="text-lg font-bold text-slate-700">No Meetings Found</h3>
+            <h3 className="text-lg font-bold text-slate-700">No {activeTab === 'client' ? 'Client ' : 'Internal '}Meetings</h3>
             <p className="text-slate-500">There are no upcoming or active meetings at the moment.</p>
           </div>
         ) : (
@@ -149,6 +203,12 @@ export default function Meetings() {
                 {new Date(m.startTime).toLocaleString()} • {m.duration} mins
               </p>
               
+              {m.meetingType === 'client' && m.client && (
+                <div className="mt-3 inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-100 w-fit">
+                  <FiUsers size={12} /> Client: {m.client.companyName || m.client.contactPerson || 'Unknown'}
+                </div>
+              )}
+              
               {m.agenda && (
                 <div className="mt-4 p-3 bg-slate-50 rounded-lg text-sm text-slate-600 line-clamp-2">
                   {m.agenda}
@@ -159,9 +219,12 @@ export default function Meetings() {
                 {/* Row 1: Start/Join + Copy */}
                 <div className="flex items-center gap-2">
                   {m.status !== 'ended' && m.status !== 'inactive' && (
-                    <a href={isAdmin ? m.startUrl : m.joinUrl} target="_blank" rel="noreferrer" className={`btn-primary flex-1 justify-center ${m.status === 'active' ? 'bg-green-600 hover:bg-green-700' : ''}`}>
+                    <button 
+                      onClick={() => setActiveMeetingRoom({ url: isAdmin ? m.startUrl : m.joinUrl, topic: m.topic })}
+                      className={`btn-primary flex-1 justify-center ${m.status === 'active' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                    >
                       <FiPlay /> {isAdmin ? 'Start' : 'Join'}
-                    </a>
+                    </button>
                   )}
                   <button onClick={() => copyLink(m.joinUrl)} className="btn-secondary px-3" title="Copy Join Link">
                     <FiCopy />
@@ -173,8 +236,8 @@ export default function Meetings() {
                   <button 
                     onClick={() => {
                       setShareMeeting(m)
-                      setSelectedUsersToShare([])
-                      setShareMessage(`🎥 Join my Zoom Meeting!\n\n📌 Topic: ${m.topic}\n📅 Date: ${new Date(m.startTime).toLocaleDateString()}\n🕐 Time: ${new Date(m.startTime).toLocaleTimeString()}\n⏱ Duration: ${m.duration} mins\n\n🔗 Join Link: ${m.joinUrl}`)
+                      setSelectedUsersToShare(m.sharedWith || [])
+                      setShareMessage(`🎥 Join my Meeting!\n\n📌 Topic: ${m.topic}\n📅 Date: ${new Date(m.startTime).toLocaleDateString()}\n🕐 Time: ${new Date(m.startTime).toLocaleTimeString()}\n⏱ Duration: ${m.duration} mins\n\n🔗 Join Link: ${m.joinUrl}`)
                     }} 
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 font-semibold text-sm hover:bg-blue-100 hover:border-blue-300 transition-all"
                   >
@@ -204,9 +267,9 @@ export default function Meetings() {
       {/* Create Modal — rendered via Portal */}
       {showCreate && (
         <Modal onClose={() => setShowCreate(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-fade-in shadow-2xl">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-fade-in shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold font-heading">Schedule Zoom Meeting</h3>
+              <h3 className="text-xl font-bold font-heading">Schedule Meeting</h3>
               <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-red-500">
                 <FiX size={24} />
               </button>
@@ -214,11 +277,31 @@ export default function Meetings() {
             
             <form onSubmit={handleSubmit(d => createMut.mutate(d))} className="space-y-4">
               <div>
+                <label className="form-label">Meeting Type</label>
+                <select {...register('meetingType')} className="form-select">
+                  <option value="internal">Internal Meeting</option>
+                  <option value="client">Client Meeting</option>
+                </select>
+              </div>
+
+              {watchMeetingType === 'client' && (
+                <div className="animate-fade-in">
+                  <label className="form-label">Select Client <span className="text-xs text-slate-400 font-normal">(Optional)</span></label>
+                  <select {...register('client')} className="form-select">
+                    <option value="">-- No specific client --</option>
+                    {clients.map(c => (
+                      <option key={c._id} value={c._id}>{c.companyName || c.contactPerson}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
                 <label className="form-label">Topic</label>
                 <input required {...register('topic')} className="form-input" placeholder="e.g. Monthly Review" />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Date & Time</label>
                   <input required type="datetime-local" {...register('startTime')} className="form-input" />
@@ -379,55 +462,159 @@ export default function Meetings() {
               </div>
 
               <div>
-                <label className="form-label flex justify-between items-end">
-                  Select Users to Share With
+                <label className="form-label flex justify-between items-end mb-2">
+                  <span className="flex items-center gap-2">
+                    Select {shareMeeting.isCustom ? 'Users/Clients' : (shareMeeting.meetingType === 'client' ? 'Clients' : 'Employees')} to Share With
+                  </span>
                   <button 
                     type="button" 
                     className="text-xs text-blue-600 font-semibold"
                     onClick={() => {
-                      if (selectedUsersToShare.length === contacts.length) setSelectedUsersToShare([])
-                      else setSelectedUsersToShare(contacts.map(c => c._id))
+                      const list = shareMeeting.isCustom 
+                        ? [...contacts, ...clients] 
+                        : (shareMeeting.meetingType === 'client' ? clients : contacts)
+                      if (selectedUsersToShare.length === list.length) setSelectedUsersToShare([])
+                      else setSelectedUsersToShare(list.map(c => c._id))
                     }}
                   >
-                    {selectedUsersToShare.length === contacts.length ? 'Deselect All' : 'Select All'}
+                    Select All
                   </button>
                 </label>
+                
+                <div className="relative mb-2">
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input 
+                    type="text" 
+                    placeholder="Search name or email..." 
+                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    onChange={(e) => {
+                      const search = e.target.value.toLowerCase();
+                      const nodes = document.querySelectorAll('.share-user-item');
+                      nodes.forEach(node => {
+                        const text = node.textContent.toLowerCase();
+                        if (text.includes(search)) node.style.display = 'flex';
+                        else node.style.display = 'none';
+                      });
+                    }}
+                  />
+                </div>
+
                 <div className="border rounded-xl border-slate-200 divide-y divide-slate-100 max-h-60 overflow-y-auto bg-slate-50">
-                  {contacts.map(c => (
-                    <label key={c._id} className="flex items-center gap-3 p-3 hover:bg-white cursor-pointer transition-colors">
-                      <input 
-                        type="checkbox" 
-                        className="rounded text-blue-600 focus:ring-blue-600"
-                        checked={selectedUsersToShare.includes(c._id)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedUsersToShare(prev => [...prev, c._id])
-                          else setSelectedUsersToShare(prev => prev.filter(id => id !== c._id))
-                        }}
-                      />
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{c.name}</p>
-                        <p className="text-xs text-slate-500 capitalize">{c.role}</p>
-                      </div>
-                    </label>
-                  ))}
-                  {contacts.length === 0 && (
-                    <div className="p-4 text-center text-slate-500 text-sm">No contacts available.</div>
-                  )}
+                  {(() => {
+                    const list = shareMeeting.isCustom 
+                      ? [...contacts, ...clients] 
+                      : (shareMeeting.meetingType === 'client' ? clients : contacts)
+                    
+                    if (list.length === 0) return <div className="p-4 text-center text-slate-500 text-sm">No users found.</div>
+                    
+                    return list.map(c => (
+                      <label key={c._id} className="share-user-item flex items-center gap-3 p-3 hover:bg-white cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox" 
+                          className="rounded text-blue-600 focus:ring-blue-600"
+                          checked={selectedUsersToShare.includes(c._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedUsersToShare(prev => [...prev, c._id])
+                            else setSelectedUsersToShare(prev => prev.filter(id => id !== c._id))
+                          }}
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{c.name || c.companyName || c.contactPerson}</p>
+                          <p className="text-xs text-slate-500 capitalize">{c.email || c.role}</p>
+                        </div>
+                      </label>
+                    ))
+                  })()}
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-100">
+            <div className="pt-4 mt-4 border-t border-slate-100 space-y-3">
+              <div className="flex items-center gap-4 text-sm font-medium text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="shareMethod" value="message" defaultChecked className="text-blue-600 focus:ring-blue-500" id="shareMethodMessage" />
+                  Internal Message
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="shareMethod" value="email" className="text-blue-600 focus:ring-blue-500" id="shareMethodEmail" />
+                  Email
+                </label>
+              </div>
               <button 
-                onClick={() => shareMut.mutate()} 
-                disabled={shareMut.isPending || selectedUsersToShare.length === 0 || !shareMessage.trim()} 
+                onClick={() => {
+                  const method = document.getElementById('shareMethodEmail').checked ? 'email' : 'message';
+                  if (method === 'message') {
+                    shareMut.mutate();
+                  } else {
+                    const list = shareMeeting.isCustom 
+                      ? [...contacts, ...clients] 
+                      : (shareMeeting.meetingType === 'client' ? clients : contacts);
+                    
+                    const selectedEmails = list.filter(c => selectedUsersToShare.includes(c._id) && c.email).map(c => c.email);
+                    if (selectedEmails.length === 0) {
+                      toast.error('No valid emails found for selected users');
+                      return;
+                    }
+                    shareEmailMut.mutate(selectedEmails);
+                  }
+                }} 
+                disabled={shareMut.isPending || shareEmailMut?.isPending || selectedUsersToShare.length === 0 || !shareMessage.trim()} 
                 className="btn-primary w-full justify-center"
               >
-                {shareMut.isPending ? <span className="spinner"/> : <><FiSend /> Send to {selectedUsersToShare.length} user{selectedUsersToShare.length !== 1 ? 's' : ''}</>}
+                {shareMut.isPending || shareEmailMut?.isPending ? <span className="spinner"/> : <><FiSend /> Send Invite to {selectedUsersToShare.length} user{selectedUsersToShare.length !== 1 ? 's' : ''}</>}
               </button>
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Embedded Meeting Room iframe */}
+      {activeMeetingRoom && createPortal(
+        <div className="fixed inset-0 z-[100000] bg-slate-900 flex flex-col">
+          <div className="bg-slate-800 text-white p-3 flex items-center justify-between shadow-md z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center animate-pulse shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+                <FiVideo size={16} />
+              </div>
+              <h2 className="font-semibold">{activeMeetingRoom.topic}</h2>
+            </div>
+            <div className="flex items-center gap-4">
+              <a 
+                href={activeMeetingRoom.url} 
+                target="_blank" 
+                rel="noreferrer"
+                title="Open in new tab"
+                className="text-xs text-blue-400 font-mono hidden sm:block bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-950 hover:text-blue-300 transition-colors"
+              >
+                {activeMeetingRoom.url}
+              </a>
+              <button 
+                onClick={() => {
+                  if (confirm('Are you sure you want to leave the meeting?')) {
+                    setActiveMeetingRoom(null);
+                  }
+                }} 
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(220,38,38,0.5)]"
+              >
+                <FiX size={18} /> Leave Meeting
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 w-full bg-black relative">
+            {/* Loading state under iframe */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+              <span className="spinner mb-4 scale-150"></span>
+              <p>Connecting to secure meeting room...</p>
+            </div>
+            <iframe 
+              src={activeMeetingRoom.url}
+              className="absolute inset-0 w-full h-full border-none z-10"
+              allow="camera; microphone; fullscreen; display-capture; autoplay"
+              title="Meeting Room"
+            />
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

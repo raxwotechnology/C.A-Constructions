@@ -327,7 +327,7 @@ export default function AdminEmployees() {
           <h1 className="page-title">Employees</h1>
           <p className="page-subtitle">{data?.count || 0} total employees</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto mt-3 sm:mt-0 justify-start sm:justify-end">
           <ExportBar
             data={employees}
             columns={[
@@ -338,12 +338,12 @@ export default function AdminEmployees() {
             ]}
             title="Employee List"
           />
-          <button type="button" onClick={openCreate} className="btn-primary"><FiPlus size={16}/> Add Employee</button>
+          <button type="button" onClick={openCreate} className="btn-primary w-full sm:w-auto justify-center"><FiPlus size={16}/> Add Employee</button>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <div className="relative flex-1">
+        <div className="relative flex-1 w-full sm:w-auto">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
           <input 
             value={search} 

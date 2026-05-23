@@ -6,11 +6,15 @@ const {
   getMeetings,
   getAttendees,
   deleteMeeting,
+  shareViaEmail,
+  shareMeeting,
 } = require('../controllers/meetingController');
 
 router.get('/', protect, getMeetings);
 router.post('/create', protect, authorize('admin', 'manager'), createMeeting);
 router.get('/:id/attendees', protect, authorize('admin', 'manager'), getAttendees);
+router.post('/share-email', protect, authorize('admin', 'manager'), shareViaEmail);
+router.post('/:id/share', protect, authorize('admin', 'manager'), shareMeeting);
 router.delete('/:id', protect, authorize('admin', 'manager'), deleteMeeting);
 
 // Debug endpoint — remove in production
