@@ -11,6 +11,7 @@ import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiInfo } f
 import { invoicePaymentDisplay } from '../../lib/invoicePayment'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
+import ExportBar from '../../components/ui/ExportBar'
 
 const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
 const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', cancelled:'badge-red', overdue:'badge-red' }
@@ -213,9 +214,25 @@ export default function AdminProjects() {
           <h1 className="page-title">Projects</h1>
           <p className="page-subtitle">{projData?.count || 0} total projects</p>
         </div>
-        <button onClick={() => { reset({ progress: 0, budget: 0 }); setEditing(null); setSelectedTeam([]); setCommissionAllocations([]); setLinkedInvoices([]); setClientSelectLabel(''); setShowModal(true) }} className="btn-primary">
-          <FiPlus size={15}/> New Project
-        </button>
+        <div className="flex items-center gap-3">
+          <ExportBar
+            data={projects}
+            columns={[
+              { header: 'Project Title', accessor: 'title' },
+              { header: 'Client', accessor: (p) => p.client?.name || 'Internal' },
+              { header: 'Status', accessor: (p) => p.status?.replace('_', ' ').toUpperCase() },
+              { header: 'Priority', accessor: (p) => p.priority?.toUpperCase() },
+              { header: 'Progress', accessor: (p) => `${p.progress}%` },
+              { header: 'Budget', accessor: (p) => `LKR ${p.budget?.toLocaleString()}` },
+              { header: 'Deadline', accessor: (p) => p.deadline ? new Date(p.deadline).toLocaleDateString() : 'N/A' },
+            ]}
+            title="Projects Report"
+            filters={{ Status: statusFilter, Branch: branches.find(b => b._id === branchFilter)?.name }}
+          />
+          <button onClick={() => { reset({ progress: 0, budget: 0 }); setEditing(null); setSelectedTeam([]); setCommissionAllocations([]); setLinkedInvoices([]); setClientSelectLabel(''); setShowModal(true) }} className="btn-primary">
+            <FiPlus size={15}/> New Project
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

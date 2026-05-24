@@ -2,10 +2,12 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { FiMessageCircle } from 'react-icons/fi';
+import { useLocation } from 'react-router-dom';
 import api from '../../lib/api';
 import { SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding';
 
 export default function WhatsAppButton() {
+  const location = useLocation();
   const { data } = useQuery({
     queryKey: SITE_SETTINGS_QUERY_KEY,
     queryFn: () => api.get('/site-settings').then((r) => r.data),
@@ -14,7 +16,7 @@ export default function WhatsAppButton() {
 
   const whatsappNumber = data?.settings?.whatsappNumber;
 
-  if (!whatsappNumber) return null;
+  if (!whatsappNumber || location.pathname.startsWith('/admin')) return null;
 
   // Format the number by removing any non-digit characters
   const formattedNumber = whatsappNumber.replace(/\D/g, '');

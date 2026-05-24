@@ -505,7 +505,7 @@ export default function IncomeTax() {
           </div>
 
           {(profileModal === 'create' || profileModal === 'edit') && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setProfileModal(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" >
               <div className="card card-body w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-3" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-primary">{profileModal === 'edit' ? 'Edit' : 'New'} employee tax profile</h3>
@@ -615,7 +615,7 @@ export default function IncomeTax() {
           )}
 
           {viewProfile && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setViewProfile(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" >
               <div className="card card-body w-full max-w-md space-y-2 text-sm" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start">
                   <h3 className="font-bold text-primary">{viewProfile.employee?.userId?.name}</h3>
@@ -767,7 +767,7 @@ export default function IncomeTax() {
           </div>
 
           {viewRecord && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setViewRecord(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" >
               <div className="card card-body w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -796,7 +796,7 @@ export default function IncomeTax() {
           )}
 
           {recordEdit && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setRecordEdit(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" >
               <div className="card card-body w-full max-w-md space-y-3" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-primary">Edit tax record</h3>

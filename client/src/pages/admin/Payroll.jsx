@@ -651,10 +651,12 @@ export default function AdminPayroll() {
           <p className="text-xs text-gray-400">Add OT hours and amount for the selected employee and period.</p>
           <div>
             <label className="form-label">Employee</label>
-            <select className="form-select" value={otEmployeeId} onChange={e => setOtEmployeeId(e.target.value)}>
-              <option value="">Select employee</option>
-              {activeEmployees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
-            </select>
+            <SearchableSelect
+              value={otEmployeeId}
+              onChange={(v) => setOtEmployeeId(v)}
+              loadOptions={lookupLoaders.employees({ branch: branchFilter })}
+              placeholder="Search employee…"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="form-label">OT Amount (LKR)</label><input type="number" className="form-input" value={otAmount} onChange={e => setOtAmount(Number(e.target.value||0))}/></div>

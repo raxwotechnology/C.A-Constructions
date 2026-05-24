@@ -75,7 +75,7 @@ const subscriptionSchema = new mongoose.Schema({
   amount: { type: Number, required: true }, // Custom per-client monthly amount
   currency: { type: String, default: 'LKR' },
   billingFrequency: { type: String, enum: ['monthly', 'quarterly', 'semi_annual', 'annual'], default: 'monthly' },
-  billingDay: { type: Number, default: 1, min: 1, max: 28 }, // Day of month billing is due
+  billingDay: { type: Number, default: 1, min: 1, max: 31 }, // Day of month billing is due
   nextDueDate: { type: Date, required: true },
   /** @deprecated Use reminderDaysBefore; kept for backward compatibility (overdue grace). */
   gracePeriodDays: { type: Number, default: 0 },

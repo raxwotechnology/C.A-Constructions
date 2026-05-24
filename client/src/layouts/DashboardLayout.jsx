@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import useAuthStore from '../store/authStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -11,7 +11,7 @@ import {
   FiHome, FiUsers, FiCalendar, FiDollarSign, FiFileText, FiBriefcase,
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
-  FiDownload,
+  FiDownload, FiSearch,
   FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey, FiMail, FiVideo
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
@@ -148,6 +148,9 @@ export default function DashboardLayout({ role }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const notifButtonRef = useRef(null)
   const [notifPos, setNotifPos] = useState({ top: 72, right: 16 })
+  
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearchBox, setShowSearchBox] = useState(false)
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
@@ -186,6 +189,20 @@ export default function DashboardLayout({ role }) {
   }
 
   const navGroups = navMap[user?.role] || navMap[role] || []
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return []
+    const q = searchQuery.toLowerCase()
+    const results = []
+    navGroups.forEach(group => {
+      group.items.forEach(item => {
+        if (item.label.toLowerCase().includes(q) || group.group.toLowerCase().includes(q)) {
+          results.push({ ...item, group: group.group })
+        }
+      })
+    })
+    return results.slice(0, 8)
+  }, [searchQuery, navGroups])
 
   useEffect(() => {
     const updateNotifPos = () => {
@@ -304,7 +321,46 @@ export default function DashboardLayout({ role }) {
             <FiMenu size={22} />
           </button>
 
-          <div className="flex-1 lg:flex-none" />
+          <div className="flex-1 px-4 lg:px-8 max-w-xl">
+            <div className="relative hidden sm:block">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search navigation..." 
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onFocus={() => setShowSearchBox(true)}
+              />
+              <AnimatePresence>
+                {showSearchBox && searchQuery && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-[300]"
+                  >
+                    {searchResults.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-slate-500">No matching pages found</div>
+                    ) : (
+                      searchResults.map((res, i) => (
+                        <NavLink
+                          key={i}
+                          to={res.to}
+                          className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50"
+                          onClick={() => { setShowSearchBox(false); setSearchQuery(''); }}
+                        >
+                          <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500"><res.icon size={14} /></div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-700">{res.label}</p>
+                            <p className="text-[10px] text-slate-400 uppercase">{res.group}</p>
+                          </div>
+                        </NavLink>
+                      ))
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Notifications */}

@@ -4,12 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
+import { mediaUrl } from '../../lib/media'
 import toast from 'react-hot-toast'
 import {
   FiPlus, FiSearch, FiEdit2, FiTrash2, FiFileText,
-  FiLink, FiServer, FiAlertCircle, FiDollarSign, FiX
+  FiLink, FiServer, FiAlertCircle, FiDollarSign, FiX, FiList, FiEye, FiExternalLink
 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
+import ExportBar from '../../components/ui/ExportBar'
 
 /* ─── Reusable Portal Modal ─────────────────────────────── */
 function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-3xl' }) {
@@ -18,7 +20,6 @@ function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-3xl' 
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
       style={{ zIndex: 99999 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -57,6 +58,8 @@ export default function AdminSubscriptions() {
   const [showForm, setShowForm] = useState(false)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [showAgreementForm, setShowAgreementForm] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [deleteId, setDeleteId] = useState(null)
   const [selectedSub, setSelectedSub] = useState(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -76,9 +79,10 @@ export default function AdminSubscriptions() {
 
   const [paymentForm, setPaymentForm] = useState({
     amount: '', method: 'cash', bankAccount: '', reference: '', note: '',
-    chequeNumber: '', chequeDate: '', chequeBank: '', chequeDrawer: '',
+    chequeNumber: '', chequeDate: '', chequeBank: '', chequeDrawer: '', date: new Date().toISOString().split('T')[0]
   })
   const [agreementForm, setAgreementForm] = useState({ title: '', type: 'service', validFrom: '', validUntil: '', notes: '', file: null })
+  const [viewAgreementUrl, setViewAgreementUrl] = useState(null)
 
   /* Queries */
   const { data, isLoading } = useQuery({
@@ -127,6 +131,7 @@ export default function AdminSubscriptions() {
           chequeDate: payload.chequeDate || undefined,
           chequeBank: payload.chequeBank || '',
           chequeDrawer: payload.chequeDrawer || '',
+          paidAt: payload.date || undefined,
         }
         return api.post(`/subscriptions/${selectedSub._id}/payments`, body).then(r => r.data)
       }
@@ -139,10 +144,17 @@ export default function AdminSubscriptions() {
       }
       return api.post('/subscriptions', payload).then(r => r.data)
     },
-    onSuccess: () => {
-      toast.success('Saved successfully')
-      setShowForm(false); setShowPaymentForm(false); setShowAgreementForm(false)
-      setSelectedSub(null)
+    onSuccess: (data) => {
+      if (data?.subscription && showAgreementForm) {
+        // Agreement upload: keep modal open, refresh the selected sub so new agreement shows
+        toast.success('Agreement uploaded and synced to CRM ✓')
+        setSelectedSub(data.subscription)
+        setAgreementForm({ title: '', type: 'service', validFrom: '', validUntil: '', notes: '', file: null })
+      } else {
+        toast.success('Saved successfully')
+        setShowForm(false); setShowPaymentForm(false); setShowAgreementForm(false)
+        setSelectedSub(null)
+      }
       qc.invalidateQueries({ queryKey: ['admin-subscriptions'] })
       qc.invalidateQueries({ queryKey: ['admin-billing-overview'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
@@ -195,11 +207,18 @@ export default function AdminSubscriptions() {
       chequeDate: '',
       chequeBank: '',
       chequeDrawer: '',
+      date: new Date().toISOString().split('T')[0]
     })
     setShowPaymentForm(true)
   }
-  const openAgreement = (sub) => {
-    setSelectedSub(sub)
+  const openAgreement = async (sub) => {
+    // Fetch fresh data so we get the latest agreements list
+    try {
+      const { data: fresh } = await api.get(`/subscriptions/${sub._id}`)
+      setSelectedSub(fresh?.subscription || sub)
+    } catch {
+      setSelectedSub(sub)
+    }
     setAgreementForm({ title: '', type: 'service', validFrom: '', validUntil: '', notes: '', file: null })
     setShowAgreementForm(true)
   }
@@ -215,7 +234,7 @@ export default function AdminSubscriptions() {
     payload.reminderDaysBefore = Number.isFinite(rd) && rd > 0 ? rd : null
     payload.hostingDetails = {
       domainName: form.domainName, provider: form.provider,
-      hostingUrl: form.hostingUrl, expiryDate: form.expiryDate,
+      hostingUrl: form.hostingUrl, expiryDate: form.expiryDate || null,
       renewalStatus: form.renewalStatus
     }
     saveMut.mutate(payload)
@@ -231,7 +250,21 @@ export default function AdminSubscriptions() {
           <h1 className="page-title">Subscription Management</h1>
           <p className="page-subtitle">Manage client subscriptions, billing, hosting &amp; agreements.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <ExportBar
+            data={filteredSubs}
+            columns={[
+              { header: 'Subscription No', accessor: 'subscriptionNo' },
+              { header: 'Title', accessor: 'title' },
+              { header: 'Client', accessor: (s) => s.client?.name || 'Unknown' },
+              { header: 'Type', accessor: (s) => s.subscriptionType?.replace(/_/g, ' ').toUpperCase() },
+              { header: 'Status', accessor: (s) => s.status?.toUpperCase() },
+              { header: 'Billing', accessor: (s) => `${s.billingFrequency} (LKR ${s.amount?.toLocaleString()})` },
+              { header: 'Next Due Date', accessor: (s) => s.nextDueDate ? new Date(s.nextDueDate).toLocaleDateString() : 'N/A' },
+            ]}
+            title="Subscriptions Report"
+            filters={{ Status: statusFilter, Branch: branches.find(b => b._id === branchFilter)?.name }}
+          />
           <button className="btn-secondary btn-sm" onClick={() => processOverdueMut.mutate()} disabled={processOverdueMut.isPending}>
             <FiAlertCircle size={14} /> Process Overdue
           </button>
@@ -319,9 +352,10 @@ export default function AdminSubscriptions() {
                   <td>
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => openPayment(s)} className="p-1.5 rounded-lg text-green-500 hover:bg-green-50" title="Record Payment"><FiDollarSign size={14} /></button>
+                      <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50" title="Payment History"><FiList size={14} /></button>
                       <button onClick={() => openAgreement(s)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50" title="Add Agreement"><FiFileText size={14} /></button>
                       <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100" title="Edit"><FiEdit2 size={14} /></button>
-                      <button onClick={() => { if (window.confirm('Delete this subscription?')) deleteMut.mutate(s._id) }} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500" title="Delete"><FiTrash2 size={14} /></button>
+                      <button onClick={() => setDeleteId(s._id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500" title="Delete"><FiTrash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -408,8 +442,8 @@ export default function AdminSubscriptions() {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Billing Day (1–28)</label>
-                  <input type="number" className="form-input" value={form.billingDay} onChange={e => f('billingDay')(e.target.value)} min="1" max="28" />
+                  <label className="form-label">Billing Day (1–31)</label>
+                  <input type="number" className="form-input" value={form.billingDay} onChange={e => f('billingDay')(e.target.value)} min="1" max="31" />
                 </div>
                 <div>
                   <label className="form-label">Reminder (days before due)</label>
@@ -476,17 +510,23 @@ export default function AdminSubscriptions() {
                 <label className="form-label">Payment Amount (LKR) *</label>
                 <input type="number" className="form-input" value={paymentForm.amount} onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value }))} min="1" />
               </div>
-              <div>
-                <label className="form-label">Payment method</label>
-                <select className="form-select" value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))}>
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="bank_transfer">Bank transfer</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="online_transfer">Online transfer</option>
-                  <option value="payhere">PayHere</option>
-                  <option value="manual">Other / manual</option>
-                </select>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Payment Date</label>
+                  <input type="date" className="form-input" value={paymentForm.date} onChange={e => setPaymentForm(p => ({ ...p, date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Payment method</label>
+                  <select className="form-select" value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))}>
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="bank_transfer">Bank transfer</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="online_transfer">Online transfer</option>
+                    <option value="payhere">PayHere</option>
+                    <option value="manual">Other / manual</option>
+                  </select>
+                </div>
               </div>
               {['bank_transfer', 'payhere', 'card', 'online_transfer'].includes(paymentForm.method) && (
                 <div>
@@ -542,16 +582,45 @@ export default function AdminSubscriptions() {
 
       {/* ── Add Agreement Modal ── */}
       <AnimatePresence>
-        <Modal open={showAgreementForm} onClose={() => setShowAgreementForm(false)} title="Add Agreement" maxWidth="max-w-md"
+      <Modal open={showAgreementForm} onClose={() => setShowAgreementForm(false)} title="Subscription Agreements" maxWidth="max-w-lg"
           footer={<>
-            <button className="btn-secondary btn-sm" onClick={() => setShowAgreementForm(false)}>Cancel</button>
+            <button className="btn-secondary btn-sm" onClick={() => setShowAgreementForm(false)}>Close</button>
             <button className="btn-primary btn-sm" disabled={saveMut.isPending || !agreementForm.file}
               onClick={() => saveMut.mutate({ isAgreement: true, agreement: agreementForm.file, title: agreementForm.title, type: agreementForm.type, validFrom: agreementForm.validFrom, validUntil: agreementForm.validUntil, notes: agreementForm.notes })}>
               {saveMut.isPending ? 'Uploading…' : 'Upload Agreement'}
             </button>
           </>}
         >
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* Existing agreements list */}
+            {selectedSub?.agreements && selectedSub.agreements.length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Existing Agreements</p>
+                <div className="space-y-2">
+                  {selectedSub.agreements.map((ag, i) => (
+                    <div key={ag._id || i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{ag.title}</p>
+                        <p className="text-xs text-slate-400 capitalize">{ag.type?.replace('_', ' ')} {ag.validFrom && `· ${new Date(ag.validFrom).toLocaleDateString()}`}</p>
+                      </div>
+                      {ag.fileUrl && (
+                        <a
+                          href={mediaUrl(ag.fileUrl)}
+                          target="_blank" rel="noreferrer"
+                          className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
+                        >
+                          <FiEye size={14} /> View
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 my-4" />
+              </div>
+            )}
+
+            {/* Upload new */}
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Upload New Agreement</p>
             <div>
               <label className="form-label">Agreement Title *</label>
               <input type="text" className="form-input" value={agreementForm.title} onChange={e => setAgreementForm(p => ({ ...p, title: e.target.value }))} />
@@ -582,6 +651,67 @@ export default function AdminSubscriptions() {
                 onChange={e => setAgreementForm(p => ({ ...p, file: e.target.files[0] }))} />
             </div>
           </div>
+        </Modal>
+      </AnimatePresence>
+
+      {/* ── Payment History Modal ── */}
+      <AnimatePresence>
+        <Modal open={showHistoryModal} onClose={() => setShowHistoryModal(false)} title="Payment History" maxWidth="max-w-2xl">
+          {selectedSub && (
+            <div className="space-y-4">
+              <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-1">
+                <p className="text-slate-500">Subscription: <span className="font-semibold text-slate-800">{selectedSub.title}</span></p>
+                <p className="text-slate-500">Total Billed: <span className="font-semibold text-slate-800">LKR {selectedSub.totalBilled?.toLocaleString()}</span></p>
+                <p className="text-slate-500">Total Paid: <span className="font-semibold text-green-600">LKR {selectedSub.totalPaid?.toLocaleString()}</span></p>
+              </div>
+              {(!selectedSub.payments || selectedSub.payments.length === 0) ? (
+                 <p className="text-center py-6 text-slate-400">No payment history found.</p>
+              ) : (
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Ref / Note</th>
+                        <th>Recorded By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...selectedSub.payments].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt)).map((p, idx) => (
+                        <tr key={idx}>
+                          <td>{new Date(p.paidAt).toLocaleDateString()}</td>
+                          <td className="font-medium text-green-600">LKR {p.amount?.toLocaleString()}</td>
+                          <td className="capitalize">{p.method?.replace('_', ' ')}</td>
+                          <td>
+                            {p.reference && <p className="text-sm">Ref: {p.reference}</p>}
+                            {p.note && <p className="text-xs text-slate-400">{p.note}</p>}
+                            {p.method === 'cheque' && <p className="text-xs text-slate-400">Cheque: {p.chequeNumber} {p.chequeBank ? `(${p.chequeBank})` : ''}</p>}
+                          </td>
+                          <td>{p.recordedBy?.name || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Modal>
+      </AnimatePresence>
+
+      {/* ── Confirm Delete Modal ── */}
+      <AnimatePresence>
+        <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Confirm Deletion" maxWidth="max-w-md"
+          footer={<>
+            <button className="btn-secondary btn-sm" onClick={() => setDeleteId(null)}>Cancel</button>
+            <button className="btn-primary btn-sm bg-red-600 hover:bg-red-700 text-white border-0" disabled={deleteMut.isPending} onClick={() => { deleteMut.mutate(deleteId); setDeleteId(null); }}>
+              Yes, Delete
+            </button>
+          </>}
+        >
+          <p className="text-slate-600">Are you sure you want to delete this subscription? This action cannot be undone.</p>
         </Modal>
       </AnimatePresence>
     </div>

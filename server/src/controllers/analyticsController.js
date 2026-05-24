@@ -65,8 +65,8 @@ exports.getDashboard = async (req, res, next) => {
       pendingRequests, pendingWorkLogs,
     ] = await Promise.all([
       Employee.countDocuments(empMatch),
-      Employee.countDocuments({ ...empMatch, status: 'active' }),
-      Employee.countDocuments({ ...empMatch, employmentType: 'intern', status: 'active' }),
+      Employee.countDocuments({ ...empMatch, status: { $in: ['active', 'internship', 'contract', 'on_leave'] } }),
+      Employee.countDocuments({ ...empMatch, employmentType: 'intern', status: 'internship' }),
       Project.countDocuments(projMatch),
       Project.countDocuments({ ...projMatch, status: 'active' }),
       Project.countDocuments({ ...projMatch, status: 'completed' }),
@@ -99,7 +99,7 @@ exports.getDashboard = async (req, res, next) => {
     const next7 = new Date(now.getTime() + 7 * 86400000);
     const expiredInterns = await Employee.countDocuments({
       ...empMatch,
-      employmentType: 'intern', status: 'active',
+      employmentType: 'intern', status: 'internship',
       'internship.endDate': { $lte: next7 },
     });
 

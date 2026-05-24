@@ -41,6 +41,8 @@ import SignaturePad from '../../components/admin/SignaturePad'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 import EnterpriseLetterBuilder from '../../components/admin/EnterpriseLetterBuilder'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
 
 const LETTER_TYPES = [
   { value: 'offer', label: 'Offer letter', Icon: FiMail, accent: 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/40' },
@@ -564,26 +566,36 @@ export default function AdminLetters() {
                 )}
                 <div>
                   <label className="form-label">Employee *</label>
-                  <select {...register('employeeId', { required: true })} className="form-select">
-                    <option value="">Select employee</option>
-                    <option value="custom">-- External / Custom (No Employee) --</option>
-                    {(empData?.employees || []).map((e) => (
-                      <option key={e._id} value={e._id}>
-                        {e.userId?.name} — {e.designation}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={watch('employeeId')}
+                    onChange={(v) => setValue('employeeId', v, { shouldValidate: true })}
+                    loadOptions={async (params) => {
+                      const res = await lookupLoaders.employeesAll()(params)
+                      if (params.page === 1) {
+                        const customOpt = { value: 'custom', label: '-- External / Custom (No Employee) --' }
+                        if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
+                          res.options.unshift(customOpt)
+                        }
+                      }
+                      return res
+                    }}
+                    placeholder="Search employee…"
+                  />
                 </div>
                 <div>
                   <label className="form-label">Letter type *</label>
-                  <select {...register('type', { required: true })} className="form-select">
-                    <option value="">Select type</option>
-                    {LETTER_TYPES.map((lt) => (
-                      <option key={lt.value} value={lt.value}>
-                        {lt.label}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={selectedType}
+                    onChange={(v) => setValue('type', v, { shouldValidate: true })}
+                    loadOptions={async ({ search }) => {
+                      const q = (search || '').toLowerCase()
+                      const options = LETTER_TYPES
+                        .filter(lt => lt.label.toLowerCase().includes(q) || lt.value.includes(q))
+                        .map(lt => ({ value: lt.value, label: lt.label }))
+                      return { options, hasMore: false }
+                    }}
+                    placeholder="Search type…"
+                  />
                 </div>
                 <div>
                   <label className="form-label">Approval before issue (optional)</label>

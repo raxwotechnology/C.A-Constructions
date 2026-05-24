@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import api from '../../lib/api'
@@ -315,8 +314,8 @@ export default function ClientProfile() {
 
       {/* Edit Profile Modal */}
       <AnimatePresence>
-        {showEditModal && createPortal(
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99] p-4" onClick={() => setShowEditModal(false)}>
+        {showEditModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99] p-4 !mt-0" onClick={() => setShowEditModal(false)}>
             <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}} 
               className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col" onClick={e=>e.stopPropagation()}>
               <div className="p-5 border-b flex justify-between items-center bg-slate-50 shrink-0">
@@ -381,8 +380,8 @@ export default function ClientProfile() {
         )}
 
         {/* Activity Log Modal */}
-        {showNoteModal && createPortal(
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99] p-4" onClick={() => setShowNoteModal(false)}>
+        {showNoteModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99] p-4 !mt-0" onClick={() => setShowNoteModal(false)}>
             <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}} 
               className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl" onClick={e=>e.stopPropagation()}>
               <div className="p-4 border-b flex justify-between items-center bg-slate-50">
@@ -417,7 +416,6 @@ export default function ClientProfile() {
           </div>
         )}
       </AnimatePresence>
-
     </div>
   )
 }

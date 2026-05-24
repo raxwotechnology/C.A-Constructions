@@ -13,6 +13,7 @@ import { lookupLoaders } from '../../lib/lookupApi'
 import { INVOICE_CURRENCIES, suggestedExchangeToLKR } from '../../lib/currencies'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import SignaturePad from '../../components/admin/SignaturePad'
+import ExportBar from '../../components/ui/ExportBar'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
@@ -225,7 +226,24 @@ export default function AdminInvoices() {
           <h1 className="page-title">Invoices</h1>
           <p className="page-subtitle">{invData?.count || 0} total invoices</p>
         </div>
-        <button onClick={openCreate} className="btn-primary"><FiPlus size={15}/> Create Invoice</button>
+        <div className="flex items-center gap-3">
+          <ExportBar
+            data={invoices}
+            columns={[
+              { header: 'Invoice No', accessor: 'invoiceNo' },
+              { header: 'Client', accessor: (i) => i.client?.name || '' },
+              { header: 'Branch', accessor: (i) => i.branch?.name || '' },
+              { header: 'Currency', accessor: 'currency' },
+              { header: 'Total', accessor: (i) => i.total?.toLocaleString() },
+              { header: 'Balance Due', accessor: (i) => i.remainingBalance?.toLocaleString() },
+              { header: 'Status', accessor: 'status' },
+              { header: 'Due Date', accessor: (i) => i.dueDate ? new Date(i.dueDate).toLocaleDateString() : '' },
+            ]}
+            title="Invoices Report"
+            filters={{ Branch: branches.find(b => b._id === branchFilter)?.name }}
+          />
+          <button onClick={openCreate} className="btn-primary"><FiPlus size={15}/> Create Invoice</button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">

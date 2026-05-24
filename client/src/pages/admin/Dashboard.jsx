@@ -173,7 +173,7 @@ export default function AdminDashboard() {
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💳 HR Finance</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label:'Active Users', value:(kpis.activeEmployees||0)+(kpis.adminCount||0), sub:`${kpis.totalEmployees||0} total · ${kpis.internCount||0} interns`, icon:FiUser, accent:'#2563eb', bg:'bg-blue-50 text-blue-600', to:'/admin/employees' },
+            { label:'Active Employees', value:(kpis.activeEmployees||0), sub:`${kpis.totalEmployees||0} total · ${kpis.internCount||0} interns`, icon:FiUser, accent:'#2563eb', bg:'bg-blue-50 text-blue-600', to:'/admin/employees' },
             { label:'Outstanding Advances', value:`${money(kpis.outstandingAdvances||0)}`, sub:'Active advance balances', icon:FiCreditCard, accent:'#ef4444', bg:'bg-red-50 text-red-600', alert:(kpis.outstandingAdvances||0)>0, to:'/admin/advances' },
             { label:'Outstanding Loans', value:`${money(kpis.outstandingLoans||0)}`, sub:'Active loan balances', icon:FiRefreshCw, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:(kpis.outstandingLoans||0)>0, to:'/admin/loans' },
             { label:'Draft Payrolls', value:kpis.draftPayrolls||0, sub:'Awaiting review/approval', icon:FiDollarSign, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600', alert:(kpis.draftPayrolls||0)>0, to:'/admin/payroll' },

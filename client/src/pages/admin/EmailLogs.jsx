@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiMail, FiSearch, FiCheckCircle, FiXCircle, FiSend, FiX } from 'react-icons/fi'
+import { FiMail, FiSearch, FiCheckCircle, FiXCircle, FiSend, FiX, FiZap } from 'react-icons/fi'
 import api from '../../lib/api'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
+import ExportBar from '../../components/ui/ExportBar'
 
 export default function EmailLogs() {
   const qc = useQueryClient()
@@ -23,6 +24,13 @@ export default function EmailLogs() {
     queryFn: () => api.get(`/email-logs?status=${statusFilter}&module=${moduleFilter}&search=${search}`).then(r => r.data)
   })
   const logs = data?.logs || []
+  const smtpReady = data?.smtpReady ?? null
+
+  const testSmtpMut = useMutation({
+    mutationFn: () => api.post('/email-logs/test-smtp').then(r => r.data),
+    onSuccess: (d) => toast.success(d.message || 'SMTP test sent!'),
+    onError: (e) => toast.error(e.response?.data?.message || 'SMTP test failed'),
+  })
 
   const { data: contactsData } = useQuery({
     queryKey: ['message-contacts'],
@@ -40,8 +48,8 @@ export default function EmailLogs() {
 
   const allRecipients = [
     ...employees.map(e => ({ name: e.name, email: e.email, type: 'Employee' })),
-    ...clients.map(c => ({ name: c.companyName || c.contactPerson, email: c.email, type: 'Client' }))
-  ].filter(r => r.name?.toLowerCase().includes(recipientSearch.toLowerCase()) || r.email.toLowerCase().includes(recipientSearch.toLowerCase()))
+    ...clients.map(c => ({ name: c.profile?.companyName || c.name, email: c.email, type: 'Client' }))
+  ].filter(r => r.name?.toLowerCase().includes(recipientSearch.toLowerCase()) || r.email?.toLowerCase().includes(recipientSearch.toLowerCase()))
 
   const sendCustomMut = useMutation({
     mutationFn: () => api.post('/email-logs/send-custom', { emails: selectedRecipients, subject: composeSubject, message: composeMessage }),
@@ -58,14 +66,38 @@ export default function EmailLogs() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="page-header flex justify-between items-start">
+      <div className="page-header flex justify-between items-start flex-wrap gap-3">
         <div>
           <h1 className="page-title">Email Logs</h1>
           <p className="page-subtitle">View recent system emails sent</p>
         </div>
-        <button onClick={() => setShowCompose(true)} className="btn-primary">
-          <FiMail /> Compose Custom Email
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {smtpReady !== null && (
+            <span className={`badge ${smtpReady ? 'badge-green' : 'badge-red'} flex items-center gap-1`}>
+              {smtpReady ? <FiCheckCircle size={12}/> : <FiXCircle size={12}/>}
+              SMTP {smtpReady ? 'Configured' : 'Not Configured'}
+            </span>
+          )}
+          <ExportBar
+            data={logs}
+            columns={[
+              { header: 'Recipient', accessor: 'recipientEmail' },
+              { header: 'Subject', accessor: 'subject' },
+              { header: 'Module', accessor: 'module' },
+              { header: 'Status', accessor: 'status' },
+              { header: 'Error', accessor: (l) => l.error || '-' },
+              { header: 'Sent At', accessor: (l) => new Date(l.sentAt).toLocaleString() },
+            ]}
+            title="Email Logs"
+            filters={{ Status: statusFilter, Module: moduleFilter }}
+          />
+          <button onClick={() => testSmtpMut.mutate()} disabled={testSmtpMut.isPending} className="btn-secondary">
+            <FiZap size={14}/> {testSmtpMut.isPending ? 'Testing...' : 'Test SMTP'}
+          </button>
+          <button onClick={() => setShowCompose(true)} className="btn-primary">
+            <FiMail /> Compose Custom Email
+          </button>
+        </div>
       </div>
 
       <div className="card card-body flex flex-wrap gap-4 items-center">

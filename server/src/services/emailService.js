@@ -6,7 +6,7 @@
 const { sendMail } = require('../utils/mailer');
 const EmailLog = require('../models/EmailLog');
 const SiteSetting = require('../models/SiteSetting');
-const { toAbsoluteUrl } = require('../utils/uploadsPath'); // Ensure this utility exists or fallback
+// Note: toAbsoluteUrl removed — use absoluteMediaUrl from the client side instead
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 

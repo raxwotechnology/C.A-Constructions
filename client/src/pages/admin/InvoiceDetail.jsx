@@ -135,7 +135,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 z-50 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex justify-end" >
       <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className="w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
         
@@ -463,7 +463,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
       {/* Modals for Payment / Advance */}
       <AnimatePresence>
         {(showPaymentModal || showAdvanceModal) && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={() => { setShowPaymentModal(false); setShowAdvanceModal(false) }}>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-bold text-slate-800 mb-4">{showPaymentModal ? 'Record Payment' : 'Record Advance Payment'}</h3>

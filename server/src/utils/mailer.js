@@ -1,7 +1,6 @@
 const nodemailer = require('nodemailer');
 
 function smtpConfigured() {
-  require('dotenv').config();
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
@@ -20,6 +19,8 @@ function getTransport() {
       user: process.env.SMTP_USER,
       pass,
     },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
   });
 }
 
@@ -30,8 +31,24 @@ async function sendMail({ to, subject, html, text, from: fromOverride }) {
   }
   const from = fromOverride || process.env.SMTP_FROM || process.env.SMTP_USER;
   console.log(`[Mailer] Attempting to send to: ${to}, subject: ${subject}, from: ${from}`);
-  await transport.sendMail({ from, to, subject, html, text });
-  return { sent: true };
+  try {
+    await transport.sendMail({ from, to, subject, html, text });
+    return { sent: true };
+  } catch (err) {
+    console.error(`[Mailer] SMTP send error: ${err.message} (code: ${err.code})`);
+    throw err;
+  }
 }
 
-module.exports = { sendMail, smtpConfigured };
+async function verifyConnection() {
+  const transport = getTransport();
+  if (!transport) return { ok: false, reason: 'SMTP not configured' };
+  try {
+    await transport.verify();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
+module.exports = { sendMail, smtpConfigured, verifyConnection };

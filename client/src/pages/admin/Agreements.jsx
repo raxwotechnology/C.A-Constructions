@@ -514,7 +514,7 @@ export default function Agreements() {
       </div>
 
       {historyFor && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[999999]" onClick={() => setHistoryFor(null)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[999999]" >
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -547,7 +547,7 @@ export default function Agreements() {
       )}
 
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 flex justify-end z-[999999]" onClick={closeModal}>
+        <div className="fixed inset-0 bg-black/60 flex justify-end z-[999999]" >
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -813,7 +813,7 @@ export default function Agreements() {
       )}
 
       {showTemplatesModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[999999]" onClick={() => setShowTemplatesModal(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[999999]" >
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}

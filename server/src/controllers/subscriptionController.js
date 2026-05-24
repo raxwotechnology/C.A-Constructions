@@ -308,23 +308,39 @@ exports.addAgreement = async (req, res, next) => {
     const sub = await Subscription.findById(req.params.id);
     if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
 
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const fileUrl = `/uploads/agreements/${req.file.filename}`;
     const agreement = {
-      title: req.body.title || 'Agreement',
+      title: req.body.title || 'Subscription Agreement',
       type: req.body.type || 'service',
-      validFrom: req.body.validFrom,
-      validUntil: req.body.validUntil,
+      fileUrl,
+      fileName: req.file.originalname,
+      validFrom: req.body.validFrom || undefined,
+      validUntil: req.body.validUntil || undefined,
       notes: req.body.notes || '',
     };
-
-    if (req.file) {
-      agreement.fileUrl = `/uploads/agreements/${req.file.filename}`;
-      agreement.fileName = req.file.originalname;
-    }
 
     sub.agreements.push(agreement);
     await sub.save();
 
-    res.json({ success: true, subscription: sub });
+    // Also push to CRM Agreements so it appears in the client's agreement history
+    const Agreement = require('../models/Agreement');
+    await Agreement.create({
+      agreementType: 'subscription_service',
+      title: agreement.title,
+      client: sub.client,
+      subscription: sub._id,
+      content: `Subscription Agreement attached for: ${sub.title}<br/>${agreement.notes || ''}`,
+      fileUrl,
+      status: 'finalised',
+      createdBy: req.user._id,
+      agreementDate: agreement.validFrom || new Date(),
+    });
+
+    res.json({ success: true, message: 'Agreement added and synced to CRM', subscription: sub });
   } catch (err) { next(err); }
 };
 
@@ -337,7 +353,7 @@ exports.removeAgreement = async (req, res, next) => {
     sub.agreements = sub.agreements.filter(a => String(a._id) !== req.params.agreementId);
     await sub.save();
 
-    res.json({ success: true, subscription: sub });
+    res.json({ success: true, message: 'Agreement removed', subscription: sub });
   } catch (err) { next(err); }
 };
 
@@ -529,3 +545,5 @@ exports.getMySubscriptionSummary = async (req, res, next) => {
     });
   } catch (err) { next(err); }
 };
+
+

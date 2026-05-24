@@ -5,6 +5,7 @@ import { FiUsers, FiMail, FiPhone, FiFolder, FiPlus, FiEdit2, FiX, FiTrash2, FiS
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import ExportBar from '../../components/ui/ExportBar'
 
 export default function AdminClients() {
   const qc = useQueryClient()
@@ -95,6 +96,19 @@ export default function AdminClients() {
               : `${filteredClients.length} of ${clients.length} clients`}
           </p>
         </div>
+        <ExportBar
+          data={filteredClients}
+          columns={[
+            { header: 'Company Name', accessor: (c) => c.profile?.companyName || c.name },
+            { header: 'Contact Person', accessor: 'name' },
+            { header: 'Email', accessor: 'email' },
+            { header: 'Phone', accessor: 'phone' },
+            { header: 'Status', accessor: (c) => c.isActive ? 'Active' : 'Inactive' },
+            { header: 'Joined Date', accessor: (c) => new Date(c.createdAt).toLocaleDateString() },
+          ]}
+          title="Clients Directory"
+          filters={{ Status: statusFilter, Branch: branches.find(b => b._id === branchFilter)?.name }}
+        />
       </div>
 
       <div className="flex flex-wrap gap-3">

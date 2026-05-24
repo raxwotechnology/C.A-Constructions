@@ -6,6 +6,8 @@ import api from '../../lib/api'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
 import { FiCheck, FiX, FiCalendar, FiPlus, FiEye, FiEdit2, FiTrash2, FiFilter } from 'react-icons/fi'
 
 const TYPE_COLORS = {
@@ -397,10 +399,12 @@ export default function AdminLeaves() {
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
               <div>
                 <label className="form-label">Employee *</label>
-                <select value={assignForm.employeeId} onChange={e => { setSelectedEmpId(e.target.value); setAssignForm(s=>({...s,employeeId:e.target.value})) }} className="form-select">
-                  <option value="">Select employee…</option>
-                  {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.employeeNo})</option>)}
-                </select>
+                <SearchableSelect
+                  value={assignForm.employeeId}
+                  onChange={(v) => { setSelectedEmpId(v); setAssignForm(s=>({...s,employeeId:v})) }}
+                  loadOptions={lookupLoaders.employeesAll()}
+                  placeholder="Search employee…"
+                />
               </div>
 
               {selectedEmpId && (
