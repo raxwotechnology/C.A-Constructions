@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ClientQuotationViewFromUrl } from '../../components/client/ClientQuotationView'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
@@ -11,7 +12,16 @@ import { validateStrongPassword, passwordStrengthHints } from '../../lib/passwor
 import { formatMoney } from '../../lib/currencies'
 
 export default function ClientProfile() {
+  const [, setSearchParams] = useSearchParams()
   const { user, updateUser } = useAuthStore()
+
+  const openQuotation = (id) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('quotation', id)
+      return next
+    })
+  }
   const [avatarFile, setAvatarFile] = useState(null)
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -272,27 +282,31 @@ export default function ClientProfile() {
                     <FiFileText className="text-purple-600" />
                     <h3 className="font-bold text-slate-800">Recent Quotations</h3>
                   </div>
-                  {/* Note: The client quotation page might not exist, but we show the data here */}
                 </div>
                 <div className="p-2 flex-1 flex flex-col">
-                  {pendingQuotations.length === 0 ? (
+                  {quotations.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-6">
                       <FiClock size={24} className="mb-2 opacity-50" />
-                      <p className="text-sm">No pending quotes</p>
+                      <p className="text-sm">No quotations yet</p>
                     </div>
                   ) : (
                     <div className="divide-y divide-slate-50">
-                      {pendingQuotations.slice(0, 3).map(q => (
-                        <div key={q._id} className="p-3 flex justify-between items-center hover:bg-slate-50 rounded-lg">
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">{q.quotationNo}</p>
-                            <p className="text-xs text-slate-500 truncate max-w-[120px]">{q.title}</p>
+                      {quotations.slice(0, 5).map(q => (
+                        <button
+                          key={q._id}
+                          type="button"
+                          onClick={() => openQuotation(q._id)}
+                          className="w-full text-left p-3 flex justify-between items-center hover:bg-purple-50 rounded-lg transition-colors group"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800 text-sm group-hover:text-purple-700">{q.quotationNo}</p>
+                            <p className="text-xs text-slate-500 truncate">{q.title || 'Quotation'}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold text-purple-600">{formatMoney(q.total)}</p>
+                          <div className="text-right shrink-0 ml-2">
+                            <p className="font-bold text-purple-600">{formatMoney(q.total, q.currency)}</p>
                             <span className="text-[10px] font-bold uppercase text-slate-400">{q.status}</span>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -302,6 +316,8 @@ export default function ClientProfile() {
           </div>
         </div>
       </section>
+
+      <ClientQuotationViewFromUrl />
     </div>
   )
 }

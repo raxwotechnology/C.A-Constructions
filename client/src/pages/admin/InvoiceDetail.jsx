@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -7,6 +7,9 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiX, FiPrinter, FiDollarSign, FiCreditCard, FiCalendar, FiClock, FiCheckCircle, FiAlertTriangle, FiFileText, FiDownload } from 'react-icons/fi'
 import { mediaUrl } from '../../lib/media'
+import { printHtmlContent } from '../../lib/documentPrint'
+import { layoutPrintExtraCss, loadQuotationLayout } from '../../lib/quotationPrintLayout'
+import InvoicePrintBody from '../../components/documents/InvoicePrintBody'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
@@ -15,8 +18,6 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   const [activeTab, setActiveTab] = useState('Overview')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
-  const printRef = useRef()
-
   const { register, handleSubmit, reset, watch } = useForm({ defaultValues: { date: new Date().toISOString().split('T')[0], method: 'cash' } })
 
   const { data, isLoading } = useQuery({
@@ -34,54 +35,50 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   })
   const site = siteRes?.settings || {}
 
+  const invalidateFinance = () => {
+    qc.invalidateQueries({ queryKey: ['finance-overview'] })
+    qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
+    qc.invalidateQueries({ queryKey: ['analytics'] })
+  }
+
   const recordPayMut = useMutation({
     mutationFn: d => api.post(`/invoices/${invoiceId}/payments`, d),
-    onSuccess: () => { qc.invalidateQueries(['invoice', invoiceId]); qc.invalidateQueries(['admin-invoices']); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Payment recorded'); setShowPaymentModal(false); reset() },
+    onSuccess: () => {
+      qc.invalidateQueries(['invoice', invoiceId])
+      qc.invalidateQueries(['admin-invoices'])
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      invalidateFinance()
+      toast.success('Payment recorded')
+      setShowPaymentModal(false)
+      reset()
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed to record payment'),
   })
 
   const recordAdvMut = useMutation({
     mutationFn: d => api.post(`/invoices/${invoiceId}/advances`, d),
-    onSuccess: () => { qc.invalidateQueries(['invoice', invoiceId]); qc.invalidateQueries(['admin-invoices']); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Advance recorded'); setShowAdvanceModal(false); reset() },
+    onSuccess: () => {
+      qc.invalidateQueries(['invoice', invoiceId])
+      qc.invalidateQueries(['admin-invoices'])
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      invalidateFinance()
+      toast.success('Advance recorded')
+      setShowAdvanceModal(false)
+      reset()
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed to record advance'),
   })
 
-  const handlePrint = (type) => {
-    const content = printRef.current?.innerHTML
-    if (!content) return
-    const printWindow = window.open('', '_blank')
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Print ${type}</title>
-          <style>
-            body { font-family: system-ui, -apple-system, sans-serif; color: #333; line-height: 1.5; padding: 40px; }
-            h1, h2, h3 { margin-top: 0; color: #1e293b; }
-            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
-            .meta-grid { display: flex; justify-content: space-between; margin-bottom: 40px; }
-            .meta-box { background: #f8fafc; padding: 15px; border-radius: 8px; width: 45%; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-            th { background: #f1f5f9; font-weight: 600; color: #475569; }
-            .text-right { text-align: right; }
-            .totals { width: 300px; margin-left: auto; }
-            .totals-row { display: flex; justify-content: space-between; padding: 8px 0; }
-            .totals-row.grand { font-size: 1.2em; font-weight: bold; border-top: 2px solid #cbd5e1; margin-top: 10px; padding-top: 10px; }
-            .text-red { color: #ef4444; }
-            .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
-            .badge-paid { background: #dcfce7; color: #166534; }
-            .badge-unpaid { background: #fef9c3; color: #854d0e; }
-            .badge-overdue { background: #fee2e2; color: #991b1b; }
-            .badge-partial { background: #dbeafe; color: #1e40af; }
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
-          ${content}
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
-  }
+  const cancelMut = useMutation({
+    mutationFn: () => api.put(`/invoices/${invoiceId}`, { status: 'cancelled' }),
+    onSuccess: () => {
+      qc.invalidateQueries(['invoice', invoiceId])
+      qc.invalidateQueries(['admin-invoices'])
+      invalidateFinance()
+      toast.success('Invoice cancelled')
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed to cancel'),
+  })
 
   if (!invoiceId) return null
   if (isLoading) return null
@@ -90,6 +87,16 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
   const isOverdue = inv.status === 'overdue'
   const cur = inv.currency || 'LKR'
+
+  const handlePrint = () => {
+    const inner = document.getElementById('invoice-print-export-root')?.innerHTML
+    if (!inner) return
+    printHtmlContent({
+      title: site.siteName || 'Invoice',
+      bodyHtml: `<div class="doc-print-frame">${inner}</div>`,
+      extraCss: layoutPrintExtraCss(loadQuotationLayout()),
+    })
+  }
 
   const handlePdfPaymentHistory = async () => {
     try {
@@ -151,7 +158,17 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { setActiveTab('Overview'); handlePrint('Invoice') }} className="btn-outline border-white/30 text-white hover:bg-white/10 btn-sm"><FiPrinter size={14}/> Print Invoice</button>
+            {inv?.status !== 'cancelled' && (
+              <button
+                type="button"
+                onClick={() => { if (window.confirm('Cancel this invoice? It will be excluded from revenue and reports.')) cancelMut.mutate() }}
+                disabled={cancelMut.isPending}
+                className="btn-outline border-amber-300/50 text-amber-100 hover:bg-amber-500/20 btn-sm"
+              >
+                Cancel
+              </button>
+            )}
+            <button type="button" onClick={() => { setActiveTab('Overview'); setTimeout(handlePrint, 100) }} className="btn-outline border-white/30 text-white hover:bg-white/10 btn-sm"><FiPrinter size={14}/> Print / PDF</button>
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors"><FiX size={20}/></button>
           </div>
         </div>
@@ -262,7 +279,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
               <div className="flex gap-3 justify-end">
                 <button onClick={() => { setShowAdvanceModal(true); reset() }} className="btn-outline btn-sm"><FiDollarSign size={14}/> Record Advance</button>
                 <button onClick={() => { setShowPaymentModal(true); reset() }} disabled={inv?.remainingBalance === 0} className="btn-primary btn-sm"><FiCreditCard size={14}/> Record Payment</button>
-                <button type="button" onClick={() => handlePrint('Payment History')} className="btn-outline btn-sm"><FiPrinter size={14}/> Print History</button>
+                <button type="button" onClick={handlePrint} className="btn-outline btn-sm"><FiPrinter size={14}/> Print History</button>
                 <button type="button" onClick={handlePdfPaymentHistory} className="btn-outline btn-sm"><FiDownload size={14}/> PDF History</button>
               </div>
 
@@ -306,151 +323,23 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
         </div>
 
-        {/* Hidden Print Templates — real DOM so innerHTML + currency + letterhead work */}
         <div className="hidden" aria-hidden="true">
-          <div ref={printRef}>
-            <div className="header" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', borderBottom: '2px solid #e2e8f0', paddingBottom: 16, marginBottom: 20 }}>
-              {site.logoUrl ? (
-                <img src={mediaUrl(site.logoUrl)} alt="" style={{ maxHeight: 72, objectFit: 'contain' }} />
-              ) : null}
-              <div>
-                <h1 style={{ margin: 0, fontSize: 22, color: '#0f172a' }}>{site.siteName || 'Raxwo Pvt Ltd'}</h1>
-                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b' }}>
-                  {[site.contactAddress, site.contactPhone, site.contactEmail, site.websiteUrl, site.branchDetails].filter(Boolean).join(' · ')}
-                </p>
-              </div>
-            </div>
-            <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#1e293b' }}>Tax Invoice</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#475569' }}>Invoice <strong>{inv.invoiceNo}</strong> · Generated {new Date().toLocaleDateString('en-LK')}</p>
-            <div className="meta-grid" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>
-              <div className="meta-box" style={{ background: '#f8fafc', padding: 15, borderRadius: 8, flex: 1 }}>
-                <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>Billed To</h3>
-                <p style={{ margin: '4px 0' }}><strong>Name:</strong> {inv.client?.name}</p>
-                <p style={{ margin: '4px 0' }}><strong>Email:</strong> {inv.client?.email}</p>
-                <p style={{ margin: '4px 0' }}><strong>Project:</strong> {inv.project?.title || 'N/A'}</p>
-              </div>
-              <div className="meta-box" style={{ background: '#f8fafc', padding: 15, borderRadius: 8, flex: 1 }}>
-                <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>Invoice Details</h3>
-                <p style={{ margin: '4px 0' }}><strong>Date:</strong> {new Date(inv.invoiceDate).toLocaleDateString('en-LK')}</p>
-                <p style={{ margin: '4px 0' }}><strong>Due:</strong> {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-LK') : 'N/A'}</p>
-                <p style={{ margin: '4px 0' }}><strong>Status:</strong> {inv.status}</p>
-                <p style={{ margin: '4px 0' }}><strong>Quotation ref:</strong> {inv.quotationRef?.quotationNo || 'N/A'}</p>
-                <p style={{ margin: '4px 0' }}><strong>Currency:</strong> {cur}</p>
-              </div>
-            </div>
-
-            <h2 style={{ fontSize: 16, margin: '24px 0 8px' }}>Line Items</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Description</th>
-                  <th style={{ textAlign: 'center', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Qty</th>
-                  <th style={{ textAlign: 'right', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Unit ({cur})</th>
-                  <th style={{ textAlign: 'right', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Total ({cur})</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(inv.items || []).map((item, idx) => (
-                  <tr key={idx}>
-                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>{item.description}</td>
-                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>{item.quantity}</td>
-                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{Number(item.unitPrice || 0).toLocaleString()}</td>
-                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{Number(item.total || 0).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="totals" style={{ width: 320, marginLeft: 'auto' }}>
-              <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                <span>Subtotal:</span>
-                <span>{cur} {Number(inv.subtotal || 0).toLocaleString()}</span>
-              </div>
-              {inv.discountTotal > 0 && (
-                <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                  <span>Discount:</span>
-                  <span>-{cur} {Number(inv.discountTotal || 0).toLocaleString()}</span>
-                </div>
-              )}
-              {inv.tax > 0 && (
-                <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                  <span>Tax ({inv.taxRate}%):</span>
-                  <span>+{cur} {Number(inv.tax || 0).toLocaleString()}</span>
-                </div>
-              )}
-              <div className="totals-row grand" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', marginTop: 8, borderTop: '2px solid #cbd5e1', fontWeight: 700, fontSize: 15 }}>
-                <span>Total:</span>
-                <span>{cur} {Number(inv.total || 0).toLocaleString()}</span>
-              </div>
-              <div className="totals-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', color: '#16a34a' }}>
-                <span>Total paid:</span>
-                <span>-{cur} {Number(inv.totalPaid || 0).toLocaleString()}</span>
-              </div>
-              <div className="totals-row grand text-red" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: 700, color: '#b91c1c' }}>
-                <span>Balance due:</span>
-                <span>{cur} {Number(inv.remainingBalance || 0).toLocaleString()}</span>
-              </div>
-            </div>
-
-            {(inv.payments && inv.payments.length > 0) && (
-              <>
-                <h2 style={{ marginTop: 40, fontSize: 16 }}>Payment History</h2>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Date</th>
-                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Type</th>
-                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Method</th>
-                      <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Ref</th>
-                      <th style={{ textAlign: 'right', padding: 10, borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Amount ({cur})</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inv.payments.map((p, i) => (
-                      <tr key={i}>
-                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0' }}>{new Date(p.date).toLocaleDateString('en-LK')}</td>
-                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0' }}>{p.isAdvance ? 'Advance' : 'Payment'}</td>
-                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0', textTransform: 'capitalize' }}>{String(p.method || '').replace('_', ' ')}</td>
-                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0' }}>{p.reference || '—'}</td>
-                        <td style={{ padding: 8, borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>{Number(p.amount || 0).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
-
-            {(inv.notes || inv.paymentTerms) && (
-              <div style={{ marginTop: 36 }}>
-                {inv.notes && (
-                  <>
-                    <h3 style={{ fontSize: 14 }}>Notes</h3>
-                    <p style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#334155' }}>{inv.notes}</p>
-                  </>
-                )}
-                {inv.paymentTerms && (
-                  <>
-                    <h3 style={{ fontSize: 14, marginTop: 16 }}>Payment Terms</h3>
-                    <p style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#334155' }}>{inv.paymentTerms}</p>
-                  </>
-                )}
-              </div>
-            )}
-
+          <div id="invoice-print-export-root">
+            <InvoicePrintBody invoice={inv} siteSettings={site} />
             {(inv.signatures?.authorizer?.data || inv.signatures?.seal?.data) && (
-              <div style={{ marginTop: 48, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'end' }}>
+              <div className="mt-10 grid grid-cols-2 gap-6 items-end">
                 <div>
                   {inv.signatures.authorizer?.data && (
-                    <img src={mediaUrl(inv.signatures.authorizer.data)} alt="" style={{ maxHeight: 80, marginBottom: 8 }} />
+                    <img src={mediaUrl(inv.signatures.authorizer.data)} alt="" className="max-h-20 mb-2" />
                   )}
-                  <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: 8, width: 240 }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold' }}>{inv.signatures.authorizer?.name || ''}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{inv.signatures.authorizer?.title || 'Authorized Signatory'}</p>
+                  <div className="border-t border-slate-300 pt-2 w-60">
+                    <p className="font-bold text-sm">{inv.signatures.authorizer?.name || ''}</p>
+                    <p className="text-xs text-slate-500">{inv.signatures.authorizer?.title || 'Authorized Signatory'}</p>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div className="text-right">
                   {inv.signatures.seal?.data && (
-                    <img src={mediaUrl(inv.signatures.seal.data)} alt="Company Seal" style={{ maxHeight: 100 }} />
+                    <img src={mediaUrl(inv.signatures.seal.data)} alt="Seal" className="max-h-24 ml-auto" />
                   )}
                 </div>
               </div>

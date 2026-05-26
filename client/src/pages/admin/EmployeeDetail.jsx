@@ -32,6 +32,16 @@ const resolveUrl = (url) => {
   return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`
 }
 
+function openEmployeeDocument(url, label) {
+  const href = resolveUrl(url)
+  if (!href) {
+    toast.error(`${label || 'Document'} not uploaded`)
+    return
+  }
+  const w = window.open(href, '_blank', 'noopener,noreferrer')
+  if (!w) toast.error('Allow pop-ups to open this document')
+}
+
 const TABS = ['Dashboard', 'Overview', 'Bank & Pay', 'Internship', 'Loans', 'Overtime', 'Payroll', 'Statutory', 'Documents', 'History']
 
 const Field = ({ label, value }) => (
@@ -655,8 +665,8 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
                       <p className="text-xs text-slate-400">Employee photo</p>
                     </div>
                   </div>
-                  <a href={resolveUrl(e.profilePhoto)} target="_blank" rel="noreferrer"
-                    className="text-xs text-secondary hover:underline font-medium">View ↗</a>
+                  <button type="button" onClick={() => openEmployeeDocument(e.profilePhoto, 'Profile photo')}
+                    className="text-xs text-secondary hover:underline font-medium">View</button>
                 </div>
               )}
               {[
@@ -674,7 +684,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
                     </div>
                   </div>
                   {doc.url
-                    ? <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline font-medium">View ↗</a>
+                    ? <button type="button" onClick={() => openEmployeeDocument(doc.url, doc.label)} className="text-xs text-secondary hover:underline font-medium">View</button>
                     : <span className="text-xs text-slate-400">Not uploaded</span>
                   }
                 </div>
@@ -688,7 +698,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
                       <p className="text-xs text-slate-400">{d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('en-LK') : ''}</p>
                     </div>
                   </div>
-                  <a href={resolveUrl(d.url)} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline font-medium">View ↗</a>
+                  <button type="button" onClick={() => openEmployeeDocument(d.url, d.type)} className="text-xs text-secondary hover:underline font-medium">View</button>
                 </div>
               ))}
               {!e.cvUrl && !e.agreementUrl && !e.nicPhotoUrl && docs.length === 0 && (

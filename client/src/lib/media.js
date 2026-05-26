@@ -69,5 +69,6 @@ export function absoluteMediaUrl(url) {
     return path.startsWith('/') ? `${origin}${path}` : `${origin}/${path}`
   }
   const origin = getUploadsOrigin()
-  return origin ? `${origin}${path.startsWith('/') ? path : `/${path}`}` : path
+  const suffix = path.startsWith('/') ? path : `/${path}`
+  return origin ? `${origin}${suffix}` : path
 }

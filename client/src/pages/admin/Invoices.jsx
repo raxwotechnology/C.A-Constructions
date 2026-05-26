@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,8 +6,11 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiCreditCard, FiSearch, FiEdit2, FiTrash2, FiSend, FiEye } from 'react-icons/fi'
+import { FiPlus, FiX, FiCreditCard, FiSearch, FiEdit2, FiTrash2, FiSend, FiEye, FiFileText } from 'react-icons/fi'
 import InvoiceDetail from './InvoiceDetail'
+import InvoicePreviewPanel from '../../components/documents/InvoicePreviewPanel'
+import { buildInvoiceDraft } from '../../lib/buildInvoiceDraft'
+import { SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
 import { INVOICE_CURRENCIES, suggestedExchangeToLKR } from '../../lib/currencies'
@@ -31,6 +34,12 @@ export default function AdminInvoices() {
     authorizer: { data: '', name: '', title: 'Authorized Signatory' },
     seal: { data: '' }
   })
+  const [deletePending, setDeletePending] = useState(null)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [verifyingDelete, setVerifyingDelete] = useState(false)
+  const [viewingInv, setViewingInv] = useState(null)
+  const [sendTarget, setSendTarget] = useState(null)
+  const [sendMethods, setSendMethods] = useState({ email: true, sms: false, link: true, pdf: true })
 
   const { register, handleSubmit, reset, watch, control, setValue } = useForm({
     defaultValues: {
@@ -65,19 +74,39 @@ export default function AdminInvoices() {
     queryKey: ['admin-invoices', branchFilter],
     queryFn: () => api.get(`/invoices${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
   })
+  const { data: siteData } = useQuery({
+    queryKey: SITE_SETTINGS_QUERY_KEY,
+    queryFn: () => api.get('/site-settings').then((r) => r.data),
+  })
+  const siteSettings = siteData?.settings || {}
+
   const { data: clientData } = useQuery({
     queryKey: ['clients-list'],
     queryFn: () => api.get('/clients').then(r => r.data).catch(() => api.get('/auth/users').then(r => r.data)),
-    enabled: showModal,
+    enabled: showModal || !!viewingInv,
   })
   const { data: projData } = useQuery({ queryKey: ['projects-list'], queryFn: () => api.get('/projects').then(r => r.data) })
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const { data: quotData } = useQuery({ queryKey: ['quotations'], queryFn: () => api.get('/quotations?status=confirmed').then(r => r.data) })
 
-  const clients = (clientData?.users || []).filter(u => u.role === 'client')
+  const clients = (clientData?.users || clientData?.clients || []).filter((u) => !u.role || u.role === 'client')
   const projects = projData?.projects || []
   const branches = branchData?.branches || []
   const quotations = quotData?.quotations || []
+
+  const formSnapshot = watch()
+  const livePreviewInvoice = useMemo(
+    () => buildInvoiceDraft(formSnapshot, { clients, editing, projects }),
+    [formSnapshot, clients, editing, projects],
+  )
+
+  const syncPreviewToForm = (partial) => {
+    Object.entries(partial).forEach(([key, value]) => {
+      if (['notes', 'paymentTerms'].includes(key)) {
+        setValue(key, value, { shouldDirty: true })
+      }
+    })
+  }
 
   useEffect(() => {
     if (!watchedProject) return
@@ -88,21 +117,97 @@ export default function AdminInvoices() {
     }
   }, [watchedProject, projects, setValue])
 
+  const openSavedInvoicePreview = async (invoice) => {
+    if (!invoice?._id) return
+    closeModal()
+    try {
+      const full = await api.get(`/invoices/${invoice._id}`).then((r) => r.data?.invoice)
+      setViewingInv(full || invoice)
+    } catch {
+      setViewingInv(invoice)
+    }
+  }
+
+  const downloadInvoicePdf = async (id, invoiceNo) => {
+    try {
+      const res = await api.get(`/invoices/${id}/pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${invoiceNo || 'invoice'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('PDF downloaded')
+    } catch {
+      toast.error('PDF download failed')
+    }
+  }
+
+  const sendMut = useMutation({
+    mutationFn: ({ id, methods }) => api.post(`/invoices/${id}/send`, { methods }),
+    onSuccess: (res, { methods }) => {
+      qc.invalidateQueries(['admin-invoices'])
+      const link = res.data?.shareLink
+      if (link && methods?.includes('link')) {
+        navigator.clipboard?.writeText(link).then(() => toast.success(`${res.data?.message || 'Sent'} · Link copied`)).catch(() => toast.success(res.data?.message || 'Sent'))
+      } else {
+        toast.success(res.data?.message || 'Sent')
+      }
+      setSendTarget(null)
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Send failed'),
+  })
+
+  const previewSaveMut = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/invoices/${id}`, data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries(['admin-invoices'])
+      qc.invalidateQueries(['invoice', id])
+      toast.success('Invoice updated from preview')
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Save failed'),
+  })
+
   const createMut = useMutation({
     mutationFn: d => api.post('/invoices', d),
-    onSuccess: () => { qc.invalidateQueries(['admin-invoices']); toast.success('Invoice created'); closeModal() },
+    onSuccess: (res) => {
+      qc.invalidateQueries(['admin-invoices'])
+      toast.success('Invoice created')
+      openSavedInvoicePreview(res.data?.invoice)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => api.put(`/invoices/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries(['admin-invoices']); toast.success('Invoice updated'); closeModal() },
+    onSuccess: (res) => {
+      qc.invalidateQueries(['admin-invoices'])
+      toast.success('Updated')
+      openSavedInvoicePreview(res.data?.invoice)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
-    mutationFn: id => api.delete(`/invoices/${id}`),
-    onSuccess: () => { qc.invalidateQueries(['admin-invoices']); toast.success('Invoice deleted') },
+    mutationFn: ({ id, password }) => api.delete(`/invoices/${id}`, { data: { password } }),
+    onSuccess: () => {
+      qc.invalidateQueries(['admin-invoices'])
+      qc.invalidateQueries({ queryKey: ['finance-overview'] })
+      qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
+      toast.success('Invoice deleted')
+      setDeletePending(null)
+      setDeletePassword('')
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
+    onSettled: () => setVerifyingDelete(false),
   })
+
+  const confirmDeleteInvoice = async () => {
+    if (!deletePending || !deletePassword.trim()) {
+      toast.error('Enter your password')
+      return
+    }
+    setVerifyingDelete(true)
+    deleteMut.mutate({ id: deletePending._id, password: deletePassword })
+  }
 
   // When quotation is selected, auto-fill items and client
   const handleQuotationSelect = (e) => {
@@ -114,7 +219,11 @@ export default function AdminInvoices() {
         setValue('taxRate', q.taxRate || 0)
         setValue('notes', q.notes || '')
         setValue('paymentTerms', q.terms || '')
-        setValue('items', q.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount })))
+        const lineItems = q.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount }))
+        if (Number(q.transportCharge) > 0) {
+          lineItems.push({ description: 'Transport / delivery', quantity: 1, unitPrice: Number(q.transportCharge), discount: 0 })
+        }
+        setValue('items', lineItems)
         setValue('currency', q.currency || 'LKR')
         setValue('exchangeRateToLKR', suggestedExchangeToLKR(q.currency || 'LKR'))
         if (q.branch) setValue('branch', q.branch?._id || q.branch)
@@ -149,6 +258,9 @@ export default function AdminInvoices() {
   }
   const openEdit = (inv) => {
     setEditing(inv)
+    setClientSelectLabel(
+      inv.client?.name ? `${inv.client.name}${inv.client.email ? ` (${inv.client.email})` : ''}` : ''
+    )
     setShowModal(true)
     reset({
       client: inv.client?._id || inv.client,
@@ -279,19 +391,13 @@ export default function AdminInvoices() {
                 <td><span className={`badge uppercase ${STATUS_COLORS[inv.status] || 'badge-gray'}`}>{inv.status}</span></td>
                 <td>
                   <div className="flex gap-1 items-center">
-                    <button onClick={() => setViewInvoiceId(inv._id)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg" title="View Details"><FiEye size={14}/></button>
+                    <button onClick={() => setViewInvoiceId(inv._id)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg" title="Payments & details"><FiEye size={14}/></button>
+                    <button onClick={() => { setViewingInv(inv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) }} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Document preview"><FiFileText size={13}/></button>
                     <button type="button" onClick={() => openEdit(inv)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg" title="Edit"><FiEdit2 size={13}/></button>
-                    {inv.status === 'draft' && (
-                      <button onClick={() => updateMut.mutate({ id: inv._id, data: { status: 'unpaid' } })} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg" title="Mark Sent"><FiSend size={13}/></button>
-                    )}
+                    <button type="button" onClick={() => { setSendTarget(inv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) }} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Send"><FiSend size={13}/></button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const msg = inv.status === 'paid'
-                          ? 'This invoice is marked paid. Delete it anyway? Related PayHere records (if any) will be removed.'
-                          : 'Delete this invoice?'
-                        if (window.confirm(msg)) deleteMut.mutate(inv._id)
-                      }}
+                      onClick={() => { setDeletePending(inv); setDeletePassword('') }}
                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
                       title="Delete"
                     >
@@ -306,15 +412,18 @@ export default function AdminInvoices() {
       </div>
 
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 999999 }}>
-          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b shrink-0 bg-white">
-              <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Invoice' : 'Create Invoice'}</h3>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4" style={{ zIndex: 999999 }}>
+          <motion.div initial={{opacity:0,scale:0.98}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.98}}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[96vh] overflow-hidden flex flex-col border border-slate-200">
+            <div className="flex items-center justify-between p-4 md:p-5 border-b shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Invoice' : 'New Invoice'}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Fill details on the left; preview and print on the right.</p>
+              </div>
+              <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
-            <div className="overflow-y-auto flex-1">
-              <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+            <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+              <form onSubmit={handleSubmit(onSubmit)} className="lg:w-[min(440px,42%)] xl:w-[min(480px,40%)] shrink-0 overflow-y-auto p-4 md:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-200">
                 {editingPaid && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     This invoice is fully paid. You can change <strong>status</strong>, dates, branch, project, currency, and notes only. Line items and tax are locked.
@@ -472,13 +581,102 @@ export default function AdminInvoices() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex gap-3 pt-4 border-t sticky bottom-0 bg-white pb-1">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1">Cancel</button>
                   <button type="submit" disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
-                    {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : (editing ? 'Save Changes' : 'Create Invoice')}
+                    {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : (editing ? 'Save & Preview' : 'Create Invoice')}
                   </button>
                 </div>
               </form>
+              <div className="flex-1 min-h-[280px] lg:min-h-0 flex flex-col">
+                <InvoicePreviewPanel
+                  printRootId="invoice-form-preview-root"
+                  isDraft={!editing?._id}
+                  invoice={livePreviewInvoice}
+                  siteSettings={siteSettings}
+                  onFieldSync={syncPreviewToForm}
+                  onSaveDraft={editing?._id ? (draft) => previewSaveMut.mutate({
+                    id: editing._id,
+                    data: { notes: draft.notes, paymentTerms: draft.paymentTerms },
+                  }) : undefined}
+                  saving={previewSaveMut.isPending}
+                  onDownloadPdf={editing?._id ? (id) => downloadInvoicePdf(id, editing.invoiceNo) : undefined}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {viewingInv && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-[999999]">
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[96vh] overflow-hidden flex flex-col border border-slate-200">
+            <div className="flex items-center justify-between gap-3 p-4 border-b bg-slate-50 shrink-0 no-print">
+              <div className="flex items-center gap-3 min-w-0">
+                <h3 className="text-lg font-bold text-slate-800 truncate">Invoice preview</h3>
+                <span className="badge badge-navy font-mono text-xs shrink-0">{viewingInv.invoiceNo}</span>
+                <span className={`badge uppercase shrink-0 ${STATUS_COLORS[viewingInv.status] || 'badge-gray'}`}>{viewingInv.status}</span>
+              </div>
+              <button type="button" onClick={() => setViewingInv(null)} className="p-2 hover:bg-slate-200 rounded-lg shrink-0"><FiX/></button>
+            </div>
+            <InvoicePreviewPanel
+              invoice={viewingInv}
+              siteSettings={siteSettings}
+              saving={previewSaveMut.isPending}
+              onSaveDraft={(draft) => previewSaveMut.mutate({
+                id: viewingInv._id,
+                data: { notes: draft.notes, paymentTerms: draft.paymentTerms },
+              }, { onSuccess: () => api.get(`/invoices/${viewingInv._id}`).then((r) => setViewingInv(r.data?.invoice || viewingInv)) })}
+              onSend={(draft) => {
+                previewSaveMut.mutate({
+                  id: viewingInv._id,
+                  data: { notes: draft.notes, paymentTerms: draft.paymentTerms },
+                }, { onSuccess: () => { setSendTarget(viewingInv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) } })
+              }}
+              onDownloadPdf={(id) => downloadInvoicePdf(id, viewingInv.invoiceNo)}
+            />
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {sendTarget && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[1000000]">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="font-bold text-lg">Send {sendTarget.invoiceNo}</h3>
+            <p className="text-sm text-slate-500">Choose one or more delivery methods.</p>
+            <div className="space-y-2">
+              {[
+                { key: 'email', label: 'Email (PDF attached + portal link)' },
+                { key: 'sms', label: 'SMS (share link)' },
+                { key: 'link', label: 'Copy shareable link only' },
+                { key: 'pdf', label: 'Generate PDF (included with email)' },
+              ].map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={sendMethods[key]}
+                    onChange={(e) => setSendMethods((m) => ({ ...m, [key]: e.target.checked }))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" className="btn-ghost flex-1 justify-center" onClick={() => setSendTarget(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn-primary flex-1 justify-center"
+                disabled={sendMut.isPending || !Object.values(sendMethods).some(Boolean)}
+                onClick={() => {
+                  const methods = Object.entries(sendMethods).filter(([, v]) => v).map(([k]) => k)
+                  sendMut.mutate({ id: sendTarget._id, methods })
+                }}
+              >
+                {sendMut.isPending ? <span className="spinner" /> : 'Send'}
+              </button>
             </div>
           </motion.div>
         </div>,
@@ -490,6 +688,33 @@ export default function AdminInvoices() {
           <InvoiceDetail invoiceId={viewInvoiceId} onClose={() => setViewInvoiceId(null)} />
         )}
       </AnimatePresence>
+
+      {deletePending && createPortal(
+        <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[100001] p-4 backdrop-blur-[2px]">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="font-bold text-lg text-slate-800">Delete invoice?</h3>
+            <p className="text-sm text-slate-500">
+              This permanently removes <strong>{deletePending.invoiceNo}</strong> and reverses linked bank deposits. Enter your admin password to confirm.
+            </p>
+            <input
+              type="password"
+              className="form-input"
+              placeholder="Admin password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmDeleteInvoice() }}
+              autoComplete="current-password"
+            />
+            <div className="flex gap-3">
+              <button type="button" className="btn-ghost flex-1 justify-center" onClick={() => { setDeletePending(null); setDeletePassword('') }}>Cancel</button>
+              <button type="button" className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600" disabled={verifyingDelete || !deletePassword} onClick={confirmDeleteInvoice}>
+                {verifyingDelete ? <span className="spinner" /> : 'Delete'}
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

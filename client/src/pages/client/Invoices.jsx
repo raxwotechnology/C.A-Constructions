@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiCreditCard, FiDownload } from 'react-icons/fi'
 
 export default function ClientInvoices() {
+  const [searchParams] = useSearchParams()
+  const highlightId = searchParams.get('invoice')
   const [voucherMap, setVoucherMap] = useState({})
   const [previewMap, setPreviewMap] = useState({})
   const { data, isLoading } = useQuery({
@@ -13,6 +16,13 @@ export default function ClientInvoices() {
     queryFn: () => api.get('/invoices').then(r => r.data),
   })
   const invoices = data?.invoices || []
+
+  useEffect(() => {
+    if (!highlightId || !invoices.length) return
+    const el = document.getElementById(`invoice-${highlightId}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightId, invoices])
+
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((a, b) => a + (b.total || 0), 0)
   const totalPending = invoices.filter(i => i.status === 'sent').reduce((a, b) => a + (b.total || 0), 0)
 
@@ -85,8 +95,14 @@ export default function ClientInvoices() {
       ) : (
         <div className="space-y-3">
           {invoices.map((inv, i) => (
-            <motion.div key={inv._id} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}}
-              className="card card-body">
+            <motion.div
+              id={`invoice-${inv._id}`}
+              key={inv._id}
+              initial={{opacity:0,y:10}}
+              animate={{opacity:1,y:0}}
+              transition={{delay:i*0.05}}
+              className={`card card-body ${highlightId === inv._id ? 'ring-2 ring-secondary ring-offset-2' : ''}`}
+            >
               <div className="flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">

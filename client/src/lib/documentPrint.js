@@ -1,0 +1,122 @@
+/**
+ * Shared professional letterhead & print styles for quotations, invoices, exports.
+ */
+import { buildCompanyFromSettings, companyContactLines, companyLogoHtml } from './companyBranding'
+import { absoluteMediaUrl } from './media'
+
+function esc(s) {
+  if (s == null) return ''
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** Letterhead: logo + name + tagline left; contact right */
+export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTagline } = {}) {
+  const company = buildCompanyFromSettings(settings)
+  const tagline =
+    showTagline !== undefined
+      ? showTagline
+      : settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Next Level Tech'
+  const logo = companyLogoHtml(company, { forPrint, maxHeight: 64 })
+  const lines = companyContactLines(company)
+
+  const contactHtml = lines
+    .map(
+      (l) =>
+        `<div style="margin:3px 0;font-size:9.5pt;color:#475569"><span style="color:#38bdf8;font-weight:600;min-width:42px;display:inline-block">${esc(l.label)}</span> ${esc(l.text)}</div>`,
+    )
+    .join('')
+
+  return `
+    <header class="doc-letterhead" style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:16px;min-width:0">
+        <div style="flex-shrink:0">${logo}</div>
+        <div>
+          <h1 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.02em">${esc(company.name)}</h1>
+          ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;min-width:200px;flex:1">${contactHtml}</div>
+    </header>`
+}
+
+export function documentPrintStyles() {
+  return `
+    @page { margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 11pt; line-height: 1.5; margin: 0; padding: 0; }
+    .doc-frame { border: 1px solid #cbd5e1; border-radius: 4px; padding: 28px 32px; min-height: 100%; }
+    .doc-title { font-size: 22pt; font-weight: 800; color: #0f172a; letter-spacing: 0.06em; margin: 0 0 4px; }
+    .doc-meta { font-size: 10pt; color: #64748b; }
+    table.doc-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    table.doc-table th { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 10px 12px; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; text-align: left; }
+    table.doc-table td { border: 1px solid #e2e8f0; padding: 10px 12px; vertical-align: top; }
+    .doc-totals { width: 280px; margin-left: auto; }
+    .doc-totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 10.5pt; color: #475569; }
+    .doc-totals-row.total { font-size: 13pt; font-weight: 800; color: #0f172a; border-top: 2px solid #0ea5e9; margin-top: 8px; padding-top: 10px; }
+    .doc-seal-block { margin-top: 40px; text-align: right; page-break-inside: avoid; }
+    .doc-thankyou { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-style: italic; color: #64748b; text-align: center; font-size: 10.5pt; }
+    .doc-continuation { padding-top: 48px; }
+    @media print {
+      .no-print { display: none !important; }
+      .doc-frame, .doc-print-frame { border: none; padding: 0; }
+      .doc-letterhead { page-break-after: avoid; }
+    }
+  `
+}
+
+export function directorSealBlockHtml({ directorName, sealUrl, forPrint = true }) {
+  if (!directorName && !sealUrl) return ''
+  const src = sealUrl ? absoluteMediaUrl(sealUrl) : ''
+  return `
+    <div class="doc-seal-block">
+      ${directorName ? `<p style="margin:0 0 8px;font-weight:700;font-size:11pt;color:#0f172a">${esc(directorName)}</p>` : ''}
+      ${src ? `<img src="${src.replace(/"/g, '')}" alt="Seal" style="max-height:90px;object-fit:contain" crossorigin="anonymous"/>` : ''}
+      <p style="margin:8px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
+    </div>`
+}
+
+/** Print without popup URL bar noise (about:blank) — uses hidden iframe on same page. */
+export function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden;'
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentDocument || iframe.contentWindow?.document
+  if (!doc) {
+    document.body.removeChild(iframe)
+    return false
+  }
+
+  const safeTitle = esc(title || ' ').trim() || ' '
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${safeTitle}</title><style>${documentPrintStyles()}${extraCss}</style></head><body>${bodyHtml}</body></html>`
+
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  const runPrint = () => {
+    try {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+    } finally {
+      setTimeout(() => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+      }, 1500)
+    }
+  }
+
+  if (iframe.contentWindow?.document?.readyState === 'complete') runPrint()
+  else iframe.onload = runPrint
+
+  return true
+}
+
+/** @deprecated Prefer printHtmlContent */
+export function openDocumentPrintWindow({ title, bodyHtml, extraCss = '' }) {
+  return printHtmlContent({ title, bodyHtml, extraCss })
+}

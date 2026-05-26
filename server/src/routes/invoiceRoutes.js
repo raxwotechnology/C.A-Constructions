@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const {
   getInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice,
-  recordPayment, recordAdvance,
+  recordPayment, recordAdvance, sendInvoice, downloadInvoicePdf,
   initiatePayment, payhereCallback, getPaymentHistory,
 } = require('../controllers/invoiceController');
 const { protect, authorize } = require('../middleware/auth');
@@ -17,7 +17,9 @@ router.get('/',    protect, getInvoices);
 router.post('/',   protect, authorize('admin', 'manager'), createInvoice);
 
 // These dynamic routes must come AFTER static routes like /payments/history
+router.get('/:id/pdf', protect, downloadInvoicePdf);
 router.get('/:id', protect, getInvoice);
+router.post('/:id/send', protect, authorize('admin', 'manager'), sendInvoice);
 router.put('/:id', protect, authorize('admin', 'manager'), updateInvoice);
 router.delete('/:id', protect, authorize('admin', 'manager'), deleteInvoice);
 

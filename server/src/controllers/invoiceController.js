@@ -7,6 +7,8 @@ const crypto     = require('crypto');
 const { createNotification } = require('../services/notificationService');
 const { awardPoints }        = require('../services/rewardService');
 const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
+const { verifyActionPassword } = require('../utils/actionPassword');
+const { createAuditLog } = require('./auditController');
 const { allocateInvoiceNoFromQuotationNo, generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
 const { syncProjectsForInvoice } = require('../utils/projectInvoiceSync');
 
@@ -168,7 +170,8 @@ exports.createInvoice = async (req, res, next) => {
 
     await syncProjectsForInvoice(invoice._id);
 
-    res.status(201).json({ success: true, invoice });
+    const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
+    res.status(201).json({ success: true, invoice: populated || invoice });
   } catch (err) { next(err); }
 };
 
@@ -234,7 +237,12 @@ exports.updateInvoice = async (req, res, next) => {
       updates = { ...updates, items: calcedItems, subtotal, discountTotal, tax, taxRate: Number(taxRate ?? existing.taxRate), total };
     }
 
-    if (status) updates.status = status;
+    if (status) {
+      updates.status = status;
+      if (status === 'cancelled') {
+        updates.paidAt = null;
+      }
+    }
 
     const invoice = await Invoice.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
       .populate(POPULATE_INVOICE);
@@ -344,8 +352,36 @@ exports.recordAdvance = async (req, res, next) => {
 // Paid / unpaid: always allowed (admin). No "cannot delete paid" guard.
 exports.deleteInvoice = async (req, res, next) => {
   try {
+    const pwCheck = await verifyActionPassword(req.user._id, req.body?.password);
+    if (!pwCheck.ok) return res.status(pwCheck.status).json({ success: false, message: pwCheck.message });
+
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const snapshot = {
+      invoiceNo: invoice.invoiceNo,
+      total: invoice.total,
+      status: invoice.status,
+      client: invoice.client,
+      paymentsCount: (invoice.payments || []).length,
+    };
+
+    for (const p of invoice.payments || []) {
+      if (p.bankAccount && isLedgerBankMethod(p.method)) {
+        await appendBankTransaction(p.bankAccount, {
+          type: 'withdrawal',
+          amount: p.amount,
+          description: `Reversal: deleted invoice ${invoice.invoiceNo}`,
+          date: new Date(),
+          reference: `del-inv-${invoice._id}`,
+          moduleSource: 'invoice',
+          sourceType: 'invoice_delete',
+          sourceId: invoice._id,
+          recordedBy: req.user._id,
+          paymentMethod: p.method,
+        });
+      }
+    }
 
     await Payment.deleteMany({ invoice: invoice._id });
     await Project.updateMany(
@@ -361,7 +397,126 @@ exports.deleteInvoice = async (req, res, next) => {
     }
 
     await invoice.deleteOne();
+
+    await createAuditLog({
+      user: req.user._id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'delete',
+      module: 'invoices',
+      entityId: String(req.params.id),
+      entityName: snapshot.invoiceNo,
+      description: `Deleted invoice ${snapshot.invoiceNo}`,
+      changes: { before: snapshot, after: null },
+      severity: 'critical',
+    });
+
     res.json({ success: true, message: 'Invoice deleted' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Send invoice (email / SMS / link / PDF)
+// @route   POST /api/invoices/:id/send
+exports.sendInvoice = async (req, res, next) => {
+  try {
+    const methods = Array.isArray(req.body.methods) ? req.body.methods : [];
+    if (!methods.length) {
+      return res.status(400).json({ success: false, message: 'Select at least one send method' });
+    }
+
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('client', 'name email phone')
+      .populate('project', 'title')
+      .populate('quotationRef', 'quotationNo');
+    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
+
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const shareLink = `${clientUrl}/payments?invoice=${invoice._id}`;
+    const results = { email: null, sms: null, link: null, pdf: null };
+    const client = invoice.client;
+
+    let pdfBuffer = null;
+    if (methods.includes('email') || methods.includes('pdf')) {
+      try {
+        const { invoiceToPdf } = require('../services/documentPdfService');
+        pdfBuffer = await invoiceToPdf(invoice);
+        if (methods.includes('pdf')) results.pdf = 'ready';
+      } catch (e) {
+        console.error('[Invoice] PDF generation failed:', e.message);
+        if (methods.includes('pdf')) results.pdf = 'failed';
+      }
+    }
+
+    if (methods.includes('email')) {
+      if (!client?.email) {
+        results.email = 'skipped_no_email';
+      } else {
+        try {
+          const { sendInvoiceEmail } = require('../services/emailService');
+          await sendInvoiceEmail(client.email, client.name, invoice, { shareLink, pdfBuffer });
+          results.email = 'sent';
+        } catch (e) {
+          results.email = 'failed';
+        }
+      }
+    }
+
+    if (methods.includes('sms')) {
+      if (!client?.phone) {
+        results.sms = 'skipped_no_phone';
+      } else {
+        try {
+          const { sendSms } = require('../services/smsService');
+          const msg = `Hi ${client.name}, invoice ${invoice.invoiceNo} for LKR ${Number(invoice.remainingBalance ?? invoice.total).toLocaleString()} is ready. View: ${shareLink}`;
+          await sendSms(client.phone, msg, client.name, 'invoice');
+          results.sms = 'sent';
+        } catch (e) {
+          results.sms = 'failed';
+        }
+      }
+    }
+
+    if (methods.includes('link')) results.link = shareLink;
+
+    const parts = [];
+    if (results.email === 'sent') parts.push('email sent');
+    if (results.email === 'failed') parts.push('email failed');
+    if (results.sms === 'sent') parts.push('SMS sent');
+    if (results.sms === 'failed') parts.push('SMS failed');
+    if (results.link) parts.push('link ready');
+    if (results.pdf === 'ready') parts.push('PDF ready');
+
+    res.json({
+      success: true,
+      shareLink,
+      results,
+      message: parts.length ? parts.join('; ') : 'Nothing sent',
+    });
+  } catch (err) { next(err); }
+};
+
+// @desc    Download invoice PDF
+// @route   GET /api/invoices/:id/pdf
+exports.downloadInvoicePdf = async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('client', 'name email phone')
+      .populate('project', 'title')
+      .populate('quotationRef', 'quotationNo');
+    if (!invoice) return res.status(404).json({ success: false, message: 'Not found' });
+
+    if (req.user.role === 'client') {
+      const clientId = String(req.user.client || req.user._id);
+      if (String(invoice.client?._id || invoice.client) !== clientId) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
+    const { invoiceToPdf } = require('../services/documentPdfService');
+    const pdf = await invoiceToPdf(invoice);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNo || 'invoice'}.pdf"`);
+    res.send(pdf);
   } catch (err) { next(err); }
 };
 

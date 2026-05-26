@@ -90,6 +90,11 @@ exports.sendQuotationSms = async (phone, name, quotationNo, amount) => {
   return sendSms(phone, msg, name, 'quotation');
 };
 
+exports.sendQuotationLinkSms = async (phone, name, quotationNo, shareLink) => {
+  const msg = `Hi ${name}, your quotation ${quotationNo} is ready. View it here: ${shareLink}`;
+  return sendSms(phone, msg, name, 'quotation');
+};
+
 exports.sendPayslipSms = async (phone, name, monthName, netSalary) => {
   const msg = `Hi ${name}, your salary for ${monthName} (LKR ${Number(netSalary).toLocaleString()}) has been processed. Download payslip from your portal.`;
   return sendSms(phone, msg, name, 'payroll');

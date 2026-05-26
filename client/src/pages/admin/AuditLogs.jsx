@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import api from '../../lib/api'
-import { FiShield, FiSearch, FiFilter, FiTrash2, FiEdit2, FiEye, FiUserCheck, FiAlertTriangle, FiInfo } from 'react-icons/fi'
+import { FiShield, FiSearch, FiFilter, FiTrash2, FiEdit2, FiEye, FiUserCheck, FiAlertTriangle, FiInfo, FiX } from 'react-icons/fi'
 
 const ACTION_COLORS = {
   create: 'badge-green', update: 'badge-blue', delete: 'badge-red',
@@ -26,6 +28,7 @@ export default function AdminAuditLogs() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [page, setPage] = useState(1)
+  const [viewLog, setViewLog] = useState(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['audit-logs', module, action, severity, startDate, endDate, page],
@@ -93,15 +96,16 @@ export default function AdminAuditLogs() {
               <th>Module</th>
               <th>Description</th>
               <th>Severity</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={6} className="text-center py-12">
+              <tr><td colSpan={7} className="text-center py-12">
                 <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
               </td></tr>
             ) : logs.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">
+              <tr><td colSpan={7} className="text-center py-12 text-gray-400">
                 <FiShield size={32} className="mx-auto mb-2 opacity-30"/>
                 <p>No audit logs found</p>
               </td></tr>
@@ -132,6 +136,11 @@ export default function AdminAuditLogs() {
                   <td>
                     <span className={`badge capitalize ${sevColor[log.severity] || 'badge-gray'}`}>{log.severity}</span>
                   </td>
+                  <td>
+                    <button type="button" onClick={() => setViewLog(log)} className="btn-outline btn-sm py-1 px-2" title="View details">
+                      <FiEye size={12}/> View
+                    </button>
+                  </td>
                 </tr>
               )
             })}
@@ -148,6 +157,42 @@ export default function AdminAuditLogs() {
             <button disabled={page >= data.pages} onClick={() => setPage(p => p + 1)} className="btn-primary btn-sm">Next</button>
           </div>
         </div>
+      )}
+
+      {viewLog && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-bold text-slate-800">Audit detail</h3>
+              <button type="button" onClick={() => setViewLog(null)} className="p-2 hover:bg-slate-100 rounded-lg"><FiX/></button>
+            </div>
+            <div className="p-5 overflow-y-auto space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <span className="text-slate-500">Admin</span><span className="font-medium">{viewLog.userName || 'System'}</span>
+                <span className="text-slate-500">Role</span><span className="capitalize">{viewLog.userRole}</span>
+                <span className="text-slate-500">When</span><span>{new Date(viewLog.createdAt).toLocaleString('en-LK')}</span>
+                <span className="text-slate-500">Module</span><span className="capitalize">{viewLog.module}</span>
+                <span className="text-slate-500">Action</span><span className="capitalize">{viewLog.action}</span>
+                <span className="text-slate-500">Entity</span><span>{viewLog.entityName || viewLog.entityId || '—'}</span>
+              </div>
+              <p className="text-slate-700 border-t pt-3">{viewLog.description}</p>
+              {viewLog.changes?.before != null && (
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Previous values</p>
+                  <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-40">{JSON.stringify(viewLog.changes.before, null, 2)}</pre>
+                </div>
+              )}
+              {viewLog.changes?.after != null && (
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">New values</p>
+                  <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-40">{JSON.stringify(viewLog.changes.after, null, 2)}</pre>
+                </div>
+              )}
+              {viewLog.ipAddress && <p className="text-xs text-slate-400">IP: {viewLog.ipAddress}</p>}
+            </div>
+          </motion.div>
+        </div>,
+        document.body
       )}
     </div>
   )

@@ -31,6 +31,17 @@ const quotationSchema = new mongoose.Schema({
   currency: { type: String, default: 'LKR' },
   exchangeRateToLKR: { type: Number, default: 1 },
   advanceAmount: { type: Number, default: 0 },
+  transportCharge: { type: Number, default: 0 },
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'bank_transfer', 'cheque', 'card', 'online', 'custom', ''],
+    default: '',
+  },
+  paymentMethodCustom: { type: String, default: '' },
+  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
+  preparedBy: { type: String, default: '' },
+  directorName: { type: String, default: '' },
+  directorSealUrl: { type: String, default: '' },
   validUntil: { type: Date },
   notes: { type: String, default: '' },
   terms: { type: String, default: '' },
@@ -61,7 +72,7 @@ quotationSchema.pre('save', async function (next) {
     const year = new Date().getFullYear();
     const baseCount = await QuotationModel.countDocuments();
     for (let i = 0; i < 5000; i++) {
-      const candidate = `QUO-${year}-${String(baseCount + 1 + i).padStart(4, '0')}`;
+      const candidate = `QT-${year}-${String(baseCount + 1 + i).padStart(3, '0')}`;
       const qFilter = { quotationNo: candidate };
       if (this._id) qFilter._id = { $ne: this._id };
       const [qClash, invClash] = await Promise.all([

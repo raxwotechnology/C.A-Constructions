@@ -1,11 +1,15 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiCalendar, FiPrinter } from 'react-icons/fi'
+import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiEye, FiSend } from 'react-icons/fi'
+import useAuthStore from '../../store/authStore'
+import { SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding'
+import QuotationPreviewPanel from '../../components/documents/QuotationPreviewPanel'
+import { buildQuotationDraft } from '../../lib/buildQuotationDraft'
 import {
   QUOTATION_CURRENCIES,
   formatMoney,
@@ -22,13 +26,26 @@ const STATUS_COLOR = {
 }
 
 const STATUS_LIFECYCLE = ['draft','sent','accepted','rejected','expired']
-const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
+const SERVICE_TYPES = ['POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
+const PAYMENT_METHODS = [
+  { value: '', label: '— Select —' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'cheque', label: 'Cheque' },
+  { value: 'card', label: 'Card' },
+  { value: 'online', label: 'Online Payment' },
+  { value: 'custom', label: 'Custom' },
+]
 
 export default function AdminQuotations() {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
+  const [quickView, setQuickView] = useState(null)
+  const [sendTarget, setSendTarget] = useState(null)
+  const [sendMethods, setSendMethods] = useState({ email: true, sms: false, link: true, pdf: true })
+  const { user } = useAuthStore()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -56,10 +73,19 @@ export default function AdminQuotations() {
   }, 0)
   const watchedCurrency = watch('currency') || 'LKR'
   const taxRate = Number(watch('taxRate') || 0)
+  const transportCharge = Number(watch('transportCharge') || 0)
   const tax = subtotal * taxRate / 100
-  const total = subtotal + tax
+  const total = subtotal + tax + transportCharge
   const advanceAmount = Number(watch('advanceAmount') || 0)
   const balance = Math.max(0, total - advanceAmount)
+
+  const syncPreviewToForm = (partial) => {
+    Object.entries(partial).forEach(([key, value]) => {
+      if (['preparedBy', 'directorName', 'notes', 'terms'].includes(key)) {
+        setValue(key, value, { shouldDirty: true })
+      }
+    })
+  }
 
   const handleCurrencyChange = (newCurrency) => {
     const prev = prevCurrencyRef.current || watchedCurrency
@@ -114,15 +140,91 @@ export default function AdminQuotations() {
   const projectsQuot = (projQuotData?.projects || []).filter(
     (p) => !watchedClientQ || String(p.client?._id || p.client) === String(watchedClientQ)
   )
+  const { data: siteData } = useQuery({
+    queryKey: SITE_SETTINGS_QUERY_KEY,
+    queryFn: () => api.get('/site-settings').then((r) => r.data),
+  })
+  const siteSettings = siteData?.settings || {}
+  const { data: bankData } = useQuery({
+    queryKey: ['bank-accounts'],
+    queryFn: () => api.get('/bank-accounts').then((r) => r.data),
+    enabled: showModal || !!viewing,
+  })
+  const banks = bankData?.accounts || []
+
+  const bankLabelFor = (bankId) => {
+    if (!bankId) return ''
+    const b = banks.find((x) => String(x._id) === String(bankId))
+    return b ? `${b.bankName} · ${b.accountNumber}` : ''
+  }
+
+  const previewSaveMut = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/quotations/${id}`, data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries(['quotations'])
+      qc.invalidateQueries(['quotation', id])
+      toast.success('Quotation updated from preview')
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Save failed'),
+  })
+
+  const sendMut = useMutation({
+    mutationFn: ({ id, methods }) => api.post(`/quotations/${id}/send`, { methods }),
+    onSuccess: (res, { methods }) => {
+      qc.invalidateQueries(['quotations'])
+      const link = res.data?.shareLink
+      if (link && methods?.includes('link')) {
+        navigator.clipboard?.writeText(link).then(() => toast.success(`${res.data?.message || 'Sent'} · Link copied`)).catch(() => toast.success(res.data?.message || 'Sent'))
+      } else {
+        toast.success(res.data?.message || 'Sent')
+      }
+      setSendTarget(null)
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Send failed'),
+  })
+
+  const openSavedQuotationPreview = async (quotation) => {
+    if (!quotation?._id) return
+    closeModal()
+    try {
+      const full = await api.get(`/quotations/${quotation._id}`).then((r) => r.data?.quotation)
+      setViewing(full || quotation)
+    } catch {
+      setViewing(quotation)
+    }
+  }
+
+  const downloadQuotationPdf = async (id) => {
+    try {
+      const res = await api.get(`/quotations/${id}/pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${viewing?.quotationNo || 'quotation'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('PDF downloaded')
+    } catch {
+      toast.error('PDF download failed')
+    }
+  }
 
   const createMut = useMutation({
     mutationFn: d => api.post('/quotations', d),
-    onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Quotation created'); closeModal() },
+    onSuccess: (res) => {
+      qc.invalidateQueries(['quotations'])
+      toast.success('Quotation created')
+      openSavedQuotationPreview(res.data?.quotation)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => api.put(`/quotations/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Updated'); closeModal() },
+    onSuccess: (res) => {
+      qc.invalidateQueries(['quotations'])
+      toast.success('Updated')
+      openSavedQuotationPreview(res.data?.quotation)
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const statusMut = useMutation({
@@ -147,6 +249,11 @@ export default function AdminQuotations() {
   })
 
   const clients = (clientData?.clients || clientData?.users || []).filter(u => !u.role || u.role === 'client')
+  const formSnapshot = watch()
+  const livePreviewQuotation = useMemo(
+    () => buildQuotationDraft(formSnapshot, { clients, editing, user }),
+    [formSnapshot, clients, editing, user],
+  )
   const quotations = (quotData?.quotations || []).filter(q =>
     !search || q.title?.toLowerCase().includes(search.toLowerCase()) ||
     q.client?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -154,7 +261,24 @@ export default function AdminQuotations() {
   )
 
   const closeModal = () => { setShowModal(false); setEditing(null); setClientSelectLabel(''); reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '', client: '' }) }
-  const openCreate = () => { reset({ quotationDate: new Date().toISOString().split('T')[0], items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '', client: '' }); setClientSelectLabel(''); setEditing(null); setShowModal(true) }
+  const openCreate = () => {
+    reset({
+      quotationDate: new Date().toISOString().split('T')[0],
+      items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
+      currency: 'LKR',
+      branch: '',
+      project: '',
+      client: '',
+      transportCharge: 0,
+      preparedBy: user?.name || '',
+      directorName: siteSettings.quotationDirectorName || '',
+      notes: siteSettings.quotationNotesTemplate || '',
+      terms: siteSettings.quotationTermsTemplate || '',
+    })
+    setClientSelectLabel('')
+    setEditing(null)
+    setShowModal(true)
+  }
   const openEdit = (q) => {
     reset({
       client: q.client?._id || q.client,
@@ -170,6 +294,12 @@ export default function AdminQuotations() {
       taxRate: q.taxRate || 0,
       notes: q.notes || '',
       terms: q.terms || '',
+      transportCharge: q.transportCharge || 0,
+      paymentMethod: q.paymentMethod || '',
+      paymentMethodCustom: q.paymentMethodCustom || '',
+      bankAccount: q.bankAccount?._id || q.bankAccount || '',
+      preparedBy: q.preparedBy || q.generatedBy?.name || '',
+      directorName: q.directorName || '',
       items: (q.items && q.items.length > 0) ? q.items.map(i => ({ description: i.description || '', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, total: i.total || 0 })) : [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
     })
     setClientSelectLabel(
@@ -194,18 +324,21 @@ export default function AdminQuotations() {
     const sub = items.reduce((s, i) => s + i.total, 0)
     const tRate = Number(d.taxRate || 0)
     const taxAmt = sub * tRate / 100
+    const transport = Number(d.transportCharge || 0)
     const payload = {
       ...d,
       items,
       subtotal: sub,
       tax: taxAmt,
       taxRate: tRate,
-      total: sub + taxAmt,
+      transportCharge: transport,
+      total: sub + taxAmt + transport,
       advanceAmount: Number(d.advanceAmount || 0),
       exchangeRateToLKR: Number(d.exchangeRateToLKR) || suggestedExchangeToLKR(d.currency || 'LKR'),
     }
     if (!payload.branch) delete payload.branch
     if (!payload.project) delete payload.project
+    if (!payload.bankAccount) delete payload.bankAccount
     const validItems = items.filter((i) => i.description?.trim())
     if (validItems.length === 0) {
       toast.error('Add at least one line item with a description')
@@ -271,7 +404,9 @@ export default function AdminQuotations() {
                 <td><span className={`badge capitalize ${STATUS_COLOR[q.status] || 'badge-gray'}`}>{q.status}</span></td>
                 <td>
                   <div className="flex gap-1">
-                    <button onClick={() => setViewing(q)} title="View Quotation" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><FiFileText size={13}/></button>
+                    <button onClick={() => setQuickView(q)} title="Quick view" className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"><FiEye size={13}/></button>
+                    <button onClick={() => setViewing(q)} title="Preview & edit" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><FiFileText size={13}/></button>
+                    <button onClick={() => { setSendTarget(q); setSendMethods({ email: true, sms: false, link: true }) }} title="Send" className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><FiSend size={13}/></button>
                     {q.status === 'draft' && (
                       <button onClick={() => statusMut.mutate({ id: q._id, status: 'sent' })} title="Mark Sent" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-bold">Sent</button>
                     )}
@@ -296,16 +431,20 @@ export default function AdminQuotations() {
         </table>
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Create/Edit — form + live document preview */}
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Quotation' : 'New Quotation'}</h3>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4" style={{ zIndex: 99999 }}>
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[96vh] overflow-hidden flex flex-col border border-slate-200">
+            <div className="flex items-center justify-between p-4 md:p-5 border-b shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Quotation' : 'New Quotation'}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Fill details on the left; preview and adjust layout on the right.</p>
+              </div>
+              <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+            <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+            <form onSubmit={handleSubmit(onSubmit)} className="lg:w-[min(440px,42%)] xl:w-[min(480px,40%)] shrink-0 overflow-y-auto p-4 md:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="form-label">Client *</label>
                   <input type="hidden" {...register('client', { required: true })} />
@@ -326,7 +465,7 @@ export default function AdminQuotations() {
                   </select></div>
               </div>
               <div><label className="form-label">Subject / Title</label>
-                <input {...register('title')} className="form-input" placeholder="e.g. ERP System Development Proposal (optional)"/></div>
+                <input {...register('title')} className="form-input" placeholder="Project or service proposal title (optional)"/></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="form-label">Branch</label>
                   <select {...register('branch')} className="form-select">
@@ -487,6 +626,7 @@ export default function AdminQuotations() {
                 </div>
                 <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-1 text-sm">
                   <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{formatMoney(subtotal, watchedCurrency)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Transport</span><span>{formatMoney(transportCharge, watchedCurrency)}</span></div>
                   <div className="flex justify-between text-gray-600"><span>Tax ({taxRate}%)</span><span>{formatMoney(tax, watchedCurrency)}</span></div>
                   <div className="flex justify-between font-bold text-primary pt-1 border-t border-gray-200"><span>Total</span><span>{formatMoney(total, watchedCurrency)}</span></div>
                   <div className="grid grid-cols-2 gap-3 pt-2">
@@ -503,123 +643,181 @@ export default function AdminQuotations() {
                 </div>
               </div>
 
-              <div><label className="form-label">Notes</label>
-                <textarea {...register('notes')} rows={2} className="form-input resize-none" placeholder="Additional notes for client"/></div>
-              <div><label className="form-label">Terms & Conditions</label>
-                <textarea {...register('terms')} rows={2} className="form-input resize-none" placeholder="Payment terms, delivery terms..."/></div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div><label className="form-label">Transport charge</label>
+                  <input {...register('transportCharge', { valueAsNumber: true })} type="number" min="0" step="0.01" className="form-input" /></div>
+                <div><label className="form-label">Prepared by</label>
+                  <input {...register('preparedBy')} className="form-input" placeholder={user?.name || 'Your name'} /></div>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div><label className="form-label">Payment method</label>
+                  <select {...register('paymentMethod')} className="form-select">
+                    {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select></div>
+                <div><label className="form-label">Select bank</label>
+                  <select {...register('bankAccount')} className="form-select">
+                    <option value="">— None —</option>
+                    {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName} · {b.accountNumber}</option>)}
+                  </select></div>
+              </div>
+              {watch('paymentMethod') === 'custom' && (
+                <div><label className="form-label">Custom payment label</label>
+                  <input {...register('paymentMethodCustom')} className="form-input" /></div>
+              )}
+              <div><label className="form-label">Director name (on seal)</label>
+                <input {...register('directorName')} className="form-input" placeholder={siteSettings.quotationDirectorName || 'Director name'} /></div>
 
-              <div className="flex gap-3 pt-2">
+              <div><label className="form-label">Notes</label>
+                <textarea {...register('notes')} rows={2} className="form-input resize-none" placeholder="Additional notes for client"/>
+                <button type="button" className="text-xs text-secondary mt-1 underline" onClick={() => api.put('/site-settings', { ...siteSettings, quotationNotesTemplate: watch('notes') }).then(() => toast.success('Notes saved as default template'))}>Save notes as default template</button>
+              </div>
+              <div><label className="form-label">Terms & Conditions</label>
+                <textarea {...register('terms')} rows={2} className="form-input resize-none" placeholder="Payment terms, delivery terms..."/>
+                <button type="button" className="text-xs text-secondary mt-1 underline" onClick={() => api.put('/site-settings', { ...siteSettings, quotationTermsTemplate: watch('terms') }).then(() => toast.success('Terms saved as default template'))}>Save terms as default template</button>
+              </div>
+
+              <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
                 <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">Cancel</button>
                 <button type="submit" disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
-                  {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : editing ? 'Save Changes' : 'Create Quotation'}
+                  {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : editing ? 'Save & Preview' : 'Create Quotation'}
                 </button>
               </div>
             </form>
+            <div className="flex-1 min-h-[280px] lg:min-h-0 flex flex-col">
+              <QuotationPreviewPanel
+                printRootId="quotation-form-preview-root"
+                isDraft={!editing?._id}
+                quotation={livePreviewQuotation}
+                siteSettings={siteSettings}
+                bankLabel={bankLabelFor(watch('bankAccount'))}
+                onFieldSync={syncPreviewToForm}
+                onSaveDraft={editing?._id ? (draft) => previewSaveMut.mutate({
+                  id: editing._id,
+                  data: {
+                    preparedBy: draft.preparedBy,
+                    directorName: draft.directorName,
+                    notes: draft.notes,
+                    terms: draft.terms,
+                  },
+                }) : undefined}
+              />
+            </div>
+            </div>
           </motion.div>
         </div>,
         document.body
       )}
 
-      {/* View/Print Modal */}
+      {/* Full document preview — layout, fonts, editable content */}
       {viewing && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-[99999]">
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[96vh] overflow-hidden flex flex-col border border-slate-200">
+            <div className="flex items-center justify-between gap-3 p-4 border-b bg-slate-50 shrink-0 no-print">
+              <div className="flex items-center gap-3 min-w-0">
+                <h3 className="text-lg font-bold text-slate-800 truncate">Document preview</h3>
+                <span className="badge badge-navy font-mono text-xs shrink-0">{viewing.quotationNo}</span>
+                <span className={`badge capitalize shrink-0 ${STATUS_COLOR[viewing.status] || 'badge-gray'}`}>{viewing.status}</span>
+              </div>
+              <button type="button" onClick={() => setViewing(null)} className="p-2 hover:bg-slate-200 rounded-lg shrink-0"><FiX/></button>
+            </div>
+            <QuotationPreviewPanel
+              quotation={viewing}
+              siteSettings={siteSettings}
+              bankLabel={bankLabelFor(viewing.bankAccount?._id || viewing.bankAccount)}
+              saving={previewSaveMut.isPending}
+              onSaveDraft={(draft) => previewSaveMut.mutate({
+                id: viewing._id,
+                data: {
+                  preparedBy: draft.preparedBy,
+                  directorName: draft.directorName,
+                  notes: draft.notes,
+                  terms: draft.terms,
+                },
+              })}
+              onSend={(draft) => {
+                previewSaveMut.mutate({
+                  id: viewing._id,
+                  data: {
+                    preparedBy: draft.preparedBy,
+                    directorName: draft.directorName,
+                    notes: draft.notes,
+                    terms: draft.terms,
+                  },
+                }, { onSuccess: () => { setViewing(null); setSendTarget(viewing); setSendMethods({ email: true, sms: false, link: true, pdf: true }) } })
+              }}
+              onDownloadPdf={downloadQuotationPdf}
+            />
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {/* Send options */}
+      {sendTarget && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100000]">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="font-bold text-lg">Send {sendTarget.quotationNo}</h3>
+            <p className="text-sm text-slate-500">Choose one or more delivery methods.</p>
+            <div className="space-y-2">
+              {[
+                { key: 'email', label: 'Email (PDF attached + portal link)' },
+                { key: 'sms', label: 'SMS (share link)' },
+                { key: 'link', label: 'Copy shareable link only' },
+                { key: 'pdf', label: 'Generate PDF (included with email)' },
+              ].map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={sendMethods[key]}
+                    onChange={(e) => setSendMethods((m) => ({ ...m, [key]: e.target.checked }))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" className="btn-ghost flex-1 justify-center" onClick={() => setSendTarget(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn-primary flex-1 justify-center"
+                disabled={sendMut.isPending || !Object.values(sendMethods).some(Boolean)}
+                onClick={() => {
+                  const methods = Object.entries(sendMethods).filter(([, v]) => v).map(([k]) => k)
+                  sendMut.mutate({ id: sendTarget._id, methods })
+                }}
+              >
+                {sendMut.isPending ? <span className="spinner" /> : 'Send'}
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {/* Quick view */}
+      {quickView && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 md:p-6 border-b bg-slate-50 shrink-0">
-              <div className="flex items-center gap-3">
-                <h3 className="text-lg font-bold text-slate-800">Quotation {viewing.quotationNo}</h3>
-                <span className={`badge capitalize ${STATUS_COLOR[viewing.status] || 'badge-gray'}`}>{viewing.status}</span>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-3">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-mono text-sm text-secondary font-bold">{quickView.quotationNo}</p>
+                <h3 className="font-bold text-lg text-slate-800">{quickView.client?.name}</h3>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => {
-                  const printContent = document.getElementById('quotation-print-area').innerHTML;
-                  const originalContent = document.body.innerHTML;
-                  document.body.innerHTML = printContent;
-                  window.print();
-                  document.body.innerHTML = originalContent;
-                  window.location.reload();
-                }} className="btn-outline btn-sm print:hidden"><FiPrinter size={14}/> Print</button>
-                <button onClick={() => setViewing(null)} className="p-2 hover:bg-slate-200 rounded-lg print:hidden"><FiX/></button>
-              </div>
+              <button type="button" onClick={() => setQuickView(null)} className="p-2 hover:bg-slate-100 rounded-lg"><FiX/></button>
             </div>
-            
-            <div className="p-6 md:p-8 overflow-y-auto flex-1 text-sm text-slate-700 bg-white" id="quotation-print-area">
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <h1 className="text-3xl font-black text-slate-900 tracking-tight">QUOTATION</h1>
-                  <p className="text-slate-500 mt-1 font-medium">{viewing.title}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Date Issued</p>
-                  <p className="font-medium text-slate-800 mb-2">{new Date(viewing.quotationDate || viewing.createdAt).toLocaleDateString('en-LK')}</p>
-                  <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Valid Until</p>
-                  <p className="font-medium text-slate-800">{viewing.validUntil ? new Date(viewing.validUntil).toLocaleDateString('en-LK') : '—'}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8 mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                <div>
-                  <p className="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Quotation For</p>
-                  <p className="font-bold text-slate-800 text-base">{viewing.client?.name || 'Walk-in Client'}</p>
-                  <p className="text-slate-600 mt-1">{viewing.client?.email || ''}</p>
-                  {viewing.client?.phone && <p className="text-slate-600">{viewing.client.phone}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Prepared By</p>
-                  <p className="font-bold text-slate-800 text-base">Raxwo ERP System</p>
-                  <p className="text-slate-600 mt-1">{viewing.generatedBy?.name}</p>
-                </div>
-              </div>
-
-              <table className="w-full text-left mb-8">
-                <thead>
-                  <tr className="border-b-2 border-slate-200 text-slate-500">
-                    <th className="py-3 font-semibold w-1/2">Description</th>
-                    <th className="py-3 font-semibold text-center">Qty</th>
-                    <th className="py-3 font-semibold text-right">Unit Price</th>
-                    <th className="py-3 font-semibold text-right">Discount</th>
-                    <th className="py-3 font-semibold text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {viewing.items?.map((item, i) => (
-                    <tr key={i}>
-                      <td className="py-4 font-medium text-slate-800">{item.description}</td>
-                      <td className="py-4 text-center">{item.quantity}</td>
-                      <td className="py-4 text-right">{(item.unitPrice || 0).toLocaleString()}</td>
-                      <td className="py-4 text-right">{item.discount > 0 ? `${item.discount}%` : '-'}</td>
-                      <td className="py-4 text-right font-semibold text-slate-800">{(item.total || 0).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="flex justify-end mb-8">
-                <div className="w-64 space-y-3">
-                  <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>{formatMoney(viewing.subtotal || 0, viewing.currency || 'LKR')}</span></div>
-                  {viewing.taxRate > 0 && <div className="flex justify-between text-slate-600"><span>Tax ({viewing.taxRate}%)</span><span>{formatMoney(viewing.tax || 0, viewing.currency || 'LKR')}</span></div>}
-                  <div className="flex justify-between text-lg font-bold text-slate-900 pt-3 border-t-2 border-slate-200">
-                    <span>Total Amount</span>
-                    <span>{formatMoney(viewing.total || 0, viewing.currency || 'LKR')}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
-                {viewing.notes && (
-                  <div>
-                    <h4 className="font-bold text-slate-800 mb-2 uppercase text-xs tracking-wider">Notes</h4>
-                    <p className="text-slate-600 text-sm whitespace-pre-wrap">{viewing.notes}</p>
-                  </div>
-                )}
-                {viewing.terms && (
-                  <div>
-                    <h4 className="font-bold text-slate-800 mb-2 uppercase text-xs tracking-wider">Terms & Conditions</h4>
-                    <p className="text-slate-600 text-sm whitespace-pre-wrap">{viewing.terms}</p>
-                  </div>
-                )}
-              </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <span className="text-slate-500">Issued</span><span>{new Date(quickView.quotationDate || quickView.createdAt).toLocaleDateString('en-LK')}</span>
+              <span className="text-slate-500">Amount</span><span className="font-bold">{formatMoney(quickView.total, quickView.currency)}</span>
+              <span className="text-slate-500">Status</span><span className="capitalize">{quickView.status}</span>
+              <span className="text-slate-500">Prepared by</span><span>{quickView.preparedBy || quickView.generatedBy?.name || '—'}</span>
+              <span className="text-slate-500">Payment</span><span className="capitalize">{quickView.paymentMethod?.replace('_', ' ') || '—'}</span>
+              <span className="text-slate-500">Bank</span><span>{quickView.bankAccount ? `${quickView.bankAccount.bankName} · ${quickView.bankAccount.accountNumber}` : bankLabelFor(quickView.bankAccount) || '—'}</span>
             </div>
+            {quickView.notes && <p className="text-xs text-slate-600 border-t pt-2 line-clamp-3">{quickView.notes}</p>}
+            <button type="button" className="btn-outline w-full justify-center" onClick={() => { setQuickView(null); setViewing(quickView) }}>
+              Open full preview
+            </button>
           </motion.div>
         </div>,
         document.body

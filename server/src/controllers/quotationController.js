@@ -43,6 +43,7 @@ exports.getQuotations = async (req, res, next) => {
       .populate('generatedBy', 'name')
       .populate('branch', 'name')
       .populate('project', 'title deadline')
+      .populate('bankAccount', 'bankName accountNumber branchName')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: quotations.length, quotations });
   } catch (err) { next(err); }
@@ -56,8 +57,15 @@ exports.getQuotation = async (req, res, next) => {
       .populate('client', 'name email phone')
       .populate('generatedBy', 'name')
       .populate('confirmedBy', 'name')
+      .populate('bankAccount', 'bankName accountNumber branchName')
       .populate('convertedToInvoice', 'invoiceNo total status');
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
+    if (req.user.role === 'client') {
+      const clientId = String(req.user.client || req.user._id);
+      if (String(quotation.client?._id || quotation.client) !== clientId) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
     res.json({ success: true, quotation });
   } catch (err) { next(err); }
 };
@@ -84,11 +92,20 @@ exports.createQuotation = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'At least one line item with a description is required' });
     }
 
+    const subtotal = Number(req.body.subtotal) || validItems.reduce((s, i) => s + i.total, 0);
+    const taxRate = Number(req.body.taxRate || 0);
+    const tax = Number(req.body.tax) || subtotal * taxRate / 100;
+    const transportCharge = Number(req.body.transportCharge || 0);
     const payload = {
       ...req.body,
       items: validItems,
-      subtotal: Number(req.body.subtotal) || validItems.reduce((s, i) => s + i.total, 0),
+      subtotal,
+      tax,
+      taxRate,
+      transportCharge,
+      total: Number(req.body.total) || subtotal + tax + transportCharge,
       generatedBy: req.user._id,
+      preparedBy: String(req.body.preparedBy || '').trim() || req.user.name || '',
     };
     if (!payload.title) payload.title = 'Quotation';
     if (!payload.branch) delete payload.branch;
@@ -126,7 +143,11 @@ exports.createQuotation = async (req, res, next) => {
       }
     }
 
-    res.status(201).json({ success: true, quotation });
+    const populatedOut = await Quotation.findById(quotation._id)
+      .populate('client', 'name email phone')
+      .populate('generatedBy', 'name')
+      .populate('bankAccount', 'bankName accountNumber');
+    res.status(201).json({ success: true, quotation: populatedOut || quotation });
   } catch (err) { next(err); }
 };
 
@@ -155,7 +176,11 @@ exports.updateQuotation = async (req, res, next) => {
       ipAddress: req.ip || '',
       userAgent: req.get('user-agent') || '',
     });
-    res.json({ success: true, quotation });
+    const populatedOut = await Quotation.findById(quotation._id)
+      .populate('client', 'name email phone')
+      .populate('generatedBy', 'name')
+      .populate('bankAccount', 'bankName accountNumber');
+    res.json({ success: true, quotation: populatedOut || quotation });
   } catch (err) { next(err); }
 };
 
@@ -263,6 +288,117 @@ exports.convertToInvoice = async (req, res, next) => {
 
     const populated = await Invoice.findById(invoice._id).populate('client', 'name email').populate('quotationRef', 'quotationNo title');
     res.json({ success: true, invoice: populated, quotation });
+  } catch (err) { next(err); }
+};
+
+// @desc    Send quotation (email / SMS / share link)
+// @route   POST /api/quotations/:id/send
+exports.sendQuotation = async (req, res, next) => {
+  try {
+    const methods = Array.isArray(req.body.methods) ? req.body.methods : [];
+    if (!methods.length) {
+      return res.status(400).json({ success: false, message: 'Select at least one send method' });
+    }
+
+    const quotation = await Quotation.findById(req.params.id)
+      .populate('client', 'name email phone')
+      .populate('generatedBy', 'name')
+      .populate('bankAccount', 'bankName accountNumber');
+    if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
+
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const shareLink = `${clientUrl}/my-account?quotation=${quotation._id}`;
+    const results = { email: null, sms: null, link: null, pdf: null };
+    const client = quotation.client;
+
+    let pdfBuffer = null;
+    if (methods.includes('email') || methods.includes('pdf')) {
+      try {
+        const { quotationToPdf } = require('../services/documentPdfService');
+        pdfBuffer = await quotationToPdf(quotation);
+        if (methods.includes('pdf')) results.pdf = 'ready';
+      } catch (e) {
+        console.error('[Quotation] PDF generation failed:', e.message);
+        if (methods.includes('pdf')) results.pdf = 'failed';
+      }
+    }
+
+    if (methods.includes('email')) {
+      if (!client?.email) {
+        results.email = 'skipped_no_email';
+      } else {
+        try {
+          const { sendQuotationEmail } = require('../services/emailService');
+          await sendQuotationEmail(client.email, client.name, quotation, { shareLink, pdfBuffer });
+          results.email = 'sent';
+        } catch (e) {
+          results.email = 'failed';
+        }
+      }
+    }
+
+    if (methods.includes('sms')) {
+      if (!client?.phone) {
+        results.sms = 'skipped_no_phone';
+      } else {
+        try {
+          const { sendQuotationLinkSms } = require('../services/smsService');
+          await sendQuotationLinkSms(client.phone, client.name, quotation.quotationNo, shareLink);
+          results.sms = 'sent';
+        } catch (e) {
+          results.sms = 'failed';
+        }
+      }
+    }
+
+    if (methods.includes('link')) {
+      results.link = shareLink;
+    }
+
+    if (quotation.status === 'draft' && (results.email === 'sent' || results.sms === 'sent')) {
+      quotation.status = 'sent';
+      quotation.sentAt = new Date();
+      await quotation.save();
+    }
+
+    const parts = [];
+    if (results.email === 'sent') parts.push('email sent');
+    if (results.email === 'failed') parts.push('email failed');
+    if (results.sms === 'sent') parts.push('SMS sent');
+    if (results.sms === 'failed') parts.push('SMS failed');
+    if (results.link) parts.push('link ready');
+
+    res.json({
+      success: true,
+      shareLink,
+      results,
+      message: parts.length ? parts.join('; ') : 'Nothing sent — check client contact details',
+    });
+  } catch (err) { next(err); }
+};
+
+// @desc    Download quotation PDF
+// @route   GET /api/quotations/:id/pdf
+exports.downloadQuotationPdf = async (req, res, next) => {
+  try {
+    const quotation = await Quotation.findById(req.params.id)
+      .populate('client', 'name email phone')
+      .populate('generatedBy', 'name')
+      .populate('bankAccount', 'bankName accountNumber');
+    if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
+
+    if (req.user.role === 'client') {
+      const clientId = String(req.user.client || req.user._id);
+      if (String(quotation.client?._id || quotation.client) !== clientId) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
+    const { quotationToPdf } = require('../services/documentPdfService');
+    const pdf = await quotationToPdf(quotation);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${quotation.quotationNo || 'quotation'}.pdf"`);
+    res.send(pdf);
   } catch (err) { next(err); }
 };
 

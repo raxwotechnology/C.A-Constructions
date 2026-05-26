@@ -13,6 +13,27 @@ const { isFinanceBankMethod, appendBankTransaction } = require('../utils/bankLed
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** Cash received from invoice payments in range (excludes draft/cancelled). */
+async function aggregateInvoicePaymentRevenue(branchMatch, range) {
+  const rows = await Invoice.aggregate([
+    { $match: { ...branchMatch, status: { $nin: ['cancelled', 'draft'] } } },
+    { $unwind: '$payments' },
+    { $match: { 'payments.date': range } },
+    { $group: { _id: null, total: { $sum: '$payments.amount' }, paymentCount: { $sum: 1 } } },
+  ]);
+  return { total: rows[0]?.total || 0, paymentCount: rows[0]?.paymentCount || 0 };
+}
+
+async function aggregateInvoicePaymentRevenueByMonth(branchMatch, yearStart, yearEnd) {
+  return Invoice.aggregate([
+    { $match: { ...branchMatch, status: { $nin: ['cancelled', 'draft'] } } },
+    { $unwind: '$payments' },
+    { $match: { 'payments.date': { $gte: yearStart, $lte: yearEnd } } },
+    { $group: { _id: { $month: '$payments.date' }, total: { $sum: '$payments.amount' }, count: { $sum: 1 } } },
+    { $sort: { _id: 1 } },
+  ]);
+}
+
 function financeEntrySnapshot(e) {
   if (!e) return null;
   return {
@@ -255,18 +276,15 @@ exports.getOverview = async (req, res, next) => {
     const empIds = await getEmpIds(branch);
     const empMatch = empIds ? { employee: { $in: empIds } } : {};
 
-    const [paidInvoices, paidPayrolls, entries, revenueByMonth, incomeExpenseByCategory] = await Promise.all([
+    const [paidInvoices, paidPayrolls, entries, revenueByMonth, paymentRevenueAgg, incomeExpenseByCategory] = await Promise.all([
       Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
       Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year'),
       FinanceEntry.find({ ...branchMatch, date: range })
         .sort({ date: -1 })
         .populate('bankAccount', 'bankName accountNumber')
         .populate('branch', 'name'),
-      Invoice.aggregate([
-        { $match: { ...branchMatch, status: 'paid', paidAt: { $gte: yearStart, $lte: yearEnd } } },
-        { $group: { _id: { $month: '$paidAt' }, total: { $sum: '$total' }, count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
-      ]),
+      aggregateInvoicePaymentRevenueByMonth(branchMatch, yearStart, yearEnd),
+      aggregateInvoicePaymentRevenue(branchMatch, range),
       FinanceEntry.aggregate([
         { $match: { ...branchMatch, date: range } },
         { $group: { _id: { category: '$category', type: '$type' }, total: { $sum: '$amount' } } },
@@ -274,7 +292,7 @@ exports.getOverview = async (req, res, next) => {
       ]),
     ]);
 
-    const revenue = paidInvoices.reduce((s, i) => s + Number(i.total || 0), 0);
+    const revenue = paymentRevenueAgg.total;
     const salaryPayout = paidPayrolls.reduce((s, p) => s + Number(p.netSalary || 0), 0);
     const incomeEntries = entries.filter((e) => e.type === 'income').reduce((s, e) => s + Number(e.amount || 0), 0);
     const expenseEntries = entries.filter((e) => e.type === 'expense').reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -325,6 +343,7 @@ exports.getOverview = async (req, res, next) => {
       summary: { revenue, salaryPayout, incomeEntries, expenseEntries, totalIncome, totalExpense, profit },
       details: {
         paidInvoicesCount: paidInvoices.length,
+        invoicePaymentsCount: paymentRevenueAgg.paymentCount,
         payrollRunsCount: paidPayrolls.length,
         entriesCount: entries.length,
         profitMarginPct: totalIncome > 0 ? Number(((profit / totalIncome) * 100).toFixed(2)) : 0,

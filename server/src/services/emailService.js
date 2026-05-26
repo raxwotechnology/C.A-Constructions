@@ -159,34 +159,59 @@ exports.sendProjectAssignedEmployeeEmail = async (employeeEmail, employeeName, p
 };
 
 /* ─── Financial / Billing Notifications ──────────────────────────────────────── */
-exports.sendInvoiceEmail = async (clientEmail, clientName, invoiceDetails) => {
-  const html = await buildEmailHTML('New Invoice Generated', `
+exports.sendInvoiceEmail = async (clientEmail, clientName, invoiceDetails, { shareLink, pdfBuffer } = {}) => {
+  const viewUrl = shareLink || `${APP_URL}/client/invoices`;
+  const html = await buildEmailHTML('Invoice', `
     <p>Hi <strong>${clientName}</strong>,</p>
-    <p>A new invoice has been generated for your account.</p>
+    <p>Please find your invoice details below. ${pdfBuffer ? 'A PDF copy is attached to this email.' : ''}</p>
     ${infoBoxHtml([
       { label: 'Invoice No', value: invoiceDetails.invoiceNo },
       { label: 'Amount', value: `${invoiceDetails.currency || 'LKR'} ${Number(invoiceDetails.total).toLocaleString()}` },
-      { label: 'Due Date', value: new Date(invoiceDetails.dueDate).toLocaleDateString() }
+      { label: 'Due Date', value: invoiceDetails.dueDate ? new Date(invoiceDetails.dueDate).toLocaleDateString() : 'N/A' },
+      { label: 'Balance Due', value: `${invoiceDetails.currency || 'LKR'} ${Number(invoiceDetails.remainingBalance ?? invoiceDetails.total).toLocaleString()}` },
     ])}
-    <p>Please log in to your portal to securely view, download, or complete payment for this invoice.</p>
-    ${btnHtml('View Invoice', `${APP_URL}/payments`)}
+    ${btnHtml('View in Portal', viewUrl)}
   `);
-  await sendLoggedMail({ to: clientEmail, subject: `Invoice ${invoiceDetails.invoiceNo} from Raxwo Technology`, html }, 'invoice');
+  const mailOpts = {
+    to: clientEmail,
+    subject: `Invoice ${invoiceDetails.invoiceNo}`,
+    html,
+  };
+  if (pdfBuffer) {
+    mailOpts.attachments = [{
+      filename: `${invoiceDetails.invoiceNo || 'invoice'}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }];
+  }
+  await sendLoggedMail(mailOpts, 'invoice');
 };
 
-exports.sendQuotationEmail = async (clientEmail, clientName, quoteDetails) => {
-  const html = await buildEmailHTML('Quotation Ready', `
+exports.sendQuotationEmail = async (clientEmail, clientName, quoteDetails, { shareLink, pdfBuffer } = {}) => {
+  const viewUrl = shareLink || `${APP_URL}/my-account?quotation=${quoteDetails._id || ''}`;
+  const html = await buildEmailHTML('Quotation', `
     <p>Hi <strong>${clientName}</strong>,</p>
-    <p>We have prepared a new quotation based on your requirements.</p>
+    <p>Thank you for your interest. ${pdfBuffer ? 'Your quotation is attached as a PDF.' : 'Your quotation is ready to review.'}</p>
     ${infoBoxHtml([
       { label: 'Quotation No', value: quoteDetails.quotationNo },
       { label: 'Total Amount', value: `${quoteDetails.currency || 'LKR'} ${Number(quoteDetails.total).toLocaleString()}` },
-      { label: 'Valid Until', value: quoteDetails.expiryDate ? new Date(quoteDetails.expiryDate).toLocaleDateString() : 'N/A' }
+      { label: 'Valid Until', value: quoteDetails.validUntil ? new Date(quoteDetails.validUntil).toLocaleDateString() : 'N/A' },
     ])}
-    <p>You can review and accept this quotation directly in your client portal.</p>
-    ${btnHtml('View Quotation', `${APP_URL}/my-account`)}
+    ${btnHtml('View Online', viewUrl)}
   `);
-  await sendLoggedMail({ to: clientEmail, subject: `Quotation ${quoteDetails.quotationNo} from Raxwo Technology`, html }, 'quotation');
+  const mailOpts = {
+    to: clientEmail,
+    subject: `Quotation ${quoteDetails.quotationNo}`,
+    html,
+  };
+  if (pdfBuffer) {
+    mailOpts.attachments = [{
+      filename: `${quoteDetails.quotationNo || 'quotation'}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }];
+  }
+  await sendLoggedMail(mailOpts, 'quotation');
 };
 
 /* ─── Payroll & HR Notifications ─────────────────────────────────────────────── */

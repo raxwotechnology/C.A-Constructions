@@ -10,6 +10,12 @@ const siteSettingSchema = new mongoose.Schema({
   contactAddress: { type: String, default: 'Weliweriya, Sri Lanka' },
   branchDetails: { type: String, default: '' },
   websiteUrl: { type: String, default: '' },
+  /** Shown under company name on quotations/invoices (e.g. Next Level Tech) */
+  letterheadTagline: { type: String, default: 'Next Level Tech' },
+  quotationThankYouMessage: { type: String, default: 'Thank you for your business. We appreciate the opportunity to serve you.' },
+  quotationNotesTemplate: { type: String, default: '' },
+  quotationTermsTemplate: { type: String, default: '' },
+  quotationDirectorName: { type: String, default: '' },
   whatsappNumber: { type: String, default: '' },
   /** System admin email — notifications, letterheads, agreements */
   adminEmail: { type: String, default: '' },
