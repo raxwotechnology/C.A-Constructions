@@ -35,7 +35,7 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
       <div style="display:flex;align-items:center;gap:16px;min-width:0">
         <div style="flex-shrink:0">${logo}</div>
         <div>
-          <h1 style="margin:0;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.02em">${esc(company.name)}</h1>
+          <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em">${esc(company.name)}</h1>
           ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>` : ''}
         </div>
       </div>

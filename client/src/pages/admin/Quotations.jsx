@@ -36,6 +36,12 @@ const PAYMENT_METHODS = [
   { value: 'online', label: 'Online Payment' },
   { value: 'custom', label: 'Custom' },
 ]
+const DIRECTOR_ROLE_OPTIONS = [
+  { value: '', label: 'Use default' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'hr', label: 'HR' },
+]
 
 export default function AdminQuotations() {
   const qc = useQueryClient()
@@ -78,14 +84,6 @@ export default function AdminQuotations() {
   const total = subtotal + tax + transportCharge
   const advanceAmount = Number(watch('advanceAmount') || 0)
   const balance = Math.max(0, total - advanceAmount)
-
-  const syncPreviewToForm = (partial) => {
-    Object.entries(partial).forEach(([key, value]) => {
-      if (['preparedBy', 'directorName', 'notes', 'terms'].includes(key)) {
-        setValue(key, value, { shouldDirty: true })
-      }
-    })
-  }
 
   const handleCurrencyChange = (newCurrency) => {
     const prev = prevCurrencyRef.current || watchedCurrency
@@ -156,6 +154,15 @@ export default function AdminQuotations() {
     if (!bankId) return ''
     const b = banks.find((x) => String(x._id) === String(bankId))
     return b ? `${b.bankName} · ${b.accountNumber}` : ''
+  }
+  const directorMetaForRole = (role) => {
+    const key = role || siteSettings.quotationDirectorRole || ''
+    const profile = siteSettings.signatures?.[key] || null
+    return {
+      role: key,
+      name: profile?.label || siteSettings.quotationDirectorName || '',
+      sealUrl: profile?.url || siteSettings.sealUrl || '',
+    }
   }
 
   const previewSaveMut = useMutation({
@@ -262,6 +269,7 @@ export default function AdminQuotations() {
 
   const closeModal = () => { setShowModal(false); setEditing(null); setClientSelectLabel(''); reset({ items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }], currency: 'LKR', branch: '', project: '', client: '' }) }
   const openCreate = () => {
+    const directorMeta = directorMetaForRole(siteSettings.quotationDirectorRole || '')
     reset({
       quotationDate: new Date().toISOString().split('T')[0],
       items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
@@ -271,7 +279,10 @@ export default function AdminQuotations() {
       client: '',
       transportCharge: 0,
       preparedBy: user?.name || '',
-      directorName: siteSettings.quotationDirectorName || '',
+      bankBranch: '',
+      directorRole: directorMeta.role || '',
+      directorName: directorMeta.name || '',
+      directorSealUrl: directorMeta.sealUrl || '',
       notes: siteSettings.quotationNotesTemplate || '',
       terms: siteSettings.quotationTermsTemplate || '',
     })
@@ -280,6 +291,7 @@ export default function AdminQuotations() {
     setShowModal(true)
   }
   const openEdit = (q) => {
+    const directorMeta = directorMetaForRole(q.directorRole || '')
     reset({
       client: q.client?._id || q.client,
       title: q.title || '',
@@ -298,8 +310,11 @@ export default function AdminQuotations() {
       paymentMethod: q.paymentMethod || '',
       paymentMethodCustom: q.paymentMethodCustom || '',
       bankAccount: q.bankAccount?._id || q.bankAccount || '',
+      bankBranch: q.bankBranch || q.bankAccount?.branchName || '',
       preparedBy: q.preparedBy || q.generatedBy?.name || '',
-      directorName: q.directorName || '',
+      directorRole: q.directorRole || directorMeta.role || '',
+      directorName: q.directorName || directorMeta.name || '',
+      directorSealUrl: q.directorSealUrl || directorMeta.sealUrl || '',
       items: (q.items && q.items.length > 0) ? q.items.map(i => ({ description: i.description || '', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, total: i.total || 0 })) : [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
     })
     setClientSelectLabel(
@@ -335,6 +350,12 @@ export default function AdminQuotations() {
       total: sub + taxAmt + transport,
       advanceAmount: Number(d.advanceAmount || 0),
       exchangeRateToLKR: Number(d.exchangeRateToLKR) || suggestedExchangeToLKR(d.currency || 'LKR'),
+      notes: String(d.notes || '').trim(),
+      terms: String(d.terms || '').trim(),
+      bankBranch: String(d.bankBranch || '').trim(),
+      directorRole: d.directorRole || '',
+      directorName: String(d.directorName || '').trim(),
+      directorSealUrl: String(d.directorSealUrl || '').trim(),
     }
     if (!payload.branch) delete payload.branch
     if (!payload.project) delete payload.project
@@ -439,7 +460,7 @@ export default function AdminQuotations() {
             <div className="flex items-center justify-between p-4 md:p-5 border-b shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Quotation' : 'New Quotation'}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Fill details on the left; preview and adjust layout on the right.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Fill details on the left; preview on the right.</p>
               </div>
               <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
@@ -655,17 +676,45 @@ export default function AdminQuotations() {
                     {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select></div>
                 <div><label className="form-label">Select bank</label>
-                  <select {...register('bankAccount')} className="form-select">
+                  <select
+                    {...register('bankAccount')}
+                    className="form-select"
+                    onChange={(e) => {
+                      register('bankAccount').onChange(e)
+                      const selected = banks.find((b) => String(b._id) === String(e.target.value))
+                      if (selected?.branchName) {
+                        setValue('bankBranch', selected.branchName, { shouldDirty: true })
+                      }
+                    }}
+                  >
                     <option value="">— None —</option>
                     {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName} · {b.accountNumber}</option>)}
                   </select></div>
               </div>
+              <div><label className="form-label">Bank branch</label>
+                <input {...register('bankBranch')} className="form-input" placeholder="e.g. Kandy Branch" /></div>
               {watch('paymentMethod') === 'custom' && (
                 <div><label className="form-label">Custom payment label</label>
                   <input {...register('paymentMethodCustom')} className="form-input" /></div>
               )}
-              <div><label className="form-label">Director name (on seal)</label>
-                <input {...register('directorName')} className="form-input" placeholder={siteSettings.quotationDirectorName || 'Director name'} /></div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div><label className="form-label">Authorized signatory role</label>
+                  <select
+                    {...register('directorRole')}
+                    className="form-select"
+                    onChange={(e) => {
+                      register('directorRole').onChange(e)
+                      const meta = directorMetaForRole(e.target.value)
+                      setValue('directorName', meta.name, { shouldDirty: true })
+                      setValue('directorSealUrl', meta.sealUrl, { shouldDirty: true })
+                    }}
+                  >
+                    {DIRECTOR_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select></div>
+                <div><label className="form-label">Director / signatory name</label>
+                  <input {...register('directorName')} className="form-input" placeholder={siteSettings.quotationDirectorName || 'Authorized signatory'} /></div>
+              </div>
+              <input type="hidden" {...register('directorSealUrl')} />
 
               <div><label className="form-label">Notes</label>
                 <textarea {...register('notes')} rows={2} className="form-input resize-none" placeholder="Additional notes for client"/>
@@ -690,12 +739,14 @@ export default function AdminQuotations() {
                 quotation={livePreviewQuotation}
                 siteSettings={siteSettings}
                 bankLabel={bankLabelFor(watch('bankAccount'))}
-                onFieldSync={syncPreviewToForm}
                 onSaveDraft={editing?._id ? (draft) => previewSaveMut.mutate({
                   id: editing._id,
                   data: {
                     preparedBy: draft.preparedBy,
                     directorName: draft.directorName,
+                    directorRole: draft.directorRole || '',
+                    directorSealUrl: draft.directorSealUrl || '',
+                    bankBranch: draft.bankBranch || '',
                     notes: draft.notes,
                     terms: draft.terms,
                   },
@@ -731,6 +782,9 @@ export default function AdminQuotations() {
                 data: {
                   preparedBy: draft.preparedBy,
                   directorName: draft.directorName,
+                  directorRole: draft.directorRole || '',
+                  directorSealUrl: draft.directorSealUrl || '',
+                  bankBranch: draft.bankBranch || '',
                   notes: draft.notes,
                   terms: draft.terms,
                 },
@@ -741,6 +795,9 @@ export default function AdminQuotations() {
                   data: {
                     preparedBy: draft.preparedBy,
                     directorName: draft.directorName,
+                    directorRole: draft.directorRole || '',
+                    directorSealUrl: draft.directorSealUrl || '',
+                    bankBranch: draft.bankBranch || '',
                     notes: draft.notes,
                     terms: draft.terms,
                   },
@@ -813,6 +870,7 @@ export default function AdminQuotations() {
               <span className="text-slate-500">Prepared by</span><span>{quickView.preparedBy || quickView.generatedBy?.name || '—'}</span>
               <span className="text-slate-500">Payment</span><span className="capitalize">{quickView.paymentMethod?.replace('_', ' ') || '—'}</span>
               <span className="text-slate-500">Bank</span><span>{quickView.bankAccount ? `${quickView.bankAccount.bankName} · ${quickView.bankAccount.accountNumber}` : bankLabelFor(quickView.bankAccount) || '—'}</span>
+              <span className="text-slate-500">Bank branch</span><span>{quickView.bankBranch || quickView.bankAccount?.branchName || '—'}</span>
             </div>
             {quickView.notes && <p className="text-xs text-slate-600 border-t pt-2 line-clamp-3">{quickView.notes}</p>}
             <button type="button" className="btn-outline w-full justify-center" onClick={() => { setQuickView(null); setViewing(quickView) }}>

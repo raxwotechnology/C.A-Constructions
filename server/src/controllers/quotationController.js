@@ -1,5 +1,6 @@
 const Quotation = require('../models/Quotation');
 const Invoice = require('../models/Invoice');
+const SiteSetting = require('../models/SiteSetting');
 const { createAuditLog } = require('./auditController');
 const { createNotification } = require('../services/notificationService');
 const { allocateInvoiceNoFromQuotationNo } = require('../utils/allocateInvoiceNoFromQuotation');
@@ -96,6 +97,10 @@ exports.createQuotation = async (req, res, next) => {
     const taxRate = Number(req.body.taxRate || 0);
     const tax = Number(req.body.tax) || subtotal * taxRate / 100;
     const transportCharge = Number(req.body.transportCharge || 0);
+    const role = String(req.body.directorRole || '').trim()
+    const settings = await SiteSetting.findOne().lean()
+    const roleSeal = settings?.signatures?.[role]?.url || ''
+    const roleLabel = settings?.signatures?.[role]?.label || ''
     const payload = {
       ...req.body,
       items: validItems,
@@ -106,6 +111,12 @@ exports.createQuotation = async (req, res, next) => {
       total: Number(req.body.total) || subtotal + tax + transportCharge,
       generatedBy: req.user._id,
       preparedBy: String(req.body.preparedBy || '').trim() || req.user.name || '',
+      notes: String(req.body.notes || '').trim(),
+      terms: String(req.body.terms || '').trim(),
+      bankBranch: String(req.body.bankBranch || '').trim(),
+      directorRole: role,
+      directorName: String(req.body.directorName || '').trim() || roleLabel || '',
+      directorSealUrl: String(req.body.directorSealUrl || '').trim() || roleSeal || settings?.sealUrl || '',
     };
     if (!payload.title) payload.title = 'Quotation';
     if (!payload.branch) delete payload.branch;
@@ -146,7 +157,7 @@ exports.createQuotation = async (req, res, next) => {
     const populatedOut = await Quotation.findById(quotation._id)
       .populate('client', 'name email phone')
       .populate('generatedBy', 'name')
-      .populate('bankAccount', 'bankName accountNumber');
+      .populate('bankAccount', 'bankName accountNumber branchName');
     res.status(201).json({ success: true, quotation: populatedOut || quotation });
   } catch (err) { next(err); }
 };
@@ -160,6 +171,19 @@ exports.updateQuotation = async (req, res, next) => {
 
     const allowed = ['draft', 'sent', 'accepted', 'confirmed', 'rejected', 'expired', 'converted'];
     const updates = { ...req.body };
+    if (updates.notes != null) updates.notes = String(updates.notes || '').trim()
+    if (updates.terms != null) updates.terms = String(updates.terms || '').trim()
+    if (updates.bankBranch != null) updates.bankBranch = String(updates.bankBranch || '').trim()
+    if (updates.directorRole != null) updates.directorRole = String(updates.directorRole || '').trim()
+    if (updates.directorName != null) updates.directorName = String(updates.directorName || '').trim()
+    if (updates.directorSealUrl != null) updates.directorSealUrl = String(updates.directorSealUrl || '').trim()
+    if (updates.directorRole && !updates.directorSealUrl) {
+      const settings = await SiteSetting.findOne().lean()
+      updates.directorSealUrl = settings?.signatures?.[updates.directorRole]?.url || settings?.sealUrl || ''
+      if (!updates.directorName) {
+        updates.directorName = settings?.signatures?.[updates.directorRole]?.label || settings?.quotationDirectorName || ''
+      }
+    }
     if (updates.status && !allowed.includes(updates.status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
@@ -179,7 +203,7 @@ exports.updateQuotation = async (req, res, next) => {
     const populatedOut = await Quotation.findById(quotation._id)
       .populate('client', 'name email phone')
       .populate('generatedBy', 'name')
-      .populate('bankAccount', 'bankName accountNumber');
+      .populate('bankAccount', 'bankName accountNumber branchName');
     res.json({ success: true, quotation: populatedOut || quotation });
   } catch (err) { next(err); }
 };
@@ -303,7 +327,7 @@ exports.sendQuotation = async (req, res, next) => {
     const quotation = await Quotation.findById(req.params.id)
       .populate('client', 'name email phone')
       .populate('generatedBy', 'name')
-      .populate('bankAccount', 'bankName accountNumber');
+      .populate('bankAccount', 'bankName accountNumber branchName');
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
 
     const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
@@ -384,7 +408,7 @@ exports.downloadQuotationPdf = async (req, res, next) => {
     const quotation = await Quotation.findById(req.params.id)
       .populate('client', 'name email phone')
       .populate('generatedBy', 'name')
-      .populate('bankAccount', 'bankName accountNumber');
+      .populate('bankAccount', 'bankName accountNumber branchName');
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
 
     if (req.user.role === 'client') {

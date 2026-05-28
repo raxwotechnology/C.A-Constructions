@@ -79,6 +79,19 @@ export default function AdminSettings() {
         admin: { url: siteData?.settings?.signatures?.admin?.url || '', label: siteData?.settings?.signatures?.admin?.label || 'Admin' },
         manager: { url: siteData?.settings?.signatures?.manager?.url || '', label: siteData?.settings?.signatures?.manager?.label || 'Manager' },
       },
+      quotationThankYouMessage: siteData?.settings?.quotationThankYouMessage || '',
+      quotationNotesTemplate: siteData?.settings?.quotationNotesTemplate || '',
+      quotationTermsTemplate: siteData?.settings?.quotationTermsTemplate || '',
+      quotationDirectorName: siteData?.settings?.quotationDirectorName || '',
+      quotationDirectorRole: siteData?.settings?.quotationDirectorRole || '',
+      quotationLayoutFontSizePt: siteData?.settings?.quotationLayoutFontSizePt ?? 11,
+      quotationLayoutLineHeight: siteData?.settings?.quotationLayoutLineHeight ?? 1.5,
+      quotationLayoutPagePaddingMm: siteData?.settings?.quotationLayoutPagePaddingMm ?? 14,
+      quotationLayoutHeaderSpacingPx: siteData?.settings?.quotationLayoutHeaderSpacingPx ?? 24,
+      quotationLayoutFooterSpacingPx: siteData?.settings?.quotationLayoutFooterSpacingPx ?? 32,
+      quotationLayoutTableCellPaddingPx: siteData?.settings?.quotationLayoutTableCellPaddingPx ?? 10,
+      quotationLayoutShowDocumentFrame: siteData?.settings?.quotationLayoutShowDocumentFrame ?? true,
+      quotationLayoutShowRefOnDocument: siteData?.settings?.quotationLayoutShowRefOnDocument ?? true,
       mapLat: siteData?.settings?.mapLat ?? 7.0289,
       mapLng: siteData?.settings?.mapLng ?? 80.0153,
       mapZoom: siteData?.settings?.mapZoom ?? 13,
@@ -317,6 +330,32 @@ export default function AdminSettings() {
             <div><label className="form-label">Default notes template</label><textarea {...reg3('quotationNotesTemplate')} className="form-input min-h-16" rows={2} /></div>
             <div><label className="form-label">Default terms template</label><textarea {...reg3('quotationTermsTemplate')} className="form-input min-h-16" rows={2} /></div>
             <div><label className="form-label">Director name (seal)</label><input {...reg3('quotationDirectorName')} className="form-input" /></div>
+            <div><label className="form-label">Default signatory role</label>
+              <select {...reg3('quotationDirectorRole')} className="form-select">
+                <option value="">Use custom director name</option>
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="hr">HR</option>
+              </select>
+            </div>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div><label className="form-label">Quotation font size (pt)</label><input type="number" step="0.5" {...reg3('quotationLayoutFontSizePt', { valueAsNumber: true })} className="form-input" /></div>
+              <div><label className="form-label">Line height</label><input type="number" step="0.1" {...reg3('quotationLayoutLineHeight', { valueAsNumber: true })} className="form-input" /></div>
+              <div><label className="form-label">Page padding (mm)</label><input type="number" step="1" {...reg3('quotationLayoutPagePaddingMm', { valueAsNumber: true })} className="form-input" /></div>
+              <div><label className="form-label">Header spacing (px)</label><input type="number" step="1" {...reg3('quotationLayoutHeaderSpacingPx', { valueAsNumber: true })} className="form-input" /></div>
+              <div><label className="form-label">Footer spacing (px)</label><input type="number" step="1" {...reg3('quotationLayoutFooterSpacingPx', { valueAsNumber: true })} className="form-input" /></div>
+              <div><label className="form-label">Table cell padding (px)</label><input type="number" step="1" {...reg3('quotationLayoutTableCellPaddingPx', { valueAsNumber: true })} className="form-input" /></div>
+            </div>
+            <div className="flex flex-wrap gap-6">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" {...reg3('quotationLayoutShowDocumentFrame')} />
+                Show quotation border frame
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" {...reg3('quotationLayoutShowRefOnDocument')} />
+                Show quotation reference on document
+              </label>
+            </div>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
             {['hr', 'admin', 'manager'].map((key) => (

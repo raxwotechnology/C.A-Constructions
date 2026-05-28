@@ -28,12 +28,12 @@ export default function QuotationPrintBody({
   const q = quotation || {}
   const currency = q.currency || 'LKR'
   const prepared = preparedByDisplay || q.preparedBy || q.generatedBy?.name || ''
-  const directorName = q.directorName || siteSettings.quotationDirectorName || ''
-  const sealUrl = q.directorSealUrl || siteSettings.sealUrl || ''
+  const roleProfile = siteSettings.signatures?.[q.directorRole] || null
+  const directorName = q.directorName || roleProfile?.label || siteSettings.quotationDirectorName || ''
+  const sealUrl = q.directorSealUrl || roleProfile?.url || siteSettings.sealUrl || ''
   const thanks = thankYouMessage ?? siteSettings.quotationThankYouMessage ?? 'Thank you for your business.'
   const notes = editableNotes !== undefined ? editableNotes : q.notes
   const terms = editableTerms !== undefined ? editableTerms : q.terms
-  const canEdit = Boolean(onNotesChange || onTermsChange || onThankYouChange)
 
   const payLabel =
     q.paymentMethod === 'custom'
@@ -89,6 +89,11 @@ export default function QuotationPrintBody({
           {bankLabel && (
             <p className="text-sm text-slate-600">
               <span className="text-slate-400">Bank:</span> {bankLabel}
+            </p>
+          )}
+          {(q.bankBranch || q.bankAccount?.branchName) && (
+            <p className="text-sm text-slate-600">
+              <span className="text-slate-400">Bank branch:</span> {q.bankBranch || q.bankAccount?.branchName}
             </p>
           )}
         </div>
@@ -147,56 +152,23 @@ export default function QuotationPrintBody({
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 text-sm border-t border-slate-100 pt-4">
-        {(notes || canEdit) && (
+        {notes && (
           <div>
             <h4 className="font-bold text-xs uppercase text-slate-500 mb-2">Notes</h4>
-            {canEdit && onNotesChange ? (
-              <div
-                className="text-slate-600 whitespace-pre-wrap min-h-[2em] outline-none focus:ring-2 focus:ring-sky-200 rounded px-1 -mx-1"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onNotesChange(e.currentTarget.innerText)}
-              >
-                {notes}
-              </div>
-            ) : (
-              <p className="text-slate-600 whitespace-pre-wrap">{notes}</p>
-            )}
+            <p className="text-slate-600 whitespace-pre-wrap">{notes}</p>
           </div>
         )}
-        {(terms || canEdit) && (
+        {terms && (
           <div>
             <h4 className="font-bold text-xs uppercase text-slate-500 mb-2">Terms & conditions</h4>
-            {canEdit && onTermsChange ? (
-              <div
-                className="text-slate-600 whitespace-pre-wrap min-h-[2em] outline-none focus:ring-2 focus:ring-sky-200 rounded px-1 -mx-1"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onTermsChange(e.currentTarget.innerText)}
-              >
-                {terms}
-              </div>
-            ) : (
-              <p className="text-slate-600 whitespace-pre-wrap">{terms}</p>
-            )}
+            <p className="text-slate-600 whitespace-pre-wrap">{terms}</p>
           </div>
         )}
       </div>
 
       <div className="doc-footer-area">
         {thanks ? (
-          canEdit && onThankYouChange ? (
-            <p
-              className="doc-thankyou text-center italic text-slate-500 mt-8 outline-none focus:ring-2 focus:ring-sky-200 rounded px-2"
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={(e) => onThankYouChange(e.currentTarget.innerText)}
-            >
-              {thanks}
-            </p>
-          ) : (
-            <p className="doc-thankyou text-center italic text-slate-500 mt-8">{thanks}</p>
-          )
+          <p className="doc-thankyou text-center italic text-slate-500 mt-8">{thanks}</p>
         ) : null}
 
         {showSeal && (directorName || sealUrl) && (

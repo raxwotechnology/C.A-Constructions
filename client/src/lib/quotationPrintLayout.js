@@ -12,6 +12,41 @@ export const DEFAULT_QUOTATION_LAYOUT = {
   showRefOnDocument: true,
 }
 
+export function quotationLayoutFromSettings(settings = {}) {
+  return {
+    fontSizePt: Number(settings.quotationLayoutFontSizePt ?? DEFAULT_QUOTATION_LAYOUT.fontSizePt),
+    lineHeight: Number(settings.quotationLayoutLineHeight ?? DEFAULT_QUOTATION_LAYOUT.lineHeight),
+    pagePaddingMm: Number(settings.quotationLayoutPagePaddingMm ?? DEFAULT_QUOTATION_LAYOUT.pagePaddingMm),
+    headerSpacingPx: Number(settings.quotationLayoutHeaderSpacingPx ?? DEFAULT_QUOTATION_LAYOUT.headerSpacingPx),
+    footerSpacingPx: Number(settings.quotationLayoutFooterSpacingPx ?? DEFAULT_QUOTATION_LAYOUT.footerSpacingPx),
+    tableCellPaddingPx: Number(settings.quotationLayoutTableCellPaddingPx ?? DEFAULT_QUOTATION_LAYOUT.tableCellPaddingPx),
+    contentMaxWidth: settings.quotationLayoutContentMaxWidth || DEFAULT_QUOTATION_LAYOUT.contentMaxWidth,
+    showDocumentFrame:
+      settings.quotationLayoutShowDocumentFrame == null
+        ? DEFAULT_QUOTATION_LAYOUT.showDocumentFrame
+        : Boolean(settings.quotationLayoutShowDocumentFrame),
+    showRefOnDocument:
+      settings.quotationLayoutShowRefOnDocument == null
+        ? DEFAULT_QUOTATION_LAYOUT.showRefOnDocument
+        : Boolean(settings.quotationLayoutShowRefOnDocument),
+  }
+}
+
+export function quotationLayoutToSettings(layout = DEFAULT_QUOTATION_LAYOUT) {
+  const L = { ...DEFAULT_QUOTATION_LAYOUT, ...layout }
+  return {
+    quotationLayoutFontSizePt: Number(L.fontSizePt),
+    quotationLayoutLineHeight: Number(L.lineHeight),
+    quotationLayoutPagePaddingMm: Number(L.pagePaddingMm),
+    quotationLayoutHeaderSpacingPx: Number(L.headerSpacingPx),
+    quotationLayoutFooterSpacingPx: Number(L.footerSpacingPx),
+    quotationLayoutTableCellPaddingPx: Number(L.tableCellPaddingPx),
+    quotationLayoutContentMaxWidth: L.contentMaxWidth || '100%',
+    quotationLayoutShowDocumentFrame: Boolean(L.showDocumentFrame),
+    quotationLayoutShowRefOnDocument: Boolean(L.showRefOnDocument),
+  }
+}
+
 export function loadQuotationLayout() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)

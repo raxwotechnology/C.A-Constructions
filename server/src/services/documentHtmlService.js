@@ -50,7 +50,7 @@ function buildLetterhead(settings) {
       <div style="display:flex;align-items:center;gap:16px">
         <div>${logoHtml}</div>
         <div>
-          <h1 style="margin:0;font-size:20px;font-weight:800;color:#0f172a">${esc(name)}</h1>
+          <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a">${esc(name)}</h1>
           ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>` : ''}
         </div>
       </div>
@@ -113,21 +113,30 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
   const settings = await getSettings();
   const q = quotation;
   const currency = q.currency || 'LKR';
+  const fontSizePt = Number(settings.quotationLayoutFontSizePt ?? 11);
+  const lineHeight = Number(settings.quotationLayoutLineHeight ?? 1.5);
+  const pagePaddingMm = Number(settings.quotationLayoutPagePaddingMm ?? 14);
+  const headerSpacingPx = Number(settings.quotationLayoutHeaderSpacingPx ?? 24);
+  const footerSpacingPx = Number(settings.quotationLayoutFooterSpacingPx ?? 32);
+  const tableCellPaddingPx = Number(settings.quotationLayoutTableCellPaddingPx ?? 10);
+  const showDocumentFrame = settings.quotationLayoutShowDocumentFrame !== false;
+  const showRefOnDocument = settings.quotationLayoutShowRefOnDocument !== false;
   const payLabel =
     q.paymentMethod === 'custom'
       ? q.paymentMethodCustom || 'Custom'
       : PAYMENT_LABELS[q.paymentMethod] || q.paymentMethod || '';
   const thanks = settings.quotationThankYouMessage || 'Thank you for your business.';
-  const directorName = q.directorName || settings.quotationDirectorName || '';
-  const sealUrl = q.directorSealUrl || settings.sealUrl;
+  const roleProfile = settings.signatures?.[q.directorRole] || null;
+  const directorName = q.directorName || roleProfile?.label || settings.quotationDirectorName || '';
+  const sealUrl = q.directorSealUrl || roleProfile?.url || settings.sealUrl;
   const prepared = q.preparedBy || q.generatedBy?.name || '';
 
   const body = `
     ${buildLetterhead(settings)}
-    <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#0f172a;font-size:11pt;line-height:1.5;padding:28px 32px;border:1px solid #cbd5e1;border-radius:4px">
+    <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#0f172a;font-size:${fontSizePt}pt;line-height:${lineHeight};padding:28px 32px;${showDocumentFrame ? 'border:1px solid #cbd5e1;border-radius:4px;' : ''}">
       <h2 style="margin:0 0 8px;font-size:22pt;font-weight:800;letter-spacing:0.06em">QUOTATION</h2>
       ${q.title ? `<p style="color:#475569;font-weight:500">${esc(q.title)}</p>` : ''}
-      <div style="display:flex;justify-content:space-between;margin:24px 0;gap:16px">
+      <div style="display:flex;justify-content:space-between;margin:${headerSpacingPx}px 0 24px;gap:16px">
         <div style="flex:1;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
           <p style="margin:0 0 8px;font-size:9pt;font-weight:700;color:#94a3b8;text-transform:uppercase">Quotation for</p>
           <p style="margin:0;font-weight:700">${esc(q.client?.name || 'Client')}</p>
@@ -138,10 +147,11 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
           <p style="margin:0;font-weight:600">${esc(prepared)}</p>
           ${payLabel ? `<p style="margin:8px 0 0;font-size:10pt"><span style="color:#94a3b8">Payment:</span> ${esc(payLabel)}</p>` : ''}
           ${bankLabel ? `<p style="margin:4px 0 0;font-size:10pt"><span style="color:#94a3b8">Bank:</span> ${esc(bankLabel)}</p>` : ''}
+          ${(q.bankBranch || q.bankAccount?.branchName) ? `<p style="margin:4px 0 0;font-size:10pt"><span style="color:#94a3b8">Bank branch:</span> ${esc(q.bankBranch || q.bankAccount?.branchName)}</p>` : ''}
           ${q.validUntil ? `<p style="margin:8px 0 0;font-size:10pt"><span style="color:#94a3b8">Valid until:</span> ${new Date(q.validUntil).toLocaleDateString('en-LK')}</p>` : ''}
         </div>
       </div>
-      ${itemsTableHtml(q.items, currency)}
+      ${itemsTableHtml(q.items, currency).replaceAll('padding:10px', `padding:${tableCellPaddingPx}px`)}
       <div style="width:280px;margin-left:auto;font-size:10.5pt">
         <div style="display:flex;justify-content:space-between;padding:6px 0"><span>Subtotal</span><span>${fmtMoney(q.subtotal, currency)}</span></div>
         ${Number(q.transportCharge) > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0"><span>Transport</span><span>${fmtMoney(q.transportCharge, currency)}</span></div>` : ''}
@@ -150,15 +160,15 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
       </div>
       ${q.notes ? `<div style="margin-top:24px"><p style="font-size:9pt;font-weight:700;color:#64748b;text-transform:uppercase">Notes</p><p style="white-space:pre-wrap;color:#475569">${esc(q.notes)}</p></div>` : ''}
       ${q.terms ? `<div style="margin-top:16px"><p style="font-size:9pt;font-weight:700;color:#64748b;text-transform:uppercase">Terms</p><p style="white-space:pre-wrap;color:#475569">${esc(q.terms)}</p></div>` : ''}
-      ${thanks ? `<p style="margin-top:28px;text-align:center;font-style:italic;color:#64748b;border-top:1px solid #e2e8f0;padding-top:16px">${esc(thanks)}</p>` : ''}
+      ${thanks ? `<p style="margin-top:${footerSpacingPx}px;text-align:center;font-style:italic;color:#64748b;border-top:1px solid #e2e8f0;padding-top:16px">${esc(thanks)}</p>` : ''}
       ${directorName || sealUrl ? `
         <div style="margin-top:40px;text-align:right">
           ${directorName ? `<p style="font-weight:700;margin:0 0 8px">${esc(directorName)}</p>` : ''}
           ${sealUrl ? `<img src="${absUploadUrl(sealUrl).replace(/"/g, '')}" style="max-height:90px"/>` : ''}
         </div>` : ''}
-      ${q.quotationNo ? `<p style="text-align:right;font-size:9pt;color:#94a3b8;margin-top:24px">Ref: ${esc(q.quotationNo)}</p>` : ''}
+      ${(showRefOnDocument && q.quotationNo) ? `<p style="text-align:right;font-size:9pt;color:#94a3b8;margin-top:24px">Ref: ${esc(q.quotationNo)}</p>` : ''}
     </div>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:14mm;background:#fff">${body}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:${pagePaddingMm}mm;background:#fff">${body}</body></html>`;
 }
 
 async function buildInvoiceDocumentHtml(invoice) {
