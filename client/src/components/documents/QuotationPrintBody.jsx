@@ -10,6 +10,12 @@ const PAYMENT_LABELS = {
   custom: 'Custom',
 }
 
+/* ── shared inline-style constants (keeps values identical between preview & PDF) ── */
+const FONT = "'Segoe UI', system-ui, sans-serif"
+const CLR = { dark: '#0f172a', mid: '#475569', light: '#64748b', muted: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', accent: '#0ea5e9' }
+const thStyle = { border: `1px solid ${CLR.border}`, padding: '8px 10px', fontSize: '8.5pt', textTransform: 'uppercase', letterSpacing: '0.05em', color: CLR.mid, fontWeight: 700 }
+const tdStyle = { border: `1px solid ${CLR.border}`, padding: '8px 10px', verticalAlign: 'top' }
+
 export default function QuotationPrintBody({
   quotation,
   siteSettings = {},
@@ -40,10 +46,15 @@ export default function QuotationPrintBody({
       ? q.paymentMethodCustom || 'Custom'
       : PAYMENT_LABELS[q.paymentMethod] || q.paymentMethod || ''
 
+  /* Parse terms into bullet lines for modern display */
+  const termsLines = (terms || '').split('\n').map(l => l.trim()).filter(Boolean)
+
   return (
-    <div className="quotation-doc-inner">
+    <div className="quotation-doc-inner" style={{ fontFamily: FONT, color: CLR.dark, fontSize: '10.5pt', lineHeight: 1.55 }}>
+
+      {/* ── Letterhead ── */}
       {showLetterhead && (
-        <div className="doc-letterhead-wrap">
+        <div className="doc-letterhead-wrap" style={{ marginBottom: '20px' }}>
           <div
             dangerouslySetInnerHTML={{
               __html: buildDocumentLetterheadHtml(siteSettings, {
@@ -55,135 +66,171 @@ export default function QuotationPrintBody({
         </div>
       )}
 
-      <div className="flex flex-wrap justify-between gap-4 mb-6">
+      {/* ── Title + Valid Until ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', pageBreakInside: 'avoid' }}>
         <div>
-          <h2 className="doc-title text-2xl font-black tracking-wide text-slate-900">QUOTATION</h2>
-          {q.title ? <p className="text-slate-600 font-medium">{q.title}</p> : null}
+          <h2 style={{ margin: '0 0 4px', fontSize: '20pt', fontWeight: 800, letterSpacing: '0.06em', color: CLR.dark }}>QUOTATION</h2>
+          {q.title ? <p style={{ margin: 0, color: CLR.mid, fontWeight: 500, fontSize: '10.5pt' }}>{q.title}</p> : null}
         </div>
-        <div className="text-right text-sm text-slate-600">
+        <div style={{ textAlign: 'right', fontSize: '10pt', color: CLR.mid }}>
           {q.validUntil ? (
-            <p>
-              <span className="text-slate-400 uppercase text-xs font-bold">Valid until</span>
-              <br />
+            <p style={{ margin: 0 }}>
+              <span style={{ color: CLR.muted, textTransform: 'uppercase', fontSize: '8.5pt', fontWeight: 700, display: 'block', marginBottom: '2px' }}>Valid until</span>
               {new Date(q.validUntil).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' })}
             </p>
           ) : null}
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-6 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
-        <div>
-          <p className="text-xs uppercase font-bold text-slate-400 mb-1">Quotation for</p>
-          <p className="font-bold text-slate-800">{q.client?.name || 'Client'}</p>
-          {q.client?.email && <p className="text-sm text-slate-600">{q.client.email}</p>}
-          {q.client?.phone && <p className="text-sm text-slate-600">{q.client.phone}</p>}
+      {/* ── Client + Prepared by info cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', pageBreakInside: 'avoid' }}>
+        <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}` }}>
+          <p style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quotation for</p>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: '10.5pt', color: CLR.dark }}>{q.client?.name || 'Client'}</p>
+          {q.client?.email && <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>{q.client.email}</p>}
+          {q.client?.phone && <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>{q.client.phone}</p>}
         </div>
-        <div className="sm:text-right">
-          <p className="text-xs uppercase font-bold text-slate-400 mb-1">Prepared by</p>
-          <p className="font-semibold text-slate-800">{prepared || '—'}</p>
+        <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}`, textAlign: 'right' }}>
+          <p style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prepared by</p>
+          <p style={{ margin: 0, fontWeight: 600, fontSize: '10.5pt', color: CLR.dark }}>{prepared || '—'}</p>
           {payLabel && (
-            <p className="text-sm text-slate-600 mt-2">
-              <span className="text-slate-400">Payment:</span> {payLabel}
+            <p style={{ margin: '6px 0 0', fontSize: '9.5pt', color: CLR.light }}>
+              <span style={{ color: CLR.muted }}>Payment:</span> {payLabel}
             </p>
           )}
           {bankLabel && (
-            <p className="text-sm text-slate-600">
-              <span className="text-slate-400">Bank:</span> {bankLabel}
+            <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>
+              <span style={{ color: CLR.muted }}>Bank:</span> {bankLabel}
             </p>
           )}
           {(q.bankBranch || q.bankAccount?.branchName) && (
-            <p className="text-sm text-slate-600">
-              <span className="text-slate-400">Bank branch:</span> {q.bankBranch || q.bankAccount?.branchName}
+            <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>
+              <span style={{ color: CLR.muted }}>Bank branch:</span> {q.bankBranch || q.bankAccount?.branchName}
             </p>
           )}
         </div>
       </div>
 
-      <table className="doc-table w-full text-sm mb-6">
+      {/* ── Items table ── */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', margin: '0 0 20px', fontSize: '10pt' }}>
         <thead>
-          <tr>
-            <th>Description</th>
-            <th className="text-center">Qty</th>
-            <th className="text-right">Unit price</th>
-            <th className="text-right">Disc.</th>
-            <th className="text-right">Total</th>
+          <tr style={{ background: '#f1f5f9' }}>
+            <th style={{ ...thStyle, textAlign: 'left' }}>Description</th>
+            <th style={{ ...thStyle, textAlign: 'center' }}>Qty</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Unit price</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Disc.</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Total</th>
           </tr>
         </thead>
         <tbody>
           {(q.items || []).map((item, i) => (
             <tr key={i}>
-              <td>{item.description}</td>
-              <td className="text-center">{item.quantity}</td>
-              <td className="text-right">{formatMoney(item.unitPrice || 0, currency)}</td>
-              <td className="text-right">{item.discount > 0 ? `${item.discount}%` : '—'}</td>
-              <td className="text-right font-medium">{formatMoney(item.total || 0, currency)}</td>
+              <td style={{ ...tdStyle }}>{item.description}</td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>{item.quantity}</td>
+              <td style={{ ...tdStyle, textAlign: 'right' }}>{formatMoney(item.unitPrice || 0, currency)}</td>
+              <td style={{ ...tdStyle, textAlign: 'right' }}>{item.discount > 0 ? `${item.discount}%` : '—'}</td>
+              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{formatMoney(item.total || 0, currency)}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <div className="doc-totals space-y-1 mb-6">
-        <div className="doc-totals-row flex justify-between">
-          <span>Subtotal</span>
-          <span>{formatMoney(q.subtotal || 0, currency)}</span>
+      {/* ── Totals ── */}
+      <div style={{ width: '260px', marginLeft: 'auto', fontSize: '10pt', marginBottom: '20px', pageBreakInside: 'avoid' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
+          <span>Subtotal</span><span>{formatMoney(q.subtotal || 0, currency)}</span>
         </div>
         {Number(q.transportCharge) > 0 && (
-          <div className="doc-totals-row flex justify-between">
-            <span>Transport charge</span>
-            <span>{formatMoney(q.transportCharge, currency)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
+            <span>Transport charge</span><span>{formatMoney(q.transportCharge, currency)}</span>
           </div>
         )}
         {Number(q.taxRate) > 0 && (
-          <div className="doc-totals-row flex justify-between">
-            <span>Tax ({q.taxRate}%)</span>
-            <span>{formatMoney(q.tax || 0, currency)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
+            <span>Tax ({q.taxRate}%)</span><span>{formatMoney(q.tax || 0, currency)}</span>
           </div>
         )}
-        <div className="doc-totals-row total flex justify-between font-bold text-lg border-t-2 border-sky-500 pt-2">
-          <span>Total</span>
-          <span>{formatMoney(q.total || 0, currency)}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', marginTop: '6px', borderTop: `2px solid ${CLR.accent}`, fontSize: '12pt', fontWeight: 800, color: CLR.dark }}>
+          <span>Total</span><span>{formatMoney(q.total || 0, currency)}</span>
         </div>
         {Number(q.advanceAmount) > 0 && (
-          <div className="doc-totals-row flex justify-between text-sm text-slate-500">
-            <span>Advance</span>
-            <span>{formatMoney(q.advanceAmount, currency)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '9.5pt', color: CLR.light }}>
+            <span>Advance</span><span>{formatMoney(q.advanceAmount, currency)}</span>
           </div>
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 text-sm border-t border-slate-100 pt-4">
-        {notes && (
-          <div>
-            <h4 className="font-bold text-xs uppercase text-slate-500 mb-2">Notes</h4>
-            <p className="text-slate-600 whitespace-pre-wrap">{notes}</p>
+      {/* ── Notes (kept near totals — part of the commercial section) ── */}
+      {notes && (
+        <div style={{ borderTop: `1px solid ${CLR.border}`, paddingTop: '14px', marginBottom: '16px', fontSize: '9.5pt', pageBreakInside: 'avoid' }}>
+          <h4 style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.light, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</h4>
+          <p style={{ margin: 0, color: CLR.mid, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{notes}</p>
+        </div>
+      )}
+
+      {/* ── Seal / Director signature ── */}
+      {showSeal && (directorName || sealUrl) && (
+        <div
+          style={{ marginTop: '20px', textAlign: 'right', pageBreakInside: 'avoid' }}
+          dangerouslySetInnerHTML={{
+            __html: directorSealBlockHtml({ directorName, sealUrl, forPrint: false }),
+          }}
+        />
+      )}
+
+      {/* ── Reference number ── */}
+      {showRefOnDocument && q.quotationNo ? (
+        <p style={{ fontSize: '8.5pt', color: CLR.muted, textAlign: 'right', marginTop: '14px', letterSpacing: '0.04em' }}>Ref: {q.quotationNo}</p>
+      ) : null}
+
+      {/* ── Terms & Conditions — modern styled block at the very end ── */}
+      {termsLines.length > 0 && (
+        <div style={{ marginTop: '28px', pageBreakInside: 'avoid', pageBreakBefore: 'auto' }}>
+          <div style={{
+            border: `1px solid ${CLR.border}`,
+            borderRadius: '10px',
+            overflow: 'hidden',
+          }}>
+            {/* Header bar */}
+            <div style={{
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)',
+              padding: '10px 18px',
+            }}>
+              <h4 style={{
+                margin: 0,
+                fontSize: '9pt',
+                fontWeight: 700,
+                color: '#ffffff',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}>
+                Terms &amp; Conditions
+              </h4>
+            </div>
+            {/* Terms body */}
+            <div style={{ padding: '14px 18px', background: '#fafbfc' }}>
+              <ol style={{
+                margin: 0,
+                paddingLeft: '18px',
+                fontSize: '8.5pt',
+                lineHeight: 1.7,
+                color: CLR.mid,
+              }}>
+                {termsLines.map((line, i) => (
+                  <li key={i} style={{ paddingLeft: '4px', marginBottom: i < termsLines.length - 1 ? '5px' : 0 }}>
+                    {line}
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
-        )}
-        {terms && (
-          <div>
-            <h4 className="font-bold text-xs uppercase text-slate-500 mb-2">Terms & conditions</h4>
-            <p className="text-slate-600 whitespace-pre-wrap">{terms}</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="doc-footer-area">
-        {thanks ? (
-          <p className="doc-thankyou text-center italic text-slate-500 mt-8">{thanks}</p>
-        ) : null}
-
-        {showSeal && (directorName || sealUrl) && (
-          <div
-            className="mt-8 text-right"
-            dangerouslySetInnerHTML={{
-              __html: directorSealBlockHtml({ directorName, sealUrl, forPrint: false }),
-            }}
-          />
-        )}
-
-        {showRefOnDocument && q.quotationNo ? (
-          <p className="text-[10px] text-slate-400 text-right mt-6 tracking-wide">Ref: {q.quotationNo}</p>
-        ) : null}
-      </div>
+      {/* ── Thank you message — absolute bottom ── */}
+      {thanks ? (
+        <p style={{ margin: '24px 0 0', textAlign: 'center', fontStyle: 'italic', color: CLR.muted, fontSize: '9pt', borderTop: `1px solid ${CLR.border}`, paddingTop: '12px' }}>{thanks}</p>
+      ) : null}
     </div>
   )
 }

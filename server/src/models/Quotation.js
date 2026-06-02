@@ -44,6 +44,7 @@ const quotationSchema = new mongoose.Schema({
   directorRole: { type: String, enum: ['', 'admin', 'manager', 'hr'], default: '' },
   directorName: { type: String, default: '' },
   directorSealUrl: { type: String, default: '' },
+  showSeal: { type: Boolean, default: true },
   validUntil: { type: Date },
   notes: { type: String, default: '' },
   terms: { type: String, default: '' },

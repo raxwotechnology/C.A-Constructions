@@ -54,6 +54,7 @@ export function buildQuotationDraft(form, { clients = [], editing = null, user }
     directorRole: form?.directorRole || editing?.directorRole || '',
     directorName: form?.directorName || '',
     directorSealUrl: form?.directorSealUrl || editing?.directorSealUrl || '',
+    showSeal: form?.showSeal !== false,
     validUntil: form?.validUntil || '',
     status: editing?.status || 'draft',
     generatedBy: editing?.generatedBy || (user ? { name: user.name } : null),

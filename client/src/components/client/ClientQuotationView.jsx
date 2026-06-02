@@ -85,6 +85,7 @@ export default function ClientQuotationView({ quotationId, onClose }) {
                 siteSettings={site}
                 bankLabel={bankLabel}
                 preparedByDisplay={q.preparedBy || q.generatedBy?.name}
+                showSeal={q.showSeal !== false}
               />
             </div>
           )}

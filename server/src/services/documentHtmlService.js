@@ -46,7 +46,7 @@ function buildLetterhead(settings) {
     .join('');
 
   return `
-    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
+    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:16px">
         <div>${logoHtml}</div>
         <div>
@@ -77,27 +77,29 @@ const PAYMENT_LABELS = {
 };
 
 function itemsTableHtml(items, currency) {
+  const thStyle = 'border:1px solid #e2e8f0;padding:8px 10px;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700';
+  const tdStyle = 'border:1px solid #e2e8f0;padding:8px 10px;vertical-align:top';
   const rows = (items || [])
     .map(
       (item) => `
     <tr>
-      <td style="border:1px solid #e2e8f0;padding:10px">${esc(item.description)}</td>
-      <td style="border:1px solid #e2e8f0;padding:10px;text-align:center">${item.quantity || 1}</td>
-      <td style="border:1px solid #e2e8f0;padding:10px;text-align:right">${fmtMoney(item.unitPrice, currency)}</td>
-      <td style="border:1px solid #e2e8f0;padding:10px;text-align:right">${item.discount > 0 ? `${item.discount}%` : '—'}</td>
-      <td style="border:1px solid #e2e8f0;padding:10px;text-align:right;font-weight:600">${fmtMoney(item.total, currency)}</td>
+      <td style="${tdStyle}">${esc(item.description)}</td>
+      <td style="${tdStyle};text-align:center">${item.quantity || 1}</td>
+      <td style="${tdStyle};text-align:right">${fmtMoney(item.unitPrice, currency)}</td>
+      <td style="${tdStyle};text-align:right">${item.discount > 0 ? `${item.discount}%` : '—'}</td>
+      <td style="${tdStyle};text-align:right;font-weight:600">${fmtMoney(item.total, currency)}</td>
     </tr>`,
     )
     .join('');
   return `
-    <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:10.5pt">
+    <table style="width:100%;border-collapse:collapse;margin:0 0 20px;font-size:10pt">
       <thead>
         <tr style="background:#f1f5f9">
-          <th style="border:1px solid #e2e8f0;padding:10px;text-align:left">Description</th>
-          <th style="border:1px solid #e2e8f0;padding:10px">Qty</th>
-          <th style="border:1px solid #e2e8f0;padding:10px;text-align:right">Unit price</th>
-          <th style="border:1px solid #e2e8f0;padding:10px;text-align:right">Disc.</th>
-          <th style="border:1px solid #e2e8f0;padding:10px;text-align:right">Total</th>
+          <th style="${thStyle};text-align:left">Description</th>
+          <th style="${thStyle};text-align:center">Qty</th>
+          <th style="${thStyle};text-align:right">Unit price</th>
+          <th style="${thStyle};text-align:right">Disc.</th>
+          <th style="${thStyle};text-align:right">Total</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -113,13 +115,6 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
   const settings = await getSettings();
   const q = quotation;
   const currency = q.currency || 'LKR';
-  const fontSizePt = Number(settings.quotationLayoutFontSizePt ?? 11);
-  const lineHeight = Number(settings.quotationLayoutLineHeight ?? 1.5);
-  const pagePaddingMm = Number(settings.quotationLayoutPagePaddingMm ?? 14);
-  const headerSpacingPx = Number(settings.quotationLayoutHeaderSpacingPx ?? 24);
-  const footerSpacingPx = Number(settings.quotationLayoutFooterSpacingPx ?? 32);
-  const tableCellPaddingPx = Number(settings.quotationLayoutTableCellPaddingPx ?? 10);
-  const showDocumentFrame = settings.quotationLayoutShowDocumentFrame !== false;
   const showRefOnDocument = settings.quotationLayoutShowRefOnDocument !== false;
   const payLabel =
     q.paymentMethod === 'custom'
@@ -130,45 +125,94 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
   const directorName = q.directorName || roleProfile?.label || settings.quotationDirectorName || '';
   const sealUrl = q.directorSealUrl || roleProfile?.url || settings.sealUrl;
   const prepared = q.preparedBy || q.generatedBy?.name || '';
+  const showSeal = q.showSeal !== false;
+
+  /* Split terms into numbered lines for modern display */
+  const termsLines = (q.terms || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const termsOlHtml = termsLines.length > 0
+    ? termsLines.map(l => `<li style="padding-left:4px;margin-bottom:5px">${esc(l)}</li>`).join('')
+    : '';
 
   const body = `
     ${buildLetterhead(settings)}
-    <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#0f172a;font-size:${fontSizePt}pt;line-height:${lineHeight};padding:28px 32px;${showDocumentFrame ? 'border:1px solid #cbd5e1;border-radius:4px;' : ''}">
-      <h2 style="margin:0 0 8px;font-size:22pt;font-weight:800;letter-spacing:0.06em">QUOTATION</h2>
-      ${q.title ? `<p style="color:#475569;font-weight:500">${esc(q.title)}</p>` : ''}
-      <div style="display:flex;justify-content:space-between;margin:${headerSpacingPx}px 0 24px;gap:16px">
-        <div style="flex:1;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
-          <p style="margin:0 0 8px;font-size:9pt;font-weight:700;color:#94a3b8;text-transform:uppercase">Quotation for</p>
-          <p style="margin:0;font-weight:700">${esc(q.client?.name || 'Client')}</p>
-          ${q.client?.email ? `<p style="margin:4px 0 0;font-size:10pt;color:#64748b">${esc(q.client.email)}</p>` : ''}
+    <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#0f172a;font-size:10.5pt;line-height:1.55;padding:24px 28px;border:1px solid #cbd5e1;border-radius:4px">
+      <!-- Title + Valid Until -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;page-break-inside:avoid">
+        <div>
+          <h2 style="margin:0 0 4px;font-size:20pt;font-weight:800;letter-spacing:0.06em;color:#0f172a">QUOTATION</h2>
+          ${q.title ? `<p style="margin:0;color:#475569;font-weight:500;font-size:10.5pt">${esc(q.title)}</p>` : ''}
         </div>
-        <div style="flex:1;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;text-align:right">
-          <p style="margin:0 0 8px;font-size:9pt;font-weight:700;color:#94a3b8;text-transform:uppercase">Prepared by</p>
-          <p style="margin:0;font-weight:600">${esc(prepared)}</p>
-          ${payLabel ? `<p style="margin:8px 0 0;font-size:10pt"><span style="color:#94a3b8">Payment:</span> ${esc(payLabel)}</p>` : ''}
-          ${bankLabel ? `<p style="margin:4px 0 0;font-size:10pt"><span style="color:#94a3b8">Bank:</span> ${esc(bankLabel)}</p>` : ''}
-          ${(q.bankBranch || q.bankAccount?.branchName) ? `<p style="margin:4px 0 0;font-size:10pt"><span style="color:#94a3b8">Bank branch:</span> ${esc(q.bankBranch || q.bankAccount?.branchName)}</p>` : ''}
-          ${q.validUntil ? `<p style="margin:8px 0 0;font-size:10pt"><span style="color:#94a3b8">Valid until:</span> ${new Date(q.validUntil).toLocaleDateString('en-LK')}</p>` : ''}
+        <div style="text-align:right;font-size:10pt;color:#475569">
+          ${q.validUntil ? `<p style="margin:0"><span style="color:#94a3b8;text-transform:uppercase;font-size:8.5pt;font-weight:700;display:block;margin-bottom:2px">Valid until</span>${new Date(q.validUntil).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' })}</p>` : ''}
         </div>
       </div>
-      ${itemsTableHtml(q.items, currency).replaceAll('padding:10px', `padding:${tableCellPaddingPx}px`)}
-      <div style="width:280px;margin-left:auto;font-size:10.5pt">
-        <div style="display:flex;justify-content:space-between;padding:6px 0"><span>Subtotal</span><span>${fmtMoney(q.subtotal, currency)}</span></div>
-        ${Number(q.transportCharge) > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0"><span>Transport</span><span>${fmtMoney(q.transportCharge, currency)}</span></div>` : ''}
-        ${Number(q.taxRate) > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0"><span>Tax (${q.taxRate}%)</span><span>${fmtMoney(q.tax, currency)}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:8px;border-top:2px solid #0ea5e9;font-size:13pt;font-weight:800"><span>Total</span><span>${fmtMoney(q.total, currency)}</span></div>
+      <!-- Client + Prepared by info cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;page-break-inside:avoid">
+        <div style="padding:14px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+          <p style="margin:0 0 6px;font-size:8.5pt;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Quotation for</p>
+          <p style="margin:0;font-weight:700;font-size:10.5pt;color:#0f172a">${esc(q.client?.name || 'Client')}</p>
+          ${q.client?.email ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b">${esc(q.client.email)}</p>` : ''}
+          ${q.client?.phone ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b">${esc(q.client.phone)}</p>` : ''}
+        </div>
+        <div style="padding:14px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;text-align:right">
+          <p style="margin:0 0 6px;font-size:8.5pt;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Prepared by</p>
+          <p style="margin:0;font-weight:600;font-size:10.5pt;color:#0f172a">${esc(prepared)}</p>
+          ${payLabel ? `<p style="margin:6px 0 0;font-size:9.5pt;color:#64748b"><span style="color:#94a3b8">Payment:</span> ${esc(payLabel)}</p>` : ''}
+          ${bankLabel ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b"><span style="color:#94a3b8">Bank:</span> ${esc(bankLabel)}</p>` : ''}
+          ${(q.bankBranch || q.bankAccount?.branchName) ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b"><span style="color:#94a3b8">Bank branch:</span> ${esc(q.bankBranch || q.bankAccount?.branchName)}</p>` : ''}
+        </div>
       </div>
-      ${q.notes ? `<div style="margin-top:24px"><p style="font-size:9pt;font-weight:700;color:#64748b;text-transform:uppercase">Notes</p><p style="white-space:pre-wrap;color:#475569">${esc(q.notes)}</p></div>` : ''}
-      ${q.terms ? `<div style="margin-top:16px"><p style="font-size:9pt;font-weight:700;color:#64748b;text-transform:uppercase">Terms</p><p style="white-space:pre-wrap;color:#475569">${esc(q.terms)}</p></div>` : ''}
-      ${thanks ? `<p style="margin-top:${footerSpacingPx}px;text-align:center;font-style:italic;color:#64748b;border-top:1px solid #e2e8f0;padding-top:16px">${esc(thanks)}</p>` : ''}
-      ${directorName || sealUrl ? `
-        <div style="margin-top:40px;text-align:right">
-          ${directorName ? `<p style="font-weight:700;margin:0 0 8px">${esc(directorName)}</p>` : ''}
-          ${sealUrl ? `<img src="${absUploadUrl(sealUrl).replace(/"/g, '')}" style="max-height:90px"/>` : ''}
+      ${itemsTableHtml(q.items, currency)}
+      <!-- Totals -->
+      <div style="width:260px;margin-left:auto;font-size:10pt;margin-bottom:20px;page-break-inside:avoid">
+        <div style="display:flex;justify-content:space-between;padding:5px 0;color:#475569"><span>Subtotal</span><span>${fmtMoney(q.subtotal, currency)}</span></div>
+        ${Number(q.transportCharge) > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;color:#475569"><span>Transport charge</span><span>${fmtMoney(q.transportCharge, currency)}</span></div>` : ''}
+        ${Number(q.taxRate) > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;color:#475569"><span>Tax (${q.taxRate}%)</span><span>${fmtMoney(q.tax, currency)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:6px;border-top:2px solid #0ea5e9;font-size:12pt;font-weight:800;color:#0f172a"><span>Total</span><span>${fmtMoney(q.total, currency)}</span></div>
+        ${Number(q.advanceAmount) > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:9.5pt;color:#64748b"><span>Advance</span><span>${fmtMoney(q.advanceAmount, currency)}</span></div>` : ''}
+      </div>
+      <!-- Notes (near totals — commercial section) -->
+      ${q.notes ? `
+      <div style="border-top:1px solid #e2e8f0;padding-top:14px;margin-bottom:16px;font-size:9.5pt;page-break-inside:avoid">
+        <p style="margin:0 0 6px;font-size:8.5pt;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Notes</p>
+        <p style="margin:0;white-space:pre-wrap;color:#475569;line-height:1.5">${esc(q.notes)}</p>
+      </div>` : ''}
+      <!-- Director seal -->
+      ${showSeal && (directorName || sealUrl) ? `
+        <div style="margin-top:20px;text-align:right;page-break-inside:avoid">
+          ${directorName ? `<p style="font-weight:700;margin:0 0 8px;font-size:11pt;color:#0f172a">${esc(directorName)}</p>` : ''}
+          ${sealUrl ? `<img src="${absUploadUrl(sealUrl).replace(/"/g, '')}" style="max-height:90px;object-fit:contain"/>` : ''}
+          <p style="margin:8px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
         </div>` : ''}
-      ${(showRefOnDocument && q.quotationNo) ? `<p style="text-align:right;font-size:9pt;color:#94a3b8;margin-top:24px">Ref: ${esc(q.quotationNo)}</p>` : ''}
+      <!-- Reference -->
+      ${(showRefOnDocument && q.quotationNo) ? `<p style="text-align:right;font-size:8.5pt;color:#94a3b8;margin-top:14px;letter-spacing:0.04em">Ref: ${esc(q.quotationNo)}</p>` : ''}
+      <!-- Terms & Conditions — modern card at the very bottom -->
+      ${termsOlHtml ? `
+      <div style="margin-top:28px;page-break-inside:avoid">
+        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+          <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:10px 18px">
+            <p style="margin:0;font-size:9pt;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.08em">Terms &amp; Conditions</p>
+          </div>
+          <div style="padding:14px 18px;background:#fafbfc">
+            <ol style="margin:0;padding-left:18px;font-size:8.5pt;line-height:1.7;color:#475569">${termsOlHtml}</ol>
+          </div>
+        </div>
+      </div>` : ''}
+      <!-- Thank you — absolute bottom -->
+      ${thanks ? `<p style="margin:24px 0 0;text-align:center;font-style:italic;color:#94a3b8;font-size:9pt;border-top:1px solid #e2e8f0;padding-top:12px">${esc(thanks)}</p>` : ''}
     </div>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:${pagePaddingMm}mm;background:#fff">${body}</body></html>`;
+
+  /* Add @page CSS for proper multi-page PDF rendering — consistent fonts, spacing, no clipping */
+  const pageCss = `
+    <style>
+      @page { margin: 14mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      thead { display: table-header-group; }
+    </style>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>${pageCss}</head><body style="margin:0;padding:14mm;background:#fff">${body}</body></html>`;
 }
 
 async function buildInvoiceDocumentHtml(invoice) {

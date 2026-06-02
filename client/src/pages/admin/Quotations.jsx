@@ -5,7 +5,8 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiEye, FiSend } from 'react-icons/fi'
+import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiEye, FiSend, FiUpload, FiImage } from 'react-icons/fi'
+import { mediaUrl } from '../../lib/media'
 import useAuthStore from '../../store/authStore'
 import { SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding'
 import QuotationPreviewPanel from '../../components/documents/QuotationPreviewPanel'
@@ -66,6 +67,7 @@ export default function AdminQuotations() {
       currency: 'LKR',
       exchangeRateToLKR: 1,
       advanceAmount: 0,
+      showSeal: true,
     },
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
@@ -283,6 +285,7 @@ export default function AdminQuotations() {
       directorRole: directorMeta.role || '',
       directorName: directorMeta.name || '',
       directorSealUrl: directorMeta.sealUrl || '',
+      showSeal: true,
       notes: siteSettings.quotationNotesTemplate || '',
       terms: siteSettings.quotationTermsTemplate || '',
     })
@@ -315,6 +318,7 @@ export default function AdminQuotations() {
       directorRole: q.directorRole || directorMeta.role || '',
       directorName: q.directorName || directorMeta.name || '',
       directorSealUrl: q.directorSealUrl || directorMeta.sealUrl || '',
+      showSeal: q.showSeal !== false,
       items: (q.items && q.items.length > 0) ? q.items.map(i => ({ description: i.description || '', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, total: i.total || 0 })) : [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
     })
     setClientSelectLabel(
@@ -356,6 +360,7 @@ export default function AdminQuotations() {
       directorRole: d.directorRole || '',
       directorName: String(d.directorName || '').trim(),
       directorSealUrl: String(d.directorSealUrl || '').trim(),
+      showSeal: d.showSeal !== false,
     }
     if (!payload.branch) delete payload.branch
     if (!payload.project) delete payload.project
@@ -716,6 +721,123 @@ export default function AdminQuotations() {
               </div>
               <input type="hidden" {...register('directorSealUrl')} />
 
+              {/* Seal picker — upload, select saved, save as default, toggle visibility */}
+              <div className="mt-3 p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Director / company seal</p>
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                    <input type="checkbox" {...register('showSeal')} className="accent-sky-600 w-3.5 h-3.5" />
+                    Show on document
+                  </label>
+                </div>
+
+                {/* Current seal preview */}
+                {watch('directorSealUrl') ? (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={(() => { const u = watch('directorSealUrl'); return u?.startsWith('data:') || u?.startsWith('http') ? u : mediaUrl(u) })()}
+                      alt="Seal"
+                      className="max-h-14 object-contain rounded border border-slate-200 bg-white p-1"
+                    />
+                    <button
+                      type="button"
+                      className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      onClick={() => setValue('directorSealUrl', '', { shouldDirty: true })}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">No seal selected</p>
+                )}
+
+                {/* Select from saved seals (per role) */}
+                {(() => {
+                  const opts = []
+                  if (siteSettings.sealUrl) opts.push({ id: '_company', label: 'Company seal', url: siteSettings.sealUrl })
+                  ;['admin', 'manager', 'hr'].forEach((k) => {
+                    const sig = siteSettings.signatures?.[k]
+                    if (sig?.url) opts.push({ id: k, label: `${sig.label || k.charAt(0).toUpperCase() + k.slice(1)} seal`, url: sig.url })
+                  })
+                  if (opts.length === 0) return null
+                  return (
+                    <select
+                      className="form-select text-sm"
+                      value=""
+                      onChange={(e) => {
+                        const opt = opts.find((o) => o.id === e.target.value)
+                        if (opt) setValue('directorSealUrl', opt.url, { shouldDirty: true })
+                        e.target.value = ''
+                      }}
+                    >
+                      <option value="">Select saved seal…</option>
+                      {opts.map((o) => (
+                        <option key={o.id} value={o.id}>{o.label}</option>
+                      ))}
+                    </select>
+                  )
+                })()}
+
+                {/* Upload new seal */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="btn-outline btn-sm text-xs cursor-pointer inline-flex items-center gap-1">
+                    <FiUpload size={12} />
+                    Upload seal
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        try {
+                          const fd = new FormData()
+                          fd.append('image', file)
+                          const { data } = await api.post('/uploads/image', fd)
+                          if (data.imageUrl) {
+                            setValue('directorSealUrl', data.imageUrl, { shouldDirty: true })
+                            toast.success('Seal uploaded')
+                          }
+                        } catch (err) {
+                          toast.error(err.response?.data?.message || 'Upload failed')
+                        }
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+
+                  {/* Save as default for selected role */}
+                  {watch('directorSealUrl') && (
+                    <button
+                      type="button"
+                      className="text-xs text-secondary hover:text-blue-700 font-medium underline"
+                      onClick={async () => {
+                        const role = watch('directorRole')
+                        const url = watch('directorSealUrl')
+                        if (!url) return
+                        try {
+                          if (role) {
+                            const signatures = { ...(siteSettings.signatures || {}) }
+                            signatures[role] = { ...(signatures[role] || {}), url }
+                            await api.put('/site-settings', { ...siteSettings, signatures })
+                            qc.invalidateQueries(SITE_SETTINGS_QUERY_KEY)
+                            toast.success(`Seal saved as default for ${role}`)
+                          } else {
+                            await api.put('/site-settings', { ...siteSettings, sealUrl: url })
+                            qc.invalidateQueries(SITE_SETTINGS_QUERY_KEY)
+                            toast.success('Seal saved as company default')
+                          }
+                        } catch {
+                          toast.error('Failed to save seal default')
+                        }
+                      }}
+                    >
+                      Save as default{watch('directorRole') ? ` for ${watch('directorRole')}` : ' (company)'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div><label className="form-label">Notes</label>
                 <textarea {...register('notes')} rows={2} className="form-input resize-none" placeholder="Additional notes for client"/>
                 <button type="button" className="text-xs text-secondary mt-1 underline" onClick={() => api.put('/site-settings', { ...siteSettings, quotationNotesTemplate: watch('notes') }).then(() => toast.success('Notes saved as default template'))}>Save notes as default template</button>
@@ -739,6 +861,7 @@ export default function AdminQuotations() {
                 quotation={livePreviewQuotation}
                 siteSettings={siteSettings}
                 bankLabel={bankLabelFor(watch('bankAccount'))}
+                showSeal={watch('showSeal') !== false}
                 onSaveDraft={editing?._id ? (draft) => previewSaveMut.mutate({
                   id: editing._id,
                   data: {
@@ -749,6 +872,7 @@ export default function AdminQuotations() {
                     bankBranch: draft.bankBranch || '',
                     notes: draft.notes,
                     terms: draft.terms,
+                    showSeal: draft.showSeal !== false,
                   },
                 }) : undefined}
               />

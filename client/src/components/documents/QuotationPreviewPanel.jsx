@@ -17,11 +17,14 @@ export default function QuotationPreviewPanel({
   onDownloadPdf,
   saving = false,
   isDraft = false,
+  showSeal,
   printRootId = 'quotation-print-export-root',
 }) {
   const q = quotation || {}
   const layout = useMemo(() => quotationLayoutFromSettings(siteSettings), [siteSettings])
   const mergedQuotation = q
+
+  const resolvedShowSeal = showSeal !== undefined ? showSeal : (mergedQuotation.showSeal ?? true)
 
   const handlePrint = () => {
     const root = document.getElementById(printRootId)
@@ -73,7 +76,7 @@ export default function QuotationPreviewPanel({
             bankLabel={bankLabel}
             thankYouMessage={siteSettings.quotationThankYouMessage}
             showRefOnDocument={layout.showRefOnDocument}
-            showSeal={mergedQuotation.showSeal ?? true}
+            showSeal={resolvedShowSeal}
           />
         </div>
       </div>

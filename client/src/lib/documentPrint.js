@@ -47,10 +47,13 @@ export function documentPrintStyles() {
   return `
     @page { margin: 14mm; }
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 11pt; line-height: 1.5; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; margin: 0; padding: 0; }
     .doc-frame { border: 1px solid #cbd5e1; border-radius: 4px; padding: 28px 32px; min-height: 100%; }
     .doc-title { font-size: 22pt; font-weight: 800; color: #0f172a; letter-spacing: 0.06em; margin: 0 0 4px; }
     .doc-meta { font-size: 10pt; color: #64748b; }
+    table { page-break-inside: auto; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
     table.doc-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
     table.doc-table th { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 10px 12px; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; text-align: left; }
     table.doc-table td { border: 1px solid #e2e8f0; padding: 10px 12px; vertical-align: top; }
@@ -64,6 +67,13 @@ export function documentPrintStyles() {
       .no-print { display: none !important; }
       .doc-frame, .doc-print-frame { border: none; padding: 0; }
       .doc-letterhead { page-break-after: avoid; }
+      /* Ensure continuation pages keep the same font/size */
+      body, .quotation-doc, .quotation-doc-inner, .invoice-doc, .invoice-doc-inner {
+        font-family: 'Segoe UI', system-ui, sans-serif !important;
+        font-size: 10.5pt !important;
+        line-height: 1.55 !important;
+        color: #0f172a !important;
+      }
     }
   `
 }
