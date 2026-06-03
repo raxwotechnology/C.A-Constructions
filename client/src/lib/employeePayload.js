@@ -42,7 +42,6 @@ export function buildEmployeeSavePayload(raw, { isEdit, fileUrls = {}, includeAl
   delete d._id
 
   if (isEdit) {
-    delete d.name
     delete d.email
     delete d.password
     delete d.joinedDate

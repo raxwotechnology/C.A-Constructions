@@ -108,7 +108,16 @@ export default function EmployeeFormModal({
 
       {editing && (
         <FormSection title="Account" icon={FiKey}>
-          <div><label className="form-label">Role</label><select {...register('role')} className="form-select">{ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">Full Name *</label>
+              <input {...register('name', { required: true })} className="form-input" placeholder="Employee full name" />
+            </div>
+            <div>
+              <label className="form-label">Role</label>
+              <select {...register('role')} className="form-select">{ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select>
+            </div>
+          </div>
           <p className="text-xs text-slate-500">Login email: <span className="font-medium text-slate-700">{editing.userId?.email}</span></p>
           <EmployeePasswordPanel employeeId={editing._id} email={editing.userId?.email} />
         </FormSection>

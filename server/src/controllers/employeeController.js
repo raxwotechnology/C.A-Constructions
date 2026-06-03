@@ -285,6 +285,9 @@ exports.updateEmployee = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
+    // Capture name BEFORE sanitizeEmployeePayload deletes it
+    const nameUpdate = typeof req.body.name === 'string' ? req.body.name.trim() : null;
+
     const payload = sanitizeEmployeePayload({ ...req.body });
     delete payload.maxLeavesPerYear;
 
@@ -297,6 +300,11 @@ exports.updateEmployee = async (req, res, next) => {
     const employeeBefore = await Employee.findById(req.params.id);
     if (!employeeBefore) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    // Update name on linked User if provided
+    if (nameUpdate) {
+      await User.findByIdAndUpdate(employeeBefore.userId, { name: nameUpdate });
     }
 
     // Update role on linked user if provided (admin/manager only)
@@ -314,10 +322,10 @@ exports.updateEmployee = async (req, res, next) => {
     const employee = await Employee.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       .populate('userId', 'name email phone avatar role');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    
+
     await createAuditLog({
       user: req.user, action: 'update', module: 'employees', entityId: employee._id, entityName: employee.employeeNo,
-      description: `Updated employee profile ${employee.employeeNo}`,
+      description: `Updated employee profile ${employee.employeeNo}${nameUpdate ? ` (name → ${nameUpdate})` : ''}`,
     });
 
     res.json({ success: true, employee });

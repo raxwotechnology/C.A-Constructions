@@ -269,9 +269,21 @@
   .letter-pdf-prose .ql-align-center { text-align: center; }
   .letter-pdf-prose .ql-align-right { text-align: right; }
   .letter-pdf-prose .ql-align-justify { text-align: justify; }
-  .letter-quill .ql-toolbar { @apply border-slate-200 rounded-t-lg bg-slate-50; }
-  .letter-quill .ql-container { @apply border-slate-200 rounded-b-lg bg-white; }
-  .letter-quill .ql-editor { @apply min-h-[360px] text-sm leading-relaxed text-slate-800; }
+  .letter-quill .ql-toolbar { @apply bg-slate-50 border-b border-slate-200; }
+  .letter-quill .ql-container { @apply bg-white border-0; }
+  .letter-quill .ql-editor { 
+    min-height: 360px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #0f172a;
+    font-size: 11pt;
+    line-height: 1.6;
+    padding: 1.5rem 2rem;
+  }
+  .letter-quill .ql-editor p { margin: 0 0 10px; }
+  .letter-quill .ql-editor h1 { font-size: 15pt; font-weight: 800; color: #0f172a; margin: 0 0 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+  .letter-quill .ql-editor h2 { font-size: 13pt; font-weight: 700; color: #0f172a; margin: 18px 0 10px; }
+  .letter-quill .ql-editor ul, .letter-quill .ql-editor ol { margin: 8px 0 12px 0; padding-left: 1.2em; }
+  .letter-quill .ql-editor li { margin-bottom: 6px; }
 }
 
 @layer utilities {

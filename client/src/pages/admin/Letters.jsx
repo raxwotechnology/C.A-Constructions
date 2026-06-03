@@ -36,7 +36,7 @@ import {
 import { absoluteMediaUrl } from '../../lib/media'
 import { buildCompanyFromSettings, companyContactLines } from '../../lib/companyBranding'
 import { useSiteBranding } from '../../hooks/useSiteBranding'
-import { openLetterPrint, downloadLetterPdf } from '../../lib/letterDocument'
+import { openLetterPrint, downloadLetterPdf, buildLetterFullHtml, buildLetterheadHtml, buildRefDateHtml, buildTitleHtml, buildSigsHtml, buildFooterHtml } from '../../lib/letterDocument'
 import SignaturePad from '../../components/admin/SignaturePad'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
@@ -382,7 +382,7 @@ export default function AdminLetters() {
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Templates</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Choose a letter type — content is generated with company letterhead on print/PDF</p>
+            <p className="text-xs text-slate-500 mt-0.5">Choose a letter type Ã¢â‚¬â€ content is generated with company letterhead on print/PDF</p>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -444,7 +444,7 @@ export default function AdminLetters() {
               ) : (
                 letters.map((l) => (
                   <tr key={l._id}>
-                    <td className="font-mono text-xs text-slate-600">{l.letterRef || '—'}</td>
+                    <td className="font-mono text-xs text-slate-600">{l.letterRef || 'Ã¢â‚¬â€'}</td>
                     <td>
                       <div className="font-medium text-slate-800">{l.employee?.userId?.name}</div>
                       <div className="text-xs text-slate-400">{l.employee?.employeeNo}</div>
@@ -453,7 +453,7 @@ export default function AdminLetters() {
                       <span className="badge badge-navy capitalize">{TYPE_MAP[l.type]?.label || l.type}</span>
                     </td>
                     <td className="text-sm text-slate-600 whitespace-nowrap">
-                      {l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK') : '—'}
+                      {l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK') : 'Ã¢â‚¬â€'}
                       <div className="text-xs text-slate-400">{l.issuedBy?.name}</div>
                     </td>
                     <td>
@@ -543,7 +543,7 @@ export default function AdminLetters() {
                               loadTemplate(e.target.value)
                             }}
                           >
-                            <option value="">Choose template…</option>
+                            <option value="">Choose templateÃ¢â‚¬Â¦</option>
                             {templates.map((t) => (
                               <option key={t._id} value={t._id}>
                                 {t.name}
@@ -579,7 +579,7 @@ export default function AdminLetters() {
                       }
                       return res
                     }}
-                    placeholder="Search employee…"
+                    placeholder="Search employeeÃ¢â‚¬Â¦"
                   />
                 </div>
                 <div>
@@ -594,13 +594,13 @@ export default function AdminLetters() {
                         .map(lt => ({ value: lt.value, label: lt.label }))
                       return { options, hasMore: false }
                     }}
-                    placeholder="Search type…"
+                    placeholder="Search typeÃ¢â‚¬Â¦"
                   />
                 </div>
                 <div>
                   <label className="form-label">Approval before issue (optional)</label>
                   <select {...register('approvalStatus')} className="form-select">
-                    <option value="none">None — issue immediately</option>
+                    <option value="none">None Ã¢â‚¬â€ issue immediately</option>
                     <option value="pending">Mark as pending HR approval</option>
                     <option value="approved">Mark as approved</option>
                   </select>
@@ -627,7 +627,7 @@ export default function AdminLetters() {
                       </div>
                       <div>
                         <label className="form-label">Working hours</label>
-                        <input {...register('workingHours')} className="form-input" placeholder="e.g. 9:00–17:30 Mon–Fri" />
+                        <input {...register('workingHours')} className="form-input" placeholder="e.g. 9:00Ã¢â‚¬â€œ17:30 MonÃ¢â‚¬â€œFri" />
                       </div>
                     </div>
                   </div>
@@ -658,7 +658,7 @@ export default function AdminLetters() {
                     </div>
                     <div>
                       <label className="form-label">Days / week</label>
-                      <input {...register('workingDays')} className="form-input" placeholder="e.g. Mon–Fri" />
+                      <input {...register('workingDays')} className="form-input" placeholder="e.g. MonÃ¢â‚¬â€œFri" />
                     </div>
                     <div className="col-span-2">
                       <label className="form-label">Hourly rate (LKR)</label>
@@ -805,95 +805,92 @@ export default function AdminLetters() {
                 </div>
               </div>
 
-              <div className="overflow-y-auto flex-1 flex flex-col lg:flex-row min-h-0">
-                <div className="flex-1 overflow-y-auto p-5 sm:p-8 bg-[#fafbfc] border-b lg:border-b-0 lg:border-r border-slate-200">
-                  <div className="max-w-[720px] mx-auto bg-white shadow-sm border border-slate-200/80 rounded-lg p-8 sm:p-10 min-h-[400px]">
-                    <div className="flex justify-between gap-4 border-b-2 border-primary/20 pb-5 mb-6">
-                      <div className="flex gap-4 min-w-0">
-                        {company.logo ? <img src={company.logo} alt="" className="h-14 object-contain shrink-0" /> : <div className="w-14 h-14 rounded-lg bg-primary text-white flex items-center justify-center font-black text-xl shrink-0">{(company.name || 'R').charAt(0)}</div>}
-                        <div className="min-w-0">
-                          <p className="text-lg font-bold text-primary leading-tight">{company.name}</p>
-                          {company.tagline ? <p className="text-xs text-slate-500 mt-1 italic">{company.tagline}</p> : null}
-                          <div className="text-xs text-slate-500 mt-2 leading-relaxed space-y-0.5 text-right">
-                            {companyContactLines(company).map((l) => (
-                              <p key={l.label}><span className="text-slate-400">{l.label}:</span> {l.text}</p>
-                            ))}
+              <div className="overflow-y-auto flex-1 min-h-0">
+                <div className="p-4 sm:p-6 bg-[#f1f5f9] space-y-4">
+
+                  {/* â”€â”€ Edit toolbar (only visible in edit mode) â”€â”€ */}
+                  {/* ── Letter Editor & Preview (WYSIWYG) ── */}
+                  <div className="max-w-[794px] min-h-[1123px] mx-auto shadow-lg bg-white rounded-lg overflow-hidden border border-slate-200">
+                    <div className="letter-pdf-prose relative" style={{ padding: '14mm 16mm', fontFamily: "'Segoe UI',system-ui,-apple-system,sans-serif", color: '#0f172a', fontSize: '11pt', lineHeight: 1.6, minHeight: '1123px' }}>
+                      <div dangerouslySetInnerHTML={{ __html: buildLetterheadHtml(company) }} />
+                      <div dangerouslySetInnerHTML={{ __html: buildRefDateHtml(preview.letterRef, preview.issuedDate) }} />
+                      <div dangerouslySetInnerHTML={{ __html: buildTitleHtml(preview.title) }} />
+                      
+                      {editMode ? (
+                        <div className="mt-4 -mx-[2rem]">
+                          <div className="flex flex-wrap items-center justify-between gap-2 px-8 mb-2">
+                            <p className="text-[11px] text-slate-500">
+                              <strong>Editing body</strong> — use toolbar for formatting. <span className="font-medium text-slate-600">Raw HTML</span> mode for tables.
+                            </p>
+                            <button type="button" onClick={() => setLetterEditHtmlSource((s) => !s)} className={`btn-ghost btn-sm shrink-0 border ${letterEditHtmlSource ? 'border-emerald-200 text-emerald-800' : 'border-slate-200'}`}>
+                              <FiCode size={14} /> {letterEditHtmlSource ? 'Rich text' : 'Raw HTML'}
+                            </button>
                           </div>
+                          {letterEditHtmlSource ? (
+                            <div className="px-8"><textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={20} spellCheck={false} className="form-input font-mono text-xs leading-relaxed w-full" /></div>
+                          ) : (
+                            <div className="border-y border-slate-200 bg-slate-50/30">
+                              <ReactQuill key={`${preview._id}-quill`} theme="snow" value={editContent} onChange={setEditContent} className="letter-quill !border-none" modules={letterQuillModules} formats={LETTER_QUILL_FORMATS} />
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className="text-right text-xs text-slate-500 shrink-0 space-y-0.5">
-                        <p>
-                          <span className="text-slate-400">Ref</span> {preview.letterRef}
-                        </p>
-                        <p>
-                          <span className="text-slate-400">Date</span>{' '}
-                          {preview.issuedDate ? new Date(preview.issuedDate).toLocaleDateString('en-LK') : ''}
-                        </p>
-                      </div>
+                      ) : (
+                        <div className="letter-body" style={{ marginTop: '4px' }} dangerouslySetInnerHTML={{ __html: editContent || '' }} />
+                      )}
+
+                      <div dangerouslySetInnerHTML={{ __html: buildSigsHtml(signatures) }} />
+                      <div dangerouslySetInnerHTML={{ __html: buildFooterHtml(company) }} />
                     </div>
-                    {editMode ? (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-[11px] text-slate-500 leading-snug max-w-xl">
-                            Toolbar: <strong>bold</strong>, <u>underline</u>, font size, font family, text color, highlight. Tables from generated letters are easier to keep in{' '}
-                            <span className="font-medium text-slate-700">raw HTML</span> mode.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setLetterEditHtmlSource((s) => !s)}
-                            className={`btn-ghost btn-sm shrink-0 border ${letterEditHtmlSource ? 'border-emerald-200 text-emerald-800' : 'border-slate-200'}`}
-                          >
-                            <FiCode size={14} /> {letterEditHtmlSource ? 'Rich text' : 'Raw HTML'}
-                          </button>
+                  </div>
+
+                  {/* ── Signatures editor ── */}
+                  <div className="max-w-[794px] mx-auto bg-white border border-slate-200/80 rounded-lg p-5 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Signatures &amp; Seal</p>
+                      <button type="button" onClick={() => setSignatures(s => ({ ...s, list: [...(s.list||[]), { id: Date.now().toString(), role: 'New Signatory', name: '', data: '' }] }))} className="btn-ghost btn-sm border border-slate-200 gap-1 text-xs">
+                        <FiPlus size={12} /> Add Signature
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <datalist id="sig-roles">
+                        <option value="Manager" />
+                        <option value="Admin" />
+                        <option value="Human Resources" />
+                        <option value="Director" />
+                        <option value="Authorized Signatory" />
+                      </datalist>
+                      {(signatures.list || []).map((sig, i) => (
+                        <div key={sig.id} className="space-y-2 border border-slate-100 p-3 rounded-lg bg-slate-50/50 relative group">
+                          <button type="button" onClick={() => setSignatures(s => ({ ...s, list: s.list.filter(x => x.id !== sig.id) }))} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><FiTrash2 size={14} /></button>
+                          <input list="sig-roles" className="form-input text-xs font-bold text-slate-700 !bg-transparent !border-none !p-0 !h-auto focus:ring-0 uppercase tracking-wider mb-2" value={sig.role} onChange={(e) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, role: e.target.value } : x) }))} placeholder="Select or type role" />
+                          <DocumentAssetPicker label="Select saved" value={{ data: sig.data }} onChange={(v) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, data: v.data } : x) }))} />
+                          <input className="form-input text-xs" placeholder="Signatory name (optional)" value={sig.name} onChange={(e) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, name: e.target.value } : x) }))} />
+                          <SignaturePad label="Draw signature" value={sig.data} onChange={(data) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, data } : x) }))} />
                         </div>
-                        {letterEditHtmlSource ? (
-                          <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            rows={24}
-                            spellCheck={false}
-                            className="form-input font-mono text-xs leading-relaxed w-full"
-                          />
-                        ) : (
-                          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-inner">
-                            <ReactQuill
-                              key={`${preview._id}-quill`}
-                              theme="snow"
-                              value={editContent}
-                              onChange={setEditContent}
-                              className="letter-quill"
-                              modules={letterQuillModules}
-                              formats={LETTER_QUILL_FORMATS}
-                            />
+                      ))}
+                    </div>
+                    
+                    <div className="pt-4 border-t border-slate-100 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs font-semibold text-slate-600">Company Seal (Draggable / Absolute)</p>
+                        {signatures.seal?.data && (
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <label>X %: <input type="number" min="0" max="100" className="w-16 form-input text-xs py-1" value={signatures.seal.x ?? 85} onChange={e => setSignatures(s => ({ ...s, seal: { ...s.seal, x: Number(e.target.value) } }))} /></label>
+                            <label>Y %: <input type="number" min="0" max="100" className="w-16 form-input text-xs py-1" value={signatures.seal.y ?? 80} onChange={e => setSignatures(s => ({ ...s, seal: { ...s.seal, y: Number(e.target.value) } }))} /></label>
                           </div>
                         )}
                       </div>
-                    ) : isHtmlContent(editContent) ? (
-                      <div className="letter-pdf-prose text-sm text-slate-800" dangerouslySetInnerHTML={{ __html: editContent }} />
-                    ) : (
-                      <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed">{editContent}</pre>
-                    )}
+                      <DocumentAssetPicker label="Upload seal" assetType="seal" value={{ data: signatures.seal?.data || '' }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { ...s.seal, data: v.data } }))} />
+                    </div>
+                    
+                    <button type="button" className="btn-primary btn-sm w-full sm:w-auto mt-4" onClick={() => updateMut.mutate({ id: preview._id, payload: { signatures } })} disabled={updateMut.isPending}>
+                      {updateMut.isPending ? <span className="spinner" /> : 'Save signatures'}
+                    </button>
                   </div>
                 </div>
-                <aside className="w-full lg:w-72 shrink-0 p-4 bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-200 space-y-4 overflow-y-auto max-h-[40vh] lg:max-h-none">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Signatures (print / PDF)</p>
-                  <DocumentAssetPicker label="HR signature (upload or saved)" value={{ data: signatures.hr.data }} onChange={(v) => setSignatures((s) => ({ ...s, hr: { ...s.hr, data: v.data } }))} roleKey="hr" />
-                  <input className="form-input text-xs" placeholder="HR signatory name" value={signatures.hr.name} onChange={(e) => setSignatures((s) => ({ ...s, hr: { ...s.hr, name: e.target.value } }))} />
-                  <SignaturePad label="HR (draw)" value={signatures.hr.data} onChange={(data) => setSignatures((s) => ({ ...s, hr: { ...s.hr, data } }))} />
-                  <DocumentAssetPicker label="Manager signature" value={{ data: signatures.manager.data }} onChange={(v) => setSignatures((s) => ({ ...s, manager: { ...s.manager, data: v.data } }))} roleKey="manager" />
-                  <input className="form-input text-xs" placeholder="Manager name" value={signatures.manager.name} onChange={(e) => setSignatures((s) => ({ ...s, manager: { ...s.manager, name: e.target.value } }))} />
-                  <SignaturePad label="Manager (draw)" value={signatures.manager.data} onChange={(data) => setSignatures((s) => ({ ...s, manager: { ...s.manager, data } }))} />
-                  <DocumentAssetPicker label="Company seal" assetType="seal" value={{ data: signatures.seal?.data || '' }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))} />
-                  <button
-                    type="button"
-                    className="btn-primary w-full btn-sm justify-center"
-                    onClick={() => updateMut.mutate({ id: preview._id, payload: { signatures } })}
-                    disabled={updateMut.isPending}
-                  >
-                    Store signatures
-                  </button>
-                </aside>
               </div>
+
             </motion.div>
           </div>,
           document.body
@@ -919,7 +916,7 @@ export default function AdminLetters() {
           setLetterDeleteId(null)
         }}
         title="Delete issued letter"
-        message="This permanently removes the letter from HR records and employee “My letters”. Enter your account password to confirm."
+        message="This permanently removes the letter from HR records and employee Ã¢â‚¬Å“My lettersÃ¢â‚¬Â. Enter your account password to confirm."
         confirmLabel="Delete letter"
         isSubmitting={delLetterMut.isPending}
         onConfirm={async (password) => {
@@ -930,3 +927,5 @@ export default function AdminLetters() {
     </div>
   )
 }
+
+
