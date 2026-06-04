@@ -1,6 +1,7 @@
 const Subscription = require('../models/Subscription');
 const Project = require('../models/Project');
 const User = require('../models/User');
+const FinanceEntry = require('../models/FinanceEntry');
 const { createNotification } = require('../services/notificationService');
 const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
 
@@ -145,6 +146,8 @@ exports.getSubscription = async (req, res, next) => {
 exports.createSubscription = async (req, res, next) => {
   try {
     const payload = { ...req.body };
+    if (payload.branch === '') payload.branch = null;
+    if (payload.project === '') payload.project = null;
 
     // Ensure valid client
     const client = await User.findById(payload.client);
@@ -184,6 +187,8 @@ exports.updateSubscription = async (req, res, next) => {
     if (!existing) return res.status(404).json({ success: false, message: 'Subscription not found' });
 
     const updates = { ...req.body };
+    if (updates.branch === '') updates.branch = null;
+    if (updates.project === '') updates.project = null;
     // Don't allow overwriting payments via update
     delete updates.payments;
 
@@ -277,6 +282,30 @@ exports.recordPayment = async (req, res, next) => {
     }
 
     await sub.save();
+
+    // Map subscription methods to FinanceEntry strict enums
+    const methodMap = {
+      'cash': 'Cash',
+      'bank_transfer': 'Bank Transfer',
+      'cheque': 'Cheque',
+      'card': 'Card',
+      'online': 'Online Payment'
+    };
+    const financeMethod = methodMap[m] || 'Other';
+
+    // ── Auto-create a FinanceEntry so subscription revenue shows in all financial reports
+    await FinanceEntry.create({
+      type: 'income',
+      category: 'Subscriptions',
+      title: `Subscription Payment: ${sub.title} (${sub.subscriptionNo || ''})`,
+      amount: Number(amount),
+      date: new Date(),
+      note: `Sub No: ${sub.subscriptionNo || ''} | Ref: ${reference || '—'} | Method: ${m}`,
+      paymentMethod: financeMethod,
+      bankAccount: bankAccount || null,
+      branch: sub.branch || null,
+      createdBy: req.user._id,
+    });
 
     if (bankAccount && isLedgerBankMethod(m)) {
       const amt = Number(amount);

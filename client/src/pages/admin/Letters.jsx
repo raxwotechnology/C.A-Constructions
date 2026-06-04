@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -36,7 +36,13 @@ import {
 import { absoluteMediaUrl } from '../../lib/media'
 import { buildCompanyFromSettings, companyContactLines } from '../../lib/companyBranding'
 import { useSiteBranding } from '../../hooks/useSiteBranding'
-import { openLetterPrint, downloadLetterPdf, buildLetterFullHtml, buildLetterheadHtml, buildRefDateHtml, buildTitleHtml, buildSigsHtml, buildFooterHtml } from '../../lib/letterDocument'
+import { openLetterPrint, downloadLetterPdf, buildLetterheadHtml, buildRefDateHtml, buildSigsHtml, buildFooterHtml } from '../../lib/letterDocument'
+import {
+  LETTER_SIGNATORY_ROLES,
+  normalizeLetterSignatures,
+  letterSignaturesToPayload,
+  applySignatoryRole,
+} from '../../lib/letterSignatures'
 import SignaturePad from '../../components/admin/SignaturePad'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
@@ -60,6 +66,27 @@ const LETTER_TYPES = [
 
 const TYPE_MAP = Object.fromEntries(LETTER_TYPES.map((t) => [t.value, t]))
 
+function toInputDate(d) {
+  if (!d) return ''
+  const dt = new Date(d)
+  if (Number.isNaN(dt.getTime())) return ''
+  return dt.toISOString().split('T')[0]
+}
+
+function formatInternDuration(start, end, durationWeeks) {
+  if (durationWeeks != null && !Number.isNaN(Number(durationWeeks))) {
+    const w = Number(durationWeeks)
+    return `${w} week${w === 1 ? '' : 's'}`
+  }
+  if (!start || !end) return ''
+  const ms = new Date(end) - new Date(start)
+  if (ms <= 0) return ''
+  const days = Math.ceil(ms / (1000 * 60 * 60 * 24))
+  const months = Math.round(days / 30)
+  if (months >= 1) return `${months} month${months === 1 ? '' : 's'}`
+  return `${days} day${days === 1 ? '' : 's'}`
+}
+
 function isHtmlContent(s) {
   return typeof s === 'string' && /^\s*</.test(s)
 }
@@ -74,11 +101,9 @@ export default function AdminLetters() {
   const [editMode, setEditMode] = useState(false)
   const [letterEditHtmlSource, setLetterEditHtmlSource] = useState(false)
   const [prefilledType, setPrefilledType] = useState('')
-  const [signatures, setSignatures] = useState({
-    hr: { data: '', name: '', title: 'Human Resources' },
-    manager: { data: '', name: '', title: 'Line Manager' },
-    seal: { data: '' }
-  })
+  const [signatures, setSignatures] = useState(() =>
+    normalizeLetterSignatures({}, {}),
+  )
   const [selectedTplId, setSelectedTplId] = useState('')
   const [showLetterTemplates, setShowLetterTemplates] = useState(false)
   const [tplPwdOpen, setTplPwdOpen] = useState(false)
@@ -91,6 +116,7 @@ export default function AdminLetters() {
 
   const { register, handleSubmit, reset, watch, setValue } = useForm()
   const selectedType = watch('type')
+  const watchedEmployeeId = watch('employeeId')
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-letters'],
@@ -138,15 +164,7 @@ export default function AdminLetters() {
       const letter = r.data.letter
       setPreview(letter)
       setEditContent(letter.content)
-      setSignatures({
-        hr: { data: letter.signatures?.hr?.data || '', name: letter.signatures?.hr?.name || '', title: letter.signatures?.hr?.title || 'Human Resources' },
-        manager: {
-          data: letter.signatures?.manager?.data || '',
-          name: letter.signatures?.manager?.name || '',
-          title: letter.signatures?.manager?.title || 'Line Manager',
-        },
-        seal: { data: letter.signatures?.seal?.data || '' }
-      })
+      setSignatures(normalizeLetterSignatures(letter.signatures, siteSettings))
       setEditMode(false)
       setLetterEditHtmlSource(false)
       closeModal()
@@ -161,15 +179,7 @@ export default function AdminLetters() {
       const letter = r.letter
       setPreview(letter)
       setEditContent(letter.content)
-      setSignatures({
-        hr: { data: letter.signatures?.hr?.data || '', name: letter.signatures?.hr?.name || '', title: letter.signatures?.hr?.title || 'Human Resources' },
-        manager: {
-          data: letter.signatures?.manager?.data || '',
-          name: letter.signatures?.manager?.name || '',
-          title: letter.signatures?.manager?.title || 'Line Manager',
-        },
-        seal: { data: letter.signatures?.seal?.data || '' }
-      })
+      setSignatures(normalizeLetterSignatures(letter.signatures, siteSettings))
       setEditMode(false)
       setLetterEditHtmlSource(false)
       toast.success('Letter saved')
@@ -257,6 +267,7 @@ export default function AdminLetters() {
         workingDays: d.workingDays,
         hourlyRate: d.hourlyRate,
         reportingManager: d.reportingManager,
+        signatures: letterSignaturesToPayload(signatures),
       },
     })
   }
@@ -264,6 +275,7 @@ export default function AdminLetters() {
   const openModal = (type = '') => {
     setPrefilledType(type)
     reset({ type: type || '', approvalStatus: 'none' })
+    setSignatures(normalizeLetterSignatures({}, siteSettings))
     setSelectedTplId('')
     setShowLetterTemplates(false)
     setShowModal(true)
@@ -281,31 +293,29 @@ export default function AdminLetters() {
     setEditContent(l.content)
     setEditMode(false)
     setLetterEditHtmlSource(false)
-    setSignatures({
-      hr: { data: l.signatures?.hr?.data || '', name: l.signatures?.hr?.name || '', title: l.signatures?.hr?.title || 'Human Resources' },
-      manager: {
-        data: l.signatures?.manager?.data || '',
-        name: l.signatures?.manager?.name || '',
-        title: l.signatures?.manager?.title || 'Line Manager',
-      },
-      seal: { data: l.signatures?.seal?.data || '' }
-    })
+    setSignatures(normalizeLetterSignatures(l.signatures, siteSettings))
   }
 
-  const printOpts = (letter) => ({
+  const printOpts = (letter, sigState = signatures) => ({
     company,
+    siteSettings,
     letterTitle: letter.title,
     letterRef: letter.letterRef,
-    issuedDate: letter.issuedDate ? new Date(letter.issuedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' }) : '',
+    issuedDate: letter.issuedDate,
     bodyHtml: editMode ? editContent : letter.content,
-    signatures: letter.signatures || signatures,
+    signatures: sigState,
+    isFullHtml: Boolean(letter.structuredData),
   })
+
+  const sigsForOutput = (letter) =>
+    normalizeLetterSignatures(letter.signatures || signatures, siteSettings)
 
   const handlePrint = (letter) => {
     openLetterPrint({
-      ...printOpts(letter),
+      ...printOpts(letter, sigsForOutput(letter)),
       bodyHtml: letter.content,
-      signatures: letter.signatures || signatures,
+      signatures: sigsForOutput(letter),
+      isFullHtml: Boolean(letter.structuredData),
     })
   }
 
@@ -313,9 +323,10 @@ export default function AdminLetters() {
     try {
       await downloadLetterPdf(
         {
-          ...printOpts(letter),
+          ...printOpts(letter, sigsForOutput(letter)),
           bodyHtml: letter.content,
-          signatures: letter.signatures || signatures,
+          signatures: sigsForOutput(letter),
+          isFullHtml: Boolean(letter.structuredData),
         },
         letter.letterRef || 'letter'
       )
@@ -327,6 +338,27 @@ export default function AdminLetters() {
 
   const letters = data?.letters || []
   const templates = tplData?.templates || []
+
+  useEffect(() => {
+    if (!showModal || selectedType !== 'internship' || !watchedEmployeeId || watchedEmployeeId === 'custom') return
+    let cancelled = false
+    api.get(`/employees/${watchedEmployeeId}`)
+      .then((res) => {
+        if (cancelled) return
+        const emp = res.data?.employee
+        const intern = emp?.internship
+        if (!intern) return
+        const start = toInputDate(intern.startDate)
+        const end = toInputDate(intern.endDate)
+        if (start) setValue('startDate', start, { shouldDirty: true })
+        if (end) setValue('endDate', end, { shouldDirty: true })
+        const duration = formatInternDuration(intern.startDate, intern.endDate, intern.durationWeeks)
+        if (duration) setValue('duration', duration, { shouldDirty: true })
+        if (intern.supervisorName) setValue('supervisor', intern.supervisorName, { shouldDirty: true })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [showModal, selectedType, watchedEmployeeId, setValue])
 
   const loadTemplate = (id) => {
     if (!id) return
@@ -382,7 +414,7 @@ export default function AdminLetters() {
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Templates</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Choose a letter type Ã¢â‚¬â€ content is generated with company letterhead on print/PDF</p>
+            <p className="text-xs text-slate-500 mt-0.5">Choose a letter type — content is generated with company letterhead on print/PDF</p>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -444,7 +476,7 @@ export default function AdminLetters() {
               ) : (
                 letters.map((l) => (
                   <tr key={l._id}>
-                    <td className="font-mono text-xs text-slate-600">{l.letterRef || 'Ã¢â‚¬â€'}</td>
+                    <td className="font-mono text-xs text-slate-600">{l.letterRef || '—'}</td>
                     <td>
                       <div className="font-medium text-slate-800">{l.employee?.userId?.name}</div>
                       <div className="text-xs text-slate-400">{l.employee?.employeeNo}</div>
@@ -453,7 +485,7 @@ export default function AdminLetters() {
                       <span className="badge badge-navy capitalize">{TYPE_MAP[l.type]?.label || l.type}</span>
                     </td>
                     <td className="text-sm text-slate-600 whitespace-nowrap">
-                      {l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK') : 'Ã¢â‚¬â€'}
+                      {l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK') : '—'}
                       <div className="text-xs text-slate-400">{l.issuedBy?.name}</div>
                     </td>
                     <td>
@@ -501,12 +533,16 @@ export default function AdminLetters() {
 
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <div 
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal() }}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto custom-scrollbar"
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white z-10">
                 <h3 className="text-lg font-bold text-primary font-heading">Generate letter</h3>
@@ -543,7 +579,7 @@ export default function AdminLetters() {
                               loadTemplate(e.target.value)
                             }}
                           >
-                            <option value="">Choose templateÃ¢â‚¬Â¦</option>
+                            <option value="">Choose template…</option>
                             {templates.map((t) => (
                               <option key={t._id} value={t._id}>
                                 {t.name}
@@ -579,7 +615,7 @@ export default function AdminLetters() {
                       }
                       return res
                     }}
-                    placeholder="Search employeeÃ¢â‚¬Â¦"
+                    placeholder="Search employee…"
                   />
                 </div>
                 <div>
@@ -594,13 +630,13 @@ export default function AdminLetters() {
                         .map(lt => ({ value: lt.value, label: lt.label }))
                       return { options, hasMore: false }
                     }}
-                    placeholder="Search typeÃ¢â‚¬Â¦"
+                    placeholder="Search type…"
                   />
                 </div>
                 <div>
                   <label className="form-label">Approval before issue (optional)</label>
                   <select {...register('approvalStatus')} className="form-select">
-                    <option value="none">None Ã¢â‚¬â€ issue immediately</option>
+                    <option value="none">None — issue immediately</option>
                     <option value="pending">Mark as pending HR approval</option>
                     <option value="approved">Mark as approved</option>
                   </select>
@@ -627,7 +663,7 @@ export default function AdminLetters() {
                       </div>
                       <div>
                         <label className="form-label">Working hours</label>
-                        <input {...register('workingHours')} className="form-input" placeholder="e.g. 9:00Ã¢â‚¬â€œ17:30 MonÃ¢â‚¬â€œFri" />
+                        <input {...register('workingHours')} className="form-input" placeholder="e.g. 9:00–17:30 Mon–Fri" />
                       </div>
                     </div>
                   </div>
@@ -658,7 +694,7 @@ export default function AdminLetters() {
                     </div>
                     <div>
                       <label className="form-label">Days / week</label>
-                      <input {...register('workingDays')} className="form-input" placeholder="e.g. MonÃ¢â‚¬â€œFri" />
+                      <input {...register('workingDays')} className="form-input" placeholder="e.g. Mon–Fri" />
                     </div>
                     <div className="col-span-2">
                       <label className="form-label">Hourly rate (LKR)</label>
@@ -714,6 +750,45 @@ export default function AdminLetters() {
                 )}
                 {/* 'custom' type form fields removed as it launches builder */}
 
+                {selectedType && selectedType !== 'custom' && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Signature &amp; seal on print</p>
+                    <div>
+                      <label className="form-label text-xs">Signatory</label>
+                      <select
+                        className="form-select text-sm"
+                        value={signatures.activeRole || 'admin'}
+                        onChange={(e) => setSignatures((s) => applySignatoryRole(e.target.value, siteSettings, s))}
+                      >
+                        {LETTER_SIGNATORY_ROLES.map((r) => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="form-checkbox rounded"
+                          checked={signatures.includeSignature !== false}
+                          onChange={(e) => setSignatures((s) => ({ ...s, includeSignature: e.target.checked }))}
+                        />
+                        Include signature
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="form-checkbox rounded"
+                          checked={signatures.includeSeal !== false}
+                          onChange={(e) => setSignatures((s) => ({ ...s, includeSeal: e.target.checked }))}
+                        />
+                        Include company seal
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500">You can show both, only a signature, only the seal, or neither. Adjust images after generating in the letter preview.</p>
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center gap-2">
                     <FiChevronDown className="rotate-90" /> Back
@@ -730,11 +805,22 @@ export default function AdminLetters() {
 
       {preview &&
         createPortal(
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[99999] p-4">
+          <div 
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[99999] p-4"
+            onMouseDown={(e) => {
+              // Close preview when clicking the backdrop (not the modal content)
+              if (e.target === e.currentTarget) {
+                setPreview(null)
+                setEditMode(false)
+                setLetterEditHtmlSource(false)
+              }
+            }}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[96vh] overflow-hidden flex flex-col"
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5 border-b bg-slate-50 shrink-0">
                 <div className="min-w-0">
@@ -766,7 +852,7 @@ export default function AdminLetters() {
                   {editMode && (
                     <button
                       type="button"
-                      onClick={() => updateMut.mutate({ id: preview._id, payload: { content: editContent, title: preview.title, type: preview.type, signatures } })}
+                      onClick={() => updateMut.mutate({ id: preview._id, payload: { content: editContent, title: preview.title, type: preview.type, signatures: letterSignaturesToPayload(signatures) } })}
                       disabled={updateMut.isPending}
                       className="btn-primary btn-sm"
                     >
@@ -812,80 +898,159 @@ export default function AdminLetters() {
                   {/* ── Letter Editor & Preview (WYSIWYG) ── */}
                   <div className="max-w-[794px] min-h-[1123px] mx-auto shadow-lg bg-white rounded-lg overflow-hidden border border-slate-200">
                     <div className="letter-pdf-prose relative" style={{ padding: '14mm 16mm', fontFamily: "'Segoe UI',system-ui,-apple-system,sans-serif", color: '#0f172a', fontSize: '11pt', lineHeight: 1.6, minHeight: '1123px' }}>
-                      <div dangerouslySetInnerHTML={{ __html: buildLetterheadHtml(company) }} />
-                      <div dangerouslySetInnerHTML={{ __html: buildRefDateHtml(preview.letterRef, preview.issuedDate) }} />
-                      <div dangerouslySetInnerHTML={{ __html: buildTitleHtml(preview.title) }} />
-                      
-                      {editMode ? (
-                        <div className="mt-4 -mx-[2rem]">
-                          <div className="flex flex-wrap items-center justify-between gap-2 px-8 mb-2">
-                            <p className="text-[11px] text-slate-500">
-                              <strong>Editing body</strong> — use toolbar for formatting. <span className="font-medium text-slate-600">Raw HTML</span> mode for tables.
-                            </p>
-                            <button type="button" onClick={() => setLetterEditHtmlSource((s) => !s)} className={`btn-ghost btn-sm shrink-0 border ${letterEditHtmlSource ? 'border-emerald-200 text-emerald-800' : 'border-slate-200'}`}>
-                              <FiCode size={14} /> {letterEditHtmlSource ? 'Rich text' : 'Raw HTML'}
-                            </button>
-                          </div>
-                          {letterEditHtmlSource ? (
-                            <div className="px-8"><textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={20} spellCheck={false} className="form-input font-mono text-xs leading-relaxed w-full" /></div>
-                          ) : (
-                            <div className="border-y border-slate-200 bg-slate-50/30">
-                              <ReactQuill key={`${preview._id}-quill`} theme="snow" value={editContent} onChange={setEditContent} className="letter-quill !border-none" modules={letterQuillModules} formats={LETTER_QUILL_FORMATS} />
+                      {/* Custom letters (with structuredData) already have letterhead, ref, title, sigs, footer baked into content */}
+                      {preview.structuredData ? (
+                        <>
+                          {editMode ? (
+                            <div className="mt-4 -mx-[2rem]">
+                              <div className="flex flex-wrap items-center justify-between gap-2 px-8 mb-2">
+                                <p className="text-[11px] text-slate-500">
+                                  <strong>Editing body</strong> — use toolbar for formatting. <span className="font-medium text-slate-600">Raw HTML</span> mode for tables.
+                                </p>
+                                <button type="button" onClick={() => setLetterEditHtmlSource((s) => !s)} className={`btn-ghost btn-sm shrink-0 border ${letterEditHtmlSource ? 'border-emerald-200 text-emerald-800' : 'border-slate-200'}`}>
+                                  <FiCode size={14} /> {letterEditHtmlSource ? 'Rich text' : 'Raw HTML'}
+                                </button>
+                              </div>
+                              {letterEditHtmlSource ? (
+                                <div className="px-8"><textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={20} spellCheck={false} className="form-input font-mono text-xs leading-relaxed w-full" /></div>
+                              ) : (
+                                <div className="border-y border-slate-200 bg-slate-50/30">
+                                  <ReactQuill key={`${preview._id}-quill`} theme="snow" value={editContent} onChange={setEditContent} className="letter-quill !border-none" modules={letterQuillModules} formats={LETTER_QUILL_FORMATS} />
+                                </div>
+                              )}
                             </div>
+                          ) : (
+                            <div className="letter-body" style={{ marginTop: '0' }} dangerouslySetInnerHTML={{ __html: editContent || '' }} />
                           )}
-                        </div>
+                        </>
                       ) : (
-                        <div className="letter-body" style={{ marginTop: '4px' }} dangerouslySetInnerHTML={{ __html: editContent || '' }} />
-                      )}
+                        <>
+                          {/* Standard letters: add letterhead and ref, but skip title (body already has its own h1) */}
+                          <div dangerouslySetInnerHTML={{ __html: buildLetterheadHtml(company) }} />
+                          <div dangerouslySetInnerHTML={{ __html: buildRefDateHtml(preview.letterRef, preview.issuedDate) }} />
+                          
+                          {editMode ? (
+                            <div className="mt-4 -mx-[2rem]">
+                              <div className="flex flex-wrap items-center justify-between gap-2 px-8 mb-2">
+                                <p className="text-[11px] text-slate-500">
+                                  <strong>Editing body</strong> — use toolbar for formatting. <span className="font-medium text-slate-600">Raw HTML</span> mode for tables.
+                                </p>
+                                <button type="button" onClick={() => setLetterEditHtmlSource((s) => !s)} className={`btn-ghost btn-sm shrink-0 border ${letterEditHtmlSource ? 'border-emerald-200 text-emerald-800' : 'border-slate-200'}`}>
+                                  <FiCode size={14} /> {letterEditHtmlSource ? 'Rich text' : 'Raw HTML'}
+                                </button>
+                              </div>
+                              {letterEditHtmlSource ? (
+                                <div className="px-8"><textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={20} spellCheck={false} className="form-input font-mono text-xs leading-relaxed w-full" /></div>
+                              ) : (
+                                <div className="border-y border-slate-200 bg-slate-50/30">
+                                  <ReactQuill key={`${preview._id}-quill`} theme="snow" value={editContent} onChange={setEditContent} className="letter-quill !border-none" modules={letterQuillModules} formats={LETTER_QUILL_FORMATS} />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="letter-body" style={{ marginTop: '4px' }} dangerouslySetInnerHTML={{ __html: editContent || '' }} />
+                          )}
 
-                      <div dangerouslySetInnerHTML={{ __html: buildSigsHtml(signatures) }} />
-                      <div dangerouslySetInnerHTML={{ __html: buildFooterHtml(company) }} />
+                          <div dangerouslySetInnerHTML={{ __html: buildSigsHtml(signatures, { siteSettings }) }} />
+                          <div dangerouslySetInnerHTML={{ __html: buildFooterHtml(company) }} />
+                        </>
+                      )}
                     </div>
                   </div>
 
                   {/* ── Signatures editor ── */}
                   <div className="max-w-[794px] mx-auto bg-white border border-slate-200/80 rounded-lg p-5 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Signatures &amp; Seal</p>
-                      <button type="button" onClick={() => setSignatures(s => ({ ...s, list: [...(s.list||[]), { id: Date.now().toString(), role: 'New Signatory', name: '', data: '' }] }))} className="btn-ghost btn-sm border border-slate-200 gap-1 text-xs">
-                        <FiPlus size={12} /> Add Signature
-                      </button>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Signature &amp; seal</p>
+                    <p className="text-xs text-slate-500">Choose a saved signatory from Settings. The signature and seal appear on the right side of the letter, matching the printed layout.</p>
+                    <div className="flex flex-wrap gap-4 pb-1">
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="form-checkbox rounded"
+                          checked={signatures.includeSignature !== false}
+                          onChange={(e) => setSignatures((s) => ({ ...s, includeSignature: e.target.checked }))}
+                        />
+                        Include signature
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="form-checkbox rounded"
+                          checked={signatures.includeSeal !== false}
+                          onChange={(e) => setSignatures((s) => ({ ...s, includeSeal: e.target.checked }))}
+                        />
+                        Include company seal
+                      </label>
                     </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                      <datalist id="sig-roles">
-                        <option value="Manager" />
-                        <option value="Admin" />
-                        <option value="Human Resources" />
-                        <option value="Director" />
-                        <option value="Authorized Signatory" />
-                      </datalist>
-                      {(signatures.list || []).map((sig, i) => (
-                        <div key={sig.id} className="space-y-2 border border-slate-100 p-3 rounded-lg bg-slate-50/50 relative group">
-                          <button type="button" onClick={() => setSignatures(s => ({ ...s, list: s.list.filter(x => x.id !== sig.id) }))} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><FiTrash2 size={14} /></button>
-                          <input list="sig-roles" className="form-input text-xs font-bold text-slate-700 !bg-transparent !border-none !p-0 !h-auto focus:ring-0 uppercase tracking-wider mb-2" value={sig.role} onChange={(e) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, role: e.target.value } : x) }))} placeholder="Select or type role" />
-                          <DocumentAssetPicker label="Select saved" value={{ data: sig.data }} onChange={(v) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, data: v.data } : x) }))} />
-                          <input className="form-input text-xs" placeholder="Signatory name (optional)" value={sig.name} onChange={(e) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, name: e.target.value } : x) }))} />
-                          <SignaturePad label="Draw signature" value={sig.data} onChange={(data) => setSignatures(s => ({ ...s, list: s.list.map(x => x.id === sig.id ? { ...x, data } : x) }))} />
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="pt-4 border-t border-slate-100 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <p className="text-xs font-semibold text-slate-600">Company Seal (Draggable / Absolute)</p>
-                        {signatures.seal?.data && (
-                          <div className="flex items-center gap-2 text-xs text-slate-500">
-                            <label>X %: <input type="number" min="0" max="100" className="w-16 form-input text-xs py-1" value={signatures.seal.x ?? 85} onChange={e => setSignatures(s => ({ ...s, seal: { ...s.seal, x: Number(e.target.value) } }))} /></label>
-                            <label>Y %: <input type="number" min="0" max="100" className="w-16 form-input text-xs py-1" value={signatures.seal.y ?? 80} onChange={e => setSignatures(s => ({ ...s, seal: { ...s.seal, y: Number(e.target.value) } }))} /></label>
-                          </div>
-                        )}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="form-label text-xs">Signatory</label>
+                        <select
+                          className="form-select text-sm"
+                          value={signatures.activeRole || 'admin'}
+                          onChange={(e) => setSignatures((s) => applySignatoryRole(e.target.value, siteSettings, s))}
+                        >
+                          {LETTER_SIGNATORY_ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
                       </div>
-                      <DocumentAssetPicker label="Upload seal" assetType="seal" value={{ data: signatures.seal?.data || '' }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { ...s.seal, data: v.data } }))} />
+                      <div>
+                        <label className="form-label text-xs">Signatory name</label>
+                        <input
+                          className="form-input text-sm"
+                          value={signatures.signatory?.name || ''}
+                          onChange={(e) => setSignatures((s) => ({
+                            ...s,
+                            signatory: { ...s.signatory, name: e.target.value },
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label text-xs">Title / designation</label>
+                        <input
+                          className="form-input text-sm"
+                          value={signatures.signatory?.title || ''}
+                          onChange={(e) => setSignatures((s) => ({
+                            ...s,
+                            signatory: { ...s.signatory, title: e.target.value },
+                          }))}
+                        />
+                      </div>
                     </div>
-                    
-                    <button type="button" className="btn-primary btn-sm w-full sm:w-auto mt-4" onClick={() => updateMut.mutate({ id: preview._id, payload: { signatures } })} disabled={updateMut.isPending}>
-                      {updateMut.isPending ? <span className="spinner" /> : 'Save signatures'}
+                    <DocumentAssetPicker
+                      label="Signature image (from Settings or upload)"
+                      value={{ data: signatures.signatory?.data || '' }}
+                      onChange={(v) => setSignatures((s) => ({
+                        ...s,
+                        signatory: { ...s.signatory, data: v.data },
+                      }))}
+                      roleKey={signatures.activeRole === 'custom' ? 'admin' : signatures.activeRole}
+                    />
+                    <SignaturePad
+                      label="Draw signature"
+                      value={signatures.signatory?.data || ''}
+                      onChange={(data) => setSignatures((s) => ({
+                        ...s,
+                        signatory: { ...s.signatory, data },
+                      }))}
+                    />
+                    <div className="pt-3 border-t border-slate-100">
+                      <p className="text-xs font-semibold text-slate-600 mb-2">Company seal (optional)</p>
+                      <DocumentAssetPicker
+                        label="Seal"
+                        assetType="seal"
+                        value={{ data: signatures.seal?.data || '' }}
+                        onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-primary btn-sm"
+                      onClick={() => updateMut.mutate({ id: preview._id, payload: { signatures: letterSignaturesToPayload(signatures) } })}
+                      disabled={updateMut.isPending}
+                    >
+                      {updateMut.isPending ? <span className="spinner" /> : 'Save signature'}
                     </button>
                   </div>
                 </div>
@@ -916,7 +1081,7 @@ export default function AdminLetters() {
           setLetterDeleteId(null)
         }}
         title="Delete issued letter"
-        message="This permanently removes the letter from HR records and employee Ã¢â‚¬Å“My lettersÃ¢â‚¬Â. Enter your account password to confirm."
+        message='This permanently removes the letter from HR records and employee "My letters". Enter your account password to confirm.'
         confirmLabel="Delete letter"
         isSubmitting={delLetterMut.isPending}
         onConfirm={async (password) => {

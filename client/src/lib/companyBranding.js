@@ -7,18 +7,18 @@ export function buildCompanyFromSettings(settings = {}) {
   const email =
     settings.adminEmail?.trim() ||
     settings.contactEmail?.trim() ||
-    ''
+    'raxwotechnology@gmail.com'
   return {
     name: settings.siteName?.trim() || 'Company',
-    tagline: settings.siteDescription?.trim() || '',
+    tagline: settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || '',
     logo,
     logoPath: settings.logoUrl?.trim() || '',
     address: settings.contactAddress?.trim() || '',
-    phone: settings.contactPhone?.trim() || '',
+    phone: settings.contactPhone?.trim() || '0743573333',
     email,
-    contactEmail: settings.contactEmail?.trim() || '',
-    adminEmail: settings.adminEmail?.trim() || settings.contactEmail?.trim() || '',
-    website: settings.websiteUrl?.trim() || '',
+    contactEmail: settings.contactEmail?.trim() || 'raxwotechnology@gmail.com',
+    adminEmail: settings.adminEmail?.trim() || settings.contactEmail?.trim() || 'raxwotechnology@gmail.com',
+    website: settings.websiteUrl?.trim() || 'www.raxwo.net',
     branchDetails: settings.branchDetails?.trim() || '',
     footer: settings.footerText?.trim() || '',
     seal: settings.sealUrl ? mediaUrl(settings.sealUrl) : '',
@@ -39,18 +39,25 @@ export function companyContactLines(company) {
   return lines
 }
 
-function contactBlockHtml(company, { inline = false } = {}) {
+export function contactBlockHtml(company, { inline = false } = {}) {
   const lines = companyContactLines(company)
   if (!lines.length) return ''
   if (inline) {
     return `<p style="margin:8px 0 0;font-size:9.5pt;color:#475569;line-height:1.5">${lines.map((l) => l.text).join(' · ')}</p>`
   }
-  return `<div style="margin:8px 0 0;font-size:9.5pt;color:#475569;line-height:1.65">${lines
-    .map(
-      (l) =>
-        `<div style="margin:2px 0"><span style="color:#94a3b8;min-width:52px;display:inline-block">${l.label}:</span> <span>${escapeHtml(l.text)}</span></div>`,
-    )
-    .join('')}</div>`
+  return `<table style="margin:10px 0 0 auto;font-size:9.5pt;color:#475569;line-height:1.5;border-collapse:collapse;text-align:left">
+    <tbody>
+      ${lines
+        .map(
+          (l) =>
+            `<tr>
+              <td style="padding:2px 8px 2px 0;color:#38bdf8;font-weight:600;text-align:right;vertical-align:top;white-space:nowrap">${l.label}</td>
+              <td style="padding:2px 0;vertical-align:top;white-space:pre-wrap;color:#475569">${escapeHtml(l.text)}</td>
+            </tr>`,
+        )
+        .join('')}
+    </tbody>
+  </table>`
 }
 
 function escapeHtml(s) {

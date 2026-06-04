@@ -266,6 +266,10 @@ exports.updateLetter = async (req, res, next) => {
     };
     if (signatures && typeof signatures === 'object') {
       update.signatures = {
+        activeRole: signatures.activeRole ?? signatures.selectedRole ?? prev.signatures?.activeRole ?? 'admin',
+        includeSignature: signatures.includeSignature !== undefined ? signatures.includeSignature : (prev.signatures?.includeSignature !== false),
+        includeSeal: signatures.includeSeal !== undefined ? signatures.includeSeal : (prev.signatures?.includeSeal !== false),
+        signatory: { ...prev.signatures?.signatory, ...signatures.signatory },
         hr: { ...prev.signatures?.hr, ...signatures.hr },
         manager: { ...prev.signatures?.manager, ...signatures.manager },
         director: { ...prev.signatures?.director, ...signatures.director },

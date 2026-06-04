@@ -22,6 +22,15 @@ const letterSchema = new mongoose.Schema({
     default: 'none',
   },
   signatures: {
+    activeRole: { type: String, enum: ['', 'admin', 'manager', 'hr', 'custom'], default: 'admin' },
+    includeSignature: { type: Boolean, default: true },
+    includeSeal: { type: Boolean, default: true },
+    signatory: {
+      role: { type: String, default: '' },
+      data: { type: String, default: '' },
+      name: { type: String, default: '' },
+      title: { type: String, default: '' },
+    },
     hr: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
     manager: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
     seal: { data: { type: String, default: '' } },

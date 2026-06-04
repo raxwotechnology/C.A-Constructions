@@ -72,13 +72,23 @@ export default function QuotationPrintBody({
           <h2 style={{ margin: '0 0 4px', fontSize: '20pt', fontWeight: 800, letterSpacing: '0.06em', color: CLR.dark }}>QUOTATION</h2>
           {q.title ? <p style={{ margin: 0, color: CLR.mid, fontWeight: 500, fontSize: '10.5pt' }}>{q.title}</p> : null}
         </div>
-        <div style={{ textAlign: 'right', fontSize: '10pt', color: CLR.mid }}>
-          {q.validUntil ? (
+        <div style={{ textAlign: 'right', fontSize: '10pt', color: CLR.mid, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ margin: 0 }}>
+            <span style={{ color: CLR.muted, textTransform: 'uppercase', fontSize: '8.5pt', fontWeight: 700, display: 'block', marginBottom: '2px' }}>Date</span>
+            <span style={{ color: CLR.dark, fontWeight: 500 }}>{q.quotationDate ? new Date(q.quotationDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </p>
+          {showRefOnDocument && q.quotationNo && (
+            <p style={{ margin: 0 }}>
+              <span style={{ color: CLR.muted, textTransform: 'uppercase', fontSize: '8.5pt', fontWeight: 700, display: 'block', marginBottom: '2px' }}>Ref</span>
+              <span style={{ color: CLR.dark, fontWeight: 500 }}>{q.quotationNo}</span>
+            </p>
+          )}
+          {q.validUntil && (
             <p style={{ margin: 0 }}>
               <span style={{ color: CLR.muted, textTransform: 'uppercase', fontSize: '8.5pt', fontWeight: 700, display: 'block', marginBottom: '2px' }}>Valid until</span>
-              {new Date(q.validUntil).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' })}
+              <span style={{ color: CLR.dark, fontWeight: 500 }}>{new Date(q.validUntil).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </p>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -177,11 +187,6 @@ export default function QuotationPrintBody({
           }}
         />
       )}
-
-      {/* ── Reference number ── */}
-      {showRefOnDocument && q.quotationNo ? (
-        <p style={{ fontSize: '8.5pt', color: CLR.muted, textAlign: 'right', marginTop: '14px', letterSpacing: '0.04em' }}>Ref: {q.quotationNo}</p>
-      ) : null}
 
       {/* ── Terms & Conditions — modern styled block at the very end ── */}
       {termsLines.length > 0 && (

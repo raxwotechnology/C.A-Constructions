@@ -225,7 +225,9 @@ export default function AdminSubscriptions() {
 
   const handleSave = () => {
     const payload = { ...form }
-    if (!payload.project) delete payload.project
+    if (!payload.project) payload.project = null
+    if (!payload.branch) payload.branch = null
+    
     payload.amount = Number(payload.amount) || 0
     payload.billingDay = Number(payload.billingDay) || 1
     const rd = form.reminderDaysBefore === '' || form.reminderDaysBefore == null

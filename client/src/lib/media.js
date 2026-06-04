@@ -14,6 +14,7 @@ export function normalizeUploadPath(url) {
   } catch {
     /* ignore */
   }
+  if (s.startsWith('data:')) return s
   if (s.startsWith('/uploads/')) return s
   if (s.startsWith('uploads/')) return `/${s}`
   return s.startsWith('/') ? s : `/${s}`
@@ -63,6 +64,7 @@ export function mediaUrl(url) {
 export function absoluteMediaUrl(url) {
   const path = mediaUrl(url)
   if (!path) return ''
+  if (path.startsWith('data:')) return path
   if (/^https?:\/\//i.test(path)) return path
   if (typeof window !== 'undefined') {
     const origin = window.location.origin

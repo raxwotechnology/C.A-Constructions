@@ -7,6 +7,8 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Project = require('../models/Project');
+const Subscription = require('../models/Subscription');
+const PettyCash = require('../models/PettyCash');
 const { createAuditLog } = require('./auditController');
 const { verifyActionPassword } = require('../utils/actionPassword');
 const { isFinanceBankMethod, appendBankTransaction } = require('../utils/bankLedger');
@@ -224,28 +226,65 @@ exports.getEntries = async (req, res, next) => {
     if (branch) q.branch = branch;
     if (paymentMethod) q.paymentMethod = paymentMethod;
     const dateRange = getRange(month, year);
-    if (from || to) {
-      q.date = {};
-      if (from) q.date.$gte = new Date(from);
-      if (to) q.date.$lte = new Date(to);
-    } else if (dateRange.$gte) {
-      q.date = dateRange;
-    }
 
-    const entries = await FinanceEntry.find(q)
-      .sort({ date: -1, createdAt: -1 })
-      .populate('createdBy', 'name email')
-      .populate('bankAccount', 'bankName accountNumber')
-      .populate('branch', 'name');
-    const totals = entries.reduce((acc, e) => {
+    // Build date range — always set $lte to END of day so same-day entries aren't missed
+    let dateFilter = null;
+    if (from || to) {
+      dateFilter = {};
+      if (from) dateFilter.$gte = new Date(from);
+      if (to) {
+        const endDate = new Date(to);
+        endDate.setHours(23, 59, 59, 999);
+        dateFilter.$lte = endDate;
+      }
+    } else if (dateRange.$gte) {
+      dateFilter = dateRange;
+    }
+    if (dateFilter) q.date = dateFilter;
+
+    // Build a separate clean query for PettyCash (different schema shape)
+    const pcQ = {};
+    if (branch) pcQ.branch = branch;
+    if (dateFilter) pcQ.date = dateFilter;
+
+    // Build subscription date match
+    const subDateMatch = dateFilter ? { 'payments.paidAt': dateFilter } : {};
+    const subBranchMatch = branch ? { branch: new (require('mongoose').Types.ObjectId)(branch) } : {};
+
+    const [entries, pettyCash, subscriptions] = await Promise.all([
+      FinanceEntry.find(q)
+        .sort({ date: -1, createdAt: -1 })
+        .populate('createdBy', 'name email')
+        .populate('bankAccount', 'bankName accountNumber')
+        .populate('branch', 'name'),
+      PettyCash.find(pcQ).sort({ date: -1 }),
+      Subscription.find(pcQ).sort({ createdAt: -1 })
+    ]);
+
+    // Normalize petty cash
+    const pcEntries = pettyCash.filter(p => !type || (type === 'income' && p.type === 'in') || (type === 'expense' && p.type === 'out'))
+      .filter(p => !paymentMethod || p.paymentType === paymentMethod)
+      .map(p => ({
+        _id: p._id, type: p.type === 'in' ? 'income' : 'expense', category: p.type === 'in' ? 'Petty Cash (In)' : 'Petty Cash', title: `Petty Cash: ${p.description}`, amount: p.amount, date: p.date, paymentMethod: p.paymentType, note: p.paidTo || ''
+      }));
+
+    // Normalize subscriptions
+    const subEntries = subscriptions.filter(s => !type || type === 'income')
+      .map(s => ({
+        _id: s._id, type: 'income', category: 'Subscriptions', title: `Subscription: ${s.title}`, amount: s.amount, date: s.createdAt, paymentMethod: 'Subscription', note: s.subscriptionNo || ''
+      }));
+
+    const allEntries = [...entries.map(e => e.toObject()), ...pcEntries, ...subEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const totals = allEntries.reduce((acc, e) => {
       if (e.type === 'income') acc.income += Number(e.amount || 0);
       if (e.type === 'expense') acc.expense += Number(e.amount || 0);
       return acc;
     }, { income: 0, expense: 0 });
     totals.profit = totals.income - totals.expense;
 
-    const categories = [...new Set(entries.map((e) => e.category).filter(Boolean))];
-    res.json({ success: true, count: entries.length, entries, totals, categories });
+    const categories = [...new Set(allEntries.map((e) => e.category).filter(Boolean))];
+    res.json({ success: true, count: allEntries.length, entries: allEntries, totals, categories });
   } catch (err) { next(err); }
 };
 
@@ -276,7 +315,7 @@ exports.getOverview = async (req, res, next) => {
     const empIds = await getEmpIds(branch);
     const empMatch = empIds ? { employee: { $in: empIds } } : {};
 
-    const [paidInvoices, paidPayrolls, entries, revenueByMonth, paymentRevenueAgg, incomeExpenseByCategory] = await Promise.all([
+    const [paidInvoices, paidPayrolls, entries, revenueByMonth, paymentRevenueAgg, incomeExpenseByCategory, pettyCashEntries, subscriptions] = await Promise.all([
       Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
       Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year'),
       FinanceEntry.find({ ...branchMatch, date: range })
@@ -290,14 +329,22 @@ exports.getOverview = async (req, res, next) => {
         { $group: { _id: { category: '$category', type: '$type' }, total: { $sum: '$amount' } } },
         { $sort: { total: -1 } },
       ]),
+      // Petty cash in range
+      PettyCash.find({ ...(branch ? { branch } : {}), date: range }).sort({ date: -1 }),
+      // Subscriptions created in range
+      Subscription.find({ ...(branch ? { branch } : {}), createdAt: range }).sort({ createdAt: -1 })
     ]);
+
+    const pettyCashIn = pettyCashEntries.filter(p => p.type === 'in').reduce((s, p) => s + Number(p.amount || 0), 0);
+    const pettyCashOut = pettyCashEntries.filter(p => p.type === 'out').reduce((s, p) => s + Number(p.amount || 0), 0);
+    const subscriptionRevenue = subscriptions.reduce((s, sub) => s + Number(sub.amount || 0), 0);
 
     const revenue = paymentRevenueAgg.total;
     const salaryPayout = paidPayrolls.reduce((s, p) => s + Number(p.netSalary || 0), 0);
     const incomeEntries = entries.filter((e) => e.type === 'income').reduce((s, e) => s + Number(e.amount || 0), 0);
     const expenseEntries = entries.filter((e) => e.type === 'expense').reduce((s, e) => s + Number(e.amount || 0), 0);
-    const totalIncome = revenue + incomeEntries;
-    const totalExpense = salaryPayout + expenseEntries;
+    const totalIncome = revenue + incomeEntries + pettyCashIn + subscriptionRevenue;
+    const totalExpense = salaryPayout + expenseEntries + pettyCashOut;
     const profit = totalIncome - totalExpense;
 
     const monthlyMap = new Map((revenueByMonth || []).map((r) => [r._id, r]));
@@ -311,11 +358,15 @@ exports.getOverview = async (req, res, next) => {
         acc[e.category] = (acc[e.category] || 0) + Number(e.amount || 0);
         return acc;
       }, {});
+    if (pettyCashIn > 0) incomeBreakdown['Petty Cash (In)'] = (incomeBreakdown['Petty Cash (In)'] || 0) + pettyCashIn;
+    if (subscriptionRevenue > 0) incomeBreakdown['Subscriptions'] = (incomeBreakdown['Subscriptions'] || 0) + subscriptionRevenue;
+
     const expenseBreakdown = entries.filter((e) => e.type === 'expense')
       .reduce((acc, e) => {
         acc[e.category] = (acc[e.category] || 0) + Number(e.amount || 0);
         return acc;
       }, {});
+    if (pettyCashOut > 0) expenseBreakdown['Petty Cash'] = (expenseBreakdown['Petty Cash'] || 0) + pettyCashOut;
 
     const topRevenueInvoices = [...paidInvoices]
       .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))
@@ -327,6 +378,34 @@ exports.getOverview = async (req, res, next) => {
         total: Number(i.total || 0),
         paidAt: i.paidAt,
       }));
+
+    // Build recent entries including petty cash
+    const recentFinance = entries.slice(0, 12).map((e) => ({
+      type: e.type,
+      category: e.category,
+      title: e.title,
+      amount: Number(e.amount || 0),
+      date: e.date,
+      note: e.note || '',
+      paymentMethod: e.paymentMethod || '—',
+      bankName: e.bankAccount?.bankName || '',
+      branchName: e.branch?.name || '',
+    }));
+    // Add petty cash to recent entries
+    pettyCashEntries.slice(0, 6).forEach(p => {
+      recentFinance.push({
+        type: p.type === 'out' ? 'expense' : 'income',
+        category: p.category || 'Petty Cash',
+        title: `Petty Cash: ${p.description}`,
+        amount: Number(p.amount || 0),
+        date: p.date,
+        note: p.paidTo || '',
+        paymentMethod: p.paymentType || 'Cash',
+        bankName: '',
+        branchName: '',
+      });
+    });
+    recentFinance.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const charts = {
       revenueByMonth: normalizedRevenueSeries,
@@ -340,27 +419,19 @@ exports.getOverview = async (req, res, next) => {
     res.json({
       success: true,
       period: { from, to, month: req.query.month, year: req.query.year },
-      summary: { revenue, salaryPayout, incomeEntries, expenseEntries, totalIncome, totalExpense, profit },
+      summary: { revenue, salaryPayout, incomeEntries, expenseEntries, pettyCashIn, pettyCashOut, subscriptionRevenue, totalIncome, totalExpense, profit },
       details: {
         paidInvoicesCount: paidInvoices.length,
         invoicePaymentsCount: paymentRevenueAgg.paymentCount,
         payrollRunsCount: paidPayrolls.length,
         entriesCount: entries.length,
+        subscriptionPaymentsCount,
+        pettyCashCount: pettyCashEntries.length,
         profitMarginPct: totalIncome > 0 ? Number(((profit / totalIncome) * 100).toFixed(2)) : 0,
         incomeBreakdown: Object.entries(incomeBreakdown).map(([cat, amount]) => ({ category: cat, amount })).sort((a, b) => b.amount - a.amount),
         expenseBreakdown: Object.entries(expenseBreakdown).map(([cat, amount]) => ({ category: cat, amount })).sort((a, b) => b.amount - a.amount),
         topRevenueInvoices,
-        recentEntries: entries.slice(0, 12).map((e) => ({
-          type: e.type,
-          category: e.category,
-          title: e.title,
-          amount: Number(e.amount || 0),
-          date: e.date,
-          note: e.note || '',
-          paymentMethod: e.paymentMethod || '—',
-          bankName: e.bankAccount?.bankName || '',
-          branchName: e.branch?.name || '',
-        })),
+        recentEntries: recentFinance.slice(0, 15),
       },
       charts,
     });
@@ -512,15 +583,27 @@ exports.exportData = async (req, res, next) => {
         const y = Number(year || now.getFullYear());
         range = getRange(m, y);
       }
-      const paidInvoices = await Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).populate('client', 'name email');
-      const paidPayrolls = await Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
-      const entries = await FinanceEntry.find({ ...branchMatch, ...(type ? { type } : {}), ...(category ? { category } : {}), date: range });
+      const [paidInvoices, paidPayrolls, entries, pettyCash, subsPayments] = await Promise.all([
+        Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).populate('client', 'name email'),
+        Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } }),
+        FinanceEntry.find({ ...branchMatch, ...(type ? { type } : {}), ...(category ? { category } : {}), date: range }),
+        PettyCash.find({ ...branchMatch, date: range }),
+        Subscription.aggregate([
+          { ...(branch ? { $match: { branch: new (require('mongoose').Types.ObjectId)(branch) } } : { $match: {} }) },
+          { $unwind: '$payments' },
+          { $match: { 'payments.paidAt': range } },
+          { $project: { _id: '$payments._id', amount: '$payments.amount', date: '$payments.paidAt', method: '$payments.method', title: '$title' } }
+        ])
+      ]);
       const revenue = paidInvoices.reduce((s, i) => s + Number(i.total || 0), 0);
       const salaryPayout = paidPayrolls.reduce((s, p) => s + Number(p.netSalary || 0), 0);
       const incomeEntries = entries.filter((e) => e.type === 'income').reduce((s, e) => s + Number(e.amount || 0), 0);
       const expenseEntries = entries.filter((e) => e.type === 'expense').reduce((s, e) => s + Number(e.amount || 0), 0);
-      const totalIncome = revenue + incomeEntries;
-      const totalExpense = salaryPayout + expenseEntries;
+      const subRevenue = subsPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+      const pcIn = pettyCash.filter(p => p.type === 'in').reduce((s, p) => s + Number(p.amount || 0), 0);
+      const pcOut = pettyCash.filter(p => p.type === 'out').reduce((s, p) => s + Number(p.amount || 0), 0);
+      const totalIncome = revenue + incomeEntries + subRevenue + pcIn;
+      const totalExpense = salaryPayout + expenseEntries + pcOut;
       const profit = totalIncome - totalExpense;
 
       const ledger = [];
@@ -560,6 +643,30 @@ exports.exportData = async (req, res, next) => {
           e.note || '',
         ],
       }));
+      subsPayments.forEach((s) => ledger.push({
+        rawDate: s.date ? new Date(s.date) : new Date(0),
+        row: [
+          s.date ? new Date(s.date).toLocaleDateString() : '—',
+          'Subscription',
+          'income',
+          'Subscriptions',
+          `Subscription Payment: ${s.title}`,
+          Number(s.amount || 0),
+          '',
+        ],
+      }));
+      pettyCash.forEach((p) => ledger.push({
+        rawDate: p.date ? new Date(p.date) : new Date(0),
+        row: [
+          p.date ? new Date(p.date).toLocaleDateString() : '—',
+          'Petty Cash',
+          p.type === 'out' ? 'expense' : 'income',
+          p.type === 'out' ? 'Petty Cash' : 'Petty Cash (In)',
+          `Petty Cash: ${p.description}`,
+          Number(p.amount || 0),
+          p.paidTo || '',
+        ],
+      }));
 
       ledger.sort((a, b) => b.rawDate - a.rawDate);
 
@@ -569,6 +676,9 @@ exports.exportData = async (req, res, next) => {
         ['Summary', 'System', 'expense', 'Salary', 'Salary payout', salaryPayout, ''],
         ['Summary', 'System', 'income', 'Finance Entries', 'Other income entries', incomeEntries, ''],
         ['Summary', 'System', 'expense', 'Finance Entries', 'Other expense entries', expenseEntries, ''],
+        ['Summary', 'System', 'income', 'Subscriptions', 'Subscription payments', subRevenue, ''],
+        ['Summary', 'System', 'income', 'Petty Cash', 'Petty Cash (In)', pcIn, ''],
+        ['Summary', 'System', 'expense', 'Petty Cash', 'Petty Cash (Out)', pcOut, ''],
         ['Summary', 'System', 'income', 'Total', 'Total income', totalIncome, ''],
         ['Summary', 'System', 'expense', 'Total', 'Total expense', totalExpense, ''],
         ['Summary', 'System', profit >= 0 ? 'income' : 'expense', 'Profit', 'Net profit', profit, ''],
@@ -618,15 +728,32 @@ exports.getProfitLoss = async (req, res, next) => {
     const empMatch = empIds ? { employee: { $in: empIds } } : {};
     const pmMatch = paymentMethod ? { paymentMethod } : {};
 
-    const [incomeEntries, expenseEntries, invoicePayments, payrollRuns] = await Promise.all([
+    const [incomeEntries, expenseEntries, invoicePayments, payrollRuns, pettyCash, subscriptions] = await Promise.all([
       FinanceEntry.find({ ...branchMatch, ...pmMatch, type: 'income', date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
       FinanceEntry.find({ ...branchMatch, ...pmMatch, type: 'expense', date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
       Invoice.find({ ...branchMatch, status: 'paid', paidAt: { $gte: startDate, $lte: endDate } }).populate('client', 'name email').sort({ paidAt: -1 }),
       Payroll.find({ ...empMatch, status: 'paid', paidAt: { $gte: startDate, $lte: endDate } }).populate({ path: 'employee', populate: { path: 'userId', select: 'name' } }).sort({ paidAt: -1 }),
+      PettyCash.find({ ...branchMatch, date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
+      Subscription.find({ ...branchMatch, createdAt: { $gte: startDate, $lte: endDate } }).sort({ createdAt: -1 })
     ]);
 
-    const totalIncomeEntries = incomeEntries.reduce((s, e) => s + e.amount, 0);
-    const totalExpenseEntries = expenseEntries.reduce((s, e) => s + e.amount, 0);
+    // Normalize petty cash into standard income/expense entry shape for reports
+    const pcIncome = pettyCash.filter(p => p.type === 'in' && (!paymentMethod || p.paymentType === paymentMethod)).map(p => ({
+      _id: p._id, type: 'income', category: 'Petty Cash (In)', title: `Petty Cash: ${p.description}`, amount: p.amount, date: p.date, paymentMethod: p.paymentType
+    }));
+    const pcExpense = pettyCash.filter(p => p.type === 'out' && (!paymentMethod || p.paymentType === paymentMethod)).map(p => ({
+      _id: p._id, type: 'expense', category: 'Petty Cash', title: `Petty Cash: ${p.description}`, amount: p.amount, date: p.date, paymentMethod: p.paymentType
+    }));
+    
+    const subIncome = subscriptions.map(s => ({
+      _id: s._id, type: 'income', category: 'Subscriptions', title: `Subscription: ${s.title}`, amount: s.amount, date: s.createdAt, paymentMethod: 'Subscription'
+    }));
+
+    const allIncomeEntries = [...incomeEntries, ...pcIncome, ...subIncome];
+    const allExpenseEntries = [...expenseEntries, ...pcExpense];
+
+    const totalIncomeEntries = allIncomeEntries.reduce((s, e) => s + e.amount, 0);
+    const totalExpenseEntries = allExpenseEntries.reduce((s, e) => s + e.amount, 0);
     const totalInvoiceRevenue = invoicePayments.reduce((s, i) => s + i.total, 0);
     const totalSalaryExpense = payrollRuns.reduce((s, p) => s + p.netSalary, 0);
 
@@ -636,7 +763,7 @@ exports.getProfitLoss = async (req, res, next) => {
 
     // By payment method breakdown
     const byMethod = {};
-    [...incomeEntries, ...expenseEntries].forEach(e => {
+    [...allIncomeEntries, ...allExpenseEntries].forEach(e => {
       const m = e.paymentMethod || 'Cash';
       if (!byMethod[m]) byMethod[m] = { income: 0, expense: 0 };
       byMethod[m][e.type] = (byMethod[m][e.type] || 0) + e.amount;
@@ -644,16 +771,16 @@ exports.getProfitLoss = async (req, res, next) => {
 
     // By category breakdown
     const incomeCategoryMap = {};
-    incomeEntries.forEach(e => { incomeCategoryMap[e.category] = (incomeCategoryMap[e.category] || 0) + e.amount; });
+    allIncomeEntries.forEach(e => { incomeCategoryMap[e.category] = (incomeCategoryMap[e.category] || 0) + e.amount; });
     const expenseCategoryMap = {};
-    expenseEntries.forEach(e => { expenseCategoryMap[e.category] = (expenseCategoryMap[e.category] || 0) + e.amount; });
+    allExpenseEntries.forEach(e => { expenseCategoryMap[e.category] = (expenseCategoryMap[e.category] || 0) + e.amount; });
 
     res.json({
       success: true,
       period: { from: startDate, to: endDate },
       summary: { totalIncome, totalExpense, netProfit, totalInvoiceRevenue, totalSalaryExpense, totalIncomeEntries, totalExpenseEntries },
-      incomeEntries,
-      expenseEntries,
+      incomeEntries: allIncomeEntries,
+      expenseEntries: allExpenseEntries,
       invoicePayments,
       payrollRuns,
       byMethod: Object.entries(byMethod).map(([method, vals]) => ({ method, ...vals })),

@@ -1,11 +1,14 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import { absoluteMediaUrl } from './media'
-import { buildCompanyFromSettings, companyContactLines, companyLogoHtml } from './companyBranding'
+import { buildCompanyFromSettings, companyContactLines, companyLogoHtml, contactBlockHtml } from './companyBranding'
+import { resolveLetterSignatory } from './letterSignatures'
 
 function safeImgSrc(u) {
   if (!u || typeof u !== 'string') return ''
-  return u.replace(/"/g, '').replace(/'/g, '').trim()
+  const abs = absoluteMediaUrl(u.trim())
+  if (!abs) return ''
+  return abs.replace(/"/g, '').replace(/'/g, '')
 }
 
 function esc(s) {
@@ -17,39 +20,18 @@ function esc(s) {
     .replace(/"/g, '&quot;')
 }
 
-function sigCell(label, sig) {
-  const nameHtml = sig?.name ? `<p style="margin:4px 0 0;font-size:10pt;font-weight:700;color:#0f172a">${esc(sig.name)}</p>` : ''
-  const titleHtml = sig?.title ? `<p style="margin:2px 0 0;font-size:8.5pt;color:#64748b">${esc(sig.title)}</p>` : ''
-  if (!sig?.data) {
-    return `
-      <div style="min-width:160px">
-        <div style="height:48px;border-bottom:1px solid #94a3b8;margin-bottom:6px"></div>
-        <p style="margin:0;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;font-weight:700">${esc(label)}</p>
-        ${nameHtml}${titleHtml}
-      </div>`
-  }
-  return `
-    <div style="min-width:160px">
-      <img src="${safeImgSrc(sig.data)}" style="max-height:60px;object-fit:contain;display:block;margin-bottom:6px" alt=""/>
-      <p style="margin:0;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;font-weight:700">${esc(label)}</p>
-      ${nameHtml}${titleHtml}
-    </div>`
-}
+const LOGO_MAX_HEIGHT = 48
+const SIG_IMAGE_MAX_HEIGHT = 44
+const SEAL_MAX_HEIGHT = 52
 
 /** Build the quotation-style letterhead (logo+name left, contact right, blue border bottom) */
 export function buildLetterheadHtml(company) {
-  const logoSrc = absoluteMediaUrl(company.logoPath || company.logo)
-  const logoHtml = logoSrc
-    ? `<img src="${safeImgSrc(logoSrc)}" alt="" style="max-height:64px;object-fit:contain;flex-shrink:0"/>`
-    : `<div style="width:56px;height:56px;border-radius:10px;background:#0ea5e9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;flex-shrink:0">${esc((company.name || 'C').charAt(0))}</div>`
+  const logoHtml = companyLogoHtml(company, { forPrint: false, maxHeight: LOGO_MAX_HEIGHT })
 
-  const tagline = company.tagline || 'Next Tech Level'
+  const tagline = company.tagline || 'Next Level Tech'
   const taglineHtml = `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>`
 
-  const contactLines = companyContactLines(company)
-  const contactHtml = contactLines
-    .map(l => `<div style="margin:3px 0;font-size:9.5pt;color:#475569"><span style="color:#38bdf8;font-weight:600;min-width:42px;display:inline-block">${esc(l.label)}</span> ${esc(l.text)}</div>`)
-    .join('')
+  const contactHtml = contactBlockHtml(company)
 
   return `
     <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
@@ -66,6 +48,11 @@ export function buildLetterheadHtml(company) {
 
 
 export function buildRefDateHtml(letterRef, issuedDate) {
+  const dateStr =
+    issuedDate && !Number.isNaN(new Date(issuedDate).getTime())
+      ? new Date(issuedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })
+      : issuedDate || ''
+
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:10pt">
       <div>
@@ -74,7 +61,7 @@ export function buildRefDateHtml(letterRef, issuedDate) {
       </div>
       <div>
         <span style="color:#64748b;margin-right:6px;font-size:9pt;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Date:</span>
-        <strong style="color:#0f172a">${esc(issuedDate || '')}</strong>
+        <strong style="color:#0f172a">${esc(dateStr)}</strong>
       </div>
     </div>`
 }
@@ -87,26 +74,37 @@ export function buildTitleHtml(letterTitle) {
 
 export function buildSigsHtml(signatures, opts = {}) {
   if (!signatures) return ''
-  const list = Array.isArray(signatures.list) ? signatures.list : [
-    { role: 'HR', ...signatures.hr },
-    { role: 'Manager', ...signatures.manager }
-  ]
-  const listHtml = list.filter(s => s).map(s => sigCell(s.role || 'Signature', s)).join('')
-  
-  const sealObj = signatures.seal
-  const sealHtml = (sealObj?.data && !opts.hideSeal) ? `
-    <div style="position:absolute;top:${sealObj.y !== undefined ? sealObj.y : 80}%;left:${sealObj.x !== undefined ? sealObj.x : 85}%;transform:translate(-50%, -50%);text-align:center;z-index:10;pointer-events:none;">
-      <p style="margin:0 0 4px;font-size:8.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;background:rgba(255,255,255,0.7);padding:2px 4px;border-radius:4px;display:inline-block;">Seal</p><br/>
-      <img src="${safeImgSrc(sealObj.data)}" style="max-height:100px;object-fit:contain;opacity:0.9;mix-blend-mode:multiply;pointer-events:auto;"/>
-    </div>
-  ` : ''
+  const siteSettings = opts.siteSettings || {}
+  const { signatory, seal } = resolveLetterSignatory(signatures, siteSettings)
+  const roleLabel = (signatory.role || 'admin').replace(/^./, (c) => c.toUpperCase())
+
+  const includeSignature = signatures.includeSignature !== false
+  const includeSeal = signatures.includeSeal !== false && !opts.hideSeal
+
+  const hasSig = includeSignature && (signatory.data || signatory.name)
+  const hasSeal = includeSeal && Boolean(seal?.data)
+  if (!hasSig && !hasSeal) return ''
+
+  const sigBlock = hasSig
+    ? `
+      ${signatory.data
+        ? `<img src="${safeImgSrc(signatory.data)}" alt="" style="max-height:${SIG_IMAGE_MAX_HEIGHT}px;max-width:140px;object-fit:contain;display:block;margin:0 0 8px auto"/>`
+        : `<div style="height:36px;border-bottom:1px solid #94a3b8;width:140px;margin:0 0 8px auto"></div>`}
+      <p style="margin:0;font-size:10pt;font-weight:700;color:#0f172a">${esc(signatory.name || roleLabel)}</p>
+      ${signatory.title ? `<p style="margin:4px 0 0;font-size:9pt;color:#64748b">${esc(signatory.title)}</p>` : ''}
+      <p style="margin:6px 0 0;font-size:8pt;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8">Authorized Signatory</p>`
+    : ''
+
+  const sealBlock = hasSeal
+    ? `<img src="${safeImgSrc(seal.data)}" alt="Company seal" style="max-height:${SEAL_MAX_HEIGHT}px;max-width:72px;object-fit:contain;display:block;margin:${hasSig ? '14px' : '0'} 0 0 auto;opacity:0.95"/>`
+    : ''
 
   return `
-    <div style="position:relative;margin-top:32px;padding-top:20px;border-top:2px solid #e2e8f0;">
-      <div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end;position:relative;z-index:1;">
-        ${listHtml}
+    <div style="margin-top:36px;padding-top:20px;border-top:1px solid #e2e8f0;page-break-inside:avoid">
+      <div style="margin-left:auto;max-width:200px;text-align:right">
+        ${sigBlock}
+        ${sealBlock}
       </div>
-      ${sealHtml}
     </div>`
 }
 
@@ -117,14 +115,29 @@ export function buildFooterHtml(company) {
     </footer>`
 }
 
-export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issuedDate, bodyHtml, signatures }) {
+export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issuedDate, bodyHtml, signatures, siteSettings, isFullHtml }) {
+  // If isFullHtml is true, the bodyHtml already contains letterhead, ref, title,
+  // signatures, and footer (e.g. custom letters from Enterprise Builder).
+  // Just wrap it in the outer container without adding duplicate elements.
+  if (isFullHtml) {
+    return `
+    <div style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.55;max-width:780px;margin:0 auto">
+      <div class="letter-body" style="margin-top:0">${bodyHtml || ''}</div>
+    </div>`
+  }
+
+  const issued =
+    issuedDate && !Number.isNaN(new Date(issuedDate).getTime())
+      ? new Date(issuedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })
+      : issuedDate || ''
+  // Standard letter bodies from letterTemplatesHtml already contain their own <h1> title,
+  // so we skip buildTitleHtml to avoid duplicates.
   return `
-  <div style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.6;max-width:780px;margin:0 auto">
+  <div style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.55;max-width:780px;margin:0 auto">
     ${buildLetterheadHtml(company)}
-    ${buildRefDateHtml(letterRef, issuedDate)}
-    ${buildTitleHtml(letterTitle)}
+    ${buildRefDateHtml(letterRef, issued)}
     <div class="letter-body" style="margin-top:4px">${bodyHtml || ''}</div>
-    ${buildSigsHtml(signatures)}
+    ${buildSigsHtml(signatures, { siteSettings })}
     ${buildFooterHtml(company)}
   </div>`
 }
@@ -171,6 +184,12 @@ const PRINT_STYLES = `
   .letter-pdf-prose .ql-align-center { text-align: center; }
   .letter-pdf-prose .ql-align-right { text-align: right; }
   .letter-pdf-prose .ql-align-justify { text-align: justify; }
+  /* Enterprise letter styles (custom builder) */
+  .enterprise-letter-body { font-size: 11pt; line-height: 1.55; }
+  .enterprise-letter-body p { margin-bottom: 12px; }
+  .enterprise-letter-body table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .enterprise-letter-body td, .enterprise-letter-body th { border: 1px solid #e2e8f0; padding: 8px; }
+  .enterprise-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
   @media print { body { margin: 0; } }
 `
 
@@ -182,10 +201,37 @@ export function buildLetterFullHtml(opts) {
 
 export function openLetterPrint(opts) {
   const inner = buildLetterInnerForPrint(opts)
-  const w = window.open('', '_blank')
-  if (!w) return
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(opts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}</style></head><body>${inner}<script>window.onload=function(){window.print();}<\/script></body></html>`)
-  w.document.close()
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(opts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}</style></head><body>${inner}</body></html>`
+
+  // Use a hidden iframe instead of window.open to avoid opening a new tab.
+  // The iframe prints from its own context so the parent page stays responsive.
+  const oldFrame = document.getElementById('__letter-print-frame')
+  if (oldFrame) oldFrame.remove()
+
+  const iframe = document.createElement('iframe')
+  iframe.id = '__letter-print-frame'
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;border:none;visibility:hidden;'
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentDocument || iframe.contentWindow.document
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow.focus()
+      iframe.contentWindow.print()
+    } catch (e) {
+      // fallback: print the whole window
+      window.print()
+    }
+    // Clean up after a delay to let the print dialog finish
+    setTimeout(() => {
+      const el = document.getElementById('__letter-print-frame')
+      if (el) el.remove()
+    }, 2000)
+  }
 }
 
 export async function downloadLetterPdf(opts, filenameBase = 'letter') {

@@ -3,10 +3,10 @@ import { useForm, Controller } from 'react-hook-form'
 import { FiSave, FiX, FiRefreshCcw, FiImage, FiSettings, FiLayout, FiEye, FiDownload, FiPrinter } from 'react-icons/fi'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
-import { absoluteMediaUrl } from '../../lib/media'
 import DocumentAssetPicker from '../branding/DocumentAssetPicker'
 import SignaturePad from './SignaturePad'
-import { companyContactLines } from '../../lib/companyBranding'
+import { buildLetterheadHtml, buildRefDateHtml, buildSigsHtml } from '../../lib/letterDocument'
+import { LETTER_SIGNATORY_ROLES, applySignatoryRole, letterSignaturesToPayload } from '../../lib/letterSignatures'
 
 const QUILL_MODULES = {
   toolbar: [
@@ -75,21 +75,14 @@ export default function EnterpriseLetterBuilder({
     // Body
     bodyContent: initialData?.structuredData?.bodyContent || initialData?.content || '',
     
-    // Signatures
-    hrSignatureName: initialData?.signatures?.hr?.name || company?.signatures?.hr?.name || '',
-    hrSignatureTitle: initialData?.signatures?.hr?.title || 'Human Resources',
-    hrSignatureData: initialData?.signatures?.hr?.data || '',
-    
-    managerSignatureName: initialData?.signatures?.manager?.name || employee?.manager?.name || '',
-    managerSignatureTitle: initialData?.signatures?.manager?.title || 'Line Manager',
-    managerSignatureData: initialData?.signatures?.manager?.data || '',
-    
-    directorSignatureName: initialData?.signatures?.director?.name || '',
-    directorSignatureTitle: initialData?.signatures?.director?.title || 'Director',
-    directorSignatureData: initialData?.signatures?.director?.data || '',
-    
+    signatoryRole: initialData?.signatures?.activeRole || initialData?.structuredData?.signatoryRole || 'admin',
+    signatoryName: initialData?.signatures?.signatory?.name || initialData?.signatures?.hr?.name || company?.signatures?.admin?.label || '',
+    signatoryTitle: initialData?.signatures?.signatory?.title || initialData?.signatures?.hr?.title || 'Authorized Signatory',
+    signatoryData: initialData?.signatures?.signatory?.data || initialData?.signatures?.hr?.data || company?.signatures?.admin?.url || '',
     sealData: initialData?.signatures?.seal?.data || company?.seal || '',
-    
+    includeSignature: initialData?.signatures?.includeSignature !== false,
+    includeSeal: initialData?.signatures?.includeSeal !== false,
+
     // Settings
     primaryColor: initialData?.structuredData?.primaryColor || '#1e3a8a',
     fontFamily: initialData?.structuredData?.fontFamily || "'Segoe UI', system-ui, sans-serif",
@@ -126,12 +119,18 @@ export default function EnterpriseLetterBuilder({
         ...data,
         sections
       },
-      signatures: {
-        hr: { name: data.hrSignatureName, title: data.hrSignatureTitle, data: data.hrSignatureData },
-        manager: { name: data.managerSignatureName, title: data.managerSignatureTitle, data: data.managerSignatureData },
-        director: { name: data.directorSignatureName, title: data.directorSignatureTitle, data: data.directorSignatureData },
-        seal: { data: data.sealData }
-      }
+      signatures: letterSignaturesToPayload({
+        activeRole: data.signatoryRole,
+        includeSignature: data.includeSignature,
+        includeSeal: data.includeSeal,
+        signatory: {
+          role: data.signatoryRole,
+          name: data.signatoryName,
+          title: data.signatoryTitle,
+          data: data.signatoryData,
+        },
+        seal: { data: data.sealData },
+      }),
     }
     onSave(payload)
   }
@@ -143,11 +142,7 @@ export default function EnterpriseLetterBuilder({
       <div className="bg-white shadow-xl rounded-xl border border-slate-200 overflow-hidden mx-auto max-w-[794px] min-h-[1123px] relative print:shadow-none print:border-none flex flex-col">
         <style dangerouslySetInnerHTML={{__html: `
           .enterprise-letter { font-family: ${formData.fontFamily}; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 48px; display: flex; flex-direction: column; min-height: 100%; flex: 1; ${formData.documentFrame ? `border: 12px double ${formData.primaryColor}; border-radius: 8px; outline: 2px solid ${formData.primaryColor}; outline-offset: -8px; padding: 36px;` : ''} }
-          .enterprise-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${formData.primaryColor}; padding-bottom: 20px; margin-bottom: 24px; }
-          .enterprise-logo { max-height: 60px; max-width: 220px; object-fit: contain; }
-          .enterprise-co-info { text-align: right; }
-          .enterprise-co-name { font-size: 20px; font-weight: 800; color: ${formData.primaryColor}; margin: 0; }
-          .enterprise-co-contact { font-size: 9.5pt; color: #475569; margin-top: 8px; line-height: 1.5; }
+          .enterprise-letter-body { font-size: 11pt; line-height: 1.55; }
           .enterprise-meta-grid { display: flex; justify-content: space-between; margin-bottom: 24px; font-size: 10pt; }
           .enterprise-meta-col { display: flex; flex-direction: column; gap: 4px; }
           .enterprise-meta-label { color: #64748b; font-weight: 600; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -156,12 +151,6 @@ export default function EnterpriseLetterBuilder({
           .enterprise-body p { margin-bottom: 12px; }
           .enterprise-body table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
           .enterprise-body td, .enterprise-body th { border: 1px solid #e2e8f0; padding: 8px; }
-          .enterprise-sig-section { display: flex; justify-content: space-between; margin-top: 40px; page-break-inside: avoid; }
-          .enterprise-sig-block { display: flex; flex-direction: column; align-items: center; min-width: 150px; }
-          .enterprise-sig-img { height: 60px; object-fit: contain; margin-bottom: 8px; }
-          .enterprise-sig-line { width: 100%; border-top: 1px solid #000; margin: 8px 0; }
-          .enterprise-sig-name { font-weight: 600; font-size: 10pt; }
-          .enterprise-sig-title { font-size: 9pt; color: #64748b; }
           .enterprise-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
         `}} />
         <div className="enterprise-letter" dangerouslySetInnerHTML={{ __html: parts.full }} />
@@ -359,51 +348,47 @@ export default function EnterpriseLetterBuilder({
 
                   {sections.signatures && (
                     <div className="space-y-4 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                      <h3 className="font-bold text-sm text-slate-800">Signatures & Seals</h3>
-                      
-                      <div className="space-y-2 border-b pb-4">
-                        <p className="text-xs font-semibold text-slate-600">HR / Authorized Signatory</p>
-                        <input {...register('hrSignatureName')} placeholder="Name" className="form-input text-xs" />
-                        <input {...register('hrSignatureTitle')} placeholder="Title" className="form-input text-xs" />
-                        <DocumentAssetPicker 
-                          label="Upload Signature" 
-                          value={{ data: formData.hrSignatureData }} 
-                          onChange={(v) => setValue('hrSignatureData', v.data)} 
-                        />
+                      <h3 className="font-bold text-sm text-slate-800">Signature &amp; seal</h3>
+                      <p className="text-xs text-slate-500">Select signatory from Settings. Shown on the right when printed.</p>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                          <input type="checkbox" {...register('includeSignature')} className="form-checkbox rounded" />
+                          Include signature
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                          <input type="checkbox" {...register('includeSeal')} className="form-checkbox rounded" />
+                          Include company seal
+                        </label>
                       </div>
-
-                      <div className="space-y-2 border-b pb-4">
-                        <p className="text-xs font-semibold text-slate-600">Line Manager (Optional)</p>
-                        <input {...register('managerSignatureName')} placeholder="Name" className="form-input text-xs" />
-                        <input {...register('managerSignatureTitle')} placeholder="Title" className="form-input text-xs" />
-                        <DocumentAssetPicker 
-                          label="Upload Signature" 
-                          value={{ data: formData.managerSignatureData }} 
-                          onChange={(v) => setValue('managerSignatureData', v.data)} 
-                        />
+                      <div>
+                        <label className="form-label text-xs">Signatory</label>
+                        <select
+                          {...register('signatoryRole')}
+                          className="form-select text-xs"
+                          onChange={(e) => {
+                            register('signatoryRole').onChange(e)
+                            const next = applySignatoryRole(e.target.value, { signatures: company?.signatures, sealUrl: company?.seal, quotationDirectorName: '' }, {})
+                            setValue('signatoryName', next.signatory?.name || '')
+                            setValue('signatoryTitle', next.signatory?.title || '')
+                            setValue('signatoryData', next.signatory?.data || '')
+                            if (next.seal?.data) setValue('sealData', next.seal.data)
+                          }}
+                        >
+                          {LETTER_SIGNATORY_ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
                       </div>
-
-                      <div className="space-y-2 border-b pb-4">
-                        <p className="text-xs font-semibold text-slate-600">Director (Optional)</p>
-                        <input {...register('directorSignatureName')} placeholder="Name" className="form-input text-xs" />
-                        <input {...register('directorSignatureTitle')} placeholder="Title" className="form-input text-xs" />
-                        <DocumentAssetPicker 
-                          label="Upload Signature" 
-                          value={{ data: formData.directorSignatureData }} 
-                          onChange={(v) => setValue('directorSignatureData', v.data)} 
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-slate-600">Company Seal</p>
-                        <DocumentAssetPicker 
-                          label="Upload Seal" 
-                          assetType="seal"
-                          value={{ data: formData.sealData }} 
-                          onChange={(v) => setValue('sealData', v.data)} 
-                        />
-                      </div>
-
+                      <input {...register('signatoryName')} placeholder="Signatory name" className="form-input text-xs" />
+                      <input {...register('signatoryTitle')} placeholder="Title" className="form-input text-xs" />
+                      <DocumentAssetPicker
+                        label="Signature"
+                        value={{ data: formData.signatoryData }}
+                        onChange={(v) => setValue('signatoryData', v.data)}
+                        roleKey={formData.signatoryRole === 'custom' ? 'admin' : formData.signatoryRole}
+                      />
+                      <SignaturePad label="Draw signature" value={formData.signatoryData} onChange={(d) => setValue('signatoryData', d)} />
+                      <DocumentAssetPicker label="Company seal" assetType="seal" value={{ data: formData.sealData }} onChange={(v) => setValue('sealData', v.data)} />
                     </div>
                   )}
                 </div>
@@ -494,81 +479,62 @@ export default function EnterpriseLetterBuilder({
   )
 }
 
-// Helper to generate the final HTML combining all sections
+// Helper to generate the final HTML combining all sections (matches issued-letter print layout)
 function generateLetterParts(data, company, sections) {
-  const cName = (data.overrideHeader && data.customCompanyName) ? data.customCompanyName : company.name
-  const logoUrl = (data.overrideHeader && data.customLogo) ? data.customLogo : absoluteMediaUrl(company.logoPath || company.logo)
-  
-  const logoHtml = logoUrl 
-    ? `<img src="${logoUrl}" class="enterprise-logo" alt="${cName}" />` 
-    : `<h1 class="enterprise-co-name">${cName}</h1>`
+  const cName = data.overrideHeader && data.customCompanyName ? data.customCompanyName : company.name
+  const co = data.overrideHeader && data.customLogo
+    ? { ...company, name: cName, logo: data.customLogo, logoPath: data.customLogo }
+    : { ...company, name: cName }
 
-  const contactHtml = companyContactLines(company).map(l => `<div><span style="color:#94a3b8">${l.label}:</span> ${l.text}</div>`).join('')
+  const siteSettings = {
+    signatures: company.signatures || {},
+    sealUrl: company.seal || '',
+    quotationDirectorName: '',
+  }
 
   let before = ''
   let after = ''
   let body = ''
 
   if (sections.header) {
-    before += `
-      <div class="enterprise-header">
-        <div>${logoHtml}</div>
-        <div class="enterprise-co-info">
-          ${logoUrl ? `<h2 class="enterprise-co-name" style="font-size:16px;">${cName}</h2>` : ''}
-          <div class="enterprise-co-contact">${contactHtml}</div>
-        </div>
-      </div>
-    `
+    before += buildLetterheadHtml(co)
   }
 
-  before += `<div class="enterprise-meta-grid">`
-  
   if (sections.info) {
-    before += `
-      <div class="enterprise-meta-col">
-        <span class="enterprise-meta-label">Reference</span>
-        <strong>${data.letterRef}</strong>
-      </div>
-      <div class="enterprise-meta-col" style="text-align: right;">
-        <span class="enterprise-meta-label">Date</span>
-        <strong>${new Date(data.issuedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric'})}</strong>
-      </div>
-    `
+    before += buildRefDateHtml(
+      data.letterRef,
+      data.issuedDate
+        ? new Date(data.issuedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })
+        : '',
+    )
   }
-  
-  before += `</div>`
 
   if (sections.from || sections.to) {
-    before += `<div class="enterprise-meta-grid" style="margin-top: 20px;">`
-    
+    before += `<div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:24px;font-size:10pt">`
     if (sections.to) {
       before += `
-        <div class="enterprise-meta-col">
-          <span class="enterprise-meta-label">To</span>
-          <strong style="font-size: 11pt;">${data.recipientName}</strong>
-          ${data.recipientDesignation ? `<span>${data.recipientDesignation}</span>` : ''}
-          ${data.recipientCompany ? `<span>${data.recipientCompany}</span>` : ''}
-          ${data.recipientAddress ? `<span style="white-space: pre-wrap;">${data.recipientAddress}</span>` : ''}
-        </div>
-      `
+        <div style="flex:1;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+          <p style="margin:0 0 6px;font-size:9pt;font-weight:700;color:#94a3b8;text-transform:uppercase">To</p>
+          <p style="margin:0;font-weight:700;color:#0f172a">${data.recipientName || ''}</p>
+          ${data.recipientDesignation ? `<p style="margin:4px 0 0;color:#475569">${data.recipientDesignation}</p>` : ''}
+          ${data.recipientCompany ? `<p style="margin:2px 0 0;color:#475569">${data.recipientCompany}</p>` : ''}
+          ${data.recipientAddress ? `<p style="margin:4px 0 0;color:#475569;white-space:pre-wrap">${data.recipientAddress}</p>` : ''}
+        </div>`
     }
-
     if (sections.from) {
       before += `
-        <div class="enterprise-meta-col" style="text-align: right;">
-          <span class="enterprise-meta-label">From</span>
-          <strong style="font-size: 11pt;">${data.senderName}</strong>
-          ${data.senderDesignation ? `<span>${data.senderDesignation}</span>` : ''}
-          ${data.senderDepartment ? `<span>${data.senderDepartment}</span>` : ''}
-        </div>
-      `
+        <div style="flex:1;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;text-align:right">
+          <p style="margin:0 0 6px;font-size:9pt;font-weight:700;color:#94a3b8;text-transform:uppercase">From</p>
+          <p style="margin:0;font-weight:700;color:#0f172a">${data.senderName || ''}</p>
+          ${data.senderDesignation ? `<p style="margin:4px 0 0;color:#475569">${data.senderDesignation}</p>` : ''}
+          ${data.senderDepartment ? `<p style="margin:2px 0 0;color:#475569">${data.senderDepartment}</p>` : ''}
+        </div>`
     }
-
     before += `</div>`
   }
 
   if (sections.info && data.subject) {
-    before += `<h3 class="enterprise-subject">${data.subject}</h3>`
+    before += `<h2 style="margin:0 0 20px;font-size:15pt;font-weight:800;color:#0f172a;border-left:4px solid #0ea5e9;padding-left:12px">${data.subject}</h2>`
   }
 
   if (sections.body) {
@@ -577,48 +543,31 @@ function generateLetterParts(data, company, sections) {
     parsedBody = parsedBody.replace(/{{DESIGNATION}}/g, data.recipientDesignation || 'Designation')
     parsedBody = parsedBody.replace(/{{COMPANY_NAME}}/g, cName)
     parsedBody = parsedBody.replace(/{{CURRENT_DATE}}/g, new Date().toLocaleDateString('en-LK'))
-
-    body += `<div class="enterprise-body">${parsedBody}</div>`
+    body += `<div class="enterprise-letter-body letter-body">${parsedBody}</div>`
   }
 
   if (sections.signatures) {
-    after += `<div class="enterprise-sig-section">`
-    
-    const renderSig = (name, title, dataUrl) => {
-      if (!name && !title && !dataUrl) return ''
-      return `
-        <div class="enterprise-sig-block">
-          ${dataUrl ? `<img src="${dataUrl}" class="enterprise-sig-img" />` : '<div style="height: 60px;"></div>'}
-          <div class="enterprise-sig-line"></div>
-          <span class="enterprise-sig-name">${name}</span>
-          <span class="enterprise-sig-title">${title}</span>
-        </div>
-      `
-    }
-
-    after += renderSig(data.hrSignatureName, data.hrSignatureTitle, data.hrSignatureData)
-    after += renderSig(data.managerSignatureName, data.managerSignatureTitle, data.managerSignatureData)
-    after += renderSig(data.directorSignatureName, data.directorSignatureTitle, data.directorSignatureData)
-
-    if (data.sealData) {
-      after += `
-        <div class="enterprise-sig-block" style="justify-content: center;">
-          <img src="${data.sealData}" style="max-height: 90px; max-width: 120px; object-fit: contain; mix-blend-mode: multiply;" />
-          <span class="enterprise-sig-title" style="margin-top: 4px;">Company Seal</span>
-        </div>
-      `
-    }
-
-    after += `</div>`
+    const sigPayload = letterSignaturesToPayload({
+      activeRole: data.signatoryRole,
+      includeSignature: data.includeSignature,
+      includeSeal: data.includeSeal,
+      signatory: {
+        role: data.signatoryRole,
+        name: data.signatoryName,
+        title: data.signatoryTitle,
+        data: data.signatoryData,
+      },
+      seal: { data: data.sealData },
+    })
+    after += buildSigsHtml(sigPayload, { siteSettings })
   }
 
   if (sections.footer) {
     after += `
-      <div class="enterprise-footer">
-        <p>${cName} ${company.address ? `· ${company.address}` : ''}</p>
-        <p style="margin-top:4px;">This document was generated electronically and is valid with authorized signatures where applied.</p>
-      </div>
-    `
+      <footer style="margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;text-align:center;font-size:9pt;color:#64748b">
+        <p style="margin:0">${cName}${company.address ? ` · ${company.address}` : ''}</p>
+        <p style="margin:5px 0 0;font-size:8pt;color:#94a3b8">This document was generated electronically and is valid with authorised signatures where applied.</p>
+      </footer>`
   }
 
   return { before, body, after, full: before + body + after }

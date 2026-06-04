@@ -1,8 +1,8 @@
 /**
  * Shared professional letterhead & print styles for quotations, invoices, exports.
  */
-import { buildCompanyFromSettings, companyContactLines, companyLogoHtml } from './companyBranding'
-import { absoluteMediaUrl } from './media'
+import { buildCompanyFromSettings, companyContactLines, companyLogoHtml, contactBlockHtml } from './companyBranding'
+import { absoluteMediaUrl, mediaUrl } from './media'
 
 function esc(s) {
   if (s == null) return ''
@@ -21,14 +21,7 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
       ? showTagline
       : settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Next Level Tech'
   const logo = companyLogoHtml(company, { forPrint, maxHeight: 64 })
-  const lines = companyContactLines(company)
-
-  const contactHtml = lines
-    .map(
-      (l) =>
-        `<div style="margin:3px 0;font-size:9.5pt;color:#475569"><span style="color:#38bdf8;font-weight:600;min-width:42px;display:inline-block">${esc(l.label)}</span> ${esc(l.text)}</div>`,
-    )
-    .join('')
+  const contactHtml = contactBlockHtml(company)
 
   return `
     <header class="doc-letterhead" style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
@@ -45,7 +38,7 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
 
 export function documentPrintStyles() {
   return `
-    @page { margin: 14mm; }
+    @page { margin: 0; size: auto; }
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; margin: 0; padding: 0; }
     .doc-frame { border: 1px solid #cbd5e1; border-radius: 4px; padding: 28px 32px; min-height: 100%; }
@@ -64,6 +57,8 @@ export function documentPrintStyles() {
     .doc-thankyou { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-style: italic; color: #64748b; text-align: center; font-size: 10.5pt; }
     .doc-continuation { padding-top: 48px; }
     @media print {
+      @page { margin: 0; }
+      body { padding: 14mm; margin: 0; }
       .no-print { display: none !important; }
       .doc-frame, .doc-print-frame { border: none; padding: 0; }
       .doc-letterhead { page-break-after: avoid; }
@@ -80,12 +75,19 @@ export function documentPrintStyles() {
 
 export function directorSealBlockHtml({ directorName, sealUrl, forPrint = true }) {
   if (!directorName && !sealUrl) return ''
-  const src = sealUrl ? absoluteMediaUrl(sealUrl) : ''
+  let src = ''
+  if (sealUrl) {
+    if (sealUrl.startsWith('data:') || /^https?:\/\//i.test(sealUrl)) {
+      src = sealUrl
+    } else {
+      src = forPrint ? absoluteMediaUrl(sealUrl) : mediaUrl(sealUrl)
+    }
+  }
   return `
-    <div class="doc-seal-block">
-      ${directorName ? `<p style="margin:0 0 8px;font-weight:700;font-size:11pt;color:#0f172a">${esc(directorName)}</p>` : ''}
-      ${src ? `<img src="${src.replace(/"/g, '')}" alt="Seal" style="max-height:90px;object-fit:contain" crossorigin="anonymous"/>` : ''}
-      <p style="margin:8px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
+    <div class="doc-seal-block" style="margin-top:40px;text-align:right;page-break-inside:avoid">
+      ${src ? `<img src="${src.replace(/"/g, '')}" alt="Seal" style="max-height:90px;object-fit:contain;display:inline-block" crossorigin="anonymous"/>` : ''}
+      ${directorName ? `<p style="margin:10px 0 0;font-weight:700;font-size:11pt;color:#0f172a">${esc(directorName)}</p>` : ''}
+      <p style="margin:4px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
     </div>`
 }
 

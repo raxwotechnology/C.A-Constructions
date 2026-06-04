@@ -47,6 +47,7 @@ export default function EmployeeLetters() {
       issuedDate: l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' }) : '',
       bodyHtml: l.content,
       signatures: l.signatures,
+      isFullHtml: Boolean(l.structuredData),
     })
   }
 
