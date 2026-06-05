@@ -38,7 +38,7 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
 
 export function documentPrintStyles() {
   return `
-    @page { margin: 0; size: auto; }
+    @page { size: A4; margin: 16mm 14mm 14mm 14mm; }
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; margin: 0; padding: 0; }
     .doc-frame { border: 1px solid #cbd5e1; border-radius: 4px; padding: 28px 32px; min-height: 100%; }
@@ -55,20 +55,30 @@ export function documentPrintStyles() {
     .doc-totals-row.total { font-size: 13pt; font-weight: 800; color: #0f172a; border-top: 2px solid #0ea5e9; margin-top: 8px; padding-top: 10px; }
     .doc-seal-block { margin-top: 40px; text-align: right; page-break-inside: avoid; }
     .doc-thankyou { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-style: italic; color: #64748b; text-align: center; font-size: 10.5pt; }
-    .doc-continuation { padding-top: 48px; }
+    .doc-continuation { padding-top: 0; }
     @media print {
-      @page { margin: 0; }
-      body { padding: 14mm; margin: 0; }
+      body { padding: 0 !important; margin: 0; }
       .no-print { display: none !important; }
-      .doc-frame, .doc-print-frame { border: none; padding: 0; }
-      .doc-letterhead { page-break-after: avoid; }
-      /* Ensure continuation pages keep the same font/size */
+      .doc-frame, .doc-print-frame, .quotation-doc, .invoice-doc {
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+      }
+      .doc-letterhead, .doc-letterhead-wrap { page-break-after: avoid; page-break-inside: avoid; }
+      .quotation-doc-inner > div:first-child,
+      .invoice-doc-inner > div:first-child { page-break-inside: avoid; }
       body, .quotation-doc, .quotation-doc-inner, .invoice-doc, .invoice-doc-inner {
         font-family: 'Segoe UI', system-ui, sans-serif !important;
         font-size: 10.5pt !important;
         line-height: 1.55 !important;
         color: #0f172a !important;
       }
+      table { page-break-inside: auto; }
+      thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+      .doc-totals, .doc-seal-block { page-break-inside: avoid; }
     }
   `
 }

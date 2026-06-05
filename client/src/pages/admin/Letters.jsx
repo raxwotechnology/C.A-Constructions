@@ -37,6 +37,7 @@ import { absoluteMediaUrl } from '../../lib/media'
 import { buildCompanyFromSettings, companyContactLines } from '../../lib/companyBranding'
 import { useSiteBranding } from '../../hooks/useSiteBranding'
 import { openLetterPrint, downloadLetterPdf, buildLetterheadHtml, buildRefDateHtml, buildSigsHtml, buildFooterHtml } from '../../lib/letterDocument'
+import LetterPaginatedPreview from '../../components/documents/LetterPaginatedPreview'
 import {
   LETTER_SIGNATORY_ROLES,
   normalizeLetterSignatures,
@@ -109,7 +110,9 @@ export default function AdminLetters() {
   const [tplPwdOpen, setTplPwdOpen] = useState(false)
   const [letterPwdOpen, setLetterPwdOpen] = useState(false)
   const [letterDeleteId, setLetterDeleteId] = useState(null)
-  
+  const [letterFitToOnePage, setLetterFitToOnePage] = useState(false)
+  const [letterScale, setLetterScale] = useState(100)
+
   const [showBuilder, setShowBuilder] = useState(false)
   const [builderEmployee, setBuilderEmployee] = useState(null)
   const [builderInitialData, setBuilderInitialData] = useState(null)
@@ -305,6 +308,8 @@ export default function AdminLetters() {
     bodyHtml: editMode ? editContent : letter.content,
     signatures: sigState,
     isFullHtml: Boolean(letter.structuredData),
+    fitToOnePage: letterFitToOnePage,
+    letterScale: letterScale / 100,
   })
 
   const sigsForOutput = (letter) =>
@@ -874,6 +879,30 @@ export default function AdminLetters() {
                   >
                     <FiBookmark size={14} /> Save template
                   </button>
+                  <div className="flex flex-wrap items-center gap-3 mr-auto text-xs text-slate-600">
+                    <label className="flex items-center gap-1.5 cursor-pointer" title="Tightens spacing and gently shrinks only if needed (min 92%)">
+                      <input
+                        type="checkbox"
+                        checked={letterFitToOnePage}
+                        onChange={(e) => setLetterFitToOnePage(e.target.checked)}
+                        className="rounded border-slate-300"
+                      />
+                      Compact to one page
+                    </label>
+                    <label className="flex items-center gap-2" title="Adjust print size — preview updates below">
+                      <span>Scale</span>
+                      <input
+                        type="range"
+                        min={85}
+                        max={115}
+                        step={1}
+                        value={letterScale}
+                        onChange={(e) => setLetterScale(Number(e.target.value))}
+                        className="w-28"
+                      />
+                      <span className="tabular-nums w-10">{letterScale}%</span>
+                    </label>
+                  </div>
                   <button type="button" onClick={() => handlePrint({ ...preview, content: editContent })} className="btn-primary btn-sm">
                     <FiPrinter size={14} /> Print
                   </button>
@@ -895,9 +924,12 @@ export default function AdminLetters() {
                 <div className="p-4 sm:p-6 bg-[#f1f5f9] space-y-4">
 
                   {/* â”€â”€ Edit toolbar (only visible in edit mode) â”€â”€ */}
-                  {/* ── Letter Editor & Preview (WYSIWYG) ── */}
-                  <div className="max-w-[794px] min-h-[1123px] mx-auto shadow-lg bg-white rounded-lg overflow-hidden border border-slate-200">
-                    <div className="letter-pdf-prose relative" style={{ padding: '14mm 16mm', fontFamily: "'Segoe UI',system-ui,-apple-system,sans-serif", color: '#0f172a', fontSize: '11pt', lineHeight: 1.6, minHeight: '1123px' }}>
+                  {/* ── Letter Editor & Preview (paginated A4 sheets) ── */}
+                  <LetterPaginatedPreview
+                    scale={letterScale}
+                    compact={letterFitToOnePage}
+                    measureKey={`${editContent?.length || 0}-${editMode}-${letterScale}-${letterFitToOnePage}`}
+                  >
                       {/* Custom letters (with structuredData) already have letterhead, ref, title, sigs, footer baked into content */}
                       {preview.structuredData ? (
                         <>
@@ -955,8 +987,7 @@ export default function AdminLetters() {
                           <div dangerouslySetInnerHTML={{ __html: buildFooterHtml(company) }} />
                         </>
                       )}
-                    </div>
-                  </div>
+                  </LetterPaginatedPreview>
 
                   {/* ── Signatures editor ── */}
                   <div className="max-w-[794px] mx-auto bg-white border border-slate-200/80 rounded-lg p-5 space-y-4">

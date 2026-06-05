@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiX, FiPrinter, FiDollarSign, FiCreditCard, FiCalendar, FiClock, FiCheckCircle, FiAlertTriangle, FiFileText, FiDownload } from 'react-icons/fi'
-import { mediaUrl } from '../../lib/media'
 import { printHtmlContent } from '../../lib/documentPrint'
 import { layoutPrintExtraCss, loadQuotationLayout } from '../../lib/quotationPrintLayout'
 import InvoicePrintBody from '../../components/documents/InvoicePrintBody'
@@ -38,6 +37,8 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   const invalidateFinance = () => {
     qc.invalidateQueries({ queryKey: ['finance-overview'] })
     qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
+    qc.invalidateQueries({ queryKey: ['finance-pl'] })
+    qc.invalidateQueries({ queryKey: ['finance-entries'] })
     qc.invalidateQueries({ queryKey: ['analytics'] })
   }
 
@@ -89,12 +90,13 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   const cur = inv.currency || 'LKR'
 
   const handlePrint = () => {
-    const inner = document.getElementById('invoice-print-export-root')?.innerHTML
-    if (!inner) return
+    const el = document.getElementById('invoice-print-export-root')
+    if (!el) return
+    const layout = loadQuotationLayout()
     printHtmlContent({
       title: site.siteName || 'Invoice',
-      bodyHtml: `<div class="doc-print-frame">${inner}</div>`,
-      extraCss: layoutPrintExtraCss(loadQuotationLayout()),
+      bodyHtml: `<div class="invoice-doc doc-print-frame" style="font-size:${layout.fontSizePt}pt;line-height:${layout.lineHeight};padding:${layout.pagePaddingMm}mm">${el.innerHTML}</div>`,
+      extraCss: layoutPrintExtraCss(layout),
     })
   }
 
@@ -210,7 +212,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                   <div className="p-5 space-y-4">
                     <div><p className="text-xs text-slate-400 mb-0.5">Invoice Date</p><p className="font-medium text-slate-800">{new Date(inv?.invoiceDate).toLocaleDateString('en-LK')}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">Due Date</p><p className={`font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-800'}`}>{inv?.dueDate ? new Date(inv?.dueDate).toLocaleDateString('en-LK') : 'N/A'}</p></div>
-                    {inv?.quotationRef && <div><p className="text-xs text-slate-400 mb-0.5">From Quotation</p><p className="font-medium text-secondary">{inv?.quotationRef?.quotationNo}</p></div>}
+                    {inv?.invoiceNo && <div><p className="text-xs text-slate-400 mb-0.5">Invoice No.</p><p className="font-medium text-secondary font-mono">{inv.invoiceNo}</p></div>}
                   </div>
                   <div className="p-5 space-y-4">
                     <div><p className="text-xs text-slate-400 mb-0.5">Client</p><p className="font-medium text-slate-800">{inv?.client?.name}</p><p className="text-sm text-slate-500">{inv?.client?.email}</p></div>
@@ -325,25 +327,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
         <div className="hidden" aria-hidden="true">
           <div id="invoice-print-export-root">
-            <InvoicePrintBody invoice={inv} siteSettings={site} />
-            {(inv.signatures?.authorizer?.data || inv.signatures?.seal?.data) && (
-              <div className="mt-10 grid grid-cols-2 gap-6 items-end">
-                <div>
-                  {inv.signatures.authorizer?.data && (
-                    <img src={mediaUrl(inv.signatures.authorizer.data)} alt="" className="max-h-20 mb-2" />
-                  )}
-                  <div className="border-t border-slate-300 pt-2 w-60">
-                    <p className="font-bold text-sm">{inv.signatures.authorizer?.name || ''}</p>
-                    <p className="text-xs text-slate-500">{inv.signatures.authorizer?.title || 'Authorized Signatory'}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  {inv.signatures.seal?.data && (
-                    <img src={mediaUrl(inv.signatures.seal.data)} alt="Seal" className="max-h-24 ml-auto" />
-                  )}
-                </div>
-              </div>
-            )}
+            <InvoicePrintBody invoice={inv} siteSettings={site} forPrint />
           </div>
         </div>
 

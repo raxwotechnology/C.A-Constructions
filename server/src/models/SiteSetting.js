@@ -12,7 +12,7 @@ const siteSettingSchema = new mongoose.Schema({
   websiteUrl: { type: String, default: '' },
   /** Shown under company name on quotations/invoices (e.g. Next Level Tech) */
   letterheadTagline: { type: String, default: 'Next Level Tech' },
-  quotationThankYouMessage: { type: String, default: 'Thank you for your business. We appreciate the opportunity to serve you.' },
+  quotationThankYouMessage: { type: String, default: 'We appreciate your business and look forward to the opportunity to work with you. Should you have any questions regarding this quotation, please do not hesitate to contact us.' },
   quotationNotesTemplate: { type: String, default: '' },
   quotationTermsTemplate: { type: String, default: '' },
   quotationDirectorName: { type: String, default: '' },

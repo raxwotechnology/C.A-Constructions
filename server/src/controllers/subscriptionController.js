@@ -1,9 +1,9 @@
 const Subscription = require('../models/Subscription');
 const Project = require('../models/Project');
 const User = require('../models/User');
-const FinanceEntry = require('../models/FinanceEntry');
 const { createNotification } = require('../services/notificationService');
 const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
+const { mapSubscriptionPaymentMethod, logSubscriptionIncome } = require('../utils/financeSubscriptionIncome');
 
 // ── helpers ────────────────────────────────────────────
 const SUBSCRIPTION_TYPE_LABELS = {
@@ -168,6 +168,21 @@ exports.createSubscription = async (req, res, next) => {
 
     const sub = await Subscription.create(payload);
 
+    const setupAmount = Number(sub.amount || 0);
+    if (setupAmount > 0) {
+      const incomeDate = sub.startDate ? new Date(sub.startDate) : new Date();
+      await logSubscriptionIncome({
+        sub,
+        amount: setupAmount,
+        date: incomeDate,
+        createdBy: req.user._id,
+        kind: 'created',
+        method: 'manual',
+        note: `Subscription setup income | ${SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType}`,
+        syncPayment: true,
+      });
+    }
+
     await createNotification({
       recipient: sub.client,
       title: 'New Subscription Created',
@@ -176,7 +191,11 @@ exports.createSubscription = async (req, res, next) => {
       link: '/my-subscriptions',
     });
 
-    res.status(201).json({ success: true, subscription: sub });
+    const fresh = await Subscription.findById(sub._id)
+      .populate('client', 'name email phone')
+      .populate('project', 'title status');
+
+    res.status(201).json({ success: true, subscription: fresh || sub });
   } catch (err) { next(err); }
 };
 
@@ -244,6 +263,7 @@ exports.recordPayment = async (req, res, next) => {
     const {
       amount, method, reference, note, bankAccount,
       chequeNumber, chequeDate, chequeBank, chequeDrawer,
+      paidAt,
     } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Valid amount required' });
 
@@ -257,6 +277,12 @@ exports.recordPayment = async (req, res, next) => {
     if (m === 'cheque' && !chequeNumber) {
       return res.status(400).json({ success: false, message: 'Cheque number is required for cheque payments' });
     }
+    const paymentDate = paidAt ? new Date(paidAt) : new Date();
+    if (Number.isNaN(paymentDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid payment date' });
+    }
+    paymentDate.setHours(12, 0, 0, 0);
+
     sub.payments.push({
       amount: Number(amount),
       method: m,
@@ -264,7 +290,7 @@ exports.recordPayment = async (req, res, next) => {
       note: note || '',
       bankAccount: bankAccount || null,
       recordedBy: req.user._id,
-      paidAt: new Date(),
+      paidAt: paymentDate,
       chequeNumber: chequeNumber || '',
       chequeDate: chequeDate ? new Date(chequeDate) : undefined,
       chequeBank: chequeBank || '',
@@ -283,28 +309,17 @@ exports.recordPayment = async (req, res, next) => {
 
     await sub.save();
 
-    // Map subscription methods to FinanceEntry strict enums
-    const methodMap = {
-      'cash': 'Cash',
-      'bank_transfer': 'Bank Transfer',
-      'cheque': 'Cheque',
-      'card': 'Card',
-      'online': 'Online Payment'
-    };
-    const financeMethod = methodMap[m] || 'Other';
-
-    // ── Auto-create a FinanceEntry so subscription revenue shows in all financial reports
-    await FinanceEntry.create({
-      type: 'income',
-      category: 'Subscriptions',
-      title: `Subscription Payment: ${sub.title} (${sub.subscriptionNo || ''})`,
+    await logSubscriptionIncome({
+      sub,
       amount: Number(amount),
-      date: new Date(),
-      note: `Sub No: ${sub.subscriptionNo || ''} | Ref: ${reference || '—'} | Method: ${m}`,
-      paymentMethod: financeMethod,
-      bankAccount: bankAccount || null,
-      branch: sub.branch || null,
+      date: paymentDate,
       createdBy: req.user._id,
+      kind: 'payment',
+      method: m,
+      note: `Sub No: ${sub.subscriptionNo || ''} | Ref: ${reference || '—'} | Method: ${m}`,
+      reference: reference || '',
+      bankAccount: bankAccount || null,
+      syncPayment: false,
     });
 
     if (bankAccount && isLedgerBankMethod(m)) {
@@ -313,7 +328,7 @@ exports.recordPayment = async (req, res, next) => {
         type: 'deposit',
         amount: amt,
         description: `Subscription Payment: ${sub.subscriptionNo || sub.title}`,
-        date: new Date(),
+        date: paymentDate,
         reference: reference || '',
         recordedBy: req.user._id,
       });

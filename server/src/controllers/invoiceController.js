@@ -11,6 +11,7 @@ const { verifyActionPassword } = require('../utils/actionPassword');
 const { createAuditLog } = require('./auditController');
 const { allocateInvoiceNoFromQuotationNo, generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
 const { syncProjectsForInvoice } = require('../utils/projectInvoiceSync');
+const { logInvoicePaymentIncome } = require('../utils/financeInvoiceIncome');
 
 const POPULATE_INVOICE = [
   { path: 'client',       select: 'name email phone' },
@@ -271,6 +272,19 @@ exports.recordPayment = async (req, res, next) => {
     });
     await invoice.save(); // triggers pre-save for totals + status
 
+    const lastPayment = invoice.payments[invoice.payments.length - 1];
+    await logInvoicePaymentIncome({
+      invoice,
+      amount: payAmt,
+      date: lastPayment?.date || date,
+      createdBy: req.user._id,
+      isAdvance: false,
+      method: method || 'cash',
+      reference,
+      notes,
+      bankAccount,
+    });
+
     if (bankAccount && isLedgerBankMethod(method)) {
       await appendBankTransaction(bankAccount, {
         type: 'deposit',
@@ -321,6 +335,19 @@ exports.recordAdvance = async (req, res, next) => {
       recordedBy: req.user._id, isAdvance: true,
     });
     await invoice.save();
+
+    const lastAdvance = invoice.payments[invoice.payments.length - 1];
+    await logInvoicePaymentIncome({
+      invoice,
+      amount: payAmt,
+      date: lastAdvance?.date || date,
+      createdBy: req.user._id,
+      isAdvance: true,
+      method: method || 'cash',
+      reference,
+      notes,
+      bankAccount,
+    });
 
     if (bankAccount && isLedgerBankMethod(method)) {
       await appendBankTransaction(bankAccount, {

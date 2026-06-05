@@ -37,7 +37,7 @@ export default function QuotationPrintBody({
   const roleProfile = siteSettings.signatures?.[q.directorRole] || null
   const directorName = q.directorName || roleProfile?.label || siteSettings.quotationDirectorName || ''
   const sealUrl = q.directorSealUrl || roleProfile?.url || siteSettings.sealUrl || ''
-  const thanks = thankYouMessage ?? siteSettings.quotationThankYouMessage ?? 'Thank you for your business.'
+  const thanks = thankYouMessage ?? siteSettings.quotationThankYouMessage ?? 'We appreciate your business and look forward to the opportunity to work with you. Should you have any questions regarding this quotation, please do not hesitate to contact us.'
   const notes = editableNotes !== undefined ? editableNotes : q.notes
   const terms = editableTerms !== undefined ? editableTerms : q.terms
 
@@ -50,11 +50,11 @@ export default function QuotationPrintBody({
   const termsLines = (terms || '').split('\n').map(l => l.trim()).filter(Boolean)
 
   return (
-    <div className="quotation-doc-inner" style={{ fontFamily: FONT, color: CLR.dark, fontSize: '10.5pt', lineHeight: 1.55 }}>
+    <div className="quotation-doc-inner" style={{ fontFamily: FONT, color: CLR.dark, fontSize: '10.5pt', lineHeight: 1.55, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
 
       {/* ── Letterhead ── */}
       {showLetterhead && (
-        <div className="doc-letterhead-wrap" style={{ marginBottom: '20px' }}>
+        <div className="doc-letterhead-wrap" style={{ marginBottom: '20px', pageBreakInside: 'avoid', pageBreakAfter: 'avoid' }}>
           <div
             dangerouslySetInnerHTML={{
               __html: buildDocumentLetterheadHtml(siteSettings, {
@@ -122,8 +122,8 @@ export default function QuotationPrintBody({
       </div>
 
       {/* ── Items table ── */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', margin: '0 0 20px', fontSize: '10pt' }}>
-        <thead>
+      <table className="doc-table" style={{ width: '100%', borderCollapse: 'collapse', margin: '0 0 20px', fontSize: '10pt' }}>
+        <thead style={{ display: 'table-header-group' }}>
           <tr style={{ background: '#f1f5f9' }}>
             <th style={{ ...thStyle, textAlign: 'left' }}>Description</th>
             <th style={{ ...thStyle, textAlign: 'center' }}>Qty</th>
@@ -234,7 +234,9 @@ export default function QuotationPrintBody({
 
       {/* ── Thank you message — absolute bottom ── */}
       {thanks ? (
-        <p style={{ margin: '24px 0 0', textAlign: 'center', fontStyle: 'italic', color: CLR.muted, fontSize: '9pt', borderTop: `1px solid ${CLR.border}`, paddingTop: '12px' }}>{thanks}</p>
+        <div style={{ margin: '24px 0 0', textAlign: 'center', borderTop: `1px solid ${CLR.border}`, paddingTop: '14px' }}>
+          <p style={{ margin: 0, color: CLR.mid, fontSize: '9pt', lineHeight: 1.65, maxWidth: '520px', marginLeft: 'auto', marginRight: 'auto' }}>{thanks}</p>
+        </div>
       ) : null}
     </div>
   )

@@ -158,6 +158,10 @@ export default function AdminSubscriptions() {
       qc.invalidateQueries({ queryKey: ['admin-subscriptions'] })
       qc.invalidateQueries({ queryKey: ['admin-billing-overview'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      qc.invalidateQueries({ queryKey: ['finance-overview'] })
+      qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
+      qc.invalidateQueries({ queryKey: ['finance-pl'] })
+      qc.invalidateQueries({ queryKey: ['finance-entries'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed')
   })

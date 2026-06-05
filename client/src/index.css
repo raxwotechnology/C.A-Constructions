@@ -355,3 +355,57 @@
 
 /* Button size variants */
 .btn-sm { @apply text-sm px-3 py-1.5; }
+
+/* ── Global mobile responsiveness ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .erp-module { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .page-header { flex-direction: column; align-items: flex-start !important; gap: 0.75rem; }
+  .page-title { font-size: 1.35rem; line-height: 1.25; }
+  .page-subtitle { font-size: 0.8125rem; }
+  .filter-toolbar { grid-template-columns: 1fr !important; }
+  .card-body { padding: 1rem !important; }
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -0.25rem; }
+  .table { min-width: 560px; font-size: 0.8125rem; }
+  .table th, .table td { padding: 0.5rem 0.625rem; }
+  .btn-primary, .btn-outline, .btn-ghost, .btn-danger, .btn-success { min-height: 2.5rem; }
+  .form-input, .form-select, textarea.form-input { font-size: 16px; /* prevents iOS zoom */ }
+  .kpi-card { padding: 0.875rem !important; }
+  .kpi-card .text-xl { font-size: 1.125rem !important; }
+  .grid.grid-cols-2 { grid-template-columns: 1fr; }
+  .grid.md\\:grid-cols-2, .grid.md\\:grid-cols-3, .grid.md\\:grid-cols-4,
+  .grid.lg\\:grid-cols-2, .grid.lg\\:grid-cols-3, .grid.lg\\:grid-cols-4,
+  .grid.lg\\:grid-cols-6, .grid.xl\\:grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+  @media (min-width: 480px) {
+    .grid.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.sm\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  }
+  /* Document preview panels */
+  .invoice-doc, .quotation-doc, .doc-print-frame {
+    max-width: 100% !important;
+    padding: 12px !important;
+    box-shadow: none !important;
+  }
+  .invoice-doc-inner table.doc-table,
+  .quotation-doc-inner table.doc-table { font-size: 9pt; }
+  .invoice-doc-inner table.doc-table th,
+  .invoice-doc-inner table.doc-table td,
+  .quotation-doc-inner table.doc-table th,
+  .quotation-doc-inner table.doc-table td { padding: 6px 8px !important; }
+  /* Modals full-screen on small devices */
+  .fixed.inset-0 > .max-w-lg,
+  .fixed.inset-0 > .max-w-md,
+  .fixed.inset-0 > .max-w-4xl,
+  .fixed.inset-0 > .max-w-6xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+  }
+  /* Finance transaction cards */
+  .finance-tx-body { flex-direction: column !important; align-items: stretch !important; }
+  .finance-tx-aside { text-align: left !important; margin-top: 0.5rem; }
+}

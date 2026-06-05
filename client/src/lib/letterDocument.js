@@ -121,8 +121,10 @@ export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issu
   // Just wrap it in the outer container without adding duplicate elements.
   if (isFullHtml) {
     return `
-    <div style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.55;max-width:780px;margin:0 auto">
-      <div class="letter-body" style="margin-top:0">${bodyHtml || ''}</div>
+    <div class="letter-page-wrap" style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.55;max-width:780px;margin:0 auto">
+      <div class="letter-page-content">
+        <div class="letter-body" style="margin-top:0">${bodyHtml || ''}</div>
+      </div>
     </div>`
   }
 
@@ -133,18 +135,45 @@ export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issu
   // Standard letter bodies from letterTemplatesHtml already contain their own <h1> title,
   // so we skip buildTitleHtml to avoid duplicates.
   return `
-  <div style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.55;max-width:780px;margin:0 auto">
-    ${buildLetterheadHtml(company)}
-    ${buildRefDateHtml(letterRef, issued)}
-    <div class="letter-body" style="margin-top:4px">${bodyHtml || ''}</div>
-    ${buildSigsHtml(signatures, { siteSettings })}
-    ${buildFooterHtml(company)}
+  <div class="letter-page-wrap" style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.55;max-width:780px;margin:0 auto">
+    <div class="letter-page-content">
+      ${buildLetterheadHtml(company)}
+      ${buildRefDateHtml(letterRef, issued)}
+      <div class="letter-body" style="margin-top:4px">${bodyHtml || ''}</div>
+      ${buildSigsHtml(signatures, { siteSettings })}
+      ${buildFooterHtml(company)}
+    </div>
   </div>`
 }
 
+export const LETTER_COMPACT_CSS = `
+  .letter-compact { font-size: 10.5pt !important; line-height: 1.48 !important; }
+  .letter-compact header { margin-bottom: 16px !important; padding-bottom: 12px !important; }
+  .letter-compact .letter-body p, .letter-compact .letter-body .letter-p { margin: 0 0 7px !important; }
+  .letter-compact .letter-body .letter-h1 { font-size: 14pt !important; margin: 0 0 8px !important; padding-bottom: 6px !important; }
+  .letter-compact .letter-body .letter-h2 { margin: 10px 0 5px !important; }
+  .letter-compact .letter-body .letter-close { margin-top: 16px !important; }
+  .letter-compact .letter-body .letter-sig-space { height: 20px !important; }
+  .letter-compact .letter-body .letter-info-table { margin: 6px 0 10px !important; }
+  .letter-compact .letter-body .letter-info-table th,
+  .letter-compact .letter-body .letter-info-table td { padding: 6px 8px !important; }
+  .letter-compact-more { font-size: 10pt !important; line-height: 1.42 !important; }
+  .letter-compact-more header { margin-bottom: 12px !important; }
+  .letter-compact-more .letter-body .letter-p, .letter-compact-more .letter-body p { margin-bottom: 5px !important; }
+`
+
+export const LETTER_PAGE_WIDTH = 794
+export const LETTER_PAGE_HEIGHT = 1123
+export const LETTER_PAGE_PADDING = '14mm 16mm'
+export const LETTER_PAGE_GAP = 0
+
+const A4_WIDTH_PX = LETTER_PAGE_WIDTH
+const A4_CONTENT_HEIGHT_PX = 1015
+
 const PRINT_STYLES = `
-  @page { margin: 0; size: A4; }
-  body { margin: 0; padding: 14mm 16mm; background: #fff; }
+  @page { margin: 14mm 16mm; size: A4; }
+  body { margin: 0; padding: 0; background: #fff; }
+  ${LETTER_COMPACT_CSS}
   /* Letter body prose styles */
   .letter-body p, .letter-body .letter-p { margin: 0 0 10px; }
   .letter-body .letter-h1 { font-size: 15pt; font-weight: 800; color: #0f172a; margin: 0 0 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
@@ -190,8 +219,65 @@ const PRINT_STYLES = `
   .enterprise-letter-body table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
   .enterprise-letter-body td, .enterprise-letter-body th { border: 1px solid #e2e8f0; padding: 8px; }
   .enterprise-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
-  @media print { body { margin: 0; } }
+  @media print {
+    body { margin: 0; padding: 0; }
+    .letter-page-wrap { width: 100%; max-width: none; }
+  }
+  .letter-page-wrap { width: 100%; max-width: 780px; margin: 0 auto; }
+  .letter-page-content { transform-origin: top center; }
 `
+
+function measureContentHeight(el) {
+  if (!el) return 0
+  return Math.max(el.scrollHeight || 0, el.offsetHeight || 0, el.getBoundingClientRect?.().height || 0)
+}
+
+/** Tighten spacing first, then apply a gentle zoom — never shrink below 92%. */
+export function applyLetterPageFit(doc, { fitToOnePage = false, scale = 1 } = {}) {
+  if (!doc?.body) return 1
+  const wrap = doc.querySelector('.letter-page-wrap') || doc.body.firstElementChild
+  if (!wrap) return 1
+
+  const content = wrap.querySelector('.letter-page-content') || wrap
+  content.classList.remove('letter-compact', 'letter-compact-more')
+  content.style.zoom = ''
+  content.style.transform = ''
+  content.style.width = ''
+  wrap.style.height = ''
+  wrap.style.overflow = ''
+
+  const userScale = Math.max(0.85, Math.min(1.15, Number(scale) || 1))
+
+  if (fitToOnePage) {
+    content.classList.add('letter-compact')
+  }
+
+  let height = measureContentHeight(content)
+  if (fitToOnePage && height > A4_CONTENT_HEIGHT_PX) {
+    content.classList.add('letter-compact-more')
+    height = measureContentHeight(content)
+  }
+
+  let fitZoom = 1
+  if (fitToOnePage && height > A4_CONTENT_HEIGHT_PX) {
+    fitZoom = A4_CONTENT_HEIGHT_PX / height
+    fitZoom = Math.max(0.92, Math.min(1, fitZoom))
+  }
+
+  const finalZoom = userScale * fitZoom
+  if (Math.abs(finalZoom - 1) > 0.004) {
+    content.style.zoom = String(finalZoom)
+    if (!content.style.zoom || content.style.zoom === 'normal') {
+      content.style.transform = `scale(${finalZoom})`
+      content.style.transformOrigin = 'top center'
+      content.style.width = `${100 / finalZoom}%`
+      wrap.style.height = `${height * finalZoom}px`
+      wrap.style.overflow = 'hidden'
+    }
+  }
+
+  return finalZoom
+}
 
 /** Full HTML document — used for the iframe preview so preview === print */
 export function buildLetterFullHtml(opts) {
@@ -200,8 +286,9 @@ export function buildLetterFullHtml(opts) {
 }
 
 export function openLetterPrint(opts) {
-  const inner = buildLetterInnerForPrint(opts)
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(opts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}</style></head><body>${inner}</body></html>`
+  const { fitToOnePage = true, letterScale = 1, ...buildOpts } = opts
+  const inner = buildLetterInnerForPrint(buildOpts)
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(buildOpts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}</style></head><body>${inner}</body></html>`
 
   // Use a hidden iframe instead of window.open to avoid opening a new tab.
   // The iframe prints from its own context so the parent page stays responsive.
@@ -210,7 +297,7 @@ export function openLetterPrint(opts) {
 
   const iframe = document.createElement('iframe')
   iframe.id = '__letter-print-frame'
-  iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;border:none;visibility:hidden;'
+  iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${A4_WIDTH_PX}px;min-height:1123px;border:none;visibility:hidden;`
   document.body.appendChild(iframe)
 
   const doc = iframe.contentDocument || iframe.contentWindow.document
@@ -218,14 +305,18 @@ export function openLetterPrint(opts) {
   doc.write(html)
   doc.close()
 
-  iframe.onload = () => {
+  const runPrint = () => {
     try {
+      applyLetterPageFit(doc, { fitToOnePage, scale: letterScale })
       iframe.contentWindow.focus()
       iframe.contentWindow.print()
-    } catch (e) {
-      // fallback: print the whole window
+    } catch {
       window.print()
     }
+  }
+
+  iframe.onload = () => {
+    requestAnimationFrame(() => setTimeout(runPrint, 80))
     // Clean up after a delay to let the print dialog finish
     setTimeout(() => {
       const el = document.getElementById('__letter-print-frame')
@@ -235,16 +326,18 @@ export function openLetterPrint(opts) {
 }
 
 export async function downloadLetterPdf(opts, filenameBase = 'letter') {
+  const { fitToOnePage = true, letterScale = 1, ...buildOpts } = opts
   const wrap = document.createElement('div')
   wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;padding:40px 48px;background:#fff;box-sizing:border-box;'
   const st = document.createElement('style')
   st.textContent = PRINT_STYLES
   wrap.appendChild(st)
   const content = document.createElement('div')
-  content.innerHTML = buildLetterInnerForPrint(opts)
+  content.innerHTML = buildLetterInnerForPrint(buildOpts)
   wrap.appendChild(content)
   document.body.appendChild(wrap)
   try {
+    applyLetterPageFit({ body: wrap }, { fitToOnePage, scale: letterScale })
     const canvas = await html2canvas(content, {
       scale: 2,
       useCORS: true,

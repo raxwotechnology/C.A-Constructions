@@ -44,11 +44,11 @@ export default function InvoicePreviewPanel({
   const merged = { ...inv, notes: draft.notes, paymentTerms: draft.paymentTerms }
 
   const handlePrint = () => {
-    const inner = document.getElementById(printRootId)?.innerHTML
-    if (!inner) return
+    const el = document.getElementById(printRootId)
+    if (!el) return
     printHtmlContent({
       title: siteSettings.siteName || 'Invoice',
-      bodyHtml: `<div class="doc-print-frame">${inner}</div>`,
+      bodyHtml: el.outerHTML,
       extraCss: layoutPrintExtraCss({ ...layout, showRefOnDocument: draft.showRefOnDocument }),
     })
   }
@@ -86,7 +86,7 @@ export default function InvoicePreviewPanel({
           className={`invoice-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
           style={layoutToStyle(layout)}
         >
-          <InvoicePrintBody invoice={merged} siteSettings={siteSettings} showRefOnDocument={draft.showRefOnDocument} />
+          <InvoicePrintBody invoice={merged} siteSettings={siteSettings} showRefOnDocument={draft.showRefOnDocument} forPrint={false} />
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
 import api from '../../lib/api'
 import { FiDownload, FiLayers, FiMapPin } from 'react-icons/fi'
@@ -20,6 +20,7 @@ function formatLkr(amount) {
 }
 
 export default function AdminFinancial() {
+  const qc = useQueryClient()
   const now = new Date()
   const thisYear = now.getFullYear()
   const [from, setFrom] = useState(`${thisYear}-01-01`)
@@ -46,6 +47,17 @@ export default function AdminFinancial() {
   const catSeries = data?.charts?.incomeExpenseByCategory || []
   const categories = useMemo(() => entriesData?.categories || [], [entriesData])
   const entries = entriesData?.entries || []
+
+  const syncSubIncomeMut = useMutation({
+    mutationFn: () => api.post('/finance/sync-subscription-income').then((r) => r.data),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['finance-overview'] })
+      qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
+      qc.invalidateQueries({ queryKey: ['finance-pl'] })
+      toast.success(res.message || 'Subscription income synced')
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Sync failed'),
+  })
 
   const exportData = async (format) => {
     try {
@@ -79,7 +91,16 @@ export default function AdminFinancial() {
           <h1 className="page-title">Financial Dashboard</h1>
           <p className="page-subtitle">Revenue, income, expenses, salary costs and profit with export tools.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            disabled={syncSubIncomeMut.isPending}
+            onClick={() => syncSubIncomeMut.mutate()}
+            title="Backfill finance entries from recorded subscription payments"
+          >
+            {syncSubIncomeMut.isPending ? 'Syncing…' : 'Sync subscription income'}
+          </button>
           <button type="button" className="btn-primary btn-sm" onClick={() => exportData('excel')}><FiDownload size={12} /> Excel</button>
           <button type="button" className="btn-outline btn-sm" onClick={() => exportData('pdf')}><FiDownload size={12} /> PDF</button>
         </div>
@@ -123,10 +144,17 @@ export default function AdminFinancial() {
         <div className="kpi-card kpi-navy"><p className="text-xs text-slate-500 uppercase">Profit</p><p className="text-xl font-bold text-primary">LKR {(summary.profit || 0).toLocaleString()}</p></div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Paid Invoices</p><p className="text-lg font-bold text-primary">{details.paidInvoicesCount || 0}</p></div>
         <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Payroll Runs</p><p className="text-lg font-bold text-primary">{details.payrollRunsCount || 0}</p></div>
-        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Finance Entries</p><p className="text-lg font-bold text-primary">{details.entriesCount || 0}</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Ledger Items</p><p className="text-lg font-bold text-primary">{details.entriesCount || 0}</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Invoice income</p><p className="text-lg font-bold text-primary">LKR {(summary.invoiceRevenue || summary.revenue || 0).toLocaleString()}</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Subscriptions</p><p className="text-lg font-bold text-primary">LKR {(summary.subscriptionRevenue || 0).toLocaleString()}</p><p className="text-[11px] text-slate-400 mt-0.5">{details.subscriptionPaymentsCount || 0} payments</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Petty Cash</p><p className="text-lg font-bold text-emerald-700">+{(summary.pettyCashIn || 0).toLocaleString()}</p><p className="text-[11px] text-red-600">−{(summary.pettyCashOut || 0).toLocaleString()}</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Salary Payout</p><p className="text-lg font-bold text-primary">LKR {(summary.salaryPayout || 0).toLocaleString()}</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Advances</p><p className="text-lg font-bold text-red-600">−{(summary.advanceExpense || 0).toLocaleString()}</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Loans</p><p className="text-sm font-semibold text-red-600">−{(summary.loanDisbursement || 0).toLocaleString()}</p><p className="text-sm font-semibold text-emerald-700">+{(summary.loanRepayment || 0).toLocaleString()}</p></div>
+        <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Bank Activity</p><p className="text-sm font-semibold text-emerald-700">+{(summary.bankDeposits || 0).toLocaleString()}</p><p className="text-sm font-semibold text-red-600">−{(summary.bankWithdrawals || 0).toLocaleString()}</p></div>
         <div className="card card-body"><p className="text-xs text-slate-500 uppercase">Profit Margin</p><p className="text-lg font-bold text-primary">{(details.profitMarginPct || 0).toFixed(2)}%</p></div>
       </div>
 

@@ -161,11 +161,11 @@ export default function FinancialReports() {
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KPI label="Total Income" value={fmt(summary.totalIncome)} sub={`Invoice: ${fmt(summary.totalInvoiceRevenue)} + Other: ${fmt(summary.totalIncomeEntries)}`} color="green"/>
-            <KPI label="Total Expenses" value={fmt(summary.totalExpense)} sub={`Payroll: ${fmt(summary.totalSalaryExpense)} + Other: ${fmt(summary.totalExpenseEntries)}`} color="red"/>
+            <KPI label="Total Income" value={fmt(summary.totalIncome)} sub={`Invoices ${fmt(summary.totalInvoiceRevenue)} · Other ${fmt(summary.totalIncomeEntries)} · Subs ${fmt(summary.subscriptionRevenue)}`} color="green"/>
+            <KPI label="Total Expenses" value={fmt(summary.totalExpense)} sub={`Payroll ${fmt(summary.totalSalaryExpense)} · Other ${fmt(summary.totalExpenseEntries)} · Petty ${fmt(summary.pettyCashOut)}`} color="red"/>
             <KPI label="Net Profit" value={fmt(summary.netProfit)} color={summary.netProfit >= 0 ? 'green' : 'red'}
               sub={summary.totalIncome > 0 ? `${((summary.netProfit / summary.totalIncome) * 100).toFixed(1)}% margin` : ''}/>
-            <KPI label="Invoice Revenue" value={fmt(summary.totalInvoiceRevenue)} sub={`${invoicePayments.length} paid invoices`} color="blue"/>
+            <KPI label="Invoice Payments" value={fmt(summary.invoiceRevenue ?? summary.totalInvoiceRevenue)} sub={`${incomeEntries.filter(e => e.category === 'Invoices').length} transactions`} color="blue"/>
           </div>
 
           {/* Tabs */}
@@ -187,11 +187,16 @@ export default function FinancialReports() {
                   <div className="flex justify-between py-2 border-b border-slate-100 font-bold text-slate-500 uppercase text-xs tracking-wider">
                     <span>Item</span><span>Amount</span>
                   </div>
-                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Revenue (Paid Invoices)</span><span className="font-semibold">{fmt(summary.totalInvoiceRevenue)}</span></div>
-                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Other Income Entries</span><span className="font-semibold">{fmt(summary.totalIncomeEntries)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Invoice Payments</span><span className="font-semibold">{fmt(summary.invoiceRevenue ?? summary.totalInvoiceRevenue)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Subscription Payments</span><span className="font-semibold">{fmt(summary.subscriptionRevenue)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Cheques (In)</span><span className="font-semibold">{fmt(summary.chequeIn)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Petty Cash (In)</span><span className="font-semibold">{fmt(summary.pettyCashIn)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Other Income Entries</span><span className="font-semibold">{fmt(summary.otherIncomeEntries ?? summary.totalIncomeEntries)}</span></div>
                   <div className="flex justify-between py-2.5 border-t border-slate-200 font-bold text-emerald-800 text-base"><span>TOTAL INCOME</span><span>{fmt(summary.totalIncome)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700 mt-2"><span>Salary / Payroll Expense</span><span className="font-semibold">{fmt(summary.totalSalaryExpense)}</span></div>
-                  <div className="flex justify-between py-2.5 text-red-700"><span>Other Expense Entries</span><span className="font-semibold">{fmt(summary.totalExpenseEntries)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700"><span>Petty Cash (Out)</span><span className="font-semibold">{fmt(summary.pettyCashOut)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700"><span>Cheques (Out)</span><span className="font-semibold">{fmt(summary.chequeOut)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700"><span>Other Expense Entries</span><span className="font-semibold">{fmt(summary.otherExpenseEntries ?? summary.totalExpenseEntries)}</span></div>
                   <div className="flex justify-between py-2.5 border-t border-slate-200 font-bold text-red-800 text-base"><span>TOTAL EXPENSES</span><span>{fmt(summary.totalExpense)}</span></div>
                   <div className={`flex justify-between py-3 mt-2 border-t-2 border-slate-300 font-black text-xl ${summary.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                     <span>NET PROFIT / LOSS</span><span>{fmt(summary.netProfit)}</span>

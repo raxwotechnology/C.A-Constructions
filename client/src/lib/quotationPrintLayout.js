@@ -84,12 +84,33 @@ export function layoutToStyle(layout = DEFAULT_QUOTATION_LAYOUT) {
 
 export function layoutPrintExtraCss(layout = DEFAULT_QUOTATION_LAYOUT) {
   const L = { ...DEFAULT_QUOTATION_LAYOUT, ...layout }
+  const docSel = '.quotation-doc, .invoice-doc, .doc-print-frame'
+  const frameRule = L.showDocumentFrame
+    ? `${docSel} { border: 1px solid #cbd5e1; border-radius: 6px; padding: ${L.pagePaddingMm}mm; font-size: ${L.fontSizePt}pt; line-height: ${L.lineHeight}; box-sizing: border-box; }`
+    : `${docSel} { border: none; padding: ${L.pagePaddingMm}mm; font-size: ${L.fontSizePt}pt; line-height: ${L.lineHeight}; box-sizing: border-box; }`
   return `
-    .quotation-doc { font-size: var(--doc-font-size, ${L.fontSizePt}pt); line-height: var(--doc-line-height, ${L.lineHeight}); }
-    .quotation-doc .doc-letterhead-wrap { margin-bottom: var(--doc-header-gap, ${L.headerSpacingPx}px); }
-    .quotation-doc .doc-footer-area { margin-top: var(--doc-footer-gap, ${L.footerSpacingPx}px); }
-    .quotation-doc table.doc-table th,
-    .quotation-doc table.doc-table td { padding: var(--doc-table-pad, ${L.tableCellPaddingPx}px); }
-    ${L.showDocumentFrame ? '.doc-print-frame { border: 1px solid #cbd5e1; border-radius: 6px; padding: 28px 32px; }' : '.doc-print-frame { border: none; padding: 0; }'}
+    ${frameRule}
+    .quotation-doc, .invoice-doc { font-size: var(--doc-font-size, ${L.fontSizePt}pt); line-height: var(--doc-line-height, ${L.lineHeight}); }
+    .quotation-doc .doc-letterhead-wrap, .invoice-doc .doc-letterhead-wrap { margin-bottom: var(--doc-header-gap, ${L.headerSpacingPx}px); }
+    .quotation-doc .doc-footer-area, .invoice-doc .doc-footer-area { margin-top: var(--doc-footer-gap, ${L.footerSpacingPx}px); }
+    .quotation-doc table.doc-table th, .quotation-doc table.doc-table td,
+    .invoice-doc table.doc-table th, .invoice-doc table.doc-table td { padding: var(--doc-table-pad, ${L.tableCellPaddingPx}px); }
+    .invoice-doc-inner, .quotation-doc-inner { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; }
+    @media print {
+      @page { size: A4; margin: 16mm 14mm 14mm 14mm; }
+      ${docSel} {
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: ${L.fontSizePt}pt !important;
+        line-height: ${L.lineHeight} !important;
+      }
+      .quotation-doc-inner, .invoice-doc-inner {
+        font-size: ${L.fontSizePt}pt !important;
+        line-height: ${L.lineHeight} !important;
+      }
+      .doc-letterhead-wrap { page-break-after: avoid; page-break-inside: avoid; }
+    }
   `
 }

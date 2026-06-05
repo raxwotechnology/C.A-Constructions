@@ -1,23 +1,37 @@
 import { formatMoney } from '../../lib/currencies'
 import { buildDocumentLetterheadHtml, directorSealBlockHtml } from '../../lib/documentPrint'
+import { absoluteMediaUrl, mediaUrl } from '../../lib/media'
+
+const FONT = "'Segoe UI', system-ui, sans-serif"
+const CLR = { dark: '#0f172a', mid: '#475569', light: '#64748b', muted: '#94a3b8', bg: '#f8fafc', border: '#e2e8f0', accent: '#0ea5e9' }
+const thStyle = { border: `1px solid ${CLR.border}`, padding: '8px 10px', fontSize: '8.5pt', textTransform: 'uppercase', letterSpacing: '0.05em', color: CLR.mid, fontWeight: 700 }
+const tdStyle = { border: `1px solid ${CLR.border}`, padding: '8px 10px', verticalAlign: 'top' }
+
+function sigImgSrc(data, forPrint) {
+  if (!data) return ''
+  return forPrint ? absoluteMediaUrl(data) : mediaUrl(data)
+}
 
 export default function InvoicePrintBody({
   invoice,
   siteSettings = {},
   showLetterhead = true,
   showRefOnDocument = true,
+  forPrint = false,
 }) {
   const inv = invoice || {}
   const currency = inv.currency || 'LKR'
+  const termsLines = (inv.paymentTerms || '').split('\n').map((l) => l.trim()).filter(Boolean)
 
   return (
-    <div className="invoice-doc-inner">
+    <div className="invoice-doc-inner" style={{ fontFamily: FONT, color: CLR.dark, fontSize: '10.5pt', lineHeight: 1.55 }}>
+
       {showLetterhead && (
-        <div className="doc-letterhead-wrap">
+        <div className="doc-letterhead-wrap" style={{ marginBottom: '20px' }}>
           <div
             dangerouslySetInnerHTML={{
               __html: buildDocumentLetterheadHtml(siteSettings, {
-                forPrint: false,
+                forPrint,
                 showTagline: siteSettings.letterheadTagline || 'Next Level Tech',
               }),
             }}
@@ -25,96 +39,167 @@ export default function InvoicePrintBody({
         </div>
       )}
 
-      <div className="flex flex-wrap justify-between gap-4 mb-6">
+      {/* Title + meta */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', pageBreakInside: 'avoid' }}>
         <div>
-          <h2 className="doc-title text-2xl font-black tracking-wide text-slate-900">TAX INVOICE</h2>
-          {inv.project?.title && <p className="text-slate-600 text-sm">{inv.project.title}</p>}
+          <h2 style={{ margin: '0 0 4px', fontSize: '20pt', fontWeight: 800, letterSpacing: '0.06em', color: CLR.dark }}>TAX INVOICE</h2>
+          {inv.project?.title && (
+            <p style={{ margin: 0, color: CLR.mid, fontWeight: 500, fontSize: '10.5pt' }}>{inv.project.title}</p>
+          )}
         </div>
-        <div className="text-right text-sm text-slate-600">
-          <p>
-            <span className="text-slate-400 uppercase text-xs font-bold">Invoice date</span>
-            <br />
-            {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+        <div style={{ textAlign: 'right', fontSize: '10pt', color: CLR.mid, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ margin: 0 }}>
+            <span style={{ color: CLR.muted, textTransform: 'uppercase', fontSize: '8.5pt', fontWeight: 700, display: 'block', marginBottom: '2px' }}>Invoice date</span>
+            <span style={{ color: CLR.dark, fontWeight: 500 }}>
+              {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+            </span>
           </p>
+          {showRefOnDocument && inv.invoiceNo && (
+            <p style={{ margin: 0 }}>
+              <span style={{ color: CLR.muted, textTransform: 'uppercase', fontSize: '8.5pt', fontWeight: 700, display: 'block', marginBottom: '2px' }}>Invoice no.</span>
+              <span style={{ color: CLR.dark, fontWeight: 600 }}>{inv.invoiceNo}</span>
+            </p>
+          )}
           {inv.dueDate && (
-            <p className="mt-2">
-              <span className="text-slate-400 uppercase text-xs font-bold">Due date</span>
-              <br />
-              {new Date(inv.dueDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' })}
+            <p style={{ margin: 0 }}>
+              <span style={{ color: CLR.muted, textTransform: 'uppercase', fontSize: '8.5pt', fontWeight: 700, display: 'block', marginBottom: '2px' }}>Due date</span>
+              <span style={{ color: CLR.dark, fontWeight: 500 }}>
+                {new Date(inv.dueDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </span>
             </p>
           )}
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-6 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
-        <div>
-          <p className="text-xs uppercase font-bold text-slate-400 mb-1">Billed to</p>
-          <p className="font-bold text-slate-800">{inv.client?.name || 'Client'}</p>
-          {inv.client?.email && <p className="text-sm text-slate-600">{inv.client.email}</p>}
+      {/* Client + invoice details */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', pageBreakInside: 'avoid' }}>
+        <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}` }}>
+          <p style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Billed to</p>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: '10.5pt', color: CLR.dark }}>{inv.client?.name || 'Client'}</p>
+          {inv.client?.email && <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>{inv.client.email}</p>}
+          {inv.client?.phone && <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>{inv.client.phone}</p>}
         </div>
-        <div className="sm:text-right text-sm text-slate-600">
-          {inv.quotationRef?.quotationNo && (
-            <p><span className="text-slate-400">Quotation:</span> {inv.quotationRef.quotationNo}</p>
+        <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}`, textAlign: 'right' }}>
+          <p style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Invoice details</p>
+          {inv.invoiceNo && (
+            <p style={{ margin: 0, fontSize: '10pt', color: CLR.dark, fontWeight: 600 }}>
+              <span style={{ color: CLR.muted, fontWeight: 700, fontSize: '8.5pt', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Invoice no. </span>
+              {inv.invoiceNo}
+            </p>
           )}
-          <p className="capitalize mt-1"><span className="text-slate-400">Status:</span> {inv.status}</p>
+          <p style={{ margin: '6px 0 0', fontSize: '9.5pt', color: CLR.light, textTransform: 'capitalize' }}>
+            <span style={{ color: CLR.muted }}>Status:</span> {inv.status || '—'}
+          </p>
         </div>
       </div>
 
-      <table className="doc-table w-full text-sm mb-6">
+      {/* Items */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', margin: '0 0 20px', fontSize: '10pt' }}>
         <thead>
-          <tr>
-            <th>Description</th>
-            <th className="text-center">Qty</th>
-            <th className="text-right">Unit price</th>
-            <th className="text-right">Total</th>
+          <tr style={{ background: '#f1f5f9' }}>
+            <th style={{ ...thStyle, textAlign: 'left' }}>Description</th>
+            <th style={{ ...thStyle, textAlign: 'center' }}>Qty</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Unit price</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Total</th>
           </tr>
         </thead>
         <tbody>
           {(inv.items || []).map((item, i) => (
             <tr key={i}>
-              <td>{item.description}</td>
-              <td className="text-center">{item.quantity}</td>
-              <td className="text-right">{formatMoney(item.unitPrice || 0, currency)}</td>
-              <td className="text-right font-medium">{formatMoney(item.total || 0, currency)}</td>
+              <td style={{ ...tdStyle }}>{item.description}</td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>{item.quantity}</td>
+              <td style={{ ...tdStyle, textAlign: 'right' }}>{formatMoney(item.unitPrice || 0, currency)}</td>
+              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{formatMoney(item.total || 0, currency)}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <div className="doc-totals space-y-1 mb-6 ml-auto max-w-xs">
-        <div className="flex justify-between text-sm text-slate-600"><span>Subtotal</span><span>{formatMoney(inv.subtotal || 0, currency)}</span></div>
+      {/* Totals */}
+      <div style={{ width: '260px', marginLeft: 'auto', fontSize: '10pt', marginBottom: '20px', pageBreakInside: 'avoid' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
+          <span>Subtotal</span><span>{formatMoney(inv.subtotal || 0, currency)}</span>
+        </div>
         {Number(inv.discountTotal) > 0 && (
-          <div className="flex justify-between text-sm text-slate-600"><span>Discount</span><span>-{formatMoney(inv.discountTotal, currency)}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
+            <span>Discount</span><span>-{formatMoney(inv.discountTotal, currency)}</span>
+          </div>
         )}
         {Number(inv.tax) > 0 && (
-          <div className="flex justify-between text-sm text-slate-600"><span>Tax ({inv.taxRate}%)</span><span>{formatMoney(inv.tax, currency)}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
+            <span>Tax ({inv.taxRate}%)</span><span>{formatMoney(inv.tax, currency)}</span>
+          </div>
         )}
-        <div className="flex justify-between font-bold text-lg border-t-2 border-sky-500 pt-2">
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 6px', marginTop: '6px', borderTop: `2px solid ${CLR.accent}`, fontSize: '12pt', fontWeight: 800, color: CLR.dark }}>
           <span>Total</span><span>{formatMoney(inv.total || 0, currency)}</span>
         </div>
         {Number(inv.totalPaid) > 0 && (
-          <div className="flex justify-between text-sm text-green-700"><span>Paid</span><span>{formatMoney(inv.totalPaid, currency)}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: '#15803d' }}>
+            <span>Paid</span><span>{formatMoney(inv.totalPaid, currency)}</span>
+          </div>
         )}
         {Number(inv.remainingBalance) > 0 && (
-          <div className="flex justify-between text-sm font-bold text-red-700"><span>Balance due</span><span>{formatMoney(inv.remainingBalance, currency)}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontWeight: 700, color: '#b91c1c' }}>
+            <span>Balance due</span><span>{formatMoney(inv.remainingBalance, currency)}</span>
+          </div>
         )}
       </div>
 
       {inv.notes && (
-        <div className="text-sm border-t border-slate-100 pt-4 mb-4">
-          <h4 className="font-bold text-xs uppercase text-slate-500 mb-2">Notes</h4>
-          <p className="text-slate-600 whitespace-pre-wrap">{inv.notes}</p>
-        </div>
-      )}
-      {inv.paymentTerms && (
-        <div className="text-sm border-t border-slate-100 pt-4">
-          <h4 className="font-bold text-xs uppercase text-slate-500 mb-2">Payment terms</h4>
-          <p className="text-slate-600 whitespace-pre-wrap">{inv.paymentTerms}</p>
+        <div style={{ marginBottom: '16px', pageBreakInside: 'avoid' }}>
+          <div style={{ borderTop: `2px solid ${CLR.border}`, paddingTop: '12px' }}>
+            <h4 style={{ margin: '0 0 8px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</h4>
+            <p style={{ margin: 0, fontSize: '9pt', lineHeight: 1.65, color: CLR.mid, whiteSpace: 'pre-wrap' }}>{inv.notes}</p>
+          </div>
         </div>
       )}
 
-      {showRefOnDocument && inv.invoiceNo && (
-        <p className="text-[10px] text-slate-400 text-right mt-8 tracking-wide">Ref: {inv.invoiceNo}</p>
+      {termsLines.length > 0 && (
+        <div style={{ marginBottom: '16px', pageBreakInside: 'avoid' }}>
+          <div style={{ border: `1px solid ${CLR.border}`, borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 18px', background: CLR.dark }}>
+              <h4 style={{ margin: 0, fontSize: '8.5pt', fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Payment terms
+              </h4>
+            </div>
+            <div style={{ padding: '14px 18px', background: '#fafbfc' }}>
+              <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '8.5pt', lineHeight: 1.7, color: CLR.mid }}>
+                {termsLines.map((line, i) => (
+                  <li key={i} style={{ paddingLeft: '4px', marginBottom: i < termsLines.length - 1 ? '5px' : 0 }}>{line}</li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(inv.signatures?.authorizer?.data || inv.signatures?.seal?.data) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px', alignItems: 'end', pageBreakInside: 'avoid' }}>
+          <div>
+            {inv.signatures.authorizer?.data && (
+              <img src={sigImgSrc(inv.signatures.authorizer.data, forPrint)} alt="" style={{ maxHeight: '72px', marginBottom: '8px', display: 'block' }} crossOrigin="anonymous" />
+            )}
+            <div style={{ borderTop: `1px solid ${CLR.border}`, paddingTop: '8px', maxWidth: '220px' }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '10pt' }}>{inv.signatures.authorizer?.name || ''}</p>
+              <p style={{ margin: '4px 0 0', fontSize: '9pt', color: CLR.light }}>{inv.signatures.authorizer?.title || 'Authorized Signatory'}</p>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            {inv.signatures.seal?.data && (
+              <img src={sigImgSrc(inv.signatures.seal.data, forPrint)} alt="Seal" style={{ maxHeight: '88px', marginLeft: 'auto', display: 'block' }} crossOrigin="anonymous" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {!inv.signatures?.authorizer?.data && !inv.signatures?.seal?.data && siteSettings && (
+        <div dangerouslySetInnerHTML={{
+          __html: directorSealBlockHtml({
+            directorName: siteSettings.quotationDirectorName || '',
+            sealUrl: siteSettings.sealUrl || '',
+            forPrint,
+          }),
+        }} />
       )}
     </div>
   )

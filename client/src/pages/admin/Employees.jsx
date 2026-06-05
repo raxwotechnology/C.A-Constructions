@@ -31,6 +31,13 @@ function invalidateEmployeePickers(qc) {
   qc.invalidateQueries({ queryKey: ['admin-export-employees'] })
 }
 
+const EMPLOYMENT_TYPE_META = {
+  permanent: { label: 'Permanent', className: 'bg-blue-50 text-blue-700 ring-blue-100' },
+  intern: { label: 'Intern', className: 'bg-amber-50 text-amber-700 ring-amber-100' },
+  contract: { label: 'Contract', className: 'bg-violet-50 text-violet-700 ring-violet-100' },
+  part_time: { label: 'Part-time', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
+}
+
 function invalidateAllEmployeeLists(qc) {
   invalidateEmployeePickers(qc)
   return qc.invalidateQueries({ queryKey: ['employees'], exact: false })
@@ -380,7 +387,7 @@ export default function AdminEmployees() {
       <div className="table-container">
         <table className="table">
           <thead><tr>
-            <th>Employee</th><th>ID</th><th>Department</th><th>Designation</th>
+            <th>Employee</th><th>Emp. ID / Type</th><th>Department</th><th>Designation</th>
             <th>Basic Salary</th><th>EPF No</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
@@ -408,22 +415,18 @@ export default function AdminEmployees() {
                       </div>
                     </td>
                     <td>
-                      <span className="badge badge-navy">{emp.employeeNo}</span>
-                      {emp.employmentType === 'intern' && (
-                        <span className="badge badge-yellow ml-1">Intern</span>
-                      )}
-                      {emp.employmentType === 'contract' && (
-                        <span className="badge badge-purple ml-1">Contract</span>
-                      )}
-                      {emp.employmentType === 'part_time' && (
-                        <span className="badge badge-gray ml-1">Part-time</span>
-                      )}
-                      {emp.employmentType === 'intern' && emp.internshipDaysRemaining !== null && (
-                        <div className={`text-xs mt-1 font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-400'}`}>
-                          {emp.internshipDaysRemaining <= 14 && <FiAlertCircle size={11} />}
-                          {emp.internshipDaysRemaining} days left
-                        </div>
-                      )}
+                      <div className="flex flex-col gap-1.5 min-w-[96px]">
+                        <span className="font-mono text-xs font-semibold text-slate-700 tracking-wide">{emp.employeeNo || '—'}</span>
+                        <span className={`inline-flex w-fit items-center text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ring-1 ring-inset ${EMPLOYMENT_TYPE_META[emp.employmentType]?.className || EMPLOYMENT_TYPE_META.permanent.className}`}>
+                          {EMPLOYMENT_TYPE_META[emp.employmentType]?.label || 'Permanent'}
+                        </span>
+                        {emp.employmentType === 'intern' && emp.internshipDaysRemaining !== null && (
+                          <span className={`text-[10px] font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-400'}`}>
+                            {emp.internshipDaysRemaining <= 14 && <FiAlertCircle size={10} />}
+                            {emp.internshipDaysRemaining}d left
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>{emp.department}</td>
                     <td>{emp.designation}</td>

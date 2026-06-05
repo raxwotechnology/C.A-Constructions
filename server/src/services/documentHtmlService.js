@@ -120,7 +120,7 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
     q.paymentMethod === 'custom'
       ? q.paymentMethodCustom || 'Custom'
       : PAYMENT_LABELS[q.paymentMethod] || q.paymentMethod || '';
-  const thanks = settings.quotationThankYouMessage || 'Thank you for your business.';
+  const thanks = settings.quotationThankYouMessage || 'We appreciate your business and look forward to the opportunity to work with you. Should you have any questions regarding this quotation, please do not hesitate to contact us.';
   const roleProfile = settings.signatures?.[q.directorRole] || null;
   const directorName = q.directorName || roleProfile?.label || settings.quotationDirectorName || '';
   const sealUrl = q.directorSealUrl || roleProfile?.url || settings.sealUrl;
