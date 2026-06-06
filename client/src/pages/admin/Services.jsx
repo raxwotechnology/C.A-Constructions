@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown, FiArchive, FiCheck, FiDollarSign, FiLayers } from 'react-icons/fi'
 import FeatureTagInput from '../../components/ui/FeatureTagInput'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 const EMPTY_SERVICE = { title: '', description: '', features: [], priceText: '', imageUrl: '', active: true, order: 0, type: 'service', category: '' }
 const EMPTY_PKG = { name: '', price: '', currency: 'LKR', billingCycle: 'one-time', features: '', duration: '', discount: '', promotionLabel: '', isPopular: false }
@@ -48,6 +49,10 @@ export default function AdminServices() {
   const deleteMut = useMutation({
     mutationFn: (id) => api.delete(`/content/services/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Deleted') },
+  })
+  const { requestDelete: requestDeleteService, DeletePasswordModal: serviceDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete service',
+    message: 'Enter your admin password to delete this service.',
   })
   const archiveMut = useMutation({
     mutationFn: (id) => api.put(`/content/services/${id}/archive`),
@@ -149,7 +154,7 @@ export default function AdminServices() {
                   <button onClick={() => openEdit(s)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500"><FiEdit2 size={14} /></button>
                   <button onClick={() => { setShowPkgModal(s._id); setPkgForm(EMPTY_PKG); setEditingPkg(null) }} className="p-2 hover:bg-blue-50 rounded-xl text-blue-500" title="Manage Packages"><FiPackage size={14} /></button>
                   <button onClick={() => archiveMut.mutate(s._id)} className="p-2 hover:bg-amber-50 rounded-xl text-amber-500"><FiArchive size={14} /></button>
-                  <button onClick={() => deleteMut.mutate(s._id)} className="p-2 hover:bg-red-50 rounded-xl text-red-500"><FiTrash2 size={14} /></button>
+                  <button type="button" onClick={() => requestDeleteService(s._id)} className="p-2 hover:bg-red-50 rounded-xl text-red-500"><FiTrash2 size={14} /></button>
                   <button onClick={() => setExpandedService(expandedService === s._id ? null : s._id)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
                     <FiChevronDown size={14} className={`transition-transform ${expandedService === s._id ? 'rotate-180' : ''}`} />
                   </button>
@@ -327,6 +332,7 @@ export default function AdminServices() {
           </div>
         )}
       </AnimatePresence>
+      {serviceDeleteModal}
     </div>
   )
 }

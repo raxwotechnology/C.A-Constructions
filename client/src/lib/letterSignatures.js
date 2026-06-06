@@ -2,6 +2,7 @@ import { absoluteMediaUrl } from './media'
 
 export const LETTER_SIGNATORY_ROLES = [
   { value: 'admin', label: 'Admin' },
+  { value: 'director', label: 'Director' },
   { value: 'manager', label: 'Manager' },
   { value: 'hr', label: 'HR' },
   { value: 'custom', label: 'Custom' },

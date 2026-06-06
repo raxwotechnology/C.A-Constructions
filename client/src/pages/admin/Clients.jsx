@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import ExportBar from '../../components/ui/ExportBar'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 export default function AdminClients() {
   const qc = useQueryClient()
@@ -62,6 +63,10 @@ export default function AdminClients() {
       qc.invalidateQueries({ queryKey: ['admin-clients'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to delete client'),
+  })
+  const { requestDelete: requestDeleteClient, DeletePasswordModal: clientDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete client',
+    message: 'Enter your admin password to permanently delete this client and their portal access.',
   })
 
   const clients = data?.clients || []
@@ -218,7 +223,7 @@ export default function AdminClients() {
                     }}>
                     <FiEdit2 size={13} /> Edit Login
                   </button>
-                  <button className="btn-ghost btn-sm text-red-500 hover:bg-red-50 whitespace-nowrap shrink-0" onClick={() => { if(window.confirm('Delete client?')) deleteMut.mutate(client._id) }}>
+                  <button type="button" className="btn-ghost btn-sm text-red-500 hover:bg-red-50 whitespace-nowrap shrink-0" onClick={() => requestDeleteClient(client._id)}>
                     <FiTrash2 size={13} />
                   </button>
                 </div>
@@ -289,6 +294,7 @@ export default function AdminClients() {
           </div>
         ) : null}
       </AnimatePresence>
+      {clientDeleteModal}
     </div>
   )
 }

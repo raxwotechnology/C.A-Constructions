@@ -380,7 +380,13 @@ export default function EnterpriseLetterBuilder({
                         </select>
                       </div>
                       <input {...register('signatoryName')} placeholder="Signatory name" className="form-input text-xs" />
-                      <input {...register('signatoryTitle')} placeholder="Title" className="form-input text-xs" />
+                      <input {...register('signatoryTitle')} placeholder="Title" className="form-input text-xs" list="signatory-titles" />
+                      <datalist id="signatory-titles">
+                        <option value="Director" />
+                        <option value="Authorized Signatory" />
+                        <option value="Manager" />
+                        <option value="HR" />
+                      </datalist>
                       <DocumentAssetPicker
                         label="Signature"
                         value={{ data: formData.signatoryData }}

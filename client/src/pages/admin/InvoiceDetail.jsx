@@ -105,22 +105,15 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
       const { default: jsPDF } = await import('jspdf')
       const { default: autoTable } = await import('jspdf-autotable')
       const doc = new jsPDF()
-      let y = 14
-      doc.setFontSize(16)
-      doc.setTextColor(15, 31, 58)
-      doc.text(String(site.siteName || 'Raxwo Pvt Ltd'), 14, y)
-      y += 8
-      doc.setFontSize(9)
-      doc.setTextColor(71, 85, 105)
-      const addr = [site.contactAddress, site.contactPhone, site.contactEmail, site.websiteUrl].filter(Boolean).join(' · ')
-      if (addr) {
-        doc.text(addr, 14, y)
-        y += 6
-      }
-      doc.setFontSize(12)
-      doc.setTextColor(15, 23, 42)
-      doc.text(`Payment history — Invoice ${inv.invoiceNo}`, 14, y + 4)
-      y += 14
+      const { buildCompanyFromSettings } = await import('../../lib/companyBranding')
+      const { drawQuotationStylePdfHeader, drawPdfReportMeta } = await import('../../lib/exportPdfHeader')
+      const company = buildCompanyFromSettings(site)
+      const headerEnd = await drawQuotationStylePdfHeader(doc, company)
+      const y = drawPdfReportMeta(doc, {
+        title: `Payment history — Invoice ${inv.invoiceNo}`,
+        recordCount: (inv.payments || []).length,
+        startY: headerEnd,
+      })
       const rows = (inv.payments || []).map((p) => [
         new Date(p.date).toLocaleDateString('en-LK'),
         p.isAdvance ? 'Advance' : 'Payment',

@@ -23,7 +23,7 @@ export function buildInvoiceDraft(form, { clients = [], editing = null, projects
 
   return {
     _id: editing?._id || null,
-    invoiceNo: editing?.invoiceNo || 'Preview',
+    invoiceNo: editing?.invoiceNo || '',
     client,
     project: projectRow ? { title: projectRow.title } : editing?.project,
     items,

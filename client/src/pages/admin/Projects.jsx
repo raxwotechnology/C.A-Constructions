@@ -12,6 +12,7 @@ import { invoicePaymentDisplay } from '../../lib/invoicePayment'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
 import ExportBar from '../../components/ui/ExportBar'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
 const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', cancelled:'badge-red', overdue:'badge-red' }
@@ -92,6 +93,10 @@ export default function AdminProjects() {
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/projects/${id}`),
     onSuccess: () => { qc.invalidateQueries(['admin-projects']); toast.success('Deleted') },
+  })
+  const { requestDelete: requestDeleteProject, DeletePasswordModal: projectDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete project',
+    message: 'Enter your admin password to permanently delete this project.',
   })
 
   const openEdit = p => {
@@ -272,7 +277,7 @@ export default function AdminProjects() {
               </div>
               <div className="flex gap-1">
                 <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
-                <button onClick={() => { if(window.confirm('Delete project?')) deleteMut.mutate(p._id) }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
+                <button type="button" onClick={() => requestDeleteProject(p._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
               </div>
             </div>
             <div className="cursor-pointer" onClick={() => navigate(`/admin/projects/${p._id}`)}>
@@ -517,6 +522,7 @@ export default function AdminProjects() {
         </div>,
         document.body
       )}
+      {projectDeleteModal}
     </div>
   )
 }

@@ -96,8 +96,11 @@ export default function AdminInvoices() {
 
   const formSnapshot = watch()
   const livePreviewInvoice = useMemo(
-    () => buildInvoiceDraft(formSnapshot, { clients, editing, projects }),
-    [formSnapshot, clients, editing, projects],
+    () => ({
+      ...buildInvoiceDraft(formSnapshot, { clients, editing, projects }),
+      signatures
+    }),
+    [formSnapshot, clients, editing, projects, signatures],
   )
 
   const syncPreviewToForm = (partial) => {
@@ -251,7 +254,7 @@ export default function AdminInvoices() {
     })
     setSignatures({
       authorizer: { data: '', name: '', title: 'Authorized Signatory' },
-      seal: { data: '' }
+      seal: { data: '', note: '' }
     })
     setEditing(null)
     setShowModal(true)
@@ -291,7 +294,7 @@ export default function AdminInvoices() {
         name: inv.signatures?.authorizer?.name || '', 
         title: inv.signatures?.authorizer?.title || 'Authorized Signatory' 
       },
-      seal: { data: inv.signatures?.seal?.data || '' }
+      seal: { data: inv.signatures?.seal?.data || '', note: inv.signatures?.seal?.note || '' }
     })
   }
   const closeModal = () => { setShowModal(false); setEditing(null); reset() }
@@ -418,7 +421,7 @@ export default function AdminInvoices() {
             <div className="flex items-center justify-between p-4 md:p-5 border-b shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Invoice' : 'New Invoice'}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Fill details on the left; preview and print on the right.</p>
+                {(editing?.invoiceNo || watch('invoiceNo')) && <p className="text-xs text-slate-500 mt-0.5 font-mono">#{editing?.invoiceNo || watch('invoiceNo')}</p>}
               </div>
               <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
@@ -572,18 +575,30 @@ export default function AdminInvoices() {
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Authorizer Signature</p>
                     <DocumentAssetPicker label="Signature (upload or saved)" value={{ data: signatures.authorizer.data }} onChange={(v) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data: v.data } }))} roleKey="admin" />
                     <input className="form-input text-sm" placeholder="Signatory name" value={signatures.authorizer.name} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, name: e.target.value } }))} />
-                    <input className="form-input text-sm" placeholder="Signatory title (e.g. Authorized Signatory)" value={signatures.authorizer.title} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, title: e.target.value } }))} />
+                    <input className="form-input text-sm" placeholder="Signatory title (e.g. Authorized Signatory)" list="signatory-titles" value={signatures.authorizer.title} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, title: e.target.value } }))} />
+                    <datalist id="signatory-titles">
+                      <option value="Director" />
+                      <option value="Authorized Signatory" />
+                      <option value="Manager" />
+                      <option value="HR" />
+                    </datalist>
                     <SignaturePad label="Draw signature" value={signatures.authorizer.data} onChange={(data) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data } }))} />
                   </div>
                   <div className="space-y-4">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Company Seal</p>
-                    <DocumentAssetPicker label="Seal image" assetType="seal" value={{ data: signatures.seal.data }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))} />
+                    <DocumentAssetPicker label="Seal image" assetType="seal" value={{ data: signatures.seal.data }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { ...s.seal, data: v.data } }))} />
+                    <input className="form-input text-sm" placeholder="Text under seal (e.g. For and on behalf of...)" value={signatures.seal.note || ''} onChange={(e) => setSignatures((s) => ({ ...s, seal: { ...s.seal, note: e.target.value } }))} />
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t sticky bottom-0 bg-white pb-1">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1">Cancel</button>
-                  <button type="submit" disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
+                  <button type="submit" onClick={() => {
+                    const errs = [];
+                    if (!watch('client')) errs.push('Client is required');
+                    if (fields.some(f => !f.description)) errs.push('Item descriptions are required');
+                    if (errs.length > 0) errs.forEach(e => toast.error(e));
+                  }} disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
                     {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : (editing ? 'Save & Preview' : 'Create Invoice')}
                   </button>
                 </div>

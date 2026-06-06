@@ -43,7 +43,7 @@ export function contactBlockHtml(company, { inline = false } = {}) {
   const lines = companyContactLines(company)
   if (!lines.length) return ''
   if (inline) {
-    return `<p style="margin:8px 0 0;font-size:9.5pt;color:#475569;line-height:1.5">${lines.map((l) => l.text).join(' · ')}</p>`
+    return `<p style="margin:8px 0 0;font-size:9.5pt;color:#475569;line-height:1.5">${lines.map((l) => `<span style="color:#38bdf8;font-weight:600">${l.label}:</span> ${escapeHtml(l.text)}`).join(' · ')}</p>`
   }
   return `<table style="margin:10px 0 0 auto;font-size:9.5pt;color:#475569;line-height:1.5;border-collapse:collapse;text-align:left">
     <tbody>
@@ -102,6 +102,7 @@ export function letterheadHtml(company, { forPrint = false } = {}) {
 export function buildAgreementPrintOpts(settings, agr, bodyHtml, signatures) {
   const co = buildCompanyFromSettings(settings)
   return {
+    company: co,
     siteName: co.name,
     logoUrl: absoluteMediaUrl(co.logoPath || co.logo),
     address: co.address,

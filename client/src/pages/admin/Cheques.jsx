@@ -5,6 +5,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiTrash2, FiEye, FiX } from 'react-icons/fi'
 import { statusNeedsBankLedger } from '../../lib/chequeLedger'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 const STATUS_BADGE = {
   pending: 'badge-yellow',
@@ -151,6 +152,10 @@ export default function AdminCheques() {
       toast.success('Removed')
       qc.invalidateQueries({ queryKey: ['cheques'] })
     },
+  })
+  const { requestDelete: requestDeleteCheque, DeletePasswordModal: chequeDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete cheque record',
+    message: 'Enter your admin password to delete this cheque record.',
   })
 
   const submit = () => {
@@ -377,7 +382,7 @@ export default function AdminCheques() {
                         >
                           <FiEye size={14} />
                         </button>
-                        <button type="button" className="p-1.5 text-slate-400 hover:text-red-500" title="Delete" onClick={() => window.confirm('Delete this cheque record?') && deleteMut.mutate(c._id)}>
+                        <button type="button" className="p-1.5 text-slate-400 hover:text-red-500" title="Delete" onClick={() => requestDeleteCheque(c._id)}>
                           <FiTrash2 size={14} />
                         </button>
                       </div>
@@ -509,6 +514,7 @@ export default function AdminCheques() {
           </div>,
           document.body
         )}
+      {chequeDeleteModal}
     </div>
   )
 }

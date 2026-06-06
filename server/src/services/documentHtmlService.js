@@ -254,9 +254,30 @@ function bankLabelFromAccount(bank) {
   return `${bank.bankName || ''} · ${bank.accountNumber || ''}`.trim();
 }
 
+async function buildTabularExportHtml(title, headers, rows, metaLine = '') {
+  const settings = (await SiteSetting.findOne().lean()) || {};
+  const head = headers.map((h) => `<th>${esc(h)}</th>`).join('');
+  const body = rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c ?? '')}</td>`).join('')}</tr>`).join('');
+  return `<!doctype html><html><head><meta charset="utf-8"/><style>
+    body{font-family:'Segoe UI',system-ui,sans-serif;padding:24px;color:#0f172a;font-size:11pt;line-height:1.55}
+    h2{font-size:14pt;font-weight:800;margin:0 0 6px;color:#0f172a}
+    .meta{font-size:9pt;color:#64748b;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #e2e8f0;padding:8px 10px;font-size:10pt;text-align:left}
+    th{background:#f1f5f9;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.05em;color:#475569}
+  </style></head><body>
+  ${buildLetterhead(settings)}
+  <h2>${esc(title)}</h2>
+  ${metaLine ? `<p class="meta">${esc(metaLine)}</p>` : ''}
+  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+  </body></html>`;
+}
+
 module.exports = {
   buildQuotationDocumentHtml,
   buildInvoiceDocumentHtml,
+  buildTabularExportHtml,
+  buildLetterhead,
   bankLabelFromAccount,
   APP_URL,
 };

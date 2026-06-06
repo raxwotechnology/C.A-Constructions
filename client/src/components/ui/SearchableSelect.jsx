@@ -15,6 +15,7 @@ export default function SearchableSelect({
   className = '',
   clearable = true,
   initialLabel = '',
+  allowCustom = false,
 }) {
   const listId = useId()
   const rootRef = useRef(null)
@@ -128,15 +129,24 @@ export default function SearchableSelect({
     if (e.key === 'Escape') { setOpen(false); return }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setHighlight((h) => Math.min(h + 1, Math.max(0, options.length - 1)))
+      const maxHighlight = options.length - 1 + (allowCustom && search.trim() ? 1 : 0)
+      setHighlight((h) => Math.min(h + 1, Math.max(0, maxHighlight)))
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault()
       setHighlight((h) => Math.max(h - 1, 0))
     }
-    if (e.key === 'Enter' && options[highlight]) {
+    if (e.key === 'Enter') {
       e.preventDefault()
-      selectOption(options[highlight])
+      const hasCustom = allowCustom && search.trim()
+      if (hasCustom && highlight === 0) {
+        selectOption({ value: search, label: search })
+      } else {
+        const optIndex = hasCustom ? highlight - 1 : highlight
+        if (options[optIndex]) {
+          selectOption(options[optIndex])
+        }
+      }
     }
   }
 
@@ -151,6 +161,7 @@ export default function SearchableSelect({
   }
 
   const display = selectedLabel || (value ? String(value) : '')
+  const hasCustomOpt = allowCustom && search.trim()
 
   const dropdown = open && (
     <div
@@ -161,7 +172,7 @@ export default function SearchableSelect({
         top: menuPos.top,
         left: menuPos.left,
         width: menuPos.width,
-        zIndex: 100001,
+        zIndex: 9999999,
       }}
       className="bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
       onMouseDown={(e) => e.stopPropagation()}
@@ -190,24 +201,44 @@ export default function SearchableSelect({
         {!loading && loadError && (
           <li className="px-3 py-4 text-center text-sm text-red-500">{loadError}</li>
         )}
-        {!loading && !loadError && options.length === 0 && (
+        {!loading && !loadError && options.length === 0 && !hasCustomOpt && (
           <li className="px-3 py-4 text-center text-sm text-slate-400">No results</li>
         )}
-        {options.map((opt, i) => (
-          <li key={`${opt.value}-${i}`}>
+        
+        {hasCustomOpt && (
+          <li>
             <button
               type="button"
               role="option"
-              aria-selected={value === opt.value}
-              onClick={() => selectOption(opt)}
-              className={`w-full text-left px-3 py-2 text-sm truncate font-sans ${
-                i === highlight ? 'bg-secondary/10 text-secondary' : 'hover:bg-slate-50'
-              } ${value === opt.value ? 'font-semibold' : ''}`}
+              aria-selected={highlight === 0}
+              onClick={() => selectOption({ value: search, label: search })}
+              className={`w-full text-left px-3 py-2 text-sm truncate font-sans font-medium text-primary ${
+                highlight === 0 ? 'bg-secondary/10' : 'hover:bg-slate-50'
+              }`}
             >
-              {opt.label}
+              Use "{search}"
             </button>
           </li>
-        ))}
+        )}
+
+        {options.map((opt, i) => {
+          const listIndex = hasCustomOpt ? i + 1 : i;
+          return (
+            <li key={`${opt.value}-${i}`}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={value === opt.value}
+                onClick={() => selectOption(opt)}
+                className={`w-full text-left px-3 py-2 text-sm truncate font-sans ${
+                  listIndex === highlight ? 'bg-secondary/10 text-secondary' : 'hover:bg-slate-50'
+                } ${value === opt.value ? 'font-semibold' : ''}`}
+              >
+                {opt.label}
+              </button>
+            </li>
+          )
+        })}
         {loading && options.length > 0 && (
           <li className="px-3 py-2 text-center text-xs text-slate-400">Loading more…</li>
         )}

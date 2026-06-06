@@ -171,7 +171,7 @@ const A4_WIDTH_PX = LETTER_PAGE_WIDTH
 const A4_CONTENT_HEIGHT_PX = 1015
 
 const PRINT_STYLES = `
-  @page { margin: 14mm 16mm; size: A4; }
+  @page { margin: 25mm 15mm; size: A4; }
   body { margin: 0; padding: 0; background: #fff; }
   ${LETTER_COMPACT_CSS}
   /* Letter body prose styles */
@@ -232,7 +232,7 @@ function measureContentHeight(el) {
   return Math.max(el.scrollHeight || 0, el.offsetHeight || 0, el.getBoundingClientRect?.().height || 0)
 }
 
-/** Tighten spacing first, then apply a gentle zoom — never shrink below 92%. */
+/** Tighten spacing first, then apply a gentle zoom — never shrink below 75%. */
 export function applyLetterPageFit(doc, { fitToOnePage = false, scale = 1 } = {}) {
   if (!doc?.body) return 1
   const wrap = doc.querySelector('.letter-page-wrap') || doc.body.firstElementChild
@@ -246,7 +246,7 @@ export function applyLetterPageFit(doc, { fitToOnePage = false, scale = 1 } = {}
   wrap.style.height = ''
   wrap.style.overflow = ''
 
-  const userScale = Math.max(0.85, Math.min(1.15, Number(scale) || 1))
+  const userScale = Math.max(0.75, Math.min(1.15, Number(scale) || 1))
 
   if (fitToOnePage) {
     content.classList.add('letter-compact')
@@ -261,7 +261,7 @@ export function applyLetterPageFit(doc, { fitToOnePage = false, scale = 1 } = {}
   let fitZoom = 1
   if (fitToOnePage && height > A4_CONTENT_HEIGHT_PX) {
     fitZoom = A4_CONTENT_HEIGHT_PX / height
-    fitZoom = Math.max(0.92, Math.min(1, fitZoom))
+    fitZoom = Math.max(0.75, Math.min(1, fitZoom))
   }
 
   const finalZoom = userScale * fitZoom

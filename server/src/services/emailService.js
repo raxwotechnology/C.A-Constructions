@@ -214,6 +214,34 @@ exports.sendQuotationEmail = async (clientEmail, clientName, quoteDetails, { sha
   await sendLoggedMail(mailOpts, 'quotation');
 };
 
+exports.sendSubscriptionHistoryEmail = async (clientEmail, clientName, subDetails, { shareLink, pdfBuffer } = {}) => {
+  const viewUrl = shareLink || `${APP_URL}/my-subscriptions`;
+  const html = await buildEmailHTML('Subscription Payment History', `
+    <p>Hi <strong>${clientName}</strong>,</p>
+    <p>Please find the payment history for your subscription <strong>"${subDetails.title}"</strong> below.</p>
+    ${infoBoxHtml([
+      { label: 'Subscription No', value: subDetails.subscriptionNo || 'N/A' },
+      { label: 'Total Billed', value: `LKR ${Number(subDetails.totalBilled || 0).toLocaleString()}` },
+      { label: 'Total Paid', value: `LKR ${Number(subDetails.totalPaid || 0).toLocaleString()}` },
+      { label: 'Remaining Balance', value: `LKR ${Math.max(0, (subDetails.totalBilled || 0) - (subDetails.totalPaid || 0)).toLocaleString()}` },
+    ])}
+    ${btnHtml('View Online', viewUrl)}
+  `);
+  const mailOpts = {
+    to: clientEmail,
+    subject: `Payment History: ${subDetails.title}`,
+    html,
+  };
+  if (pdfBuffer) {
+    mailOpts.attachments = [{
+      filename: `Subscription_History_${subDetails.subscriptionNo || 'receipt'}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }];
+  }
+  await sendLoggedMail(mailOpts, 'subscription');
+};
+
 /* ─── Payroll & HR Notifications ─────────────────────────────────────────────── */
 exports.sendPayslipReadyEmail = async (employeeEmail, employeeName, details) => {
   const monthName = new Date(details.year, details.month - 1).toLocaleString('default', { month: 'long' });

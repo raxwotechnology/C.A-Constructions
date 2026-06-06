@@ -18,6 +18,7 @@ import {
   suggestedExchangeToLKR,
 } from '../../lib/currencies'
 import ConfirmModal from '../../components/ui/ConfirmModal'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
 
@@ -39,6 +40,7 @@ const PAYMENT_METHODS = [
 ]
 const DIRECTOR_ROLE_OPTIONS = [
   { value: '', label: 'Use default' },
+  { value: 'director', label: 'Director' },
   { value: 'admin', label: 'Admin' },
   { value: 'manager', label: 'Manager' },
   { value: 'hr', label: 'HR' },
@@ -256,6 +258,10 @@ export default function AdminQuotations() {
     onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Deleted') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
+  const { requestDelete: requestDeleteQuotation, DeletePasswordModal: quotationDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete quotation',
+    message: 'Enter your admin password to permanently delete this quotation.',
+  })
 
   const clients = (clientData?.clients || clientData?.users || []).filter(u => !u.role || u.role === 'client')
   const formSnapshot = watch()
@@ -448,7 +454,7 @@ export default function AdminQuotations() {
                     {['draft','sent'].includes(q.status) && (
                       <button onClick={() => openEdit(q)} title="Edit" className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
                     )}
-                    <button onClick={() => { if(window.confirm('Delete?')) deleteMut.mutate(q._id) }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
+                    <button type="button" onClick={() => requestDeleteQuotation(q._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
                   </div>
                 </td>
               </tr>
@@ -465,7 +471,7 @@ export default function AdminQuotations() {
             <div className="flex items-center justify-between p-4 md:p-5 border-b shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Quotation' : 'New Quotation'}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Fill details on the left; preview on the right.</p>
+                {(editing?.quotationNo || watch('quotationNo')) && <p className="text-xs text-slate-500 mt-0.5 font-mono">#{editing?.quotationNo || watch('quotationNo')}</p>}
               </div>
               <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
@@ -717,7 +723,20 @@ export default function AdminQuotations() {
                     {DIRECTOR_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select></div>
                 <div><label className="form-label">Director / signatory name</label>
-                  <input {...register('directorName')} className="form-input" placeholder={siteSettings.quotationDirectorName || 'Authorized signatory'} /></div>
+                  <SearchableSelect
+                    value={watch('directorName')}
+                    initialLabel={watch('directorName') || ''}
+                    onChange={(val, opt) => {
+                      // Strip employee number like "John (EMP-001)" → "John"
+                      const raw = opt?.label || val || ''
+                      const name = raw.replace(/\s*\([^)]*\)\s*$/, '').trim()
+                      setValue('directorName', name, { shouldDirty: true })
+                    }}
+                    loadOptions={lookupLoaders.employeesAll()}
+                    placeholder={siteSettings.quotationDirectorName || 'Search or type name...'}
+                    allowCustom={true}
+                  />
+                </div>
               </div>
               <input type="hidden" {...register('directorSealUrl')} />
 
@@ -1014,6 +1033,7 @@ export default function AdminQuotations() {
         onConfirm={() => convertTarget && convertMut.mutate(convertTarget._id)}
         onCancel={() => !convertMut.isPending && setConvertTarget(null)}
       />
+      {quotationDeleteModal}
     </div>
   )
 }

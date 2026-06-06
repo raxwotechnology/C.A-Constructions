@@ -18,6 +18,7 @@ router.delete('/:id', protect, authorize('admin'), ctrl.deleteSubscription);
 
 // ── Payments ────────────────────────────────────────────
 router.post('/:id/payments', protect, authorize('admin'), ctrl.recordPayment);
+router.post('/:id/send-history', protect, authorize('admin', 'manager'), ctrl.sendHistory);
 
 // ── Agreements ──────────────────────────────────────────
 router.post('/:id/agreements', protect, authorize('admin'), uploadAgreement, ctrl.addAgreement);

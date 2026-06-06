@@ -6,6 +6,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { FiPlus, FiX, FiCheck, FiEdit2, FiTrash2, FiCreditCard, FiTrendingUp, FiTrendingDown, FiList, FiClipboard } from 'react-icons/fi'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 const EMPTY = { bankName: '', accountNumber: '', accountHolder: '', accountType: 'current', branchName: '', currentBalance: 0, currency: 'LKR', notes: '' }
 
@@ -46,6 +47,10 @@ export default function AdminBankManagement() {
     mutationFn: id => api.delete(`/bank-accounts/${id}`),
     onSuccess: () => { qc.invalidateQueries(['bank-accounts']); toast.success('Removed') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const { requestDelete: requestDeleteBank, DeletePasswordModal: bankDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Remove bank account',
+    message: 'Enter your admin password to remove this bank account record.',
   })
   const txnMut = useMutation({
     mutationFn: ({ id, ...p }) => api.post(`/bank-accounts/${id}/transaction`, p),
@@ -147,7 +152,7 @@ export default function AdminBankManagement() {
                 </button>
                 <button onClick={() => openEdit(acc)}
                   className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"><FiEdit2 size={13} /></button>
-                <button onClick={() => { if (window.confirm('Remove account?')) deleteMut.mutate(acc._id) }}
+                <button type="button" onClick={() => requestDeleteBank(acc._id)}
                   className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><FiTrash2 size={13} /></button>
               </div>
 
@@ -324,6 +329,7 @@ export default function AdminBankManagement() {
           </motion.div>
         </div>, document.body
       )}
+      {bankDeleteModal}
     </div>
   )
 }

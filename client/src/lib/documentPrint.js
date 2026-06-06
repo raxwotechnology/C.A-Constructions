@@ -38,7 +38,7 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
 
 export function documentPrintStyles() {
   return `
-    @page { size: A4; margin: 16mm 14mm 14mm 14mm; }
+    @page { size: A4; margin: 10mm 14mm 10mm 14mm; }
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; margin: 0; padding: 0; }
     .doc-frame { border: 1px solid #cbd5e1; border-radius: 4px; padding: 28px 32px; min-height: 100%; }
@@ -114,7 +114,7 @@ export function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
     return false
   }
 
-  const safeTitle = esc(title || ' ').trim() || ' '
+  const safeTitle = ' '
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${safeTitle}</title><style>${documentPrintStyles()}${extraCss}</style></head><body>${bodyHtml}</body></html>`
 
   doc.open()

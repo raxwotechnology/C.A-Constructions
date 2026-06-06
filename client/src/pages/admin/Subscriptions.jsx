@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import ExportBar from '../../components/ui/ExportBar'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 /* ─── Reusable Portal Modal ─────────────────────────────── */
 function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-3xl' }) {
@@ -59,7 +60,6 @@ export default function AdminSubscriptions() {
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [showAgreementForm, setShowAgreementForm] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
-  const [deleteId, setDeleteId] = useState(null)
   const [selectedSub, setSelectedSub] = useState(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -168,7 +168,11 @@ export default function AdminSubscriptions() {
 
   const deleteMut = useMutation({
     mutationFn: (id) => api.delete(`/subscriptions/${id}`),
-    onSuccess: () => { toast.success('Deleted'); qc.invalidateQueries({ queryKey: ['admin-subscriptions'] }) }
+    onSuccess: () => { toast.success('Deleted'); qc.invalidateQueries({ queryKey: ['admin-subscriptions'] }) },
+  })
+  const { requestDelete: requestDeleteSub, DeletePasswordModal: subDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete subscription',
+    message: 'Enter your admin password to permanently delete this subscription.',
   })
 
   const processOverdueMut = useMutation({
@@ -361,7 +365,7 @@ export default function AdminSubscriptions() {
                       <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50" title="Payment History"><FiList size={14} /></button>
                       <button onClick={() => openAgreement(s)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50" title="Add Agreement"><FiFileText size={14} /></button>
                       <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100" title="Edit"><FiEdit2 size={14} /></button>
-                      <button onClick={() => setDeleteId(s._id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500" title="Delete"><FiTrash2 size={14} /></button>
+                      <button type="button" onClick={() => requestDeleteSub(s._id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500" title="Delete"><FiTrash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -670,6 +674,46 @@ export default function AdminSubscriptions() {
                 <p className="text-slate-500">Total Billed: <span className="font-semibold text-slate-800">LKR {selectedSub.totalBilled?.toLocaleString()}</span></p>
                 <p className="text-slate-500">Total Paid: <span className="font-semibold text-green-600">LKR {selectedSub.totalPaid?.toLocaleString()}</span></p>
               </div>
+              {/* Action buttons: Export PDF, Email, SMS */}
+              <div className="flex gap-2 flex-wrap">
+                <ExportBar
+                  data={[...(selectedSub.payments || [])].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))}
+                  columns={[
+                    { header: 'Date', accessor: (p) => p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—' },
+                    { header: 'Amount', accessor: (p) => `LKR ${p.amount?.toLocaleString()}` },
+                    { header: 'Method', accessor: (p) => p.method?.replace('_', ' ') || '—' },
+                    { header: 'Reference', accessor: (p) => p.reference || '—' },
+                    { header: 'Note', accessor: (p) => p.note || '—' },
+                    { header: 'Recorded By', accessor: (p) => p.recordedBy?.name || '—' },
+                  ]}
+                  title={`Payment History - ${selectedSub.title}`}
+                  filters={{ Subscription: selectedSub.subscriptionNo, Client: selectedSub.client?.name }}
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await api.post(`/subscriptions/${selectedSub._id}/send-history`, { methods: ['email'] })
+                      toast.success('Payment history sent via email')
+                    } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
+                  }}
+                  className="btn-outline btn-sm gap-1 text-blue-600 border-blue-200 hover:border-blue-300"
+                >
+                  <FiExternalLink size={13}/> Email
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await api.post(`/subscriptions/${selectedSub._id}/send-history`, { methods: ['sms'] })
+                      toast.success('Payment notification sent via SMS')
+                    } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
+                  }}
+                  className="btn-outline btn-sm gap-1 text-emerald-600 border-emerald-200 hover:border-emerald-300"
+                >
+                  <FiExternalLink size={13}/> SMS
+                </button>
+              </div>
               {(!selectedSub.payments || selectedSub.payments.length === 0) ? (
                  <p className="text-center py-6 text-slate-400">No payment history found.</p>
               ) : (
@@ -707,19 +751,7 @@ export default function AdminSubscriptions() {
         </Modal>
       </AnimatePresence>
 
-      {/* ── Confirm Delete Modal ── */}
-      <AnimatePresence>
-        <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Confirm Deletion" maxWidth="max-w-md"
-          footer={<>
-            <button className="btn-secondary btn-sm" onClick={() => setDeleteId(null)}>Cancel</button>
-            <button className="btn-primary btn-sm bg-red-600 hover:bg-red-700 text-white border-0" disabled={deleteMut.isPending} onClick={() => { deleteMut.mutate(deleteId); setDeleteId(null); }}>
-              Yes, Delete
-            </button>
-          </>}
-        >
-          <p className="text-slate-600">Are you sure you want to delete this subscription? This action cannot be undone.</p>
-        </Modal>
-      </AnimatePresence>
+      {subDeleteModal}
     </div>
   )
 }

@@ -28,9 +28,18 @@ async function loadClientOptions({ search = '', page = 1 } = {}) {
     /* fall through to /clients */
   }
 
-  const { data } = await api.get('/clients')
+  let data;
+  try {
+    const res = await api.get('/clients')
+    data = res.data
+  } catch {
+    const res = await api.get('/auth/users')
+    data = res.data
+  }
+
   const q = search.trim().toLowerCase()
-  const all = (data?.clients || []).map((c) => ({
+  const source = data?.clients || data?.users || []
+  const all = source.filter(u => !u.role || u.role === 'client').map((c) => ({
     value: String(c._id),
     label: `${c.name || 'Client'}${c.email ? ` (${c.email})` : ''}`,
   }))

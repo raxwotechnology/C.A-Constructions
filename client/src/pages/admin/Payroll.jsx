@@ -947,9 +947,37 @@ export default function AdminPayroll() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-3 pt-4">
-                <button onClick={() => setPreviewPayroll(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
-                <button type="button" onClick={confirmPayrollPayment} disabled={payMut.isPending} className="btn-primary flex-1 justify-center bg-green-600 hover:bg-green-700 border-green-600">
+              <div className="flex gap-3 pt-4 flex-wrap">
+                <button onClick={() => handleDownloadSlip(previewPayroll)} className="btn-outline btn-sm gap-1 text-red-600 border-red-200 hover:border-red-300">
+                  <FiFileText size={13}/> Export PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await api.post(`/payroll/${previewPayroll._id}/send`, { methods: ['email'] })
+                      toast.success('Payslip sent via email')
+                    } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
+                  }}
+                  className="btn-outline btn-sm gap-1 text-blue-600 border-blue-200 hover:border-blue-300"
+                >
+                  <FiSend size={13}/> Email
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await api.post(`/payroll/${previewPayroll._id}/send`, { methods: ['sms'] })
+                      toast.success('Payslip notification sent via SMS')
+                    } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
+                  }}
+                  className="btn-outline btn-sm gap-1 text-emerald-600 border-emerald-200 hover:border-emerald-300"
+                >
+                  <FiSend size={13}/> SMS
+                </button>
+                <div className="flex-1" />
+                <button onClick={() => setPreviewPayroll(null)} className="btn-ghost justify-center">Cancel</button>
+                <button type="button" onClick={confirmPayrollPayment} disabled={payMut.isPending} className="btn-primary justify-center bg-green-600 hover:bg-green-700 border-green-600">
                   {payMut.isPending ? <span className="spinner"/> : <><FiCheck size={14}/> Confirm & Pay</>}
                 </button>
               </div>

@@ -6,6 +6,7 @@ import api from '../../lib/api'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
 import { FiCheck, FiX, FiCalendar, FiPlus, FiEye, FiEdit2, FiTrash2, FiFilter } from 'react-icons/fi'
@@ -35,8 +36,6 @@ export default function AdminLeaves() {
   const [viewLeave, setViewLeave]   = useState(null)
   const [editLeave, setEditLeave]   = useState(null)
   const [editForm, setEditForm]     = useState({})
-  const [deleteId, setDeleteId]     = useState(null)
-
   // Assign form
   const [selectedEmpId, setSelectedEmpId] = useState('')
   const [assignForm, setAssignForm] = useState({
@@ -104,8 +103,12 @@ export default function AdminLeaves() {
 
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/leaves/${id}`),
-    onSuccess: () => { inv(); toast.success('Deleted'); setDeleteId(null) },
+    onSuccess: () => { inv(); toast.success('Deleted') },
     onError: e => toast.error(e.response?.data?.message || 'Delete failed'),
+  })
+  const { requestDelete: requestDeleteLeave, DeletePasswordModal: leaveDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete leave request',
+    message: 'Enter your admin password to permanently delete this leave record.',
   })
 
   const assignMut = useMutation({
@@ -256,7 +259,7 @@ export default function AdminLeaves() {
                     <FiEdit2 size={14}/>
                   </button>
                 )}
-                <button onClick={() => setDeleteId(leave._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Delete">
+                <button type="button" onClick={() => requestDeleteLeave(leave._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Delete">
                   <FiTrash2 size={14}/>
                 </button>
               </div>
@@ -371,22 +374,7 @@ export default function AdminLeaves() {
         </div>, document.body
       )}
 
-      {/* Delete Confirm */}
-      {deleteId && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
-          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiTrash2 size={22}/></div>
-            <h3 className="font-bold text-lg">Delete Leave Request?</h3>
-            <p className="text-sm text-slate-500">This action cannot be undone.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
-              <button onClick={() => deleteMut.mutate(deleteId)} disabled={deleteMut.isPending} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
-                {deleteMut.isPending ? <span className="spinner"/> : 'Delete'}
-              </button>
-            </div>
-          </motion.div>
-        </div>, document.body
-      )}
+      {leaveDeleteModal}
 
       {/* Assign Leave Modal */}
       {showAssign && createPortal(

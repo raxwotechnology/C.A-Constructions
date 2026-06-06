@@ -9,8 +9,11 @@ import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiSearch, FiDownload, FiClock, FiRotateCcw, FiRotateCw, FiMove } from 'react-icons/fi'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
-import { buildAgreementPrintOpts } from '../../lib/companyBranding'
+import { buildAgreementPrintOpts, buildCompanyFromSettings } from '../../lib/companyBranding'
 import { openAgreementPrint, downloadAgreementPdf } from '../../lib/agreementPrint'
+import { buildLetterheadHtml, buildRefDateHtml, buildFooterHtml } from '../../lib/letterDocument'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
 import SignaturePad from '../../components/admin/SignaturePad'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import { FiBookmark, FiEdit } from 'react-icons/fi'
@@ -620,14 +623,16 @@ export default function Agreements() {
                       <h4 className="text-sm font-bold text-slate-700">Link records (auto-fills tokens)</h4>
                       <div>
                         <label className="form-label">Client</label>
-                        <select {...register('client')} className="form-select">
-                          <option value="">Select client…</option>
-                          {clients.map((c) => (
-                            <option key={c._id} value={c._id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
+                        <SearchableSelect
+                          value={watch('client')}
+                          onChange={(v) => setValue('client', v)}
+                          loadOptions={lookupLoaders.clients()}
+                          placeholder="Search client…"
+                          initialLabel={
+                            clients.find((c) => c._id === watch('client'))?.name || 
+                            (editing?.client?._id === watch('client') ? `${editing.client.name} (${editing.client.email || ''})` : '')
+                          }
+                        />
                       </div>
 
                       {type === 'client_project' && (
@@ -715,27 +720,102 @@ export default function Agreements() {
                           </button>
                         </div>
                       </div>
-                      <div className="border rounded-xl overflow-hidden flex-1 flex flex-col bg-white min-h-[320px]">
-                        <ReactQuill
-                          theme="snow"
-                          value={editorContent}
-                          onChange={setEditorContent}
-                          className="flex-1 agreement-quill"
-                          modules={{
-                            toolbar: [
-                              [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
-                              [{ header: [1, 2, 3, 4, 5, 6, false] }],
-                              ['bold', 'italic', 'underline', 'strike'],
-                              [{ color: [] }, { background: [] }],
-                              [{ script: 'sub' }, { script: 'super' }],
-                              [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }],
-                              [{ align: [] }],
-                              ['blockquote', 'code-block'],
-                              ['link', 'image', 'video'],
-                              ['clean'],
-                            ],
-                          }}
-                        />
+                      <div className="flex-1 flex flex-col bg-slate-100 min-h-0 overflow-hidden rounded-xl border border-slate-200">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-slate-100">
+                          <div className="bg-white shadow-xl rounded-xl border border-slate-200 mx-auto max-w-[794px] min-h-[1123px] relative flex flex-col">
+                            <style dangerouslySetInnerHTML={{__html: `
+                              .enterprise-letter { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 48px; display: flex; flex-direction: column; min-height: 100%; flex: 1; ${watch('hasFrame') ? 'border: 12px double #1e3a8a; border-radius: 8px; outline: 2px solid #1e3a8a; outline-offset: -8px; padding: 36px;' : ''} }
+                              .enterprise-quill-wrapper { margin: 10px -15px 0 -15px; position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; }
+                              .enterprise-quill-wrapper .ql-container { font-family: Georgia, serif; font-size: 11pt; border: 2px dashed #cbd5e1 !important; border-radius: 8px; background: #f8fafc; transition: all 0.2s; cursor: text; flex: 1; min-height: 500px; }
+                              .enterprise-quill-wrapper .ql-container:hover { border-color: #94a3b8 !important; background: #fff; }
+                              .enterprise-quill-wrapper .ql-container:focus-within { background: #fff; border-style: solid !important; border-color: #38bdf8 !important; box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2); }
+                              .enterprise-quill-wrapper .ql-toolbar { border: 1px solid #e2e8f0 !important; margin-bottom: 12px; background: #fff; padding: 10px !important; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); position: sticky; top: 0; z-index: 20; }
+                              .enterprise-quill-wrapper .ql-editor { height: 100% !important; overflow-y: auto !important; padding: 24px; line-height: 1.6; color: #1e293b; }
+                              .enterprise-quill-wrapper .ql-editor.ql-blank::before { font-style: normal; color: #94a3b8; font-size: 11pt; }
+                              .enterprise-quill-wrapper .ql-editor p { margin: 0 0 12px; }
+                              .enterprise-quill-wrapper .ql-editor h1, .enterprise-quill-wrapper .ql-editor h2, .enterprise-quill-wrapper .ql-editor h3 { font-family: system-ui, sans-serif; color: #0f172a; margin-top: 1.25em; margin-bottom: 0.5em; }
+                              .enterprise-quill-wrapper .ql-editor ul, .enterprise-quill-wrapper .ql-editor ol { margin: 0 0 12px 1.2em; padding-left: 0; }
+                            `}} />
+                            <div className="enterprise-letter">
+                              <div dangerouslySetInnerHTML={{ __html: buildLetterheadHtml(buildCompanyFromSettings(site)) + buildRefDateHtml(editing?.agreementNo || '—', watch('agreementDate') || '') }} />
+                              {watch('title') && <h2 style={{margin:'0 0 20px',fontSize:'15pt',fontWeight:'800',color:'#0f172a',letterSpacing:'-0.01em',borderLeft:'4px solid #0ea5e9',paddingLeft:'12px'}}>{watch('title')}</h2>}
+                              <div className="enterprise-quill-wrapper">
+                                <ReactQuill
+                                  theme="snow"
+                                  value={editorContent}
+                                  onChange={setEditorContent}
+                                  modules={{
+                                    toolbar: [
+                                      [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
+                                      [{ header: [1, 2, 3, 4, 5, 6, false] }],
+                                      ['bold', 'italic', 'underline', 'strike'],
+                                      [{ color: [] }, { background: [] }],
+                                      [{ script: 'sub' }, { script: 'super' }],
+                                      [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }],
+                                      [{ align: [] }],
+                                      ['blockquote', 'code-block'],
+                                      ['link', 'image', 'video'],
+                                      ['clean'],
+                                    ],
+                                  }}
+                                />
+                              </div>
+                              <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #e2e8f0', pageBreakInside: 'avoid' }}>
+                                <div style={{ marginLeft: 'auto', width: 'fit-content', minWidth: '200px', textAlign: 'right', fontFamily: 'system-ui, Segoe UI, sans-serif' }}>
+                                  
+                                  <div style={{ marginBottom: '24px', textAlign: 'right' }}>
+                                    <p style={{ margin: '0 0 8px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Service provider</p>
+                                    {signatures.provider.data ? (
+                                      <img src={signatures.provider.data} alt="" style={{ maxHeight: '60px', maxWidth: '180px', objectFit: 'contain', marginLeft: 'auto', display: 'block' }} />
+                                    ) : (
+                                      <div style={{ borderBottom: '1px solid #0f172a', width: '160px', marginLeft: 'auto', marginTop: '28px' }}></div>
+                                    )}
+                                    {signatures.provider.signerName ? (
+                                      <p style={{ margin: '4px 0 0', fontWeight: '600', fontSize: '10pt', color: '#0f172a' }}>{signatures.provider.signerName}</p>
+                                    ) : (
+                                      !signatures.provider.data && <p style={{ margin: '4px 0 0', fontSize: '10pt', color: '#64748b' }}>Signature</p>
+                                    )}
+                                  </div>
+
+                                  <div style={{ marginBottom: '24px', textAlign: 'right' }}>
+                                    <p style={{ margin: '0 0 8px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Client / counterparty</p>
+                                    {signatures.client.data ? (
+                                      <img src={signatures.client.data} alt="" style={{ maxHeight: '60px', maxWidth: '180px', objectFit: 'contain', marginLeft: 'auto', display: 'block' }} />
+                                    ) : (
+                                      <div style={{ borderBottom: '1px solid #0f172a', width: '160px', marginLeft: 'auto', marginTop: '28px' }}></div>
+                                    )}
+                                    {signatures.client.signerName ? (
+                                      <p style={{ margin: '4px 0 0', fontWeight: '600', fontSize: '10pt', color: '#0f172a' }}>{signatures.client.signerName}</p>
+                                    ) : (
+                                      !signatures.client.data && <p style={{ margin: '4px 0 0', fontSize: '10pt', color: '#64748b' }}>Signature</p>
+                                    )}
+                                  </div>
+
+                                  {(signatures.witness.name || signatures.witness.data) && (
+                                    <div style={{ marginBottom: '24px', textAlign: 'right' }}>
+                                      <p style={{ margin: '0 0 ' + (signatures.witness.data ? '8px' : '36px'), fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Witness</p>
+                                      {signatures.witness.data ? (
+                                        <img src={signatures.witness.data} style={{ maxHeight: '60px', maxWidth: '180px', objectFit: 'contain', marginLeft: 'auto', display: 'block' }} />
+                                      ) : (
+                                        <div style={{ borderBottom: '1px solid #0f172a', width: '160px', marginLeft: 'auto' }}></div>
+                                      )}
+                                      {signatures.witness.name && <p style={{ margin: '4px 0 0', fontWeight: '600', fontSize: '10pt', color: '#0f172a' }}>{signatures.witness.name}</p>}
+                                    </div>
+                                  )}
+
+                                  {signatures.seal?.data && (
+                                    <div style={{ textAlign: 'right' }}>
+                                      <p style={{ margin: '0 0 8px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Company Seal</p>
+                                      <img src={signatures.seal.data} style={{ maxHeight: '80px', maxWidth: '120px', objectFit: 'contain', marginLeft: 'auto', display: 'block' }} />
+                                    </div>
+                                  )}
+
+                                </div>
+                              </div>
+                              <div dangerouslySetInnerHTML={{ __html: buildFooterHtml(buildCompanyFromSettings(site)) }} />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -744,10 +824,17 @@ export default function Agreements() {
                       <DocumentAssetPicker label="Provider signature (upload or saved)" value={{ data: signatures.provider.data }} onChange={(v) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data: v.data } }))} roleKey="hr" />
                       <input
                         className="form-input text-sm"
-                        placeholder="Provider signatory name"
+                        placeholder="Provider signatory name (or title)"
+                        list="signatory-titles"
                         value={signatures.provider.signerName}
                         onChange={(e) => setSignatures((s) => ({ ...s, provider: { ...s.provider, signerName: e.target.value } }))}
                       />
+                      <datalist id="signatory-titles">
+                        <option value="Director" />
+                        <option value="Authorized Signatory" />
+                        <option value="Manager" />
+                        <option value="HR" />
+                      </datalist>
                       <SignaturePad
                         label="Provider (draw)"
                         value={signatures.provider.data}
@@ -755,7 +842,8 @@ export default function Agreements() {
                       />
                       <input
                         className="form-input text-sm"
-                        placeholder="Client signatory name"
+                        placeholder="Client signatory name (or title)"
+                        list="signatory-titles"
                         value={signatures.client.signerName}
                         onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, signerName: e.target.value } }))}
                       />

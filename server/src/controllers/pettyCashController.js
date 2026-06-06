@@ -20,14 +20,14 @@ exports.getTransactions = async (req, res, next) => {
       .populate('branch', 'name')
       .sort({ date: -1 });
 
-    // Compute summary (Total In/Out includes all payment types, but we'll isolate cash for current balance)
     const totalIn = transactions.filter(t => t.type === 'in').reduce((s, t) => s + t.amount, 0);
     const totalOut = transactions.filter(t => t.type === 'out').reduce((s, t) => s + t.amount, 0);
-    
-    // Physical cash balance should only count cash transactions
-    const cashIn = transactions.filter(t => t.type === 'in' && (t.paymentType === 'cash' || !t.paymentType)).reduce((s, t) => s + t.amount, 0);
-    const cashOut = transactions.filter(t => t.type === 'out' && (t.paymentType === 'cash' || !t.paymentType)).reduce((s, t) => s + t.amount, 0);
-    const currentBalance = cashIn - cashOut;
+
+    const balanceQuery = branch ? { branch } : {};
+    const allForBalance = await PettyCash.find(balanceQuery).lean();
+    const allIn = allForBalance.filter(t => t.type === 'in').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const allOut = allForBalance.filter(t => t.type === 'out').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const currentBalance = allIn - allOut;
 
     res.json({ success: true, count: transactions.length, transactions, summary: { totalIn, totalOut, currentBalance } });
   } catch (err) { next(err); }
@@ -56,20 +56,34 @@ exports.createTransaction = async (req, res, next) => {
       const acc = await BankAccount.findById(bankAccount);
       if (!acc) return res.status(404).json({ success: false, message: 'Selected Bank Account not found' });
       const amt = Number(amount);
+      const isIn = type === 'in';
       await appendBankTransaction(bankAccount, {
-        type: 'withdrawal',
+        type: isIn ? 'deposit' : 'withdrawal',
         amount: amt,
-        description: `Petty Cash: ${description} (${category})`,
+        description: `Petty Cash ${isIn ? 'IN' : 'OUT'}: ${description} (${category})`,
         date: date ? new Date(date) : new Date(),
         reference: referenceNumber || '',
+        moduleSource: 'petty_cash',
+        sourceType: 'PettyCash',
         recordedBy: req.user._id,
       });
     }
 
+    const balanceQuery = branch ? { branch } : {};
+    const priorCash = await PettyCash.find(balanceQuery).lean();
+    const isCashPayment = !paymentType || String(paymentType).toLowerCase() === 'cash';
+    const priorBalance = priorCash
+      .filter(t => !t.paymentType || String(t.paymentType).toLowerCase() === 'cash')
+      .reduce((s, t) => (t.type === 'in' ? s + Number(t.amount || 0) : s - Number(t.amount || 0)), 0);
+    const amt = Number(amount);
+    const runningBalance = isCashPayment
+      ? (type === 'in' ? priorBalance + amt : priorBalance - amt)
+      : priorBalance;
+
     const transaction = await PettyCash.create({
-      type, amount: Number(amount), date: date || new Date(),
+      type, amount: amt, date: date || new Date(),
       description, category, paidTo, paymentType, referenceNumber, receiptUrl,
-      branch, bankAccount, recordedBy: req.user._id,
+      branch, bankAccount, recordedBy: req.user._id, runningBalance,
     });
     res.status(201).json({ success: true, transaction });
   } catch (err) { next(err); }
@@ -83,12 +97,14 @@ exports.deleteTransaction = async (req, res, next) => {
 
     const usesBank = t.bankAccount && ['bank_transfer', 'card'].includes(String(t.paymentType || '').toLowerCase());
     if (usesBank) {
+      const wasIn = t.type === 'in';
       await appendBankTransaction(t.bankAccount, {
-        type: 'deposit',
+        type: wasIn ? 'withdrawal' : 'deposit',
         amount: t.amount,
         description: `Petty Cash reversal (deleted): ${t.description}`,
         date: new Date(),
         reference: t.referenceNumber || '',
+        moduleSource: 'petty_cash',
         recordedBy: req.user._id,
       });
     }

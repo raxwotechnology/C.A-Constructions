@@ -8,6 +8,7 @@ import SearchableSelect from '../../components/ui/SearchableSelect'
 import toast from 'react-hot-toast'
 import { handlePayrollSyncResponse } from '../../lib/payrollSync'
 import ExportBar from '../../components/ui/ExportBar'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import { FiPlus, FiX, FiCheck, FiRefreshCw, FiCreditCard } from 'react-icons/fi'
 
 const EMPTY = {
@@ -83,6 +84,10 @@ export default function AdminAdvances() {
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/advances/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['advances'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Deleted') },
+  })
+  const { requestDelete: requestDeleteAdvance, DeletePasswordModal: advanceDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete advance payment',
+    message: 'Enter your admin password to delete this advance. Linked bank payments will be reversed.',
   })
 
   const exportCols = [
@@ -178,7 +183,7 @@ export default function AdminAdvances() {
                         {a.status === 'active' && (
                           <button type="button" onClick={() => { setRepayTarget(a); setRepayForm(REPAY_EMPTY) }} className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg" title="Repay"><FiRefreshCw size={13} /></button>
                         )}
-                        <button type="button" onClick={() => { if (window.confirm('Delete this advance? Bank payments will be reversed.')) deleteMut.mutate(a._id) }} className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiX size={13} /></button>
+                        <button type="button" onClick={() => requestDeleteAdvance(a._id)} className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiX size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -327,6 +332,7 @@ export default function AdminAdvances() {
           </motion.div>
         </div>, document.body
       )}
+      {advanceDeleteModal}
     </div>
   )
 }

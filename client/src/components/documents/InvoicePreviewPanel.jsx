@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { FiDownload, FiPrinter, FiSave, FiSend } from 'react-icons/fi'
 import InvoicePrintBody from './InvoicePrintBody'
 import { printHtmlContent } from '../../lib/documentPrint'
@@ -23,6 +23,9 @@ export default function InvoicePreviewPanel({
   const [layout] = useState(loadQuotationLayout)
   const [draft, setDraft] = useState({ notes: inv.notes || '', paymentTerms: inv.paymentTerms || '', showRefOnDocument: true })
 
+  const contentRef = useRef(null)
+  const [autoScale, setAutoScale] = useState(1)
+
   const patchDraft = (partial) => {
     setDraft((d) => ({ ...d, ...partial }))
     onFieldSync?.(partial)
@@ -42,6 +45,22 @@ export default function InvoicePreviewPanel({
   }, [isDraft, inv.notes, inv.paymentTerms])
 
   const merged = { ...inv, notes: draft.notes, paymentTerms: draft.paymentTerms }
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!contentRef.current) return
+      // A4 at 96dpi is 1123px tall. Padding top+bottom ~ 120px. Max inner height ~ 1000px.
+      const el = contentRef.current.firstElementChild
+      if (!el) return
+      const h = el.scrollHeight || el.offsetHeight || 0
+      if (h > 980) {
+        setAutoScale(Math.max(0.65, 980 / h))
+      } else {
+        setAutoScale(1)
+      }
+    }, 150)
+    return () => clearTimeout(t)
+  }, [merged])
 
   const handlePrint = () => {
     const el = document.getElementById(printRootId)
@@ -83,10 +102,13 @@ export default function InvoicePreviewPanel({
       <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100/80">
         <div
           id={printRootId}
+          ref={contentRef}
           className={`invoice-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
-          style={layoutToStyle(layout)}
+          style={{ ...layoutToStyle(layout), minHeight: '1123px', width: '794px' }}
         >
-          <InvoicePrintBody invoice={merged} siteSettings={siteSettings} showRefOnDocument={draft.showRefOnDocument} forPrint={false} />
+          <div style={{ zoom: autoScale, transformOrigin: 'top left' }}>
+            <InvoicePrintBody invoice={merged} siteSettings={siteSettings} showRefOnDocument={draft.showRefOnDocument} forPrint={false} />
+          </div>
         </div>
       </div>
     </div>

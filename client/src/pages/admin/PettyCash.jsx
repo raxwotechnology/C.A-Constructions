@@ -5,6 +5,8 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
+import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
+import { usePasswordProtectedDelete } from '../../hooks/usePasswordProtectedDelete'
 import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart } from 'react-icons/fi'
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 
@@ -52,6 +54,9 @@ export default function AdminPettyCash() {
     mutationFn: id => api.delete(`/petty-cash/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Deleted') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const passwordDelete = usePasswordProtectedDelete({
+    mutateFn: (id) => deleteMut.mutateAsync(id),
   })
 
   const transactions = (data?.transactions || []).filter(t =>
@@ -193,7 +198,7 @@ export default function AdminPettyCash() {
                 <td className="text-xs text-slate-400 capitalize">{t.paymentType?.replace('_',' ')}</td>
                 <td className="text-xs text-slate-400">{t.recordedBy?.name || '—'}</td>
                 <td>
-                  <button onClick={() => { if (window.confirm('Delete this transaction?')) deleteMut.mutate(t._id) }}
+                  <button type="button" onClick={() => passwordDelete.requestDelete(t._id)}
                     className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg transition-colors">
                     <FiTrash2 size={13}/>
                   </button>
@@ -280,6 +285,15 @@ export default function AdminPettyCash() {
           </motion.div>
         </div>, document.body
       )}
+
+      <PasswordConfirmModal
+        open={passwordDelete.deleteModalOpen}
+        onClose={passwordDelete.cancelDelete}
+        onConfirm={passwordDelete.confirmDelete}
+        isSubmitting={passwordDelete.isSubmitting || deleteMut.isPending}
+        title="Delete petty cash transaction"
+        message="Enter your admin password to permanently delete this transaction. Linked bank entries will be reversed."
+      />
     </div>
   )
 }

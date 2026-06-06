@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiMapPin, FiPhone, FiMail, FiStar } from 'react-icons/fi'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 export default function AdminBranches() {
   const qc = useQueryClient()
@@ -32,6 +33,10 @@ export default function AdminBranches() {
     mutationFn: id => api.delete(`/branches/${id}`),
     onSuccess: () => { qc.invalidateQueries(['branches']); toast.success('Branch deleted') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const { requestDelete: requestDeleteBranch, DeletePasswordModal: branchDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete branch',
+    message: 'Enter your admin password to permanently delete this branch.',
   })
 
   const openCreate = () => { reset(); setEditing(null); setShowModal(true) }
@@ -86,7 +91,7 @@ export default function AdminBranches() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => openEdit(b)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
-                  <button onClick={() => { if(window.confirm('Delete branch?')) deleteMut.mutate(b._id) }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
+                  <button type="button" onClick={() => requestDeleteBranch(b._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
                 </div>
               </div>
 
@@ -154,6 +159,7 @@ export default function AdminBranches() {
         </div>,
         document.body
       )}
+      {branchDeleteModal}
     </div>
   )
 }

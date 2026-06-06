@@ -67,6 +67,7 @@ export default function FinancialReports() {
   const payrollRuns = data?.payrollRuns || []
   const incomeEntries = data?.incomeEntries || []
   const expenseEntries = data?.expenseEntries || []
+  const allEntries = [...incomeEntries, ...expenseEntries].sort((a, b) => new Date(b.date) - new Date(a.date))
   const maxIncome = Math.max(...incomeCat.map(c => c.amount), 1)
   const maxExpense = Math.max(...expenseCat.map(c => c.amount), 1)
 
@@ -94,6 +95,11 @@ export default function FinancialReports() {
     { id: 'expense', label: 'Expense Breakdown' },
     { id: 'invoices', label: 'Invoice Payments' },
     { id: 'payroll', label: 'Salary Expense' },
+    { id: 'petty', label: 'Petty Cash' },
+    { id: 'cheques', label: 'Cheques' },
+    { id: 'bank', label: 'Bank Transactions' },
+    { id: 'loans', label: 'Advances & Loans' },
+    { id: 'tax', label: 'Income Tax' },
     { id: 'method', label: 'By Payment Method' },
   ]
 
@@ -191,11 +197,16 @@ export default function FinancialReports() {
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Subscription Payments</span><span className="font-semibold">{fmt(summary.subscriptionRevenue)}</span></div>
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Cheques (In)</span><span className="font-semibold">{fmt(summary.chequeIn)}</span></div>
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Petty Cash (In)</span><span className="font-semibold">{fmt(summary.pettyCashIn)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Bank Deposits</span><span className="font-semibold">{fmt(summary.bankDeposits)}</span></div>
+                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Loan Repayments</span><span className="font-semibold">{fmt(summary.loanRepayment)}</span></div>
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Other Income Entries</span><span className="font-semibold">{fmt(summary.otherIncomeEntries ?? summary.totalIncomeEntries)}</span></div>
                   <div className="flex justify-between py-2.5 border-t border-slate-200 font-bold text-emerald-800 text-base"><span>TOTAL INCOME</span><span>{fmt(summary.totalIncome)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700 mt-2"><span>Salary / Payroll Expense</span><span className="font-semibold">{fmt(summary.totalSalaryExpense)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700"><span>Petty Cash (Out)</span><span className="font-semibold">{fmt(summary.pettyCashOut)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700"><span>Cheques (Out)</span><span className="font-semibold">{fmt(summary.chequeOut)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700"><span>Bank Withdrawals</span><span className="font-semibold">{fmt(summary.bankWithdrawals)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700"><span>Salary Advances</span><span className="font-semibold">{fmt(summary.advanceExpense)}</span></div>
+                  <div className="flex justify-between py-2.5 text-red-700"><span>Loan Disbursements</span><span className="font-semibold">{fmt(summary.loanDisbursement)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700"><span>Other Expense Entries</span><span className="font-semibold">{fmt(summary.otherExpenseEntries ?? summary.totalExpenseEntries)}</span></div>
                   <div className="flex justify-between py-2.5 border-t border-slate-200 font-bold text-red-800 text-base"><span>TOTAL EXPENSES</span><span>{fmt(summary.totalExpense)}</span></div>
                   <div className={`flex justify-between py-3 mt-2 border-t-2 border-slate-300 font-black text-xl ${summary.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
@@ -309,6 +320,150 @@ export default function FinancialReports() {
                         </tr>
                       ))}
                       {payrollRuns.length === 0 && <tr><td colSpan={6} className="text-center py-4 text-slate-400">No paid payrolls.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Petty Cash */}
+            {activeTab === 'petty' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Petty Cash Transactions</h3>
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4"><p className="text-xs text-emerald-600 uppercase font-bold">Cash In</p><p className="text-xl font-black text-emerald-800">{fmt(summary.pettyCashIn)}</p></div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4"><p className="text-xs text-red-600 uppercase font-bold">Cash Out</p><p className="text-xl font-black text-red-800">{fmt(summary.pettyCashOut)}</p></div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4"><p className="text-xs text-blue-600 uppercase font-bold">Balance</p><p className="text-xl font-black text-blue-800">{fmt((summary.pettyCashIn || 0) - (summary.pettyCashOut || 0))}</p></div>
+                </div>
+                <div className="table-container">
+                  <table className="table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {allEntries.filter(e => e.category?.includes('Petty Cash')).map((e, i) => (
+                        <tr key={e._id || i}>
+                          <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
+                          <td><span className={`badge ${e.type === 'income' ? 'badge-green' : 'badge-red'}`}>{e.type === 'income' ? 'IN' : 'OUT'}</span></td>
+                          <td>{e.category}</td>
+                          <td className="font-medium text-slate-800">{e.title}</td>
+                          <td className={e.type === 'income' ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>{fmt(e.amount)}</td>
+                        </tr>
+                      ))}
+                      {allEntries.filter(e => e.category?.includes('Petty Cash')).length === 0 && <tr><td colSpan={5} className="text-center py-4 text-slate-400">No petty cash entries.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Cheques */}
+            {activeTab === 'cheques' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Cheque Transactions</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4"><p className="text-xs text-emerald-600 uppercase font-bold">Cheques In</p><p className="text-xl font-black text-emerald-800">{fmt(summary.chequeIn)}</p></div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4"><p className="text-xs text-red-600 uppercase font-bold">Cheques Out</p><p className="text-xl font-black text-red-800">{fmt(summary.chequeOut)}</p></div>
+                </div>
+                <div className="table-container">
+                  <table className="table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {allEntries.filter(e => e.category?.includes('Cheque')).map((e, i) => (
+                        <tr key={e._id || i}>
+                          <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
+                          <td><span className={`badge ${e.type === 'income' ? 'badge-green' : 'badge-red'}`}>{e.type}</span></td>
+                          <td>{e.category}</td>
+                          <td className="font-medium text-slate-800">{e.title}</td>
+                          <td className={e.type === 'income' ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>{fmt(e.amount)}</td>
+                        </tr>
+                      ))}
+                      {allEntries.filter(e => e.category?.includes('Cheque')).length === 0 && <tr><td colSpan={5} className="text-center py-4 text-slate-400">No cheque entries.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Bank Transactions */}
+            {activeTab === 'bank' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Bank Transactions</h3>
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4"><p className="text-xs text-emerald-600 uppercase font-bold">Deposits</p><p className="text-xl font-black text-emerald-800">{fmt(summary.bankDeposits)}</p></div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4"><p className="text-xs text-red-600 uppercase font-bold">Withdrawals</p><p className="text-xl font-black text-red-800">{fmt(summary.bankWithdrawals)}</p></div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4"><p className="text-xs text-blue-600 uppercase font-bold">Net Flow</p><p className="text-xl font-black text-blue-800">{fmt(summary.bankNetFlow)}</p></div>
+                </div>
+                <div className="table-container">
+                  <table className="table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Method</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {allEntries.filter(e => e.category?.includes('Bank') || e.paymentMethod?.toLowerCase().includes('bank')).map((e, i) => (
+                        <tr key={e._id || i}>
+                          <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
+                          <td><span className={`badge ${e.type === 'income' ? 'badge-green' : 'badge-red'}`}>{e.type}</span></td>
+                          <td>{e.category}</td>
+                          <td className="font-medium text-slate-800">{e.title}</td>
+                          <td><span className="badge badge-gray text-xs">{e.paymentMethod || '—'}</span></td>
+                          <td className={e.type === 'income' ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>{fmt(e.amount)}</td>
+                        </tr>
+                      ))}
+                      {allEntries.filter(e => e.category?.includes('Bank') || e.paymentMethod?.toLowerCase().includes('bank')).length === 0 && <tr><td colSpan={6} className="text-center py-4 text-slate-400">No bank transactions.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Advances & Loans */}
+            {activeTab === 'loans' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Advances & Loans</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4"><p className="text-xs text-red-600 uppercase font-bold">Advance Expense</p><p className="text-xl font-black text-red-800">{fmt(summary.advanceExpense)}</p></div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4"><p className="text-xs text-red-600 uppercase font-bold">Loan Disbursements</p><p className="text-xl font-black text-red-800">{fmt(summary.loanDisbursement)}</p></div>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4"><p className="text-xs text-emerald-600 uppercase font-bold">Loan Repayments</p><p className="text-xl font-black text-emerald-800">{fmt(summary.loanRepayment)}</p></div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4"><p className="text-xs text-blue-600 uppercase font-bold">Net Loan Exposure</p><p className="text-xl font-black text-blue-800">{fmt((summary.loanDisbursement || 0) - (summary.loanRepayment || 0))}</p></div>
+                </div>
+                <div className="table-container">
+                  <table className="table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {allEntries.filter(e => e.category?.includes('Advance') || e.category?.includes('Loan')).map((e, i) => (
+                        <tr key={e._id || i}>
+                          <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
+                          <td><span className={`badge ${e.type === 'income' ? 'badge-green' : 'badge-red'}`}>{e.type}</span></td>
+                          <td>{e.category}</td>
+                          <td className="font-medium text-slate-800">{e.title}</td>
+                          <td className={e.type === 'income' ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>{fmt(e.amount)}</td>
+                        </tr>
+                      ))}
+                      {allEntries.filter(e => e.category?.includes('Advance') || e.category?.includes('Loan')).length === 0 && <tr><td colSpan={5} className="text-center py-4 text-slate-400">No advance/loan entries.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Income Tax */}
+            {activeTab === 'tax' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-primary text-lg">Income Tax & Taxes</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4"><p className="text-xs text-red-600 uppercase font-bold">Tax Paid</p><p className="text-xl font-black text-red-800">{fmt(allEntries.filter(e => e.category?.toLowerCase().includes('tax') || e.title?.toLowerCase().includes('tax')).reduce((s, e) => s + (e.type === 'expense' ? e.amount : 0), 0))}</p></div>
+                </div>
+                <div className="table-container">
+                  <table className="table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {allEntries.filter(e => e.category?.toLowerCase().includes('tax') || e.title?.toLowerCase().includes('tax')).map((e, i) => (
+                        <tr key={e._id || i}>
+                          <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
+                          <td><span className={`badge ${e.type === 'income' ? 'badge-green' : 'badge-red'}`}>{e.type}</span></td>
+                          <td>{e.category}</td>
+                          <td className="font-medium text-slate-800">{e.title}</td>
+                          <td className={e.type === 'income' ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>{fmt(e.amount)}</td>
+                        </tr>
+                      ))}
+                      {allEntries.filter(e => e.category?.toLowerCase().includes('tax') || e.title?.toLowerCase().includes('tax')).length === 0 && <tr><td colSpan={5} className="text-center py-4 text-slate-400">No tax entries.</td></tr>}
                     </tbody>
                   </table>
                 </div>

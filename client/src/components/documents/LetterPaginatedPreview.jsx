@@ -9,6 +9,7 @@ import {
 
 /**
  * WYSIWYG A4 page preview — stacked sheets + page-break guides that update with content and scale.
+ * Measurement is driven by explicit prop changes only (no observers) to avoid feedback loops.
  */
 export default function LetterPaginatedPreview({
   children,
@@ -19,40 +20,38 @@ export default function LetterPaginatedPreview({
 }) {
   const contentRef = useRef(null)
   const [pageCount, setPageCount] = useState(1)
+  const [autoScale, setAutoScale] = useState(1)
 
-  const zoom = Math.max(0.85, Math.min(1.15, scale / 100))
-  const scaledW = LETTER_PAGE_WIDTH * zoom
-  const scaledH = LETTER_PAGE_HEIGHT * zoom
+  const baseZoom = Math.max(0.75, Math.min(1.15, scale / 100))
   const compactClass = compact ? 'letter-compact letter-compact-more' : ''
 
   const measure = useCallback(() => {
     const el = contentRef.current
     if (!el) return
+
     const h = el.scrollHeight || el.offsetHeight || 0
-    setPageCount(Math.max(1, Math.ceil(h / LETTER_PAGE_HEIGHT)))
-  }, [])
+    if (h === 0) return
 
-  useEffect(() => {
-    measure()
-    const el = contentRef.current
-    if (!el) return undefined
-
-    const ro = new ResizeObserver(() => measure())
-    ro.observe(el)
-
-    const mo = new MutationObserver(() => measure())
-    mo.observe(el, { childList: true, subtree: true, characterData: true })
-
-    return () => {
-      ro.disconnect()
-      mo.disconnect()
+    if (compact && h > LETTER_PAGE_HEIGHT) {
+      const fitZoom = Math.max(0.75, Math.min(1, LETTER_PAGE_HEIGHT / h))
+      setAutoScale(fitZoom)
+      setPageCount(1)
+    } else {
+      setAutoScale(1)
+      setPageCount(Math.max(1, Math.ceil(h / LETTER_PAGE_HEIGHT)))
     }
-  }, [measure, scale, compact, children, measureKey])
+  }, [compact])
 
+  // Measure once on mount + whenever control props change
   useEffect(() => {
-    const t = setTimeout(measure, 50)
+    // Small delay to let React finish painting children
+    const t = setTimeout(measure, 100)
     return () => clearTimeout(t)
-  }, [measureKey, measure])
+  }, [measureKey, scale, compact, measure])
+
+  const finalZoom = baseZoom * autoScale
+  const scaledW = LETTER_PAGE_WIDTH * baseZoom
+  const scaledH = LETTER_PAGE_HEIGHT * baseZoom
 
   const sheetStep = scaledH + LETTER_PAGE_GAP
   const totalHeight = pageCount * scaledH + Math.max(0, pageCount - 1) * LETTER_PAGE_GAP
@@ -79,33 +78,33 @@ export default function LetterPaginatedPreview({
           >
             <span
               className="absolute top-2.5 right-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
-              style={{ zoom: 1 / zoom }}
+              style={{ zoom: 1 / baseZoom }}
             >
               Page {i + 1} of {pageCount}
             </span>
           </div>
         ))}
 
-        {/* Flowing letter content (single DOM — works in edit + preview) */}
+        {/* Flowing letter content */}
         <div
           className="relative"
           style={{ zIndex: 1, width: scaledW }}
         >
-          <div
-            ref={contentRef}
-            className={`letter-pdf-prose letter-page-content ${compactClass}`}
-            style={{
-              width: LETTER_PAGE_WIDTH,
-              padding: LETTER_PAGE_PADDING,
-              fontFamily: "'Segoe UI',system-ui,-apple-system,sans-serif",
-              color: '#0f172a',
-              fontSize: '11pt',
-              lineHeight: 1.6,
-              zoom,
-              transformOrigin: 'top left',
-            }}
-          >
-            {children}
+          <div style={{ zoom: finalZoom, transformOrigin: 'top left' }}>
+            <div
+              ref={contentRef}
+              className={`letter-pdf-prose letter-page-content ${compactClass}`}
+              style={{
+                width: LETTER_PAGE_WIDTH,
+                padding: LETTER_PAGE_PADDING,
+                fontFamily: "'Segoe UI',system-ui,-apple-system,sans-serif",
+                color: '#0f172a',
+                fontSize: '11pt',
+                lineHeight: 1.6,
+              }}
+            >
+              {children}
+            </div>
           </div>
         </div>
 
@@ -124,7 +123,7 @@ export default function LetterPaginatedPreview({
               <div className="absolute inset-x-3 border-t-2 border-dashed border-sky-400/70" />
               <span
                 className="relative shrink-0 rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700"
-                style={{ zoom: 1 / zoom }}
+                style={{ zoom: 1 / baseZoom }}
               >
                 Page {i + 2} starts here
               </span>
@@ -134,12 +133,12 @@ export default function LetterPaginatedPreview({
 
       <p className="text-center text-xs text-slate-500 mt-3">
         {pageCount === 1 ? (
-          <>Fits on <strong>1 page</strong> at {scale}% scale{compact ? ' (compact)' : ''}.</>
+          <>Fits on <strong>1 page</strong> at {Math.round(finalZoom * 100)}% scale{compact ? ' (auto-compacted)' : ''}.</>
         ) : (
           <span className="text-amber-700">
-            Spans <strong>{pageCount} pages</strong> at {scale}% scale
+            Spans <strong>{pageCount} pages</strong> at {Math.round(finalZoom * 100)}% scale
             {compact ? ' (compact)' : ''}
-            {!compact && ' — enable Compact to one page when printing if needed.'}
+            {!compact && ' — enable Fit to 1 page to auto-adjust.'}
           </span>
         )}
       </p>

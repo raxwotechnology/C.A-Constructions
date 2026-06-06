@@ -73,6 +73,7 @@ const invoiceSchema = new mongoose.Schema({
     },
     seal: {
       data: { type: String, default: '' },
+      note: { type: String, default: '' }
     }
   },
 

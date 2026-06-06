@@ -110,7 +110,7 @@ export default function AdminLetters() {
   const [tplPwdOpen, setTplPwdOpen] = useState(false)
   const [letterPwdOpen, setLetterPwdOpen] = useState(false)
   const [letterDeleteId, setLetterDeleteId] = useState(null)
-  const [letterFitToOnePage, setLetterFitToOnePage] = useState(false)
+  const [letterFitToOnePage, setLetterFitToOnePage] = useState(true)
   const [letterScale, setLetterScale] = useState(100)
 
   const [showBuilder, setShowBuilder] = useState(false)

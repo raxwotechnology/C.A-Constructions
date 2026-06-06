@@ -6,6 +6,7 @@ import api from '../../lib/api'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiTarget, FiAward, FiTrendingUp, FiEdit2, FiTrash2, FiCheck } from 'react-icons/fi'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 const now = new Date()
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -25,7 +26,6 @@ export default function AdminPerformance() {
   const [showTarget, setShowTarget] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [targetForm, setTargetForm] = useState(EMPTY_TARGET)
-  const [deleteId, setDeleteId] = useState(null)
   const [filterEmp, setFilterEmp] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [showReview, setShowReview] = useState(false)
@@ -67,8 +67,11 @@ export default function AdminPerformance() {
   })
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/targets/${id}`),
-    onSettled: () => { inv(); setDeleteId(null) },
-    onSuccess: () => toast.success('Deleted'),
+    onSuccess: () => { inv(); toast.success('Deleted') },
+  })
+  const { requestDelete: requestDeleteTarget, DeletePasswordModal: targetDeleteModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete performance target',
+    message: 'Enter your admin password to delete this target.',
   })
   const reviewMut = useMutation({
     mutationFn: d => api.post('/performance', d),
@@ -164,7 +167,7 @@ export default function AdminPerformance() {
                     <div className="flex gap-1 ml-2 flex-shrink-0">
                       <button onClick={()=>{setEditTarget(t);setTargetForm({...t,employee:t.employee?._id||t.employee,bonusAmount:t.bonusAmount||'',bonusPercentage:t.bonusPercentage||''});setShowTarget(true)}}
                         className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg"><FiEdit2 size={13}/></button>
-                      <button onClick={()=>setDeleteId(t._id)} className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg"><FiTrash2 size={13}/></button>
+                      <button type="button" onClick={()=>requestDeleteTarget(t._id)} className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg"><FiTrash2 size={13}/></button>
                     </div>
                   </div>
 
@@ -377,22 +380,7 @@ export default function AdminPerformance() {
         </div>, document.body
       )}
 
-      {/* Delete Confirm */}
-      {deleteId && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
-          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-4">
-            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiTrash2 size={20}/></div>
-            <h3 className="font-bold text-lg">Delete Target?</h3>
-            <p className="text-sm text-slate-500">This cannot be undone.</p>
-            <div className="flex gap-3">
-              <button onClick={()=>setDeleteId(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
-              <button onClick={()=>deleteMut.mutate(deleteId)} disabled={deleteMut.isPending} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
-                {deleteMut.isPending?<span className="spinner"/>:'Delete'}
-              </button>
-            </div>
-          </motion.div>
-        </div>, document.body
-      )}
+      {targetDeleteModal}
     </div>
   )
 }

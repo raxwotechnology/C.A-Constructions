@@ -70,7 +70,10 @@ export default function QuotationPrintBody({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', pageBreakInside: 'avoid' }}>
         <div>
           <h2 style={{ margin: '0 0 4px', fontSize: '20pt', fontWeight: 800, letterSpacing: '0.06em', color: CLR.dark }}>QUOTATION</h2>
-          {q.title ? <p style={{ margin: 0, color: CLR.mid, fontWeight: 500, fontSize: '10.5pt' }}>{q.title}</p> : null}
+          {q.quotationNo && (
+            <p style={{ margin: '2px 0 0', fontSize: '10pt', fontWeight: 600, color: CLR.accent, letterSpacing: '0.02em' }}>{q.quotationNo}</p>
+          )}
+          {q.title ? <p style={{ margin: '4px 0 0', color: CLR.mid, fontWeight: 500, fontSize: '10.5pt' }}>{q.title}</p> : null}
         </div>
         <div style={{ textAlign: 'right', fontSize: '10pt', color: CLR.mid, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <p style={{ margin: 0 }}>

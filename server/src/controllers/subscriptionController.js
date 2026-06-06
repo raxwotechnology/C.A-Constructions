@@ -388,7 +388,6 @@ exports.addAgreement = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── REMOVE AGREEMENT (admin) ──────────────────────────
 exports.removeAgreement = async (req, res, next) => {
   try {
     const sub = await Subscription.findById(req.params.id);
@@ -398,6 +397,40 @@ exports.removeAgreement = async (req, res, next) => {
     await sub.save();
 
     res.json({ success: true, message: 'Agreement removed', subscription: sub });
+  } catch (err) { next(err); }
+};
+
+// ── SEND HISTORY (admin) ──────────────────────────────
+exports.sendHistory = async (req, res, next) => {
+  try {
+    const sub = await Subscription.findById(req.params.id).populate('client', 'name email phone');
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+
+    const client = sub.client;
+    if (!client) return res.status(400).json({ success: false, message: 'Client not associated with this subscription' });
+
+    const methods = req.body.methods || ['email'];
+    const emailService = require('../services/emailService');
+    const smsService = require('../services/smsService');
+
+    let sentEmail = false;
+    let sentSms = false;
+
+    if (methods.includes('email') && client.email) {
+      await emailService.sendSubscriptionHistoryEmail(client.email, client.name, sub);
+      sentEmail = true;
+    }
+
+    if (methods.includes('sms') && client.phone) {
+      await smsService.sendSubscriptionHistorySms(client.phone, client.name, sub.title, sub.totalPaid);
+      sentSms = true;
+    }
+
+    if (!sentEmail && !sentSms) {
+      return res.status(400).json({ success: false, message: 'No valid contact methods found for client.' });
+    }
+
+    res.json({ success: true, message: 'History sent successfully' });
   } catch (err) { next(err); }
 };
 

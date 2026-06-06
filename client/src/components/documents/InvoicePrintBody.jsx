@@ -42,9 +42,12 @@ export default function InvoicePrintBody({
       {/* Title + meta */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', pageBreakInside: 'avoid' }}>
         <div>
-          <h2 style={{ margin: '0 0 4px', fontSize: '20pt', fontWeight: 800, letterSpacing: '0.06em', color: CLR.dark }}>TAX INVOICE</h2>
+          <h2 style={{ margin: '0 0 4px', fontSize: '20pt', fontWeight: 800, letterSpacing: '0.06em', color: CLR.dark }}>INVOICE</h2>
+          {inv.invoiceNo && (
+            <p style={{ margin: '2px 0 0', fontSize: '10pt', fontWeight: 600, color: CLR.accent, letterSpacing: '0.02em' }}>{inv.invoiceNo}</p>
+          )}
           {inv.project?.title && (
-            <p style={{ margin: 0, color: CLR.mid, fontWeight: 500, fontSize: '10.5pt' }}>{inv.project.title}</p>
+            <p style={{ margin: '4px 0 0', color: CLR.mid, fontWeight: 500, fontSize: '10.5pt' }}>{inv.project.title}</p>
           )}
         </div>
         <div style={{ textAlign: 'right', fontSize: '10pt', color: CLR.mid, display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -174,19 +177,32 @@ export default function InvoicePrintBody({
       )}
 
       {(inv.signatures?.authorizer?.data || inv.signatures?.seal?.data) && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px', alignItems: 'end', pageBreakInside: 'avoid' }}>
-          <div>
-            {inv.signatures.authorizer?.data && (
-              <img src={sigImgSrc(inv.signatures.authorizer.data, forPrint)} alt="" style={{ maxHeight: '72px', marginBottom: '8px', display: 'block' }} crossOrigin="anonymous" />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '40px', pageBreakInside: 'avoid' }}>
+          <div style={{ width: '260px', textAlign: 'center' }}>
+            {inv.signatures.authorizer?.data ? (
+              <img src={sigImgSrc(inv.signatures.authorizer.data, forPrint)} alt="Signature" style={{ maxHeight: '70px', marginBottom: '8px', display: 'block', marginInline: 'auto' }} crossOrigin="anonymous" />
+            ) : (
+              <div style={{ height: '70px', marginBottom: '8px' }} />
             )}
-            <div style={{ borderTop: `1px solid ${CLR.border}`, paddingTop: '8px', maxWidth: '220px' }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: '10pt' }}>{inv.signatures.authorizer?.name || ''}</p>
-              <p style={{ margin: '4px 0 0', fontSize: '9pt', color: CLR.light }}>{inv.signatures.authorizer?.title || 'Authorized Signatory'}</p>
+            
+            <div style={{ borderTop: `2px solid ${CLR.dark}`, paddingTop: '8px', marginTop: '4px', marginBottom: '16px' }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '10pt', color: CLR.dark, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{inv.signatures.authorizer?.name || 'Authorized Signatory'}</p>
+              {inv.signatures.authorizer?.title && (
+                <p style={{ margin: '4px 0 0', fontSize: '8.5pt', color: CLR.mid }}>{inv.signatures.authorizer.title}</p>
+              )}
             </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
+
             {inv.signatures.seal?.data && (
-              <img src={sigImgSrc(inv.signatures.seal.data, forPrint)} alt="Seal" style={{ maxHeight: '88px', marginLeft: 'auto', display: 'block' }} crossOrigin="anonymous" />
+              <img 
+                src={sigImgSrc(inv.signatures.seal.data, forPrint)} 
+                alt="Seal" 
+                style={{ maxHeight: '110px', display: 'block', marginInline: 'auto', marginBottom: '8px' }} 
+                crossOrigin="anonymous" 
+              />
+            )}
+            
+            {inv.signatures.seal?.note && (
+              <p style={{ margin: 0, fontSize: '8.5pt', color: CLR.mid, fontStyle: 'italic' }}>{inv.signatures.seal.note}</p>
             )}
           </div>
         </div>

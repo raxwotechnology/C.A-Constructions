@@ -131,6 +131,7 @@ exports.createInvoice = async (req, res, next) => {
       paymentTerms,
       invoicePrefix: invoicePrefix || 'INV',
       status: 'unpaid',
+      signatures: req.body.signatures || undefined,
       createdBy: req.user._id,
     };
     if (quotationDoc) {
@@ -184,7 +185,7 @@ exports.updateInvoice = async (req, res, next) => {
 
     const {
       items, taxRate, notes, paymentTerms, dueDate, invoiceDate,
-      client, project, branch, quotationRef, currency, exchangeRateToLKR, status,
+      client, project, branch, quotationRef, currency, exchangeRateToLKR, status, signatures
     } = req.body;
 
     const wantsLineEdit = items !== undefined && items !== null;
@@ -212,6 +213,7 @@ exports.updateInvoice = async (req, res, next) => {
         ...(branch !== undefined ? { branch: branch || null } : {}),
         ...(project !== undefined ? { project: project || null } : {}),
         ...(status !== undefined ? { status } : {}),
+        ...(signatures !== undefined ? { signatures } : {}),
       };
       const invoice = await Invoice.findByIdAndUpdate(req.params.id, { $set: paidMeta }, { new: true, runValidators: true })
         .populate(POPULATE_INVOICE);
@@ -231,6 +233,7 @@ exports.updateInvoice = async (req, res, next) => {
       project: project !== undefined ? (project || null) : existing.project,
       branch: branch !== undefined ? (branch || null) : existing.branch,
       quotationRef: quotationRef !== undefined ? (quotationRef || null) : existing.quotationRef,
+      ...(signatures !== undefined ? { signatures } : {}),
     };
 
     if (items) {

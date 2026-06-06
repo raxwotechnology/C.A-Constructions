@@ -558,17 +558,7 @@ exports.getOverview = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-function htmlFromRows(title, headers, rows) {
-  const head = headers.map((h) => `<th>${h}</th>`).join('');
-  const body = rows.map((r) => `<tr>${r.map((c) => `<td>${c ?? ''}</td>`).join('')}</tr>`).join('');
-  return `<!doctype html><html><head><meta charset="utf-8"/><style>
-  body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}
-  h1{font-size:20px;margin:0 0 12px 0}
-  table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px;text-align:left}
-  th{background:#f8fafc}
-  </style></head><body><h1>${title}</h1><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`;
-}
+const { buildTabularExportHtml } = require('../services/documentHtmlService');
 
 exports.exportData = async (req, res, next) => {
   try {
@@ -827,7 +817,8 @@ exports.exportData = async (req, res, next) => {
     }
 
     if (lowerFormat === 'pdf') {
-      const html = htmlFromRows(`${lowerDataset} export`, headers, rows);
+      const metaLine = `Generated: ${new Date().toLocaleString()} · ${rows.length} rows`;
+      const html = await buildTabularExportHtml(`${lowerDataset.replace(/_/g, ' ')}`, headers, rows, metaLine);
       const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
       try {
         const page = await browser.newPage();

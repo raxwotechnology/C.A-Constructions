@@ -100,6 +100,11 @@ exports.sendPayslipSms = async (phone, name, monthName, netSalary) => {
   return sendSms(phone, msg, name, 'payroll');
 };
 
+exports.sendSubscriptionHistorySms = async (phone, name, subTitle, totalPaid) => {
+  const msg = `Hi ${name}, payment history for your subscription "${subTitle}" has been generated. Total paid: LKR ${Number(totalPaid || 0).toLocaleString()}. View details in your portal.`;
+  return sendSms(phone, msg, name, 'subscription');
+};
+
 exports.sendLeaveDecisionSms = async (phone, name, type, status) => {
   const msg = `Hi ${name}, your ${type} leave request has been ${status.toUpperCase()}.`;
   return sendSms(phone, msg, name, 'leave');
