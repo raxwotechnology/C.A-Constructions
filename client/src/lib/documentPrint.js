@@ -95,7 +95,7 @@ export function directorSealBlockHtml({ directorName, sealUrl, forPrint = true }
   }
   return `
     <div class="doc-seal-block" style="margin-top:40px;text-align:right;page-break-inside:avoid">
-      ${src ? `<img src="${src.replace(/"/g, '')}" alt="Seal" style="max-height:90px;object-fit:contain;display:inline-block" crossorigin="anonymous"/>` : ''}
+      ${src ? `<img src="${src.replace(/"/g, '')}" alt="Seal" style="max-height:90px;object-fit:contain;display:inline-block"/>` : ''}
       ${directorName ? `<p style="margin:10px 0 0;font-weight:700;font-size:11pt;color:#0f172a">${esc(directorName)}</p>` : ''}
       <p style="margin:4px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
     </div>`
