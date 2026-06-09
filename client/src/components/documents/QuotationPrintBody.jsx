@@ -1,5 +1,6 @@
 import { formatMoney } from '../../lib/currencies'
 import { buildDocumentLetterheadHtml, directorSealBlockHtml } from '../../lib/documentPrint'
+import DocumentTotalsSection from './DocumentTotalsSection'
 
 const PAYMENT_LABELS = {
   cash: 'Cash',
@@ -106,8 +107,13 @@ export default function QuotationPrintBody({
         <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}`, textAlign: 'right' }}>
           <p style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prepared by</p>
           <p style={{ margin: 0, fontWeight: 600, fontSize: '10.5pt', color: CLR.dark }}>{prepared || '—'}</p>
-          {payLabel && (
+          {q.serviceType && (
             <p style={{ margin: '6px 0 0', fontSize: '9.5pt', color: CLR.light }}>
+              <span style={{ color: CLR.muted }}>Service:</span> {q.serviceType}
+            </p>
+          )}
+          {payLabel && (
+            <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>
               <span style={{ color: CLR.muted }}>Payment:</span> {payLabel}
             </p>
           )}
@@ -148,30 +154,7 @@ export default function QuotationPrintBody({
         </tbody>
       </table>
 
-      {/* ── Totals ── */}
-      <div style={{ width: '260px', marginLeft: 'auto', fontSize: '10pt', marginBottom: '20px', pageBreakInside: 'avoid' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
-          <span>Subtotal</span><span>{formatMoney(q.subtotal || 0, currency)}</span>
-        </div>
-        {Number(q.transportCharge) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
-            <span>Transport charge</span><span>{formatMoney(q.transportCharge, currency)}</span>
-          </div>
-        )}
-        {Number(q.taxRate) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: CLR.mid }}>
-            <span>Tax ({q.taxRate}%)</span><span>{formatMoney(q.tax || 0, currency)}</span>
-          </div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', marginTop: '6px', borderTop: `2px solid ${CLR.accent}`, fontSize: '12pt', fontWeight: 800, color: CLR.dark }}>
-          <span>Total</span><span>{formatMoney(q.total || 0, currency)}</span>
-        </div>
-        {Number(q.advanceAmount) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '9.5pt', color: CLR.light }}>
-            <span>Advance</span><span>{formatMoney(q.advanceAmount, currency)}</span>
-          </div>
-        )}
-      </div>
+      <DocumentTotalsSection doc={q} currency={currency} showTransport showAdvance />
 
       {/* ── Notes (kept near totals — part of the commercial section) ── */}
       {notes && (

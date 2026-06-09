@@ -34,7 +34,7 @@ export default function SiteLogo({
 
   const nameCls = isDark ? 'text-white' : 'text-primary'
   const tagCls = isDark ? 'text-white/50' : 'text-slate-400'
-  const tagline = (siteTagline && siteTagline.length <= 48) ? siteTagline : 'Pvt Ltd'
+  const tagline = (siteTagline && siteTagline.length <= 48) ? siteTagline : ''
 
   const inner = (
     <>
@@ -59,7 +59,7 @@ export default function SiteLogo({
           <span className={`font-heading font-bold leading-none block truncate ${nameCls} ${isDark ? 'text-xl' : 'text-lg'}`}>
             {siteName}
           </span>
-          <p className={`text-xs leading-none mt-0.5 truncate ${tagCls}`}>{tagline}</p>
+          {tagline && <p className={`text-xs leading-none mt-0.5 truncate ${tagCls}`}>{tagline}</p>}
         </div>
       )}
     </>

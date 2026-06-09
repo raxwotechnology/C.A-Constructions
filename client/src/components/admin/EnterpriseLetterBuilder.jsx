@@ -256,28 +256,7 @@ export default function EnterpriseLetterBuilder({
                     </div>
                   </div>
                   
-                  {sections.header && (
-                    <div className="space-y-3">
-                      <h3 className="font-bold text-sm text-slate-800 uppercase tracking-wider">Custom Header (Override)</h3>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" {...register('overrideHeader')} className="rounded border-slate-300 text-primary" />
-                        Use custom logo and name
-                      </label>
-                      {formData.overrideHeader && (
-                        <div className="space-y-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                          <DocumentAssetPicker 
-                            label="Custom Logo" 
-                            value={{ data: formData.customLogo }} 
-                            onChange={(v) => setValue('customLogo', v.data)} 
-                          />
-                          <div>
-                            <label className="form-label text-xs">Company Name Override</label>
-                            <input {...register('customCompanyName')} className="form-input text-xs" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+
                 </div>
               )}
 
@@ -486,11 +465,9 @@ export default function EnterpriseLetterBuilder({
 }
 
 // Helper to generate the final HTML combining all sections (matches issued-letter print layout)
-function generateLetterParts(data, company, sections) {
-  const cName = data.overrideHeader && data.customCompanyName ? data.customCompanyName : company.name
-  const co = data.overrideHeader && data.customLogo
-    ? { ...company, name: cName, logo: data.customLogo, logoPath: data.customLogo }
-    : { ...company, name: cName }
+export function generateLetterParts(data, company, sections) {
+  const cName = company.name
+  const co = { ...company }
 
   const siteSettings = {
     signatures: company.signatures || {},

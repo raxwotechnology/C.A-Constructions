@@ -24,9 +24,11 @@ exports.getTransactions = async (req, res, next) => {
     const totalOut = transactions.filter(t => t.type === 'out').reduce((s, t) => s + t.amount, 0);
 
     const balanceQuery = branch ? { branch } : {};
+    const cashFilter = (t) => !t.paymentType || String(t.paymentType).toLowerCase() === 'cash';
     const allForBalance = await PettyCash.find(balanceQuery).lean();
-    const allIn = allForBalance.filter(t => t.type === 'in').reduce((s, t) => s + Number(t.amount || 0), 0);
-    const allOut = allForBalance.filter(t => t.type === 'out').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const cashRows = allForBalance.filter(cashFilter);
+    const allIn = cashRows.filter(t => t.type === 'in').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const allOut = cashRows.filter(t => t.type === 'out').reduce((s, t) => s + Number(t.amount || 0), 0);
     const currentBalance = allIn - allOut;
 
     res.json({ success: true, count: transactions.length, transactions, summary: { totalIn, totalOut, currentBalance } });
@@ -39,11 +41,10 @@ exports.createTransaction = async (req, res, next) => {
     const { type, amount, date, description, category, paidTo, paymentType, referenceNumber, receiptUrl, branch, bankAccount } = req.body;
 
     // For OUT via CASH: check physical petty cash balance
-    if (type === 'out' && paymentType === 'cash') {
-      const q = branch ? { branch } : { branch: { $exists: false } };
-      const all = await PettyCash.find(branch ? { branch } : { $or: [{ branch: null }, { branch: { $exists: false } }] });
-      // Only count cash transactions towards the physical petty cash balance
-      const cashTransactions = all.filter(t => t.paymentType === 'cash' || !t.paymentType);
+    if (type === 'out' && (!paymentType || String(paymentType).toLowerCase() === 'cash')) {
+      const balanceQuery = branch ? { branch } : {};
+      const all = await PettyCash.find(balanceQuery).lean();
+      const cashTransactions = all.filter(t => !t.paymentType || String(t.paymentType).toLowerCase() === 'cash');
       const balance = cashTransactions.reduce((s, t) => t.type === 'in' ? s + t.amount : s - t.amount, 0);
       if (Number(amount) > balance) {
         return res.status(400).json({ success: false, message: `Insufficient physical cash balance. Current cash: LKR ${balance.toFixed(2)}` });

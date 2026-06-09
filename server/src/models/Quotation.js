@@ -24,6 +24,8 @@ const quotationSchema = new mongoose.Schema({
   },
   items: [quotationItemSchema],
   subtotal: { type: Number, default: 0 },
+  globalDiscountType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
+  globalDiscountValue: { type: Number, default: 0 },
   discountTotal: { type: Number, default: 0 },
   tax: { type: Number, default: 0 },
   taxRate: { type: Number, default: 0 },

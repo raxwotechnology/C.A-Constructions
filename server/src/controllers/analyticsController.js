@@ -12,6 +12,7 @@ const FinanceEntry = require('../models/FinanceEntry');
 const Advance = require('../models/Advance');
 const Loan = require('../models/Loan');
 const BankAccount = require('../models/BankAccount');
+const PettyCash = require('../models/PettyCash');
 const Request = require('../models/Request');
 const WorkLog = require('../models/WorkLog');
 const { createNotification } = require('../services/notificationService');
@@ -244,6 +245,15 @@ exports.getDashboard = async (req, res, next) => {
     const bankBalance = bankIn - bankOut;
     const cashBalance = cashIn - cashOut;
 
+    const pettyCashQuery = branch ? { branch } : {};
+    const pettyCashRows = await PettyCash.find(pettyCashQuery).lean();
+    const pettyCashCashRows = pettyCashRows.filter(
+      (t) => !t.paymentType || String(t.paymentType).toLowerCase() === 'cash',
+    );
+    const pettyCashIn = pettyCashCashRows.filter((t) => t.type === 'in').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const pettyCashOut = pettyCashCashRows.filter((t) => t.type === 'out').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const pettyCashBalance = pettyCashIn - pettyCashOut;
+
     const [projectStatus, deptDist, recentProjects, recentApplications, followUps] = await Promise.all([
       Project.aggregate([{ $match: projMatch }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
       Employee.aggregate([{ $match: empMatch }, { $group: { _id: '$department', count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
@@ -283,7 +293,7 @@ exports.getDashboard = async (req, res, next) => {
         outstandingInvoiceTotal,
         bankBalance,
         cashBalance,
-        pettyCashBalance: 0,
+        pettyCashBalance,
         totalInvoices,
         paidInvoicesCount,
         pendingPaymentsTotal,

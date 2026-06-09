@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
 const CHEQUE_STATUSES = [
-  'pending', 'unpaid', 'paid', 'cleared', 'bounced',
-  'expected', 'received', 'deposited', 'returned', 'renewed',
+  'pending', 'deposited', 'cleared', 'bounced', 'cancelled',
+  // legacy values kept for existing records
+  'unpaid', 'paid', 'expected', 'received', 'returned', 'renewed',
 ];
 
 const chequeSchema = new mongoose.Schema({

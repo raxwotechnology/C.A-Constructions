@@ -280,9 +280,10 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
     : new Date().toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' });
 
   let clientDoc = null; let projectDoc = null; let invoiceDoc = null;
-  if (client) clientDoc = await User.findById(client).select('name email phone');
-  if (project) projectDoc = await Project.findById(project).populate('client', 'name').select('title serviceType budget description startDate deadline');
-  if (invoice) invoiceDoc = await Invoice.findById(invoice).populate('client', 'name').select('invoiceNo total remainingBalance dueDate');
+  const { Types } = require('mongoose');
+  if (client && Types.ObjectId.isValid(client)) clientDoc = await User.findById(client).select('name email phone');
+  if (project && Types.ObjectId.isValid(project)) projectDoc = await Project.findById(project).populate('client', 'name').select('title serviceType budget description startDate deadline');
+  if (invoice && Types.ObjectId.isValid(invoice)) invoiceDoc = await Invoice.findById(invoice).populate('client', 'name').select('invoiceNo total remainingBalance dueDate');
 
   const clientName = clientDoc?.name || projectDoc?.client?.name || invoiceDoc?.client?.name || '{{CLIENT_NAME}}';
   const clientEmail = clientDoc?.email || '{{CLIENT_EMAIL}}';

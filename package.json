@@ -4,9 +4,9 @@
   "description": "Raxwo Pvt Ltd - HRM & Corporate Portal Backend",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "seed": "node src/seed.js"
+    "start": "cd server && node src/server.js",
+    "dev": "cd server && nodemon src/server.js",
+    "seed": "cd server && node src/seed.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

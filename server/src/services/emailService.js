@@ -283,6 +283,33 @@ exports.sendLeaveDecisionEmail = async (employeeEmail, employeeName, leaveDetail
   await sendLoggedMail({ to: employeeEmail, subject: `Leave ${approved ? 'Approved ✅' : 'Rejected ❌'}`, html }, 'leave');
 };
 
+exports.sendToolAssignedEmail = async (employeeEmail, employeeName, toolName, accessUrl = '') => {
+  const html = await buildEmailHTML('Tool Access Assigned', `
+    <p>Hi <strong>${employeeName || 'there'}</strong>,</p>
+    <p>You have been assigned access to <strong>${toolName || 'a tool'}</strong>.</p>
+    ${infoBoxHtml([
+      { label: 'Tool', value: toolName || '—' },
+      ...(accessUrl ? [{ label: 'Access URL', value: accessUrl }] : []),
+    ])}
+    <p>Sign in to your profile to view credentials and assignment details.</p>
+    ${btnHtml('View my profile', `${APP_URL}/developer/profile`)}
+  `);
+  await sendLoggedMail({ to: employeeEmail, subject: `Tool assigned: ${toolName || 'Access'}`, html }, 'system');
+};
+
+exports.sendToolRevokedEmail = async (employeeEmail, employeeName, toolName) => {
+  const html = await buildEmailHTML('Tool Access Revoked', `
+    <p>Hi <strong>${employeeName || 'there'}</strong>,</p>
+    <p>Your access to <strong>${toolName || 'a tool'}</strong> has been revoked.</p>
+    ${infoBoxHtml([{ label: 'Tool', value: toolName || '—' }])}
+    <p>If you believe this was a mistake, contact your manager or HR.</p>
+    ${btnHtml('View my profile', `${APP_URL}/developer/profile`)}
+  `);
+  await sendLoggedMail({ to: employeeEmail, subject: `Tool access revoked: ${toolName || 'Access'}`, html }, 'system');
+};
+
+exports.sendLoggedMail = sendLoggedMail;
+
 /* ─── Batch Operations ───────────────────────────────────────────────────────── */
 exports.sendBatchPayslipEmails = async (payrolls) => {
   for (const p of payrolls) {

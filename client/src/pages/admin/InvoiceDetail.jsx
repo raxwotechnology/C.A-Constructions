@@ -224,8 +224,8 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                 )}
                 {inv?.paymentTerms && (
                   <div className="bg-white rounded-2xl shadow-sm border p-5">
-                    <p className="text-sm font-semibold text-slate-700 mb-2">Payment Terms</p>
-                    <p className="text-sm text-slate-600 whitespace-pre-wrap">{inv.paymentTerms}</p>
+                    <p className="text-sm font-semibold text-slate-700 mb-2">Terms & Conditions</p>
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap">{inv.paymentTerms || inv.terms}</p>
                   </div>
                 )}
               </div>

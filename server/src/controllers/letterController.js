@@ -138,15 +138,23 @@ exports.duplicateLetterTemplate = async (req, res, next) => {
 // @route   POST /api/letters/generate
 exports.generateLetter = async (req, res, next) => {
   try {
-    const { employeeId, type, data = {}, approvalStatus } = req.body;
+    const { employeeId, clientId, recipientType, type, data = {}, approvalStatus } = req.body;
     let employee = null;
+    let client = null;
     
-    if (employeeId && employeeId !== 'custom') {
-      employee = await Employee.findById(employeeId)
-        .populate('userId', 'name email')
-        .populate('branch', 'name')
-        .populate('manager', 'name');
-      if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    if (recipientType === 'client') {
+      if (clientId && clientId !== 'custom') {
+        client = await require('../models/User').findById(clientId).select('name email phone');
+        if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
+      }
+    } else {
+      if (employeeId && employeeId !== 'custom') {
+        employee = await Employee.findById(employeeId)
+          .populate('userId', 'name email')
+          .populate('branch', 'name')
+          .populate('manager', 'name');
+        if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+      }
     }
 
     const company = await getCompany();
@@ -164,12 +172,14 @@ exports.generateLetter = async (req, res, next) => {
       service_agreement: 'Service Agreement',
       custom: data.title || data.letterTitle || 'Custom',
     };
-    const title = data.title || `${typeLabels[type] || type}${employee ? ` — ${employee.userId.name}` : ''}`;
+    const title = data.title || `${typeLabels[type] || type}${employee ? ` — ${employee.userId.name}` : client ? ` — ${client.name}` : ''}`;
 
-    const content = data.content ? data.content : buildLetterBodyHtml(type, employee || {}, data, company);
+    const content = data.content ? data.content : buildLetterBodyHtml(type, employee || client || {}, data, company);
 
     const letter = await Letter.create({
+      recipientType: recipientType || 'employee',
       employee: employee ? employee._id : undefined,
+      client: client ? client._id : undefined,
       type,
       title,
       content,
@@ -182,6 +192,7 @@ exports.generateLetter = async (req, res, next) => {
 
     const populated = await Letter.findById(letter._id)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .populate('client', 'name email')
       .populate('issuedBy', 'name');
 
     await createAuditLog({
@@ -190,7 +201,7 @@ exports.generateLetter = async (req, res, next) => {
       module: 'letters',
       entityId: String(letter._id),
       entityName: letter.letterRef || title,
-      description: `Letter generated: ${title} (${type})${employee ? ` for ${employee.userId?.name}` : ' (External)'}`,
+      description: `Letter generated: ${title} (${type})${employee ? ` for ${employee.userId?.name}` : client ? ` for ${client.name}` : ' (External)'}`,
       changes: { before: null, after: letterAuditSnapshot(populated.toObject()) },
       ipAddress: req.ip || '',
       userAgent: req.get('user-agent') || '',
@@ -214,12 +225,15 @@ exports.generateLetter = async (req, res, next) => {
 // @route   GET /api/letters
 exports.getLetters = async (req, res, next) => {
   try {
-    const { employeeId, type } = req.query;
+    const { employeeId, clientId, type, recipientType } = req.query;
     const query = {};
+    if (recipientType) query.recipientType = recipientType;
     if (employeeId) query.employee = employeeId;
+    if (clientId) query.client = clientId;
     if (type) query.type = type;
     const letters = await Letter.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .populate('client', 'name email')
       .populate('issuedBy', 'name')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: letters.length, letters });

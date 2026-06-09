@@ -1,5 +1,6 @@
 const Meeting = require('../models/Meeting');
 const { createZoomMeeting, getZoomMeetingParticipants, deleteZoomMeeting } = require('../services/zoomService');
+const { verifyActionPassword } = require('../utils/actionPassword');
 const crypto = require('crypto');
 
 // Generate a unique Jitsi Meet room ID as fallback
@@ -94,7 +95,7 @@ exports.getMeetings = async (req, res, next) => {
     const meetings = await Meeting.find(query)
       .sort({ startTime: -1 })
       .populate('createdBy', 'name')
-      .populate('client', 'companyName contactPerson');
+      .populate('client', 'name email');
 
     const now = new Date();
 
@@ -141,6 +142,11 @@ exports.getAttendees = async (req, res, next) => {
 
 exports.deleteMeeting = async (req, res, next) => {
   try {
+    const pwCheck = await verifyActionPassword(req.user._id, req.body?.password);
+    if (!pwCheck.ok) {
+      return res.status(401).json({ success: false, message: pwCheck.message || 'Invalid password' });
+    }
+
     const { id } = req.params;
     const meeting = await Meeting.findById(id);
     if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found' });
@@ -154,9 +160,8 @@ exports.deleteMeeting = async (req, res, next) => {
       }
     }
 
-    meeting.status = 'inactive';
-    await meeting.save();
-    res.json({ success: true, message: 'Meeting deleted' });
+    await Meeting.deleteOne({ _id: id });
+    res.json({ success: true, message: 'Meeting permanently deleted' });
   } catch (err) { next(err); }
 };
 

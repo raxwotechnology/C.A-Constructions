@@ -3,7 +3,26 @@ const Invoice = require('../models/Invoice');
 const SiteSetting = require('../models/SiteSetting');
 const { createAuditLog } = require('./auditController');
 const { createNotification } = require('../services/notificationService');
-const { allocateInvoiceNoFromQuotationNo } = require('../utils/allocateInvoiceNoFromQuotation');
+const { generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
+const { calcItems } = require('./invoiceController');
+
+function calcQuotationTotals(validItems, taxRate = 0, transportCharge = 0, globalDiscountValue = 0, globalDiscountType = 'fixed') {
+  const { subtotal, discountTotal, tax, total: baseTotal, items } = calcItems(
+    validItems,
+    taxRate,
+    globalDiscountValue,
+    globalDiscountType,
+  );
+  const transport = Number(transportCharge || 0);
+  return {
+    items,
+    subtotal,
+    discountTotal,
+    tax,
+    transportCharge: transport,
+    total: parseFloat((baseTotal + transport).toFixed(2)),
+  };
+}
 
 function quotationAuditSummary(doc) {
   if (!doc) return null;
@@ -24,9 +43,11 @@ function quotationAuditSummary(doc) {
 // @route   GET /api/quotations
 exports.getQuotations = async (req, res, next) => {
   try {
-    const { status, client, startDate, endDate } = req.query;
+    const { status, client, startDate, endDate, serviceType, branch } = req.query;
     const query = {};
     if (status) query.status = status;
+    if (serviceType) query.serviceType = serviceType;
+    if (branch) query.branch = branch;
     if (req.user.role === 'client') {
       if (!req.user.client) return res.json({ success: true, count: 0, quotations: [] });
       query.client = req.user.client;
@@ -93,22 +114,27 @@ exports.createQuotation = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'At least one line item with a description is required' });
     }
 
-    const subtotal = Number(req.body.subtotal) || validItems.reduce((s, i) => s + i.total, 0);
     const taxRate = Number(req.body.taxRate || 0);
-    const tax = Number(req.body.tax) || subtotal * taxRate / 100;
     const transportCharge = Number(req.body.transportCharge || 0);
+    const globalDiscountType = req.body.globalDiscountType || 'fixed';
+    const globalDiscountValue = Number(req.body.globalDiscountValue || 0);
+    const totals = calcQuotationTotals(validItems, taxRate, transportCharge, globalDiscountValue, globalDiscountType);
+    const { subtotal, discountTotal, tax, total } = totals;
     const role = String(req.body.directorRole || '').trim()
     const settings = await SiteSetting.findOne().lean()
     const roleSeal = settings?.signatures?.[role]?.url || ''
     const roleLabel = settings?.signatures?.[role]?.label || ''
     const payload = {
       ...req.body,
-      items: validItems,
+      items: totals.items || validItems,
       subtotal,
+      discountTotal,
+      globalDiscountType,
+      globalDiscountValue,
       tax,
       taxRate,
       transportCharge,
-      total: Number(req.body.total) || subtotal + tax + transportCharge,
+      total,
       generatedBy: req.user._id,
       preparedBy: String(req.body.preparedBy || '').trim() || req.user.name || '',
       notes: String(req.body.notes || '').trim(),
@@ -257,21 +283,22 @@ exports.convertToInvoice = async (req, res, next) => {
       });
     }
 
-    const { calcItems } = require('./invoiceController').helpers || {};
-    // Recalc items
-    const calcedItems = (quotation.items || []).map((item) => {
+    const sourceItems = (quotation.items || []).map((item) => {
       const raw = item && typeof item.toObject === 'function' ? item.toObject() : { ...item };
-      const base = Number(raw.quantity || 1) * Number(raw.unitPrice || 0);
-      const discAmt = base * (Number(raw.discount || 0) / 100);
-      const afterDisc = base - discAmt;
-      const taxAmt = afterDisc * (Number(raw.tax || 0) / 100);
-      return { ...raw, total: parseFloat((afterDisc + taxAmt).toFixed(2)) };
+      return { ...raw };
     });
+    const globalDiscountType = quotation.globalDiscountType || 'fixed';
+    const globalDiscountValue = Number(quotation.globalDiscountValue || 0);
+    const transportCharge = Number(quotation.transportCharge || 0);
+    const { items: calcedItems, subtotal, discountTotal, tax, total: baseTotal } = calcItems(
+      sourceItems,
+      quotation.taxRate || 0,
+      globalDiscountValue,
+      globalDiscountType,
+    );
+    const invTotal = parseFloat((baseTotal + transportCharge).toFixed(2));
 
-    const invNo = await allocateInvoiceNoFromQuotationNo(quoteNo);
-    if (!invNo) {
-      return res.status(500).json({ success: false, message: 'Could not allocate a unique invoice number' });
-    }
+    const invNo = await generateAutoInvoiceNo('INV');
 
     const clientId = quotation.client?._id || quotation.client;
     const invoice = new Invoice({
@@ -279,15 +306,24 @@ exports.convertToInvoice = async (req, res, next) => {
       quotationRef: quotation._id,
       invoiceNo: invNo,
       items: calcedItems,
-      subtotal: quotation.subtotal,
-      discountTotal: quotation.discountTotal,
-      tax: quotation.tax,
+      subtotal,
+      globalDiscountType,
+      globalDiscountValue,
+      discountTotal,
+      tax,
       taxRate: quotation.taxRate,
-      total: quotation.total,
+      total: invTotal,
       currency: quotation.currency,
       exchangeRateToLKR: quotation.exchangeRateToLKR || 1,
       notes: quotation.notes,
+      terms: quotation.terms,
       paymentTerms: quotation.terms,
+      serviceType: quotation.serviceType || 'Other',
+      transportCharge,
+      paymentMethod: quotation.paymentMethod || '',
+      paymentMethodCustom: quotation.paymentMethodCustom || '',
+      bankAccount: quotation.bankAccount,
+      bankBranch: quotation.bankBranch || '',
       branch: quotation.branch,
       status: 'unpaid',
       createdBy: req.user._id,

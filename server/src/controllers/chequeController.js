@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Cheque = require('../models/Cheque');
-const { syncChequeBankLedger, statusNeedsBankLedger } = require('../utils/chequeLedger');
+const { syncChequeBankLedger, reverseChequeBankLedger, statusNeedsBankLedger, isBouncedStatus } = require('../utils/chequeLedger');
 
 function normalizeDirection(d) {
   const v = String(d || '').toLowerCase();
@@ -119,7 +119,9 @@ exports.updateCheque = async (req, res, next) => {
     let ledgerAction = null;
     const needsLedger = statusNeedsBankLedger(cheque.status, cheque.direction);
 
-    if (cheque.bankAccount && needsLedger && !cheque.ledgerPosted) {
+    if (isBouncedStatus(nextStatus) && cheque.ledgerPosted) {
+      ledgerAction = await reverseChequeBankLedger(cheque, { recordedBy: req.user._id });
+    } else if (cheque.bankAccount && needsLedger && !cheque.ledgerPosted) {
       ledgerAction = await syncChequeBankLedger(cheque, { recordedBy: req.user._id });
     }
 

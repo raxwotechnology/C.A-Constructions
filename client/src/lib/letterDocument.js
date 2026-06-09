@@ -2,6 +2,7 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import { absoluteMediaUrl } from './media'
 import { buildCompanyFromSettings, companyContactLines, companyLogoHtml, contactBlockHtml } from './companyBranding'
+import { buildDocumentLetterheadHtml } from './documentPrint'
 import { resolveLetterSignatory } from './letterSignatures'
 
 function safeImgSrc(u) {
@@ -25,8 +26,14 @@ const SIG_IMAGE_MAX_HEIGHT = 44
 const SEAL_MAX_HEIGHT = 52
 
 /** Build the quotation-style letterhead (logo+name left, contact right, blue border bottom) */
-export function buildLetterheadHtml(company) {
-  const logoHtml = companyLogoHtml(company, { forPrint: false, maxHeight: LOGO_MAX_HEIGHT })
+export function buildLetterheadHtml(company, { forPrint = true, siteSettings } = {}) {
+  if (siteSettings && Object.keys(siteSettings).length) {
+    return buildDocumentLetterheadHtml(siteSettings, {
+      forPrint,
+      showTagline: company?.tagline || siteSettings.letterheadTagline || 'Next Level Tech',
+    })
+  }
+  const logoHtml = companyLogoHtml(company, { forPrint, maxHeight: LOGO_MAX_HEIGHT })
 
   const tagline = company.tagline || 'Next Level Tech'
   const taglineHtml = `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>`
@@ -137,7 +144,7 @@ export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issu
   return `
   <div class="letter-page-wrap" style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#0f172a;font-size:11pt;line-height:1.55;max-width:780px;margin:0 auto">
     <div class="letter-page-content">
-      ${buildLetterheadHtml(company)}
+      ${buildLetterheadHtml(company, { forPrint: true, siteSettings })}
       ${buildRefDateHtml(letterRef, issued)}
       <div class="letter-body" style="margin-top:4px">${bodyHtml || ''}</div>
       ${buildSigsHtml(signatures, { siteSettings })}
@@ -233,12 +240,16 @@ function measureContentHeight(el) {
 }
 
 /** Tighten spacing first, then apply a gentle zoom — never shrink below 75%. */
-export function applyLetterPageFit(doc, { fitToOnePage = false, scale = 1 } = {}) {
-  if (!doc?.body) return 1
-  const wrap = doc.querySelector('.letter-page-wrap') || doc.body.firstElementChild
+export function applyLetterPageFit(docOrEl, { fitToOnePage = false, scale = 1 } = {}) {
+  if (!docOrEl) return 1
+  
+  // If it's a document, use doc.body. If it's an element, use it directly.
+  const rootEl = docOrEl.body ? docOrEl.body : docOrEl;
+  
+  const wrap = rootEl.querySelector?.('.letter-page-wrap') || rootEl.firstElementChild
   if (!wrap) return 1
 
-  const content = wrap.querySelector('.letter-page-content') || wrap
+  const content = wrap.querySelector?.('.letter-page-content') || wrap
   content.classList.remove('letter-compact', 'letter-compact-more')
   content.style.zoom = ''
   content.style.transform = ''
@@ -325,43 +336,84 @@ export function openLetterPrint(opts) {
   }
 }
 
+async function waitForImages(container) {
+  const imgs = container.querySelectorAll('img')
+  await Promise.all(
+    [...imgs].map(
+      (img) =>
+        new Promise((resolve) => {
+          if (img.complete && img.naturalWidth > 0) {
+            resolve()
+            return
+          }
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          setTimeout(resolve, 4000)
+        }),
+    ),
+  )
+}
+
 export async function downloadLetterPdf(opts, filenameBase = 'letter') {
-  const { fitToOnePage = true, letterScale = 1, ...buildOpts } = opts
+  const { fitToOnePage = false, letterScale = 1, ...buildOpts } = opts
   const wrap = document.createElement('div')
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;padding:40px 48px;background:#fff;box-sizing:border-box;'
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;box-sizing:border-box;'
   const st = document.createElement('style')
-  st.textContent = PRINT_STYLES
+  st.textContent = `${PRINT_STYLES}
+    .letter-pdf-page { width:794px;min-height:1123px;padding:56px 64px;background:#fff;box-sizing:border-box; }
+    .letter-pdf-page .letter-page-wrap { max-width:100%;margin:0; }
+    .letter-pdf-page .letter-body { font-size:11pt;line-height:1.58;color:#0f172a; }
+    .letter-pdf-page .letter-body p { margin:0 0 10px; }
+    .letter-pdf-page header { margin-bottom:22px;padding-bottom:16px; }
+  `
   wrap.appendChild(st)
-  const content = document.createElement('div')
-  content.innerHTML = buildLetterInnerForPrint(buildOpts)
-  wrap.appendChild(content)
+
+  const page = document.createElement('div')
+  page.className = 'letter-pdf-page'
+  page.innerHTML = buildLetterInnerForPrint(buildOpts)
+  wrap.appendChild(page)
   document.body.appendChild(wrap)
+
   try {
+    await waitForImages(page)
     applyLetterPageFit({ body: wrap }, { fitToOnePage, scale: letterScale })
-    const canvas = await html2canvas(content, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-    })
-    const imgData = canvas.toDataURL('image/png')
+
     const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 10
-    const imgWidth = pageWidth - margin * 2
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
-    let heightLeft = imgHeight
-    let y = margin
-    pdf.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight)
-    heightLeft -= pageHeight - margin * 2
-    while (heightLeft > 0) {
-      y = margin - (imgHeight - heightLeft)
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight)
-      heightLeft -= pageHeight - margin * 2
+    const marginX = 14
+    const marginY = 14
+    const contentWidth = pageWidth - marginX * 2
+    const sliceHeightPx = 1015
+    const totalHeight = page.scrollHeight
+    const slices = Math.max(1, Math.ceil(totalHeight / sliceHeightPx))
+
+    for (let i = 0; i < slices; i++) {
+      const slice = document.createElement('div')
+      slice.style.cssText = `position:fixed;left:-9999px;top:0;width:794px;background:#fff;overflow:hidden;height:${sliceHeightPx}px;`
+      const inner = page.cloneNode(true)
+      inner.style.marginTop = `-${i * sliceHeightPx}px`
+      slice.appendChild(inner)
+      document.body.appendChild(slice)
+      await waitForImages(slice)
+
+      const canvas = await html2canvas(slice, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: sliceHeightPx,
+      })
+      document.body.removeChild(slice)
+
+      const imgData = canvas.toDataURL('image/png')
+      const imgHeight = (canvas.height * contentWidth) / canvas.width
+      if (i > 0) pdf.addPage()
+      pdf.addImage(imgData, 'PNG', marginX, marginY, contentWidth, Math.min(imgHeight, pageHeight - marginY * 2))
     }
+
     pdf.save(`${String(filenameBase).replace(/[^\w\-]+/g, '_')}.pdf`)
   } finally {
     document.body.removeChild(wrap)

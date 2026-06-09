@@ -1,16 +1,51 @@
 const ToolAssignment = require('../models/ToolAssignment');
 const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
-const emailService = require('../services/emailService');
 const User = require('../models/User');
+
+function getEmailService() {
+  return require('../services/emailService');
+}
+
+async function notifyToolAssigned(empUser, toolName, accessUrl) {
+  if (!empUser?.email) return;
+  try {
+    const { sendToolAssignedEmail } = getEmailService();
+    if (typeof sendToolAssignedEmail !== 'function') {
+      console.warn('[ToolAssignment] sendToolAssignedEmail not exported from emailService');
+      return;
+    }
+    await sendToolAssignedEmail(empUser.email, empUser.name, toolName, accessUrl);
+  } catch (err) {
+    console.error('[ToolAssignment] Email notification failed:', err?.message || err);
+  }
+}
+
+async function notifyToolRevoked(empUser, toolName) {
+  if (!empUser?.email) return;
+  try {
+    const { sendToolRevokedEmail } = getEmailService();
+    if (typeof sendToolRevokedEmail !== 'function') {
+      console.warn('[ToolAssignment] sendToolRevokedEmail not exported from emailService');
+      return;
+    }
+    await sendToolRevokedEmail(empUser.email, empUser.name, toolName);
+  } catch (err) {
+    console.error('[ToolAssignment] Revocation email failed:', err?.message || err);
+  }
+}
 
 // Create tool assignment (Admin/Manager)
 exports.createAssignment = async (req, res, next) => {
   try {
     const { employee, toolName, toolType, accountEmail, accountPassword, accessUrl, licenseKey, notes, expiresAt } = req.body;
 
-    const emp = await Employee.findById(employee).populate('userId', 'name');
+    const emp = await Employee.findById(employee).populate('userId', 'name role');
     if (!emp) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const userId = emp.userId?._id || emp.userId;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Employee has no linked user account' });
+    }
 
     const assignment = await ToolAssignment.create({
       employee,
@@ -26,20 +61,16 @@ exports.createAssignment = async (req, res, next) => {
       expiresAt: expiresAt || null,
     });
 
-    // Notify employee via in-app + email
     await createNotification({
-      recipient: emp.userId._id || emp.userId,
+      recipient: userId,
       title: `Tool Assigned: ${toolName} 🔑`,
       message: `You have been assigned access to ${toolName}. Check your profile for credentials.`,
       type: 'system',
       link: `/${emp.userId?.role || 'developer'}/profile`,
     }).catch(() => {});
 
-    // Email the employee
-    const empUser = await User.findById(emp.userId._id || emp.userId).select('email name');
-    if (empUser?.email) {
-      await emailService.sendToolAssignedEmail(empUser.email, empUser.name, toolName, accessUrl);
-    }
+    const empUser = await User.findById(userId).select('email name');
+    void notifyToolAssigned(empUser, toolName, accessUrl);
 
     res.status(201).json({ success: true, assignment });
   } catch (err) { next(err); }
@@ -113,9 +144,9 @@ exports.revokeAssignment = async (req, res, next) => {
         link: '/developer/profile',
       }).catch(() => {});
 
-      // Email revocation
-      const empUser = await User.findById(assignment.employee.userId._id || assignment.employee.userId).select('email name');
-      if (empUser?.email) await emailService.sendToolRevokedEmail(empUser.email, empUser.name, assignment.toolName);
+      const revokeUserId = assignment.employee.userId._id || assignment.employee.userId;
+      const empUser = await User.findById(revokeUserId).select('email name');
+      void notifyToolRevoked(empUser, assignment.toolName);
     }
 
     res.json({ success: true, assignment });

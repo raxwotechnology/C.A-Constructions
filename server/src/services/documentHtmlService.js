@@ -76,6 +76,70 @@ const PAYMENT_LABELS = {
   custom: 'Custom',
 };
 
+function discountTypeLabel(doc) {
+  const type = doc.globalDiscountType || 'fixed';
+  const val = Number(doc.globalDiscountValue || 0);
+  if (type === 'percentage' && val > 0) return `Percentage (${val}%)`;
+  if (type === 'percentage') return 'Percentage';
+  return 'Fixed amount';
+}
+
+function globalDiscountAmount(doc, grossSubtotal) {
+  const type = doc.globalDiscountType || 'fixed';
+  const val = Number(doc.globalDiscountValue || 0);
+  if (type === 'percentage') return (Number(grossSubtotal || 0) * val) / 100;
+  return val;
+}
+
+function documentTotalsHtml(doc, currency, { showTransport = false, showAdvance = false, showPaidBalance = false } = {}) {
+  const grossSubtotal = Number(doc.subtotal || 0);
+  const discountTotal = Number(doc.discountTotal || 0);
+  const globalAmt = globalDiscountAmount(doc, grossSubtotal);
+  const lineDiscAmt = Math.max(0, discountTotal - globalAmt);
+  const hasGlobal = globalAmt > 0 || (doc.globalDiscountType === 'percentage' && Number(doc.globalDiscountValue) > 0);
+  const hasAnyDiscount = discountTotal > 0 || hasGlobal || lineDiscAmt > 0;
+  const transport = Number(doc.transportCharge || 0);
+  const row = (label, value, extra = '') =>
+    `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;color:#475569;font-size:10pt;border-bottom:1px solid #e2e8f0${extra}"><span>${label}</span><span style="font-weight:600;white-space:nowrap">${value}</span></div>`;
+
+  let body = row('Subtotal', fmtMoney(grossSubtotal, currency));
+  if (hasAnyDiscount) {
+    body += row('Discount type', esc(discountTypeLabel(doc)));
+    if (lineDiscAmt > 0) body += row('Line discount', `-${fmtMoney(lineDiscAmt, currency)}`, ';color:#b91c1c');
+    if (hasGlobal && globalAmt > 0) body += row('Discount amount', `-${fmtMoney(globalAmt, currency)}`, ';color:#b91c1c');
+    if (discountTotal > 0) body += row('Discount total', `-${fmtMoney(discountTotal, currency)}`, ';color:#b91c1c;font-weight:700');
+  }
+  if (showTransport && transport > 0) body += row('Transport charges', fmtMoney(transport, currency));
+  if (Number(doc.tax) > 0) body += row('Tax amount', fmtMoney(doc.tax, currency));
+  body += `<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0 4px;margin-top:8px;border-top:2px solid #0ea5e9;font-size:12pt;font-weight:800;color:#0f172a"><span>Grand total</span><span>${fmtMoney(doc.total, currency)}</span></div>`;
+  if (showAdvance && Number(doc.advanceAmount) > 0) body += row('Advance', fmtMoney(doc.advanceAmount, currency));
+  if (showPaidBalance && Number(doc.totalPaid) > 0) body += row('Paid', fmtMoney(doc.totalPaid, currency), ';color:#15803d');
+  if (showPaidBalance && Number(doc.remainingBalance) > 0) body += row('Balance due', fmtMoney(doc.remainingBalance, currency), ';font-weight:700;color:#b91c1c');
+
+  return `<div style="width:300px;margin-left:auto;margin-bottom:20px;page-break-inside:avoid;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc">
+    <div style="padding:10px 14px;background:#0f172a;color:#fff;font-size:8.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Totals summary</div>
+    <div style="padding:12px 14px">${body}</div>
+  </div>`;
+}
+
+function termsBlockHtml(doc) {
+  const text = String(doc.paymentTerms || doc.terms || '').trim();
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return '';
+  const ol = lines.map((l) => `<li style="padding-left:4px;margin-bottom:5px">${esc(l)}</li>`).join('');
+  return `
+    <div style="margin-bottom:16px;page-break-inside:avoid">
+      <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <div style="padding:10px 18px;background:#0f172a">
+          <h4 style="margin:0;font-size:8.5pt;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.08em">Terms &amp; Conditions</h4>
+        </div>
+        <div style="padding:14px 18px;background:#fafbfc">
+          <ol style="margin:0;padding-left:18px;font-size:8.5pt;line-height:1.7;color:#475569">${ol}</ol>
+        </div>
+      </div>
+    </div>`;
+}
+
 function itemsTableHtml(items, currency) {
   const thStyle = 'border:1px solid #e2e8f0;padding:8px 10px;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700';
   const tdStyle = 'border:1px solid #e2e8f0;padding:8px 10px;vertical-align:top';
@@ -163,14 +227,7 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
         </div>
       </div>
       ${itemsTableHtml(q.items, currency)}
-      <!-- Totals -->
-      <div style="width:260px;margin-left:auto;font-size:10pt;margin-bottom:20px;page-break-inside:avoid">
-        <div style="display:flex;justify-content:space-between;padding:5px 0;color:#475569"><span>Subtotal</span><span>${fmtMoney(q.subtotal, currency)}</span></div>
-        ${Number(q.transportCharge) > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;color:#475569"><span>Transport charge</span><span>${fmtMoney(q.transportCharge, currency)}</span></div>` : ''}
-        ${Number(q.taxRate) > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;color:#475569"><span>Tax (${q.taxRate}%)</span><span>${fmtMoney(q.tax, currency)}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:6px;border-top:2px solid #0ea5e9;font-size:12pt;font-weight:800;color:#0f172a"><span>Total</span><span>${fmtMoney(q.total, currency)}</span></div>
-        ${Number(q.advanceAmount) > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:9.5pt;color:#64748b"><span>Advance</span><span>${fmtMoney(q.advanceAmount, currency)}</span></div>` : ''}
-      </div>
+      ${documentTotalsHtml(q, currency, { showTransport: true, showAdvance: true })}
       <!-- Notes (near totals — commercial section) -->
       ${q.notes ? `
       <div style="border-top:1px solid #e2e8f0;padding-top:14px;margin-bottom:16px;font-size:9.5pt;page-break-inside:avoid">
@@ -219,34 +276,87 @@ async function buildInvoiceDocumentHtml(invoice) {
   const settings = await getSettings();
   const inv = invoice;
   const currency = inv.currency || 'LKR';
+  const payLabel =
+    inv.paymentMethod === 'custom'
+      ? inv.paymentMethodCustom || 'Custom'
+      : PAYMENT_LABELS[inv.paymentMethod] || inv.paymentMethod || '';
+  const bankLabel = inv.bankAccount
+    ? `${inv.bankAccount.bankName || ''} · ${inv.bankAccount.accountNumber || ''}`.trim()
+    : '';
+
+  const sigAuth = inv.signatures?.authorizer;
+  const sigSeal = inv.signatures?.seal;
+  const roleProfile = settings.signatures?.[inv.directorRole] || null;
+  const directorName = inv.directorName || roleProfile?.label || settings.quotationDirectorName || '';
+  const sealUrl = inv.directorSealUrl || roleProfile?.url || settings.sealUrl || '';
+
+  const signaturesHtml = (sigAuth?.data || sigSeal?.data)
+    ? `<div style="display:flex;justify-content:flex-end;margin-top:40px;page-break-inside:avoid">
+        <div style="width:260px;text-align:center">
+          ${sigAuth?.data ? `<img src="${absUploadUrl(sigAuth.data).replace(/"/g, '')}" style="max-height:70px;margin-bottom:8px;display:block;margin-inline:auto"/>` : '<div style="height:70px"></div>'}
+          <div style="border-top:2px solid #0f172a;padding-top:8px;margin-bottom:16px">
+            <p style="margin:0;font-weight:700;font-size:10pt;text-transform:uppercase">${esc(sigAuth?.name || 'Authorized Signatory')}</p>
+            ${sigAuth?.title ? `<p style="margin:4px 0 0;font-size:8.5pt;color:#64748b">${esc(sigAuth.title)}</p>` : ''}
+          </div>
+          ${sigSeal?.data ? `<img src="${absUploadUrl(sigSeal.data).replace(/"/g, '')}" style="max-height:110px;display:block;margin-inline:auto"/>` : ''}
+          ${sigSeal?.note ? `<p style="margin:8px 0 0;font-size:8.5pt;color:#64748b;font-style:italic">${esc(sigSeal.note)}</p>` : ''}
+        </div>
+      </div>`
+    : (directorName || sealUrl)
+      ? `<div style="margin-top:20px;text-align:right;page-break-inside:avoid">
+          ${directorName ? `<p style="font-weight:700;margin:0 0 8px;font-size:11pt">${esc(directorName)}</p>` : ''}
+          ${sealUrl ? `<img src="${absUploadUrl(sealUrl).replace(/"/g, '')}" style="max-height:90px;object-fit:contain"/>` : ''}
+          <p style="margin:8px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
+        </div>`
+      : '';
 
   const body = `
     ${buildLetterhead(settings)}
-    <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#0f172a;font-size:11pt;line-height:1.5;padding:28px 32px;border:1px solid #cbd5e1;border-radius:4px">
-      <h2 style="margin:0 0 8px;font-size:22pt;font-weight:800;letter-spacing:0.06em">TAX INVOICE</h2>
-      <div style="display:flex;justify-content:space-between;margin:24px 0">
-        <div style="flex:1;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
-          <p style="margin:0 0 8px;font-size:9pt;font-weight:700;color:#94a3b8">BILLED TO</p>
-          <p style="margin:0;font-weight:700">${esc(inv.client?.name)}</p>
-          ${inv.client?.email ? `<p style="margin:4px 0 0;font-size:10pt;color:#64748b">${esc(inv.client.email)}</p>` : ''}
+    <div style="font-family:'Segoe UI',system-ui,sans-serif;color:#0f172a;font-size:10.5pt;line-height:1.55;padding:24px 28px;border:1px solid #cbd5e1;border-radius:4px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;page-break-inside:avoid">
+        <div>
+          <h2 style="margin:0 0 4px;font-size:20pt;font-weight:800;letter-spacing:0.06em">INVOICE</h2>
+          ${inv.invoiceNo ? `<p style="margin:2px 0 0;font-size:10pt;font-weight:600;color:#0ea5e9">${esc(inv.invoiceNo)}</p>` : ''}
+          ${inv.project?.title ? `<p style="margin:4px 0 0;color:#475569;font-weight:500">${esc(inv.project.title)}</p>` : ''}
         </div>
         <div style="text-align:right;font-size:10pt;color:#475569">
-          ${inv.invoiceDate ? `<p>Date: ${new Date(inv.invoiceDate).toLocaleDateString('en-LK')}</p>` : ''}
-          ${inv.dueDate ? `<p>Due: ${new Date(inv.dueDate).toLocaleDateString('en-LK')}</p>` : ''}
+          ${inv.invoiceDate ? `<p style="margin:0 0 8px"><span style="color:#94a3b8;text-transform:uppercase;font-size:8.5pt;font-weight:700;display:block">Invoice date</span>${new Date(inv.invoiceDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })}</p>` : ''}
+          ${inv.dueDate ? `<p style="margin:0"><span style="color:#94a3b8;text-transform:uppercase;font-size:8.5pt;font-weight:700;display:block">Due date</span>${new Date(inv.dueDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })}</p>` : ''}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;page-break-inside:avoid">
+        <div style="padding:14px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+          <p style="margin:0 0 6px;font-size:8.5pt;font-weight:700;color:#94a3b8;text-transform:uppercase">Billed to</p>
+          <p style="margin:0;font-weight:700;font-size:10.5pt">${esc(inv.client?.name || 'Client')}</p>
+          ${inv.client?.email ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b">${esc(inv.client.email)}</p>` : ''}
+          ${inv.client?.phone ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b">${esc(inv.client.phone)}</p>` : ''}
+        </div>
+        <div style="padding:14px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;text-align:right">
+          <p style="margin:0 0 6px;font-size:8.5pt;font-weight:700;color:#94a3b8;text-transform:uppercase">Invoice details</p>
+          ${inv.serviceType ? `<p style="margin:0;font-size:9.5pt;color:#64748b"><span style="color:#94a3b8">Service:</span> ${esc(inv.serviceType)}</p>` : ''}
+          ${payLabel ? `<p style="margin:6px 0 0;font-size:9.5pt;color:#64748b"><span style="color:#94a3b8">Payment:</span> ${esc(payLabel)}</p>` : ''}
+          ${bankLabel ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b"><span style="color:#94a3b8">Bank:</span> ${esc(bankLabel)}</p>` : ''}
+          ${(inv.bankBranch || inv.bankAccount?.branchName) ? `<p style="margin:3px 0 0;font-size:9.5pt;color:#64748b"><span style="color:#94a3b8">Bank branch:</span> ${esc(inv.bankBranch || inv.bankAccount?.branchName)}</p>` : ''}
+          <p style="margin:6px 0 0;font-size:9.5pt;color:#64748b;text-transform:capitalize"><span style="color:#94a3b8">Status:</span> ${esc(inv.status || '—')}</p>
         </div>
       </div>
       ${itemsTableHtml(inv.items, currency)}
-      <div style="width:280px;margin-left:auto;font-size:10.5pt">
-        <div style="display:flex;justify-content:space-between;padding:6px 0"><span>Subtotal</span><span>${fmtMoney(inv.subtotal, currency)}</span></div>
-        ${Number(inv.tax) > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0"><span>Tax</span><span>${fmtMoney(inv.tax, currency)}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:8px;border-top:2px solid #0ea5e9;font-size:13pt;font-weight:800"><span>Total</span><span>${fmtMoney(inv.total, currency)}</span></div>
-        ${Number(inv.totalPaid) > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#16a34a"><span>Paid</span><span>${fmtMoney(inv.totalPaid, currency)}</span></div>` : ''}
-        ${Number(inv.remainingBalance) > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-weight:700;color:#b91c1c"><span>Balance due</span><span>${fmtMoney(inv.remainingBalance, currency)}</span></div>` : ''}
-      </div>
-      ${inv.notes ? `<div style="margin-top:24px"><p style="font-size:9pt;font-weight:700;color:#64748b">Notes</p><p style="white-space:pre-wrap">${esc(inv.notes)}</p></div>` : ''}
-      ${inv.invoiceNo ? `<p style="text-align:right;font-size:9pt;color:#94a3b8;margin-top:24px">Ref: ${esc(inv.invoiceNo)}</p>` : ''}
+      ${documentTotalsHtml(inv, currency, { showTransport: true, showPaidBalance: true })}
+      ${inv.notes ? `<div style="margin-bottom:16px;border-top:2px solid #e2e8f0;padding-top:12px;page-break-inside:avoid"><p style="margin:0 0 8px;font-size:8.5pt;font-weight:700;color:#94a3b8;text-transform:uppercase">Notes</p><p style="margin:0;white-space:pre-wrap;color:#475569;font-size:9pt;line-height:1.65">${esc(inv.notes)}</p></div>` : ''}
+      ${termsBlockHtml(inv)}
+      ${signaturesHtml}
     </div>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:14mm;background:#fff">${body}</body></html>`;
+
+  const pageCss = `
+    <style>
+      @page { margin: 14mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; }
+      thead { display: table-header-group; }
+    </style>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>${pageCss}</head><body style="margin:0;padding:0;background:#fff">${body}</body></html>`;
 }
 
 function bankLabelFromAccount(bank) {

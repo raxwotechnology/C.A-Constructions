@@ -413,7 +413,7 @@ export default function PublicLayout() {
           </div>
 
           <div className="border-t border-white/10 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-white/40 text-sm">© {new Date().getFullYear()} Raxwo Pvt Ltd. All rights reserved.</p>
+            <p className="text-white/40 text-sm">© {new Date().getFullYear()} Raxwo. All rights reserved.</p>
             <div className="flex gap-6">
               <a href="#" className="text-white/40 hover:text-white/70 text-sm transition-colors">Privacy Policy</a>
               <a href="#" className="text-white/40 hover:text-white/70 text-sm transition-colors">Terms of Service</a>

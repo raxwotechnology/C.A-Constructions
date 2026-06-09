@@ -17,6 +17,10 @@ import { INVOICE_CURRENCIES, suggestedExchangeToLKR } from '../../lib/currencies
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import SignaturePad from '../../components/admin/SignaturePad'
 import ExportBar from '../../components/ui/ExportBar'
+import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
+import { calcDocumentTotals } from '../../lib/documentTotals'
+import { resolveDocumentTerms } from '../../lib/documentTerms'
+import { INVOICE_STATUS_OPTIONS } from '../../constants/invoiceStatus'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
@@ -28,15 +32,19 @@ export default function AdminInvoices() {
   const [editing, setEditing] = useState(null)
   const [viewInvoiceId, setViewInvoiceId] = useState(null)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [clientFilter, setClientFilter] = useState('')
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('')
   const [clientSelectLabel, setClientSelectLabel] = useState('')
   const [signatures, setSignatures] = useState({
     authorizer: { data: '', name: '', title: 'Authorized Signatory' },
     seal: { data: '' }
   })
   const [deletePending, setDeletePending] = useState(null)
-  const [deletePassword, setDeletePassword] = useState('')
-  const [verifyingDelete, setVerifyingDelete] = useState(false)
   const [viewingInv, setViewingInv] = useState(null)
   const [sendTarget, setSendTarget] = useState(null)
   const [sendMethods, setSendMethods] = useState({ email: true, sms: false, link: true, pdf: true })
@@ -54,10 +62,14 @@ export default function AdminInvoices() {
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
 
   const watchItems = watch('items') || []
-  const subtotal = watchItems.reduce((s, item) => s + (Number(item.quantity || 1) * Number(item.unitPrice || 0) * (1 - Number(item.discount || 0) / 100)), 0)
+  const docTotals = calcDocumentTotals(watchItems, {
+    taxRate: watch('taxRate') || 0,
+    globalDiscountValue: watch('globalDiscountValue') || 0,
+    globalDiscountType: watch('globalDiscountType') || 'fixed',
+    transportCharge: watch('transportCharge') || 0,
+  })
+  const { grossSubtotal, discountTotal: totalDiscount, tax, total, transportCharge: watchedTransport } = docTotals
   const taxRate = Number(watch('taxRate') || 0)
-  const tax = subtotal * taxRate / 100
-  const total = subtotal + tax
 
   const selectedQuotation = watch('quotationRef')
   const watchedCurrency = watch('currency') || 'LKR'
@@ -70,9 +82,21 @@ export default function AdminInvoices() {
     navigate(location.pathname, { replace: true, state: {} })
   }, [location.state, location.pathname, navigate])
 
+  const buildQuery = () => {
+    const p = new URLSearchParams()
+    if (statusFilter) p.set('status', statusFilter)
+    if (startDate) p.set('startDate', startDate)
+    if (endDate) p.set('endDate', endDate)
+    if (serviceTypeFilter) p.set('serviceType', serviceTypeFilter)
+    if (branchFilter) p.set('branch', branchFilter)
+    if (clientFilter) p.set('client', clientFilter)
+    if (paymentMethodFilter) p.set('paymentMethod', paymentMethodFilter)
+    return p.toString()
+  }
+
   const { data: invData, isLoading } = useQuery({
-    queryKey: ['admin-invoices', branchFilter],
-    queryFn: () => api.get(`/invoices${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
+    queryKey: ['admin-invoices', statusFilter, startDate, endDate, serviceTypeFilter, branchFilter, clientFilter, paymentMethodFilter],
+    queryFn: () => api.get(`/invoices?${buildQuery()}`).then(r => r.data),
   })
   const { data: siteData } = useQuery({
     queryKey: SITE_SETTINGS_QUERY_KEY,
@@ -87,12 +111,16 @@ export default function AdminInvoices() {
   })
   const { data: projData } = useQuery({ queryKey: ['projects-list'], queryFn: () => api.get('/projects').then(r => r.data) })
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
-  const { data: quotData } = useQuery({ queryKey: ['quotations'], queryFn: () => api.get('/quotations?status=confirmed').then(r => r.data) })
+  const { data: quotData } = useQuery({ queryKey: ['quotations-for-invoices'], queryFn: () => api.get('/quotations').then(r => r.data) })
+  const { data: bankData } = useQuery({ queryKey: ['banks-list'], queryFn: () => api.get('/bank-accounts').then(r => r.data).catch(() => api.get('/settings/bank-accounts').then(r => r.data)) })
 
   const clients = (clientData?.users || clientData?.clients || []).filter((u) => !u.role || u.role === 'client')
   const projects = projData?.projects || []
   const branches = branchData?.branches || []
-  const quotations = quotData?.quotations || []
+  const banks = bankData?.accounts || []
+  const quotations = (quotData?.quotations || []).filter(
+    (q) => !q.convertedToInvoice && !['rejected', 'converted', 'expired'].includes(q.status)
+  )
 
   const formSnapshot = watch()
   const livePreviewInvoice = useMemo(
@@ -105,11 +133,22 @@ export default function AdminInvoices() {
 
   const syncPreviewToForm = (partial) => {
     Object.entries(partial).forEach(([key, value]) => {
-      if (['notes', 'paymentTerms'].includes(key)) {
-        setValue(key, value, { shouldDirty: true })
+      if (key === 'notes') setValue('notes', value, { shouldDirty: true })
+      if (key === 'paymentTerms') {
+        setValue('paymentTerms', value, { shouldDirty: true })
+        setValue('terms', value, { shouldDirty: true })
       }
     })
   }
+
+  const bankBranchOptions = useMemo(() => {
+    const names = new Set()
+    banks.forEach((b) => {
+      const n = String(b.branchName || '').trim()
+      if (n) names.add(n)
+    })
+    return [...names].sort((a, b) => a.localeCompare(b))
+  }, [banks])
 
   useEffect(() => {
     if (!watchedProject) return
@@ -197,20 +236,9 @@ export default function AdminInvoices() {
       qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
       toast.success('Invoice deleted')
       setDeletePending(null)
-      setDeletePassword('')
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
-    onSettled: () => setVerifyingDelete(false),
   })
-
-  const confirmDeleteInvoice = async () => {
-    if (!deletePending || !deletePassword.trim()) {
-      toast.error('Enter your password')
-      return
-    }
-    setVerifyingDelete(true)
-    deleteMut.mutate({ id: deletePending._id, password: deletePassword })
-  }
 
   // When quotation is selected, auto-fill items and client
   const handleQuotationSelect = (e) => {
@@ -220,12 +248,20 @@ export default function AdminInvoices() {
       if (q) {
         setValue('client', q.client?._id || q.client)
         setValue('taxRate', q.taxRate || 0)
+        setValue('globalDiscountType', q.globalDiscountType || 'fixed')
+        setValue('globalDiscountValue', q.globalDiscountValue || 0)
         setValue('notes', q.notes || '')
-        setValue('paymentTerms', q.terms || '')
+        const termsText = q.terms || q.paymentTerms || ''
+        setValue('paymentTerms', termsText)
+        setValue('terms', termsText)
+        setValue('serviceType', q.serviceType || 'Other')
+        setValue('paymentMethod', q.paymentMethod || '')
+        setValue('paymentMethodCustom', q.paymentMethodCustom || '')
+        setValue('transportCharge', q.transportCharge || 0)
+        if (q.bankAccount) setValue('bankAccount', q.bankAccount._id || q.bankAccount)
+        setValue('bankBranch', q.bankBranch || '')
+        
         const lineItems = q.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount }))
-        if (Number(q.transportCharge) > 0) {
-          lineItems.push({ description: 'Transport / delivery', quantity: 1, unitPrice: Number(q.transportCharge), discount: 0 })
-        }
         setValue('items', lineItems)
         setValue('currency', q.currency || 'LKR')
         setValue('exchangeRateToLKR', suggestedExchangeToLKR(q.currency || 'LKR'))
@@ -274,8 +310,17 @@ export default function AdminInvoices() {
       currency: inv.currency || 'LKR',
       exchangeRateToLKR: inv.exchangeRateToLKR ?? 1,
       taxRate: inv.taxRate || 0,
+      globalDiscountType: inv.globalDiscountType || 'fixed',
+      globalDiscountValue: inv.globalDiscountValue || 0,
+      serviceType: inv.serviceType || 'Other',
+      transportCharge: inv.transportCharge || 0,
+      paymentMethod: inv.paymentMethod || '',
+      paymentMethodCustom: inv.paymentMethodCustom || '',
+      bankAccount: inv.bankAccount?._id || inv.bankAccount || '',
+      bankBranch: inv.bankBranch || '',
       notes: inv.notes || '',
-      paymentTerms: inv.paymentTerms || '',
+      paymentTerms: resolveDocumentTerms(inv),
+      terms: resolveDocumentTerms(inv),
       invoiceDate: inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : '',
       dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : '',
       status: inv.status || 'draft',
@@ -318,9 +363,25 @@ export default function AdminInvoices() {
       updateMut.mutate({ id: editing._id, data: payload })
       return
     }
+    const totals = calcDocumentTotals(d.items || [], {
+      taxRate: d.taxRate || 0,
+      globalDiscountValue: d.globalDiscountValue || 0,
+      globalDiscountType: d.globalDiscountType || 'fixed',
+      transportCharge: d.transportCharge || 0,
+    })
+    const termsText = String(d.paymentTerms || d.terms || '').trim()
     const payload = {
       ...d,
+      paymentTerms: termsText,
+      terms: termsText,
       taxRate: Number(d.taxRate || 0),
+      globalDiscountType: d.globalDiscountType || 'fixed',
+      globalDiscountValue: Number(d.globalDiscountValue || 0),
+      discountTotal: totals.discountTotal,
+      transportCharge: Number(d.transportCharge || 0),
+      subtotal: totals.grossSubtotal,
+      tax: totals.tax,
+      total: totals.total,
       exchangeRateToLKR: Number(d.exchangeRateToLKR) > 0 ? Number(d.exchangeRateToLKR) : 1,
       status: d.status,
       signatures,
@@ -366,16 +427,40 @@ export default function AdminInvoices() {
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice no or client..." className="form-input pl-10"/>
         </div>
-        <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="form-select w-auto">
+        <select className="form-select py-2 text-sm w-auto" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="">All Status</option>
+          {['draft', 'unpaid', 'partial', 'paid', 'overdue', 'cancelled'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+        </select>
+        <select className="form-select py-2 text-sm w-auto" value={serviceTypeFilter} onChange={e => setServiceTypeFilter(e.target.value)}>
+          <option value="">All Services</option>
+          {['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="form-select py-2 text-sm w-auto" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
           <option value="">All Branches</option>
           {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
         </select>
+        <select className="form-select py-2 text-sm w-auto max-w-xs" value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
+          <option value="">All Customers</option>
+          {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+        </select>
+        <select className="form-select py-2 text-sm w-auto" value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)}>
+          <option value="">All Payment Methods</option>
+          <option value="cash">Cash</option>
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="cheque">Cheque</option>
+          <option value="card">Card</option>
+          <option value="online">Online</option>
+          <option value="custom">Custom</option>
+        </select>
+        <input type="date" className="form-input py-2 text-sm w-32" value={startDate} onChange={e => setStartDate(e.target.value)}/>
+        <span className="text-gray-400 text-xs">to</span>
+        <input type="date" className="form-input py-2 text-sm w-32" value={endDate} onChange={e => setEndDate(e.target.value)}/>
       </div>
 
       <div className="table-container">
         <table className="table">
           <thead><tr>
-            <th>Invoice No</th><th>Client</th><th>Branch</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th>
+            <th>Invoice No</th><th>Client</th><th>Service</th><th>Branch</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
             {isLoading ? (
@@ -388,6 +473,7 @@ export default function AdminInvoices() {
               <tr key={inv._id}>
                 <td><span className="badge badge-navy font-mono text-xs tracking-tight">{inv.invoiceNo}</span></td>
                 <td className="font-medium">{inv.client?.name}</td>
+                <td className="text-sm text-gray-500">{inv.serviceType || 'Other'}</td>
                 <td className="text-sm text-gray-500">{inv.branch?.name || '—'}</td>
                 <td className="font-bold text-gray-800">{inv.currency || 'LKR'} {inv.total?.toLocaleString()}</td>
                 <td className="text-sm text-gray-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-LK') : '—'}</td>
@@ -400,7 +486,7 @@ export default function AdminInvoices() {
                     <button type="button" onClick={() => { setSendTarget(inv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) }} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Send"><FiSend size={13}/></button>
                     <button
                       type="button"
-                      onClick={() => { setDeletePending(inv); setDeletePassword('') }}
+                      onClick={() => setDeletePending(inv)}
                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
                       title="Delete"
                     >
@@ -426,7 +512,7 @@ export default function AdminInvoices() {
               <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
             <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-              <form onSubmit={handleSubmit(onSubmit)} className="lg:w-[min(440px,42%)] xl:w-[min(480px,40%)] shrink-0 overflow-y-auto p-4 md:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-200">
+                            <form onSubmit={handleSubmit(onSubmit)} className="lg:w-[min(460px,45%)] xl:w-[min(520px,42%)] shrink-0 overflow-y-auto p-4 md:p-6 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200">
                 {editingPaid && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     This invoice is fully paid. You can change <strong>status</strong>, dates, branch, project, currency, and notes only. Line items and tax are locked.
@@ -443,155 +529,310 @@ export default function AdminInvoices() {
                       }}
                       className="form-select border-blue-200"
                     >
-                      <option value="">-- Select a confirmed quotation to auto-fill --</option>
-                      {quotations.map(q => <option key={q._id} value={q._id}>{q.quotationNo} - {q.title} ({q.client?.name})</option>)}
-                    </select>
-                  </div>
-                )}
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div><label className="form-label">Client *</label>
-                    <input type="hidden" {...register('client', { required: true })} />
-                    <SearchableSelect
-                      value={watch('client') || ''}
-                      onChange={(v, opt) => {
-                        setValue('client', v, { shouldDirty: true, shouldValidate: true })
-                        setClientSelectLabel(opt?.label || '')
-                      }}
-                      loadOptions={lookupLoaders.clients()}
-                      placeholder="Search client…"
-                      initialLabel={clientSelectLabel}
-                    />
-                  </div>
-                  <div><label className="form-label">Project (Optional)</label>
-                    <select {...register('project')} className="form-select">
-                      <option value="">Link to project</option>
-                      {projects.filter(p => !watch('client') || String(p.client?._id || p.client) === String(watch('client'))).map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
-                    </select></div>
-                </div>
-
-                <div className="grid md:grid-cols-4 gap-4">
-                  <div><label className="form-label">Branch</label>
-                    <select {...register('branch')} className="form-select">
-                      <option value="">Select branch</option>
-                      {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                    </select></div>
-                  <div><label className="form-label">Invoice Prefix</label>
-                    <input {...register('invoicePrefix')} className="form-input" placeholder="INV" disabled={!!editing}/></div>
-                  <div><label className="form-label">Invoice Date</label>
-                    <input {...register('invoiceDate')} type="date" className="form-input"/></div>
-                  <div><label className="form-label">Due Date</label>
-                    <input {...register('dueDate')} type="date" className="form-input"/></div>
-                </div>
-
-                {editing && (
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="form-label">Invoice status</label>
-                      <select {...register('status')} className="form-select">
-                        {['draft', 'unpaid', 'partial', 'paid', 'overdue', 'cancelled'].map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-slate-500 mt-1">Status is always editable; paid invoices only allow non-line changes.</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Currency</label>
-                    <select
-                      {...register('currency')}
-                      onChange={(e) => {
-                        register('currency').onChange(e)
-                        setValue('exchangeRateToLKR', suggestedExchangeToLKR(e.target.value), { shouldValidate: true })
-                      }}
-                      className="form-select"
-                    >
-                      {INVOICE_CURRENCIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
+                      <option value="">-- Select an eligible quotation to auto-fill --</option>
+                      {quotations.map(q => (
+                        <option key={q._id} value={q._id}>
+                          {q.quotationNo} - {q.client?.name} - {new Date(q.createdAt).toLocaleDateString()} - {q.status.toUpperCase()}
+                        </option>
                       ))}
                     </select>
-                    <p className="text-xs text-slate-500 mt-1">Amounts are in this currency. LKR equivalent uses the rate below.</p>
                   </div>
-                  {watchedCurrency !== 'LKR' && (
+                )}
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b pb-2">1. Core Details</h4>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">LKR per 1 {watchedCurrency}</label>
-                      <input {...register('exchangeRateToLKR', { valueAsNumber: true })} type="number" step="0.01" min="0.01" className="form-input" placeholder="e.g. 303"/>
-                      <p className="text-xs text-slate-500 mt-1">Used for reference (totals stay in {watchedCurrency}).</p>
+                      <label className="form-label">Client *</label>
+                      <input type="hidden" {...register('client', { required: true })} />
+                      <SearchableSelect
+                        value={watch('client') || ''}
+                        onChange={(v, opt) => {
+                          setValue('client', v, { shouldDirty: true, shouldValidate: true })
+                          setClientSelectLabel(opt?.label || '')
+                        }}
+                        loadOptions={lookupLoaders.clients()}
+                        placeholder="Search client…"
+                        initialLabel={clientSelectLabel}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Service Type</label>
+                      <select {...register('serviceType')} className="form-select">
+                        {['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Branch</label>
+                      <select {...register('branch')} className="form-select">
+                        <option value="">Select branch</option>
+                        {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Project (Optional)</label>
+                      <select {...register('project')} className="form-select">
+                        <option value="">Link to project</option>
+                        {projects.filter(p => !watch('client') || String(p.client?._id || p.client) === String(watch('client'))).map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="form-label">Invoice Prefix</label>
+                      <input {...register('invoicePrefix')} className="form-input" placeholder="INV" disabled={!!editing}/>
+                    </div>
+                    <div>
+                      <label className="form-label">Invoice Date</label>
+                      <input {...register('invoiceDate')} type="date" className="form-input"/>
+                    </div>
+                    <div>
+                      <label className="form-label">Due Date</label>
+                      <input {...register('dueDate')} type="date" className="form-input"/>
+                    </div>
+                  </div>
+
+                  {editing && (
+                    <div className="grid md:grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <label className="form-label">Invoice Status</label>
+                        <select {...register('status')} className="form-select border-amber-300 bg-amber-50">
+                          {INVOICE_STATUS_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-amber-700 mt-1">Status updates on save and is recorded in audit logs.</p>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className={`pt-4 border-t ${editingPaid ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="form-label mb-0">Line Items</label>
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b pb-2">2. Financial Settings</h4>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Currency</label>
+                      <select
+                        {...register('currency')}
+                        onChange={(e) => {
+                          register('currency').onChange(e)
+                          setValue('exchangeRateToLKR', suggestedExchangeToLKR(e.target.value), { shouldValidate: true })
+                        }}
+                        className="form-select"
+                      >
+                        {INVOICE_CURRENCIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {watchedCurrency !== 'LKR' ? (
+                      <div>
+                        <label className="form-label">LKR per 1 {watchedCurrency}</label>
+                        <input {...register('exchangeRateToLKR', { valueAsNumber: true })} type="number" step="0.01" min="0.01" className="form-input" placeholder="e.g. 303"/>
+                      </div>
+                    ) : <div />}
+                  </div>
+                </div>
+
+                <div className={`space-y-4 ${editingPaid ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">3. Line Items</h4>
                     <button type="button" onClick={() => append({ description: '', quantity: 1, unitPrice: 0, discount: 0 })}
                       className="btn-outline btn-sm" disabled={editingPaid}><FiPlus size={12}/> Add Item</button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
                     {fields.map((field, idx) => (
-                      <div key={field.id} className="grid grid-cols-12 gap-2 items-start">
-                        <div className="col-span-5"><input {...register(`items.${idx}.description`, { required: !editingPaid })} className="form-input text-sm py-2" placeholder="Description *" disabled={editingPaid}/></div>
-                        <div className="col-span-2"><input {...register(`items.${idx}.quantity`, { valueAsNumber: true })} type="number" min="1" className="form-input text-sm py-2" placeholder="Qty" disabled={editingPaid}/></div>
-                        <div className="col-span-2"><input {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })} type="number" className="form-input text-sm py-2" placeholder="Unit Price" disabled={editingPaid}/></div>
-                        <div className="col-span-2"><input {...register(`items.${idx}.discount`, { valueAsNumber: true })} type="number" min="0" max="100" className="form-input text-sm py-2" placeholder="Disc%" disabled={editingPaid}/></div>
-                        <div className="col-span-1 pt-2">
-                          {fields.length > 1 && !editingPaid && <button type="button" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600 p-1"><FiX size={14}/></button>}
+                      <div key={field.id} className="grid grid-cols-12 gap-2 items-start bg-white p-2 rounded border border-slate-200">
+                        <div className="col-span-12 md:col-span-5">
+                          <label className="form-label text-[10px]">Description</label>
+                          <input {...register(`items.${idx}.description`, { required: !editingPaid })} className="form-input text-sm py-1.5" placeholder="Description *" disabled={editingPaid}/>
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                          <label className="form-label text-[10px]">Quantity</label>
+                          <input {...register(`items.${idx}.quantity`, { valueAsNumber: true })} type="number" min="1" className="form-input text-sm py-1.5" placeholder="Qty" disabled={editingPaid}/>
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                          <label className="form-label text-[10px]">Unit Price</label>
+                          <input {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })} type="number" className="form-input text-sm py-1.5" placeholder="Price" disabled={editingPaid}/>
+                        </div>
+                        <div className="col-span-3 md:col-span-2">
+                          <label className="form-label text-[10px]">Disc %</label>
+                          <input {...register(`items.${idx}.discount`, { valueAsNumber: true })} type="number" min="0" max="100" className="form-input text-sm py-1.5" placeholder="Disc%" disabled={editingPaid}/>
+                        </div>
+                        <div className="col-span-1 pt-6 flex justify-end">
+                          {fields.length > 1 && !editingPaid && <button type="button" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded"><FiX size={14}/></button>}
                         </div>
                       </div>
                     ))}
                   </div>
+
+                  <div className="grid md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="form-label">Transport Charge</label>
+                      <input {...register('transportCharge', { valueAsNumber: true })} type="number" step="0.01" className="form-input" placeholder="0" disabled={editingPaid}/>
+                    </div>
+                    <div>
+                      <label className="form-label">Global Tax (%)</label>
+                      <input {...register('taxRate', { valueAsNumber: true })} type="number" step="0.1" className="form-input" placeholder="0" disabled={editingPaid}/>
+                    </div>
+                  </div>
                   
-                  <div className="mt-4 flex gap-6 justify-end p-4 bg-slate-50 rounded-xl">
-                    <div className="w-32">
-                      <label className="form-label text-xs">Global Tax (%)</label>
-                      <input {...register('taxRate', { valueAsNumber: true })} type="number" step="0.1" className="form-input py-1 text-sm text-right" placeholder="0" disabled={editingPaid}/>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Global Discount Type</label>
+                      <select {...register('globalDiscountType')} className="form-select" disabled={editingPaid}>
+                        <option value="fixed">Fixed Amount</option>
+                        <option value="percentage">Percentage (%)</option>
+                      </select>
                     </div>
-                    <div className="w-56 space-y-1 text-sm mt-1">
-                      <div className="flex justify-between text-slate-600"><span>Subtotal:</span><span>{watchedCurrency} {subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                      <div className="flex justify-between text-slate-600"><span>Tax ({taxRate}%):</span><span>{watchedCurrency} {tax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                      <div className="flex justify-between font-bold text-primary pt-1 border-t border-slate-200"><span>Total:</span><span>{watchedCurrency} {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                      {watchedCurrency !== 'LKR' && Number(watch('exchangeRateToLKR')) > 0 && (
-                        <div className="flex justify-between text-xs text-slate-500 pt-1">
-                          <span>≈ LKR (ref.)</span>
-                          <span>{(total * Number(watch('exchangeRateToLKR'))).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                        </div>
-                      )}
+                    <div>
+                      <label className="form-label">Global Discount Value</label>
+                      <input {...register('globalDiscountValue', { valueAsNumber: true })} type="number" step="0.01" className="form-input" placeholder="0" disabled={editingPaid}/>
                     </div>
                   </div>
-                </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div><label className="form-label">Notes</label>
-                    <textarea {...register('notes')} rows={3} className="form-input resize-none" placeholder="Additional notes..."/></div>
-                  <div><label className="form-label">Payment Terms</label>
-                    <textarea {...register('paymentTerms')} rows={3} className="form-input resize-none" placeholder="Payment terms..."/></div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
-                  <div className="space-y-4">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Authorizer Signature</p>
-                    <DocumentAssetPicker label="Signature (upload or saved)" value={{ data: signatures.authorizer.data }} onChange={(v) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data: v.data } }))} roleKey="admin" />
-                    <input className="form-input text-sm" placeholder="Signatory name" value={signatures.authorizer.name} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, name: e.target.value } }))} />
-                    <input className="form-input text-sm" placeholder="Signatory title (e.g. Authorized Signatory)" list="signatory-titles" value={signatures.authorizer.title} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, title: e.target.value } }))} />
-                    <datalist id="signatory-titles">
-                      <option value="Director" />
-                      <option value="Authorized Signatory" />
-                      <option value="Manager" />
-                      <option value="HR" />
-                    </datalist>
-                    <SignaturePad label="Draw signature" value={signatures.authorizer.data} onChange={(data) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data } }))} />
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Company Seal</p>
-                    <DocumentAssetPicker label="Seal image" assetType="seal" value={{ data: signatures.seal.data }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { ...s.seal, data: v.data } }))} />
-                    <input className="form-input text-sm" placeholder="Text under seal (e.g. For and on behalf of...)" value={signatures.seal.note || ''} onChange={(e) => setSignatures((s) => ({ ...s, seal: { ...s.seal, note: e.target.value } }))} />
+                  <div className="mt-4 p-4 bg-slate-800 text-white rounded-xl shadow-inner">
+                    <div className="flex justify-between text-slate-300 text-sm mb-1"><span>Subtotal:</span><span>{watchedCurrency} {grossSubtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                    {totalDiscount > 0 && <div className="flex justify-between text-red-300 text-sm mb-1"><span>Discount:</span><span>-{watchedCurrency} {totalDiscount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>}
+                    {watchedTransport > 0 && (
+                      <div className="flex justify-between text-slate-300 text-sm mb-1"><span>Transport:</span><span>{watchedCurrency} {watchedTransport.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                    )}
+                    <div className="flex justify-between text-slate-300 text-sm mb-1"><span>Tax ({taxRate}%):</span><span>{watchedCurrency} {tax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-600 mt-2"><span>Total:</span><span>{watchedCurrency} {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t sticky bottom-0 bg-white pb-1">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b pb-2">4. Payment & Bank Details</h4>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Payment Method</label>
+                      <select {...register('paymentMethod')} className="form-select">
+                        <option value="">Select Method</option>
+                        <option value="cash">Cash</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="card">Card</option>
+                        <option value="online">Online Payment</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    {watch('paymentMethod') === 'custom' && (
+                      <div>
+                        <label className="form-label">Custom Method Name</label>
+                        <input {...register('paymentMethodCustom')} className="form-input" placeholder="Enter method..." />
+                      </div>
+                    )}
+                    <div>
+                      <label className="form-label">Bank Account</label>
+                      {/* Note: since bankData is not fetched in Invoices yet, we will just provide a plain text field or assume it's hidden if not fetched. But wait, I need to fetch it in Invoices.jsx! I will update the top of Invoices.jsx to fetch banks. Let's assume bankData exists for now, I'll add the query. */}
+                      <select
+                        {...register('bankAccount')}
+                        className="form-select"
+                        onChange={(e) => {
+                          register('bankAccount').onChange(e)
+                          const selected = banks.find((b) => String(b._id) === String(e.target.value))
+                          if (selected?.branchName) {
+                            setValue('bankBranch', selected.branchName, { shouldDirty: true })
+                          }
+                        }}
+                      >
+                        <option value="">Select Bank Account</option>
+                        {banks.map((b) => (
+                          <option key={b._id} value={b._id}>
+                            {b.bankName} - {b.accountNumber}{b.branchName ? ` (${b.branchName})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Bank Branch</label>
+                      <SearchableSelect
+                        value={watch('bankBranch') || ''}
+                        onChange={(v) => setValue('bankBranch', v, { shouldDirty: true })}
+                        loadOptions={async ({ search, page }) => {
+                          const filtered = bankBranchOptions.filter(
+                            (n) => !search || n.toLowerCase().includes(search.toLowerCase()),
+                          )
+                          const pageSize = 25
+                          const start = ((page || 1) - 1) * pageSize
+                          const slice = filtered.slice(start, start + pageSize)
+                          return {
+                            options: slice.map((n) => ({ value: n, label: n })),
+                            hasMore: start + pageSize < filtered.length,
+                          }
+                        }}
+                        placeholder="Select bank branch…"
+                        initialLabel={watch('bankBranch') || ''}
+                        allowCustom
+                      />
+                      <input type="hidden" {...register('bankBranch')} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b pb-2">5. Notes & Terms</h4>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Notes</label>
+                      <textarea {...register('notes')} rows={3} className="form-input resize-none" placeholder="Additional notes..."/>
+                    </div>
+                    <div>
+                      <label className="form-label">Terms & Conditions</label>
+                      <textarea
+                        {...register('paymentTerms')}
+                        onChange={(e) => {
+                          register('paymentTerms').onChange(e)
+                          setValue('terms', e.target.value, { shouldDirty: true })
+                        }}
+                        rows={3}
+                        className="form-input resize-none"
+                        placeholder="Terms & Conditions..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b pb-2">6. Signatures</h4>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <p className="text-xs font-bold text-slate-500 tracking-wide">Authorizer Signature</p>
+                      <DocumentAssetPicker label="Signature (upload or saved)" value={{ data: signatures.authorizer.data }} onChange={(v) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data: v.data } }))} roleKey="admin" />
+                      <div>
+                        <label className="form-label text-xs">Signatory Name</label>
+                        <input className="form-input text-sm" placeholder="Name" value={signatures.authorizer.name} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, name: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label className="form-label text-xs">Signatory Title</label>
+                        <input className="form-input text-sm" placeholder="Title" list="signatory-titles" value={signatures.authorizer.title} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, title: e.target.value } }))} />
+                      </div>
+                      <datalist id="signatory-titles">
+                        <option value="Director" />
+                        <option value="Authorized Signatory" />
+                        <option value="Manager" />
+                        <option value="HR" />
+                      </datalist>
+                      <SignaturePad label="Draw signature" value={signatures.authorizer.data} onChange={(data) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data } }))} />
+                    </div>
+                    <div className="space-y-4">
+                      <p className="text-xs font-bold text-slate-500 tracking-wide">Company Seal</p>
+                      <DocumentAssetPicker label="Seal image" assetType="seal" value={{ data: signatures.seal.data }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { ...s.seal, data: v.data } }))} />
+                      <div>
+                        <label className="form-label text-xs">Text under seal</label>
+                        <input className="form-input text-sm" placeholder="For and on behalf of..." value={signatures.seal.note || ''} onChange={(e) => setSignatures((s) => ({ ...s, seal: { ...s.seal, note: e.target.value } }))} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-6 border-t sticky bottom-0 bg-white pb-1 z-10">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1">Cancel</button>
                   <button type="submit" onClick={() => {
                     const errs = [];
@@ -599,11 +840,11 @@ export default function AdminInvoices() {
                     if (fields.some(f => !f.description)) errs.push('Item descriptions are required');
                     if (errs.length > 0) errs.forEach(e => toast.error(e));
                   }} disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
-                    {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : (editing ? 'Save & Preview' : 'Create Invoice')}
+                    {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : (editing ? 'Save Invoice' : 'Create Invoice')}
                   </button>
                 </div>
               </form>
-              <div className="flex-1 min-h-[280px] lg:min-h-0 flex flex-col">
+              <div className="flex-1 min-w-0 min-h-[280px] lg:min-h-0 flex flex-col overflow-hidden">
                 <InvoicePreviewPanel
                   printRootId="invoice-form-preview-root"
                   isDraft={!editing?._id}
@@ -704,32 +945,22 @@ export default function AdminInvoices() {
         )}
       </AnimatePresence>
 
-      {deletePending && createPortal(
-        <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[100001] p-4 backdrop-blur-[2px]">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <h3 className="font-bold text-lg text-slate-800">Delete invoice?</h3>
-            <p className="text-sm text-slate-500">
-              This permanently removes <strong>{deletePending.invoiceNo}</strong> and reverses linked bank deposits. Enter your admin password to confirm.
-            </p>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Admin password"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') confirmDeleteInvoice() }}
-              autoComplete="current-password"
-            />
-            <div className="flex gap-3">
-              <button type="button" className="btn-ghost flex-1 justify-center" onClick={() => { setDeletePending(null); setDeletePassword('') }}>Cancel</button>
-              <button type="button" className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600" disabled={verifyingDelete || !deletePassword} onClick={confirmDeleteInvoice}>
-                {verifyingDelete ? <span className="spinner" /> : 'Delete'}
-              </button>
-            </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+      <PasswordConfirmModal
+        open={Boolean(deletePending)}
+        onClose={() => setDeletePending(null)}
+        title="Delete invoice?"
+        message={
+          deletePending
+            ? `This permanently removes ${deletePending.invoiceNo} and reverses linked bank deposits. Enter your admin password to confirm.`
+            : ''
+        }
+        confirmLabel="Delete invoice"
+        isSubmitting={deleteMut.isPending}
+        onConfirm={async (password) => {
+          if (!deletePending) return
+          await deleteMut.mutateAsync({ id: deletePending._id, password })
+        }}
+      />
     </div>
   )
 }

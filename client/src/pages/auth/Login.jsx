@@ -75,7 +75,7 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="text-white/30 text-sm">© {new Date().getFullYear()} Raxwo Pvt Ltd — Colombo, Sri Lanka</p>
+        <p className="text-white/30 text-sm">© {new Date().getFullYear()} Raxwo — Colombo, Sri Lanka</p>
       </div>
 
       {/* Right panel - form */}

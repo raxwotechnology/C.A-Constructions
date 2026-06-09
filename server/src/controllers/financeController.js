@@ -8,6 +8,10 @@ const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Project = require('../models/Project');
 const PettyCash = require('../models/PettyCash');
+const Cheque = require('../models/Cheque');
+const Quotation = require('../models/Quotation');
+const ClientProfile = require('../models/ClientProfile');
+const User = require('../models/User');
 const { createAuditLog } = require('./auditController');
 const { verifyActionPassword } = require('../utils/actionPassword');
 const { isFinanceBankMethod, appendBankTransaction } = require('../utils/bankLedger');
@@ -688,21 +692,101 @@ exports.exportData = async (req, res, next) => {
         (p.assignedEmployees || []).map((u) => u.name).join(', '),
         p.updatedAt ? new Date(p.updatedAt).toLocaleString() : '—',
       ]);
-    } else if (lowerDataset === 'revenue_invoices') {
+    } else if (lowerDataset === 'revenue_invoices' || lowerDataset === 'invoices') {
       const invoices = await Invoice.find({
         ...branchMatch,
         ...(from && to ? { createdAt: { $gte: new Date(from), $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } } : (month && year ? { createdAt: getRange(month, year) } : {})),
       }).populate('client', 'name email').populate('project', 'title').sort({ createdAt: -1 });
-      headers = ['Invoice No', 'Client', 'Project', 'Status', 'Total', 'Due Date', 'Paid At'];
+      headers = ['Invoice No', 'Client', 'Project', 'Status', 'Subtotal', 'Discount', 'Tax', 'Total', 'Due Date', 'Paid At'];
       rows = invoices.map((i) => [
         i.invoiceNo,
         i.client?.name,
         i.project?.title || '—',
         i.status,
+        i.subtotal,
+        i.discountTotal || 0,
+        i.tax || 0,
         i.total,
         i.dueDate ? new Date(i.dueDate).toLocaleDateString() : '—',
         i.paidAt ? new Date(i.paidAt).toLocaleDateString() : '—',
       ]);
+    } else if (lowerDataset === 'quotations') {
+      const dateFilter = buildDateFilter({ from, to, month, year });
+      const quotations = await Quotation.find({
+        ...branchMatch,
+        ...(dateFilter ? { createdAt: dateFilter } : {}),
+      }).populate('client', 'name email').sort({ createdAt: -1 });
+      headers = ['Quotation No', 'Client', 'Status', 'Subtotal', 'Discount', 'Tax', 'Total', 'Valid Until', 'Created'];
+      rows = quotations.map((q) => [
+        q.quotationNo,
+        q.client?.name,
+        q.status,
+        q.subtotal,
+        q.discountTotal || 0,
+        q.tax || 0,
+        q.total,
+        q.validUntil ? new Date(q.validUntil).toLocaleDateString() : '—',
+        q.createdAt ? new Date(q.createdAt).toLocaleDateString() : '—',
+      ]);
+    } else if (lowerDataset === 'cheques') {
+      const dateFilter = buildDateFilter({ from, to, month, year });
+      const chequeQ = { ...branchMatch };
+      if (dateFilter) chequeQ.chequeDate = dateFilter;
+      const cheques = await Cheque.find(chequeQ)
+        .populate('bankAccount', 'bankName accountNumber')
+        .sort({ chequeDate: -1 });
+      headers = ['Cheque No', 'Direction', 'Source', 'Status', 'Amount', 'Bank', 'Account', 'Drawer/Payee', 'Date', 'Notes'];
+      rows = cheques.map((c) => [
+        c.chequeNumber,
+        c.direction,
+        c.source,
+        c.status,
+        c.amount,
+        c.bankName || '',
+        c.bankAccount ? `${c.bankAccount.bankName || ''} ${c.bankAccount.accountNumber || ''}`.trim() : '',
+        c.drawerOrPayee || '',
+        c.chequeDate ? new Date(c.chequeDate).toLocaleDateString() : '—',
+        c.notes || '',
+      ]);
+      const totalAmt = cheques.reduce((s, c) => s + Number(c.amount || 0), 0);
+      rows.push(['', '', '', 'TOTAL', totalAmt, '', '', '', '', '']);
+    } else if (lowerDataset === 'petty_cash') {
+      const dateFilter = buildDateFilter({ from, to, month, year });
+      const pcQ = { ...branchMatch };
+      if (dateFilter) pcQ.date = dateFilter;
+      const petty = await PettyCash.find(pcQ).sort({ date: -1 });
+      headers = ['Date', 'Type', 'Description', 'Amount', 'Paid To', 'Payment Method', 'Bank Account'];
+      rows = petty.map((p) => [
+        p.date ? new Date(p.date).toLocaleDateString() : '—',
+        p.type,
+        p.description,
+        p.amount,
+        p.paidTo || '',
+        p.paymentMethod || '',
+        p.bankAccount || '',
+      ]);
+      const totalIn = petty.filter((p) => p.type === 'in').reduce((s, p) => s + Number(p.amount || 0), 0);
+      const totalOut = petty.filter((p) => p.type === 'out').reduce((s, p) => s + Number(p.amount || 0), 0);
+      rows.push(['', 'SUMMARY', 'Total In', totalIn, '', '', '']);
+      rows.push(['', 'SUMMARY', 'Total Out', totalOut, '', '', '']);
+      rows.push(['', 'SUMMARY', 'Net Balance', totalIn - totalOut, '', '', '']);
+    } else if (lowerDataset === 'clients' || lowerDataset === 'customers') {
+      const userQ = { role: 'client', ...(branch ? { branch } : {}) };
+      const clientUsers = await User.find(userQ).select('name email phone isActive createdAt').sort({ name: 1 });
+      const profiles = await ClientProfile.find({ userId: { $in: clientUsers.map((u) => u._id) } });
+      const profileMap = profiles.reduce((acc, p) => { acc[p.userId.toString()] = p; return acc; }, {});
+      headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Created'];
+      rows = clientUsers.map((u) => {
+        const p = profileMap[u._id.toString()];
+        return [
+          u.name,
+          u.email || '',
+          u.phone || '',
+          p?.companyName || '',
+          p?.status || (u.isActive ? 'Active' : 'Inactive'),
+          u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—',
+        ];
+      });
     } else {
       const dateFilter = buildDateFilter({ from, to, month, year });
       const range = dateFilter || getRange(Number(month || (new Date().getMonth() + 1)), Number(year || new Date().getFullYear()));
@@ -830,6 +914,14 @@ exports.exportData = async (req, res, next) => {
       } finally {
         await browser.close();
       }
+    }
+
+    if (lowerFormat === 'csv') {
+      const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const csv = [headers.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${lowerDataset}.csv"`);
+      return res.send(csv);
     }
 
     return res.status(400).json({ success: false, message: 'Invalid format' });

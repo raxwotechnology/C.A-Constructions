@@ -23,8 +23,8 @@ const POPULATE_INVOICE = [
 ];
 
 // ─── Helper: recalc line totals ───────────────────────────────────────────────
-function calcItems(items = [], taxRate = 0) {
-  let subtotal = 0, discountTotal = 0;
+function calcItems(items = [], taxRate = 0, globalDiscountValue = 0, globalDiscountType = 'fixed') {
+  let subtotal = 0, lineDiscounts = 0;
   const calcedItems = items.map(item => {
     const base      = Number(item.quantity || 1) * Number(item.unitPrice || 0);
     const discAmt   = base * (Number(item.discount || 0) / 100);
@@ -32,15 +32,25 @@ function calcItems(items = [], taxRate = 0) {
     const taxAmt    = afterDisc * (Number(item.tax || 0) / 100);
     const total     = afterDisc + taxAmt;
     subtotal     += base;
-    discountTotal+= discAmt;
+    lineDiscounts+= discAmt;
     return { ...item, total: parseFloat(total.toFixed(2)) };
   });
-  const globalTax = (subtotal - discountTotal) * (Number(taxRate) / 100);
-  const grandTotal = subtotal - discountTotal + globalTax;
+  
+  let globalDiscAmt = 0;
+  if (globalDiscountType === 'percentage') {
+    globalDiscAmt = subtotal * (Number(globalDiscountValue || 0) / 100);
+  } else {
+    globalDiscAmt = Number(globalDiscountValue || 0);
+  }
+
+  const totalDiscount = lineDiscounts + globalDiscAmt;
+  const taxable = Math.max(0, subtotal - totalDiscount);
+  const globalTax = taxable * (Number(taxRate) / 100);
+  const grandTotal = taxable + globalTax;
   return {
     items: calcedItems,
     subtotal: parseFloat(subtotal.toFixed(2)),
-    discountTotal: parseFloat(discountTotal.toFixed(2)),
+    discountTotal: parseFloat(totalDiscount.toFixed(2)),
     tax: parseFloat(globalTax.toFixed(2)),
     total: parseFloat(grandTotal.toFixed(2)),
   };
@@ -55,6 +65,13 @@ exports.getInvoices = async (req, res, next) => {
     if (req.query.branch)   query.branch  = req.query.branch;
     if (req.query.client)   query.client  = req.query.client;
     if (req.query.project)  query.project = req.query.project;
+    if (req.query.serviceType) query.serviceType = req.query.serviceType;
+    if (req.query.paymentMethod) query.paymentMethod = req.query.paymentMethod;
+    if (req.query.startDate || req.query.endDate) {
+      query.createdAt = {};
+      if (req.query.startDate) query.createdAt.$gte = new Date(req.query.startDate);
+      if (req.query.endDate) query.createdAt.$lte = new Date(req.query.endDate + 'T23:59:59.999Z');
+    }
 
     // Auto-mark overdue
     const now = new Date();
@@ -105,7 +122,11 @@ exports.createInvoice = async (req, res, next) => {
     }
 
     const effectiveTaxRate = quotationDoc ? (quotationDoc.taxRate || 0) : Number(taxRate || 0);
-    const { items: calcedItems, subtotal, discountTotal, tax, total } = calcItems(sourceItems, effectiveTaxRate);
+    const globalDiscountVal = quotationDoc ? (quotationDoc.globalDiscountValue || 0) : Number(req.body.globalDiscountValue || 0);
+    const globalDiscountType = quotationDoc ? (quotationDoc.globalDiscountType || 'fixed') : (req.body.globalDiscountType || 'fixed');
+    const transportCharge = Number(req.body.transportCharge) || (quotationDoc ? Number(quotationDoc.transportCharge || 0) : 0);
+    const { items: calcedItems, subtotal, discountTotal, tax, total: baseTotal } = calcItems(sourceItems, effectiveTaxRate, globalDiscountVal, globalDiscountType);
+    const total = parseFloat((baseTotal + transportCharge).toFixed(2));
 
     const resolvedCurrency = (currency || quotationDoc?.currency || 'LKR').toString().trim() || 'LKR';
     const resolvedFx = Number(exchangeRateToLKR) > 0
@@ -121,28 +142,33 @@ exports.createInvoice = async (req, res, next) => {
       dueDate: dueDate || undefined,
       items: calcedItems,
       subtotal,
+      globalDiscountType,
+      globalDiscountValue: globalDiscountVal,
       discountTotal,
       tax,
       taxRate: Number(effectiveTaxRate),
       total,
       currency: resolvedCurrency,
       exchangeRateToLKR: resolvedFx,
-      notes,
-      paymentTerms,
+      serviceType: req.body.serviceType || (quotationDoc && quotationDoc.serviceType) || 'Other',
+      transportCharge,
+      paymentMethod: req.body.paymentMethod || (quotationDoc && quotationDoc.paymentMethod) || '',
+      paymentMethodCustom: req.body.paymentMethodCustom || (quotationDoc && quotationDoc.paymentMethodCustom) || '',
+      bankAccount: req.body.bankAccount || (quotationDoc && quotationDoc.bankAccount) || undefined,
+      bankBranch: req.body.bankBranch || (quotationDoc && quotationDoc.bankBranch) || '',
+      notes: notes || (quotationDoc && quotationDoc.notes) || '',
+      paymentTerms: paymentTerms || req.body.terms || (quotationDoc && quotationDoc.terms) || '',
+      terms: req.body.terms || paymentTerms || (quotationDoc && quotationDoc.terms) || '',
       invoicePrefix: invoicePrefix || 'INV',
       status: 'unpaid',
       signatures: req.body.signatures || undefined,
       createdBy: req.user._id,
     };
-    if (quotationDoc) {
-      const allocated = await allocateInvoiceNoFromQuotationNo(quotationDoc.quotationNo);
-      if (allocated) invoicePayload.invoiceNo = allocated;
+    
+    const explicitNo = req.body.invoiceNo != null ? String(req.body.invoiceNo).trim() : '';
+    if (explicitNo) {
+      invoicePayload.invoiceNo = explicitNo;
     } else {
-      const explicitNo = req.body.invoiceNo != null ? String(req.body.invoiceNo).trim() : '';
-      if (explicitNo) invoicePayload.invoiceNo = explicitNo;
-    }
-    const hasInvNo = invoicePayload.invoiceNo != null && String(invoicePayload.invoiceNo).trim() !== '';
-    if (!hasInvNo) {
       invoicePayload.invoiceNo = await generateAutoInvoiceNo(invoicePayload.invoicePrefix || 'INV');
     }
 
@@ -214,7 +240,24 @@ exports.updateInvoice = async (req, res, next) => {
         ...(project !== undefined ? { project: project || null } : {}),
         ...(status !== undefined ? { status } : {}),
         ...(signatures !== undefined ? { signatures } : {}),
+        ...(req.body.serviceType !== undefined ? { serviceType: req.body.serviceType } : {}),
+        ...(req.body.transportCharge !== undefined ? { transportCharge: Number(req.body.transportCharge) } : {}),
+        ...(req.body.paymentMethod !== undefined ? { paymentMethod: req.body.paymentMethod } : {}),
+        ...(req.body.paymentMethodCustom !== undefined ? { paymentMethodCustom: req.body.paymentMethodCustom } : {}),
+        ...(req.body.bankAccount !== undefined ? { bankAccount: req.body.bankAccount } : {}),
+        ...(req.body.bankBranch !== undefined ? { bankBranch: req.body.bankBranch } : {}),
+        ...(req.body.terms !== undefined ? { terms: req.body.terms } : {}),
       };
+      if (status !== undefined && status !== existing.status) {
+        await createAuditLog({
+          user: req.user,
+          action: 'update',
+          module: 'invoices',
+          entityId: existing._id,
+          entityName: existing.invoiceNo,
+          description: `Invoice status changed from "${existing.status}" to "${status}"`,
+        });
+      }
       const invoice = await Invoice.findByIdAndUpdate(req.params.id, { $set: paidMeta }, { new: true, runValidators: true })
         .populate(POPULATE_INVOICE);
       await syncProjectsForInvoice(invoice._id);
@@ -234,18 +277,41 @@ exports.updateInvoice = async (req, res, next) => {
       branch: branch !== undefined ? (branch || null) : existing.branch,
       quotationRef: quotationRef !== undefined ? (quotationRef || null) : existing.quotationRef,
       ...(signatures !== undefined ? { signatures } : {}),
+      ...(req.body.serviceType !== undefined ? { serviceType: req.body.serviceType } : {}),
+      ...(req.body.transportCharge !== undefined ? { transportCharge: Number(req.body.transportCharge) } : {}),
+      ...(req.body.paymentMethod !== undefined ? { paymentMethod: req.body.paymentMethod } : {}),
+      ...(req.body.paymentMethodCustom !== undefined ? { paymentMethodCustom: req.body.paymentMethodCustom } : {}),
+      ...(req.body.bankAccount !== undefined ? { bankAccount: req.body.bankAccount } : {}),
+      ...(req.body.bankBranch !== undefined ? { bankBranch: req.body.bankBranch } : {}),
+      ...(req.body.terms !== undefined ? { terms: req.body.terms } : {}),
     };
 
     if (items) {
-      const { items: calcedItems, subtotal, discountTotal, tax, total } = calcItems(items, taxRate ?? existing.taxRate);
-      updates = { ...updates, items: calcedItems, subtotal, discountTotal, tax, taxRate: Number(taxRate ?? existing.taxRate), total };
+      const globalDiscountType = req.body.globalDiscountType !== undefined ? req.body.globalDiscountType : (existing.globalDiscountType || 'fixed');
+      const globalDiscountVal = req.body.globalDiscountValue !== undefined ? Number(req.body.globalDiscountValue) : (existing.globalDiscountValue || 0);
+      const transportCharge = req.body.transportCharge !== undefined
+        ? Number(req.body.transportCharge)
+        : Number(existing.transportCharge || 0);
+      const { items: calcedItems, subtotal, discountTotal, tax, total: baseTotal } = calcItems(items, taxRate ?? existing.taxRate, globalDiscountVal, globalDiscountType);
+      const total = parseFloat((baseTotal + transportCharge).toFixed(2));
+      updates = { ...updates, items: calcedItems, subtotal, globalDiscountType, globalDiscountValue: globalDiscountVal, discountTotal, tax, taxRate: Number(taxRate ?? existing.taxRate), transportCharge, total };
     }
 
-    if (status) {
+    if (status !== undefined && status !== existing.status) {
       updates.status = status;
       if (status === 'cancelled') {
         updates.paidAt = null;
       }
+      await createAuditLog({
+        user: req.user,
+        action: 'update',
+        module: 'invoices',
+        entityId: existing._id,
+        entityName: existing.invoiceNo,
+        description: `Invoice status changed from "${existing.status}" to "${status}"`,
+      });
+    } else if (status !== undefined) {
+      updates.status = status;
     }
 
     const invoice = await Invoice.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
@@ -532,7 +598,8 @@ exports.downloadInvoicePdf = async (req, res, next) => {
     const invoice = await Invoice.findById(req.params.id)
       .populate('client', 'name email phone')
       .populate('project', 'title')
-      .populate('quotationRef', 'quotationNo');
+      .populate('quotationRef', 'quotationNo')
+      .populate('bankAccount', 'bankName accountNumber branchName');
     if (!invoice) return res.status(404).json({ success: false, message: 'Not found' });
 
     if (req.user.role === 'client') {
@@ -628,6 +695,8 @@ exports.payhereCallback = async (req, res, next) => {
 };
 
 // ─── Payment history ──────────────────────────────────────────────────────────
+exports.calcItems = calcItems;
+
 exports.getPaymentHistory = async (req, res, next) => {
   try {
     let query = {};

@@ -31,6 +31,11 @@ const invoiceSchema = new mongoose.Schema({
   quotationRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Quotation' },
   branch:       { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   createdBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  serviceType: {
+    type: String,
+    enum: ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'],
+    default: 'Other'
+  },
 
   // ── Dates ───────────────────────────────────────────────────────────────────
   invoiceDate:  { type: Date, default: Date.now },
@@ -39,6 +44,8 @@ const invoiceSchema = new mongoose.Schema({
   // ── Line Items ───────────────────────────────────────────────────────────────
   items:        [lineItemSchema],
   subtotal:     { type: Number, default: 0 },
+  globalDiscountType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
+  globalDiscountValue: { type: Number, default: 0 },
   discountTotal:{ type: Number, default: 0 },
   tax:          { type: Number, default: 0 },
   taxRate:      { type: Number, default: 0 },  // global tax %
@@ -46,10 +53,22 @@ const invoiceSchema = new mongoose.Schema({
   currency:     { type: String, default: 'LKR' },
   /** When currency is not LKR: LKR equivalent of 1 unit of `currency` (for reference / reporting). Default 1 for LKR. */
   exchangeRateToLKR: { type: Number, default: 1 },
+  transportCharge: { type: Number, default: 0 },
 
   // ── Terms / Notes ────────────────────────────────────────────────────────────
   paymentTerms: { type: String, default: '' },
+  terms:        { type: String, default: '' },
   notes:        { type: String, default: '' },
+
+  // ── Bank & Method ────────────────────────────────────────────────────────────
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'bank_transfer', 'cheque', 'card', 'online', 'custom', ''],
+    default: '',
+  },
+  paymentMethodCustom: { type: String, default: '' },
+  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
+  bankBranch: { type: String, default: '' },
 
   // ── Payment Tracking ─────────────────────────────────────────────────────────
   payments:          [paymentEntrySchema],   // all payments (advances + regular)

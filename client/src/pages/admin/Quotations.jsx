@@ -5,12 +5,13 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiEye, FiSend, FiUpload, FiImage } from 'react-icons/fi'
+import { FiPlus, FiX, FiFileText, FiCheck, FiArrowRight, FiTrash2, FiEdit2, FiSearch, FiEye, FiSend, FiUpload, FiImage, FiDownload } from 'react-icons/fi'
 import { mediaUrl } from '../../lib/media'
 import useAuthStore from '../../store/authStore'
 import { SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding'
 import QuotationPreviewPanel from '../../components/documents/QuotationPreviewPanel'
 import { buildQuotationDraft } from '../../lib/buildQuotationDraft'
+import { calcDocumentTotals } from '../../lib/documentTotals'
 import {
   QUOTATION_CURRENCIES,
   formatMoney,
@@ -28,7 +29,7 @@ const STATUS_COLOR = {
 }
 
 const STATUS_LIFECYCLE = ['draft','sent','accepted','rejected','expired']
-const SERVICE_TYPES = ['POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
+const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
 const PAYMENT_METHODS = [
   { value: '', label: '— Select —' },
   { value: 'cash', label: 'Cash' },
@@ -59,6 +60,9 @@ export default function AdminQuotations() {
   const [statusFilter, setStatusFilter] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
+  const [clientFilter, setClientFilter] = useState('')
   const [convertTarget, setConvertTarget] = useState(null)
   const [clientSelectLabel, setClientSelectLabel] = useState('')
   const prevCurrencyRef = useRef('LKR')
@@ -75,17 +79,15 @@ export default function AdminQuotations() {
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
 
   const watchItems = watch('items') || []
-  const subtotal = watchItems.reduce((s, item) => {
-    const qty = Number(item.quantity || 1)
-    const price = Number(item.unitPrice || 0)
-    const disc = Number(item.discount || 0)
-    return s + (qty * price * (1 - disc / 100))
-  }, 0)
   const watchedCurrency = watch('currency') || 'LKR'
+  const docTotals = calcDocumentTotals(watchItems, {
+    taxRate: watch('taxRate') || 0,
+    globalDiscountValue: watch('globalDiscountValue') || 0,
+    globalDiscountType: watch('globalDiscountType') || 'fixed',
+    transportCharge: watch('transportCharge') || 0,
+  })
+  const { grossSubtotal: subtotal, discountTotal, tax, transportCharge, total } = docTotals
   const taxRate = Number(watch('taxRate') || 0)
-  const transportCharge = Number(watch('transportCharge') || 0)
-  const tax = subtotal * taxRate / 100
-  const total = subtotal + tax + transportCharge
   const advanceAmount = Number(watch('advanceAmount') || 0)
   const balance = Math.max(0, total - advanceAmount)
 
@@ -115,11 +117,14 @@ export default function AdminQuotations() {
     if (statusFilter) p.set('status', statusFilter)
     if (startDate) p.set('startDate', startDate)
     if (endDate) p.set('endDate', endDate)
+    if (serviceTypeFilter) p.set('serviceType', serviceTypeFilter)
+    if (branchFilter) p.set('branch', branchFilter)
+    if (clientFilter) p.set('client', clientFilter)
     return p.toString()
   }
 
   const { data: quotData, isLoading } = useQuery({
-    queryKey: ['quotations', statusFilter, startDate, endDate],
+    queryKey: ['quotations', statusFilter, startDate, endDate, serviceTypeFilter, branchFilter, clientFilter],
     queryFn: () => api.get(`/quotations?${buildQuery()}`).then(r => r.data),
   })
   const { data: clientData } = useQuery({
@@ -131,7 +136,6 @@ export default function AdminQuotations() {
   const { data: branchQuotData } = useQuery({
     queryKey: ['branches-for-quotation-modal'],
     queryFn: () => api.get('/branches').then((r) => r.data),
-    enabled: showModal,
   })
   const { data: projQuotData } = useQuery({
     queryKey: ['projects-for-quotation-modal'],
@@ -205,13 +209,13 @@ export default function AdminQuotations() {
     }
   }
 
-  const downloadQuotationPdf = async (id) => {
+  const downloadQuotationPdf = async (id, quotationNo) => {
     try {
       const res = await api.get(`/quotations/${id}/pdf`, { responseType: 'blob' })
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${viewing?.quotationNo || 'quotation'}.pdf`
+      a.download = `${quotationNo || viewing?.quotationNo || 'quotation'}.pdf`
       a.click()
       URL.revokeObjectURL(url)
       toast.success('PDF downloaded')
@@ -286,6 +290,8 @@ export default function AdminQuotations() {
       project: '',
       client: '',
       transportCharge: 0,
+      globalDiscountType: 'fixed',
+      globalDiscountValue: 0,
       preparedBy: user?.name || '',
       bankBranch: '',
       directorRole: directorMeta.role || '',
@@ -316,6 +322,8 @@ export default function AdminQuotations() {
       notes: q.notes || '',
       terms: q.terms || '',
       transportCharge: q.transportCharge || 0,
+      globalDiscountType: q.globalDiscountType || 'fixed',
+      globalDiscountValue: q.globalDiscountValue || 0,
       paymentMethod: q.paymentMethod || '',
       paymentMethodCustom: q.paymentMethodCustom || '',
       bankAccount: q.bankAccount?._id || q.bankAccount || '',
@@ -346,18 +354,25 @@ export default function AdminQuotations() {
       discount: Number(item.discount || 0),
       total: Number(item.quantity || 1) * Number(item.unitPrice || 0) * (1 - Number(item.discount || 0) / 100),
     }))
-    const sub = items.reduce((s, i) => s + i.total, 0)
     const tRate = Number(d.taxRate || 0)
-    const taxAmt = sub * tRate / 100
     const transport = Number(d.transportCharge || 0)
+    const totals = calcDocumentTotals(items, {
+      taxRate: tRate,
+      globalDiscountValue: d.globalDiscountValue || 0,
+      globalDiscountType: d.globalDiscountType || 'fixed',
+      transportCharge: transport,
+    })
     const payload = {
       ...d,
-      items,
-      subtotal: sub,
-      tax: taxAmt,
+      items: totals.items,
+      subtotal: totals.grossSubtotal,
+      discountTotal: totals.discountTotal,
+      globalDiscountType: d.globalDiscountType || 'fixed',
+      globalDiscountValue: Number(d.globalDiscountValue || 0),
+      tax: totals.tax,
       taxRate: tRate,
       transportCharge: transport,
-      total: sub + taxAmt + transport,
+      total: totals.total,
       advanceAmount: Number(d.advanceAmount || 0),
       exchangeRateToLKR: Number(d.exchangeRateToLKR) || suggestedExchangeToLKR(d.currency || 'LKR'),
       notes: String(d.notes || '').trim(),
@@ -400,9 +415,21 @@ export default function AdminQuotations() {
           <option value="">All Status</option>
           {['draft','sent','confirmed','rejected','expired','converted'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
         </select>
-        <input type="date" className="form-input py-2 text-sm" value={startDate} onChange={e => setStartDate(e.target.value)}/>
+        <select className="form-select py-2 text-sm" value={serviceTypeFilter} onChange={e => setServiceTypeFilter(e.target.value)}>
+          <option value="">All Services</option>
+          {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+          <option value="">All Branches</option>
+          {branchesQuot.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+        </select>
+        <select className="form-select py-2 text-sm max-w-xs" value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
+          <option value="">All Customers</option>
+          {(clientData?.users || clientData?.clients || []).filter(u => !u.role || u.role === 'client').map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+        </select>
+        <input type="date" className="form-input py-2 text-sm w-32" value={startDate} onChange={e => setStartDate(e.target.value)}/>
         <span className="text-gray-400 text-xs">to</span>
-        <input type="date" className="form-input py-2 text-sm" value={endDate} onChange={e => setEndDate(e.target.value)}/>
+        <input type="date" className="form-input py-2 text-sm w-32" value={endDate} onChange={e => setEndDate(e.target.value)}/>
       </div>
 
       {/* Table */}
@@ -410,7 +437,7 @@ export default function AdminQuotations() {
         <table className="table">
           <thead>
             <tr>
-              <th>Quotation No.</th><th>Client</th><th>Title</th>
+              <th>Quotation No.</th><th>Client</th><th>Title</th><th>Service</th>
               <th>Total</th><th>Valid Until</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
@@ -431,6 +458,7 @@ export default function AdminQuotations() {
                   <div className="text-xs text-gray-400">{q.client?.email}</div>
                 </td>
                 <td className="font-medium text-gray-800 max-w-[180px] truncate">{q.title || '—'}</td>
+                <td className="text-sm text-gray-600">{q.serviceType || 'Other'}</td>
                 <td className="font-bold text-gray-800">{formatMoney(q.total || 0, q.currency || 'LKR')}</td>
                 <td className="text-gray-500 text-xs">{q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-LK') : '—'}</td>
                 <td><span className={`badge capitalize ${STATUS_COLOR[q.status] || 'badge-gray'}`}>{q.status}</span></td>
@@ -438,6 +466,7 @@ export default function AdminQuotations() {
                   <div className="flex gap-1">
                     <button onClick={() => setQuickView(q)} title="Quick view" className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"><FiEye size={13}/></button>
                     <button onClick={() => setViewing(q)} title="Preview & edit" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><FiFileText size={13}/></button>
+                    <button onClick={() => downloadQuotationPdf(q._id, q.quotationNo)} title="Download PDF" className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><FiDownload size={13}/></button>
                     <button onClick={() => { setSendTarget(q); setSendMethods({ email: true, sms: false, link: true }) }} title="Send" className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><FiSend size={13}/></button>
                     {q.status === 'draft' && (
                       <button onClick={() => statusMut.mutate({ id: q._id, status: 'sent' })} title="Mark Sent" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-bold">Sent</button>
@@ -656,8 +685,25 @@ export default function AdminQuotations() {
                     )
                   })}
                 </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Global discount type</label>
+                    <select {...register('globalDiscountType')} className="form-select">
+                      <option value="fixed">Fixed amount</option>
+                      <option value="percentage">Percentage (%)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Global discount value</label>
+                    <input {...register('globalDiscountValue', { valueAsNumber: true })} type="number" min="0" step="0.01" className="form-input" placeholder="0" />
+                  </div>
+                </div>
+
                 <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-1 text-sm">
                   <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{formatMoney(subtotal, watchedCurrency)}</span></div>
+                  {discountTotal > 0 && (
+                    <div className="flex justify-between text-red-600"><span>Discount</span><span>-{formatMoney(discountTotal, watchedCurrency)}</span></div>
+                  )}
                   <div className="flex justify-between text-gray-600"><span>Transport</span><span>{formatMoney(transportCharge, watchedCurrency)}</span></div>
                   <div className="flex justify-between text-gray-600"><span>Tax ({taxRate}%)</span><span>{formatMoney(tax, watchedCurrency)}</span></div>
                   <div className="flex justify-between font-bold text-primary pt-1 border-t border-gray-200"><span>Total</span><span>{formatMoney(total, watchedCurrency)}</span></div>
@@ -946,7 +992,7 @@ export default function AdminQuotations() {
                   },
                 }, { onSuccess: () => { setViewing(null); setSendTarget(viewing); setSendMethods({ email: true, sms: false, link: true, pdf: true }) } })
               }}
-              onDownloadPdf={downloadQuotationPdf}
+              onDownloadPdf={(id) => downloadQuotationPdf(id, viewing?.quotationNo)}
             />
           </motion.div>
         </div>,

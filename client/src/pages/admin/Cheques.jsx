@@ -6,6 +6,8 @@ import toast from 'react-hot-toast'
 import { FiPlus, FiTrash2, FiEye, FiX } from 'react-icons/fi'
 import { statusNeedsBankLedger } from '../../lib/chequeLedger'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
+import ExportBar from '../../components/ui/ExportBar'
+import { CHEQUE_STATUS_OPTIONS, CHEQUE_STATUS_LABEL } from '../../constants/chequeStatuses'
 
 const STATUS_BADGE = {
   pending: 'badge-yellow',
@@ -18,7 +20,21 @@ const STATUS_BADGE = {
   deposited: 'badge-green',
   returned: 'badge-red',
   renewed: 'badge-blue',
+  cancelled: 'badge-gray',
 }
+
+const CHEQUE_EXPORT_COLUMNS = [
+  { header: 'Cheque No', accessor: (c) => c.chequeNumber || '' },
+  { header: 'Direction', accessor: (c) => c.direction || '' },
+  { header: 'Source', accessor: (c) => c.source || '' },
+  { header: 'Status', accessor: (c) => CHEQUE_STATUS_LABEL[c.status] || c.status },
+  { header: 'Amount (LKR)', accessor: (c) => Number(c.amount || 0) },
+  { header: 'Bank', accessor: (c) => c.bankName || '' },
+  { header: 'Bank Account', accessor: (c) => c.bankAccount?.bankName ? `${c.bankAccount.bankName} · ${c.bankAccount.accountNumber || ''}` : '' },
+  { header: 'Drawer / Payee', accessor: (c) => c.drawerOrPayee || '' },
+  { header: 'Cheque Date', accessor: (c) => (c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-LK') : '') },
+  { header: 'Notes', accessor: (c) => c.notes || '' },
+]
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -119,7 +135,9 @@ export default function AdminCheques() {
   const updateMut = useMutation({
     mutationFn: ({ id, body }) => api.put(`/cheques/${id}`, body).then((r) => r.data),
     onSuccess: (data) => {
-      if (data?.bankUpdated) {
+      if (data?.ledgerAction === 'reversed') {
+        toast.success('Cheque updated — bank ledger reversed')
+      } else if (data?.bankUpdated) {
         toast.success('Cheque updated — bank balance adjusted')
       } else {
         toast.success('Updated')
@@ -127,6 +145,8 @@ export default function AdminCheques() {
       qc.invalidateQueries({ queryKey: ['cheques'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
       qc.invalidateQueries({ queryKey: ['bank-tx-history-all'] })
+      qc.invalidateQueries({ queryKey: ['finance'] })
+      qc.invalidateQueries({ queryKey: ['financial-reports'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -185,9 +205,23 @@ export default function AdminCheques() {
           <h1 className="page-title">Cheque management</h1>
           <p className="page-subtitle">Track received and issued cheques. Link to bank accounts and update clearing status.</p>
         </div>
-        <button type="button" className="btn-primary btn-sm" onClick={() => setShowForm(true)}>
-          <FiPlus size={14} /> Add cheque
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportBar
+            data={cheques}
+            columns={CHEQUE_EXPORT_COLUMNS}
+            title="Cheque Management Report"
+            filters={{
+              Status: filter.status ? (CHEQUE_STATUS_LABEL[filter.status] || filter.status) : 'All',
+              Direction: filter.direction || 'All',
+              Source: filter.source || 'All',
+              From: filter.fromDate || '—',
+              To: filter.toDate || '—',
+            }}
+          />
+          <button type="button" className="btn-primary btn-sm" onClick={() => setShowForm(true)}>
+            <FiPlus size={14} /> Add cheque
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
@@ -198,16 +232,9 @@ export default function AdminCheques() {
         </select>
         <select className="form-select w-auto" value={filter.status} onChange={(e) => setFilter((p) => ({ ...p, status: e.target.value }))}>
           <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="unpaid">Unpaid</option>
-          <option value="paid">Paid</option>
-          <option value="cleared">Cleared</option>
-          <option value="bounced">Bounced</option>
-          <option value="expected">Expected</option>
-          <option value="received">Received</option>
-          <option value="deposited">Deposited</option>
-          <option value="returned">Returned</option>
-          <option value="renewed">Renewed</option>
+          {CHEQUE_STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
         <input type="date" className="form-input w-auto py-2 text-sm" value={filter.fromDate} onChange={(e) => setFilter((p) => ({ ...p, fromDate: e.target.value }))} />
         <input type="date" className="form-input w-auto py-2 text-sm" value={filter.toDate} onChange={(e) => setFilter((p) => ({ ...p, toDate: e.target.value }))} />
@@ -249,16 +276,9 @@ export default function AdminCheques() {
             <div>
               <label className="form-label">Status</label>
               <select className="form-select" value={form.status} onChange={(e) => f('status')(e.target.value)}>
-                <option value="pending">Pending</option>
-                <option value="unpaid">Unpaid</option>
-                <option value="paid">Paid</option>
-                <option value="expected">Expected</option>
-                <option value="received">Received</option>
-                <option value="deposited">Deposited</option>
-                <option value="cleared">Cleared</option>
-                <option value="bounced">Bounced</option>
-                <option value="returned">Returned</option>
-                <option value="renewed">Renewed</option>
+                {CHEQUE_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -362,11 +382,12 @@ export default function AdminCheques() {
                         value={c.status}
                         onChange={(e) => handleStatusChange(c, e.target.value)}
                       >
-                        {['pending', 'unpaid', 'paid', 'expected', 'received', 'deposited', 'cleared', 'bounced', 'returned', 'renewed'].map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
+                        {CHEQUE_STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
+                        {!CHEQUE_STATUS_OPTIONS.some((o) => o.value === c.status) && c.status && (
+                          <option value={c.status}>{CHEQUE_STATUS_LABEL[c.status] || c.status}</option>
+                        )}
                       </select>
                     </td>
                     <td className="text-right">

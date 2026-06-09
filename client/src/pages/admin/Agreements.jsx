@@ -134,7 +134,7 @@ export default function Agreements() {
       setEditorContent(res.data.content)
       setStep(2)
     },
-    onError: () => toast.error('Failed to generate preview'),
+    onError: (e) => toast.error(e.response?.data?.message || e.message || 'Failed to generate preview'),
   })
 
   const createMut = useMutation({
@@ -667,7 +667,7 @@ export default function Agreements() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="form-label">Title *</label>
-                        <input {...register('title')} className="form-input" placeholder="e.g. Service agreement" />
+                        <input {...register('title', { required: true })} required className="form-input" placeholder="e.g. Service agreement" />
                       </div>
                       <div>
                         <label className="form-label">Agreement date</label>

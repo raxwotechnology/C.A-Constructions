@@ -22,7 +22,7 @@ export function useSiteBranding() {
   const settings = data?.settings || {}
   const logoSrc = siteLogoSrc(settings)
   const siteName = settings.siteName?.trim() || 'Raxwo'
-  const siteTagline = settings.siteDescription?.trim() || 'Pvt Ltd'
+  const siteTagline = settings.siteDescription?.trim() || ''
 
   return {
     settings,

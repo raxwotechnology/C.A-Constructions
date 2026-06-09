@@ -6,14 +6,26 @@ export function loadImgBase64(url) {
     if (!url) return resolve(null)
     const img = new Image()
     img.crossOrigin = 'Anonymous'
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      canvas.getContext('2d').drawImage(img, 0, 0)
-      resolve(canvas.toDataURL('image/png'))
+    
+    const drawAndResolve = (imageElement) => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = imageElement.width
+        canvas.height = imageElement.height
+        canvas.getContext('2d').drawImage(imageElement, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } catch (e) {
+        resolve(null)
+      }
     }
-    img.onerror = () => resolve(null)
+
+    img.onload = () => drawAndResolve(img)
+    img.onerror = () => {
+      const fallbackImg = new Image()
+      fallbackImg.onload = () => drawAndResolve(fallbackImg)
+      fallbackImg.onerror = () => resolve(null)
+      fallbackImg.src = url
+    }
     img.src = url
   })
 }
@@ -104,20 +116,21 @@ export function drawPdfReportMeta(doc, { title, filterSummary, recordCount, star
   doc.setFontSize(14)
   doc.setTextColor(15, 23, 42) // slate-900
   doc.setFont('helvetica', 'bold')
-  doc.text(title, margin + 7, y + 5)
-  y += 12
+  doc.text(title, margin + 7, y + 6)
+  y += 16
   doc.setFontSize(9)
   doc.setTextColor(100, 116, 139) // slate-500
   doc.setFont('helvetica', 'normal')
   if (filterSummary) {
-    doc.text(`Filters: ${filterSummary}`, margin, y)
-    y += 5
+    const filterLines = doc.splitTextToSize(`Filters: ${filterSummary}`, rightX - margin)
+    doc.text(filterLines, margin, y)
+    y += (filterLines.length * 5) + 2
   }
   doc.text(`Generated: ${new Date().toLocaleString()}  |  Records: ${recordCount ?? 0}`, margin, y)
   // Subtle divider
-  y += 4
+  y += 6
   doc.setDrawColor(226, 232, 240) // slate-200
   doc.setLineWidth(0.3)
   doc.line(margin, y, rightX, y)
-  return y + 6
+  return y + 8
 }

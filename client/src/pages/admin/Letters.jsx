@@ -47,7 +47,7 @@ import {
 import SignaturePad from '../../components/admin/SignaturePad'
 import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
-import EnterpriseLetterBuilder from '../../components/admin/EnterpriseLetterBuilder'
+import EnterpriseLetterBuilder, { generateLetterParts } from '../../components/admin/EnterpriseLetterBuilder'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
 
@@ -230,18 +230,29 @@ export default function AdminLetters() {
 
   const onSubmit = (d) => {
     if (d.type === 'custom') {
-      const emp = (empData?.employees || []).find(e => e._id === d.employeeId)
-      setBuilderEmployee(emp)
+      let builderData = {
+         dbLetterType: 'custom',
+         dbEmployeeId: d.recipientType === 'employee' ? d.employeeId : undefined,
+         dbClientId: d.recipientType === 'client' ? d.clientId : undefined,
+         recipientType: d.recipientType || 'employee'
+      }
       
-      let initData = null
+      if (d.recipientType === 'employee') {
+         const emp = (empData?.employees || []).find(e => e._id === d.employeeId)
+         setBuilderEmployee(emp)
+      } else {
+         setBuilderEmployee(null) // Or fetch client data if needed, but the builder will handle it
+      }
+      
+      let initData = builderData
       if (selectedTplId) {
         const t = templates.find((x) => x._id === selectedTplId)
         if (t) {
           initData = {
+            ...initData,
             title: t.name,
             content: t.content,
             structuredData: t.structuredData,
-            type: 'custom'
           }
         }
       }
@@ -253,7 +264,9 @@ export default function AdminLetters() {
     }
 
     generateMut.mutate({
-      employeeId: d.employeeId,
+      recipientType: d.recipientType || 'employee',
+      employeeId: d.recipientType === 'employee' ? d.employeeId : undefined,
+      clientId: d.recipientType === 'client' ? d.clientId : undefined,
       type: d.type,
       approvalStatus: d.approvalStatus || 'none',
       data: {
@@ -277,7 +290,7 @@ export default function AdminLetters() {
 
   const openModal = (type = '') => {
     setPrefilledType(type)
-    reset({ type: type || '', approvalStatus: 'none' })
+    reset({ type: type || '', approvalStatus: 'none', recipientType: 'employee' })
     setSignatures(normalizeLetterSignatures({}, siteSettings))
     setSelectedTplId('')
     setShowLetterTemplates(false)
@@ -292,49 +305,56 @@ export default function AdminLetters() {
   }
 
   const openPreview = (l) => {
-    setPreview(l)
-    setEditContent(l.content)
+    let finalContent = l.content
+    if (l.type === 'custom' && l.structuredData) {
+      const parts = generateLetterParts(l.structuredData, company, l.structuredData.sections || { header: true, from: false, to: true, info: true, body: true, signatures: true, footer: true })
+      finalContent = parts.full
+    }
+    setPreview({ ...l, content: finalContent })
+    setEditContent(finalContent)
     setEditMode(false)
     setLetterEditHtmlSource(false)
     setSignatures(normalizeLetterSignatures(l.signatures, siteSettings))
   }
 
-  const printOpts = (letter, sigState = signatures) => ({
-    company,
-    siteSettings,
-    letterTitle: letter.title,
-    letterRef: letter.letterRef,
-    issuedDate: letter.issuedDate,
-    bodyHtml: editMode ? editContent : letter.content,
-    signatures: sigState,
-    isFullHtml: Boolean(letter.structuredData),
-    fitToOnePage: letterFitToOnePage,
-    letterScale: letterScale / 100,
-  })
+  const resolveLetterBody = (letter) => {
+    if (letter.type === 'custom' && letter.structuredData) {
+      const parts = generateLetterParts(
+        letter.structuredData,
+        company,
+        letter.structuredData.sections || { header: true, from: false, to: true, info: true, body: true, signatures: true, footer: true },
+      )
+      return { bodyHtml: parts.full, isFullHtml: true }
+    }
+    return { bodyHtml: letter.content, isFullHtml: Boolean(letter.structuredData) }
+  }
+
+  const printOpts = (letter, sigState = signatures, bodyOverride) => {
+    const resolved = bodyOverride || resolveLetterBody(letter)
+    return {
+      company,
+      siteSettings,
+      letterTitle: letter.title,
+      letterRef: letter.letterRef,
+      issuedDate: letter.issuedDate,
+      bodyHtml: bodyOverride?.bodyHtml ?? (editMode && preview?._id === letter._id ? editContent : resolved.bodyHtml),
+      signatures: sigState,
+      isFullHtml: bodyOverride?.isFullHtml ?? resolved.isFullHtml,
+      fitToOnePage: letterFitToOnePage,
+      letterScale: letterScale / 100,
+    }
+  }
 
   const sigsForOutput = (letter) =>
     normalizeLetterSignatures(letter.signatures || signatures, siteSettings)
 
   const handlePrint = (letter) => {
-    openLetterPrint({
-      ...printOpts(letter, sigsForOutput(letter)),
-      bodyHtml: letter.content,
-      signatures: sigsForOutput(letter),
-      isFullHtml: Boolean(letter.structuredData),
-    })
+    openLetterPrint(printOpts(letter, sigsForOutput(letter)))
   }
 
   const handlePdf = async (letter) => {
     try {
-      await downloadLetterPdf(
-        {
-          ...printOpts(letter, sigsForOutput(letter)),
-          bodyHtml: letter.content,
-          signatures: sigsForOutput(letter),
-          isFullHtml: Boolean(letter.structuredData),
-        },
-        letter.letterRef || 'letter'
-      )
+      await downloadLetterPdf(printOpts(letter, sigsForOutput(letter)), letter.letterRef || 'letter')
       toast.success('PDF downloaded')
     } catch {
       toast.error('PDF export failed')
@@ -388,6 +408,8 @@ export default function AdminLetters() {
              } else {
                generateMut.mutate({ 
                  employeeId: payload.dbEmployeeId || (builderEmployee ? builderEmployee._id : 'custom'), 
+                 clientId: builderInitialData?.dbClientId,
+                 recipientType: builderInitialData?.recipientType || 'employee',
                  type: payload.dbLetterType || 'custom', 
                  approvalStatus: 'none', 
                  data: payload 
@@ -457,7 +479,7 @@ export default function AdminLetters() {
             <thead>
               <tr>
                 <th>Reference</th>
-                <th>Employee</th>
+                <th>Employee / Customer</th>
                 <th>Type</th>
                 <th>Issued</th>
                 <th>Approval</th>
@@ -483,8 +505,8 @@ export default function AdminLetters() {
                   <tr key={l._id}>
                     <td className="font-mono text-xs text-slate-600">{l.letterRef || '—'}</td>
                     <td>
-                      <div className="font-medium text-slate-800">{l.employee?.userId?.name}</div>
-                      <div className="text-xs text-slate-400">{l.employee?.employeeNo}</div>
+                      <div className="font-medium text-slate-800">{l.recipientType === 'client' ? l.client?.name : l.employee?.userId?.name}</div>
+                      <div className="text-xs text-slate-400">{l.recipientType === 'client' ? 'Customer' : l.employee?.employeeNo}</div>
                     </td>
                     <td>
                       <span className="badge badge-navy capitalize">{TYPE_MAP[l.type]?.label || l.type}</span>
@@ -605,24 +627,55 @@ export default function AdminLetters() {
                     ) : null}
                   </div>
                 )}
-                <div>
-                  <label className="form-label">Employee *</label>
-                  <SearchableSelect
-                    value={watch('employeeId')}
-                    onChange={(v) => setValue('employeeId', v, { shouldValidate: true })}
-                    loadOptions={async (params) => {
-                      const res = await lookupLoaders.employeesAll()(params)
-                      if (params.page === 1) {
-                        const customOpt = { value: 'custom', label: '-- External / Custom (No Employee) --' }
-                        if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
-                          res.options.unshift(customOpt)
-                        }
-                      }
-                      return res
-                    }}
-                    placeholder="Search employee…"
-                  />
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="radio" value="employee" {...register('recipientType')} className="form-radio" defaultChecked />
+                    Employee
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="radio" value="client" {...register('recipientType')} className="form-radio" />
+                    Customer
+                  </label>
                 </div>
+                {watch('recipientType') === 'client' ? (
+                  <div>
+                    <label className="form-label">Customer *</label>
+                    <SearchableSelect
+                      value={watch('clientId')}
+                      onChange={(v) => setValue('clientId', v, { shouldValidate: true })}
+                      loadOptions={async (params) => {
+                        const res = await lookupLoaders.clients()(params)
+                        if (params.page === 1) {
+                          const customOpt = { value: 'custom', label: '-- External / Custom (No Customer) --' }
+                          if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
+                            res.options.unshift(customOpt)
+                          }
+                        }
+                        return res
+                      }}
+                      placeholder="Search customer…"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="form-label">Employee *</label>
+                    <SearchableSelect
+                      value={watch('employeeId')}
+                      onChange={(v) => setValue('employeeId', v, { shouldValidate: true })}
+                      loadOptions={async (params) => {
+                        const res = await lookupLoaders.employeesAll()(params)
+                        if (params.page === 1) {
+                          const customOpt = { value: 'custom', label: '-- External / Custom (No Employee) --' }
+                          if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
+                            res.options.unshift(customOpt)
+                          }
+                        }
+                        return res
+                      }}
+                      placeholder="Search employee…"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="form-label">Letter type *</label>
                   <SearchableSelect

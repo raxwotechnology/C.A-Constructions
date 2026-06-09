@@ -12,7 +12,7 @@ const meetingSchema = new mongoose.Schema({
   status: { type: String, enum: ['upcoming', 'active', 'ended', 'inactive'], default: 'upcoming' },
   provider: { type: String, enum: ['zoom', 'jitsi'], default: 'zoom' },
   meetingType: { type: String, enum: ['internal', 'client'], default: 'internal' },
-  client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: false },
+  client: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   sharedWith: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 

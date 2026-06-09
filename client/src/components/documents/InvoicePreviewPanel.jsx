@@ -1,12 +1,15 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FiDownload, FiPrinter, FiSave, FiSend } from 'react-icons/fi'
 import InvoicePrintBody from './InvoicePrintBody'
 import { printHtmlContent } from '../../lib/documentPrint'
+import { resolveDocumentTerms } from '../../lib/documentTerms'
 import {
   layoutPrintExtraCss,
   layoutToStyle,
   loadQuotationLayout,
 } from '../../lib/quotationPrintLayout'
+
+const DOC_WIDTH_PX = 794
 
 export default function InvoicePreviewPanel({
   invoice,
@@ -21,18 +24,23 @@ export default function InvoicePreviewPanel({
 }) {
   const inv = invoice || {}
   const [layout] = useState(loadQuotationLayout)
-  const [draft, setDraft] = useState({ notes: inv.notes || '', paymentTerms: inv.paymentTerms || '', showRefOnDocument: true })
+  const scrollRef = useRef(null)
+  const docRef = useRef(null)
+  const [fitScale, setFitScale] = useState(1)
+  const [docHeight, setDocHeight] = useState(0)
 
-  const contentRef = useRef(null)
-  const [autoScale, setAutoScale] = useState(1)
-
-  const patchDraft = (partial) => {
-    setDraft((d) => ({ ...d, ...partial }))
-    onFieldSync?.(partial)
-  }
+  const [draft, setDraft] = useState({
+    notes: inv.notes || '',
+    paymentTerms: resolveDocumentTerms(inv),
+    showRefOnDocument: true,
+  })
 
   useEffect(() => {
-    setDraft({ notes: inv.notes || '', paymentTerms: inv.paymentTerms || '', showRefOnDocument: !isDraft })
+    setDraft({
+      notes: inv.notes || '',
+      paymentTerms: resolveDocumentTerms(inv),
+      showRefOnDocument: !isDraft,
+    })
   }, [inv._id])
 
   useEffect(() => {
@@ -40,41 +48,64 @@ export default function InvoicePreviewPanel({
     setDraft((d) => ({
       ...d,
       notes: inv.notes ?? d.notes,
-      paymentTerms: inv.paymentTerms ?? d.paymentTerms,
+      paymentTerms: resolveDocumentTerms(inv) || d.paymentTerms,
     }))
-  }, [isDraft, inv.notes, inv.paymentTerms])
+  }, [isDraft, inv.notes, inv.paymentTerms, inv.terms])
 
-  const merged = { ...inv, notes: draft.notes, paymentTerms: draft.paymentTerms }
+  const merged = {
+    ...inv,
+    notes: draft.notes,
+    paymentTerms: draft.paymentTerms,
+    terms: draft.paymentTerms,
+  }
+
+  // Scale document to fit preview pane width (form takes ~45% of modal — 794px overflows without this)
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    const updateScale = () => {
+      const pad = 24
+      const available = container.clientWidth - pad
+      if (available <= 0) return
+      const scale = Math.min(1, available / DOC_WIDTH_PX)
+      setFitScale(scale)
+      if (docRef.current) {
+        setDocHeight(docRef.current.offsetHeight * scale)
+      }
+    }
+
+    updateScale()
+    const ro = new ResizeObserver(updateScale)
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [merged, isDraft])
 
   useEffect(() => {
+    if (!docRef.current) return
     const t = setTimeout(() => {
-      if (!contentRef.current) return
-      // A4 at 96dpi is 1123px tall. Padding top+bottom ~ 120px. Max inner height ~ 1000px.
-      const el = contentRef.current.firstElementChild
-      if (!el) return
-      const h = el.scrollHeight || el.offsetHeight || 0
-      if (h > 980) {
-        setAutoScale(Math.max(0.65, 980 / h))
-      } else {
-        setAutoScale(1)
-      }
-    }, 150)
+      setDocHeight(docRef.current.offsetHeight * fitScale)
+    }, 100)
     return () => clearTimeout(t)
-  }, [merged])
+  }, [merged, fitScale])
 
   const handlePrint = () => {
     const el = document.getElementById(printRootId)
     if (!el) return
+    const clone = el.cloneNode(true)
+    clone.style.transform = ''
+    clone.style.width = `${DOC_WIDTH_PX}px`
     printHtmlContent({
       title: siteSettings.siteName || 'Invoice',
-      bodyHtml: el.outerHTML,
+      bodyHtml: clone.outerHTML,
       extraCss: layoutPrintExtraCss({ ...layout, showRefOnDocument: draft.showRefOnDocument }),
     })
   }
 
+  const scaledWidth = DOC_WIDTH_PX * fitScale
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
-      {/* Toolbar — shown only for saved invoices */}
+    <div className="flex flex-col flex-1 min-h-0 min-w-0 h-full overflow-hidden">
       {!isDraft && (
         <div className="no-print shrink-0 border-b bg-slate-50 px-4 py-3 flex flex-wrap items-center gap-2">
           {onSaveDraft && (
@@ -98,16 +129,35 @@ export default function InvoicePreviewPanel({
         </div>
       )}
 
-      {/* Document preview — full width, no sidebar */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100/80">
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-3 sm:p-4 bg-slate-100/80"
+      >
         <div
-          id={printRootId}
-          ref={contentRef}
-          className={`invoice-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
-          style={{ ...layoutToStyle(layout), minHeight: '1123px', width: '794px' }}
+          className="mx-auto"
+          style={{
+            width: scaledWidth,
+            minHeight: docHeight || undefined,
+          }}
         >
-          <div style={{ zoom: autoScale, transformOrigin: 'top left' }}>
-            <InvoicePrintBody invoice={merged} siteSettings={siteSettings} showRefOnDocument={draft.showRefOnDocument} forPrint={false} />
+          <div
+            id={printRootId}
+            ref={docRef}
+            className={`invoice-doc doc-print-frame bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
+            style={{
+              ...layoutToStyle(layout),
+              width: DOC_WIDTH_PX,
+              boxSizing: 'border-box',
+              transform: fitScale < 1 ? `scale(${fitScale})` : undefined,
+              transformOrigin: 'top left',
+            }}
+          >
+            <InvoicePrintBody
+              invoice={merged}
+              siteSettings={siteSettings}
+              showRefOnDocument={draft.showRefOnDocument}
+              forPrint={false}
+            />
           </div>
         </div>
       </div>

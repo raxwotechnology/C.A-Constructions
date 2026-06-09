@@ -7,6 +7,9 @@ import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
 import SectionHeader from '../../components/ui/SectionHeader'
+import SearchableSelect from '../../components/ui/SearchableSelect'
+import { lookupLoaders } from '../../lib/lookupApi'
+import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 
 export default function Meetings() {
   const { user } = useAuthStore()
@@ -20,6 +23,7 @@ export default function Meetings() {
   const [selectedUsersToShare, setSelectedUsersToShare] = useState([])
   const [shareMessage, setShareMessage] = useState('')
   const [activeMeetingRoom, setActiveMeetingRoom] = useState(null) // For in-app iframe meeting
+  const [deleteMeetingId, setDeleteMeetingId] = useState(null)
 
   const [activeTab, setActiveTab] = useState('internal') // 'internal' | 'client'
 
@@ -54,7 +58,7 @@ export default function Meetings() {
   })
   const attendees = attendeesData?.participants || []
 
-  const { register, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, formState: { isSubmitting } } = useForm({
     defaultValues: { duration: 60, meetingType: 'internal', client: '' }
   })
   const watchMeetingType = watch('meetingType')
@@ -71,12 +75,13 @@ export default function Meetings() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: id => api.delete(`/meetings/${id}`).then(r => r.data),
+    mutationFn: ({ id, password }) => api.delete(`/meetings/${id}`, { data: { password } }).then(r => r.data),
     onSuccess: () => {
       toast.success('Meeting deleted')
+      setDeleteMeetingId(null)
       qc.invalidateQueries({ queryKey: ['meetings'] })
     },
-    onError: e => toast.error(e.response?.data?.message || 'Failed to delete')
+    onError: e => toast.error(e.response?.data?.message || 'Failed to delete'),
   })
 
   const shareMut = useMutation({
@@ -205,7 +210,7 @@ export default function Meetings() {
               
               {m.meetingType === 'client' && m.client && (
                 <div className="mt-3 inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-100 w-fit">
-                  <FiUsers size={12} /> Client: {m.client.companyName || m.client.contactPerson || 'Unknown'}
+                  <FiUsers size={12} /> Client: {m.client.name || 'Unknown'}
                 </div>
               )}
               
@@ -251,11 +256,9 @@ export default function Meetings() {
                     <button onClick={() => { setSelectedMeeting(m._id); setShowAttendees(true); }} className="btn-secondary flex-1 justify-center text-sm py-2">
                       <FiUsers size={14} /> Attendees
                     </button>
-                    {m.status !== 'ended' && m.status !== 'inactive' && (
-                      <button onClick={() => { if(confirm('Delete this meeting?')) deleteMut.mutate(m._id) }} className="btn-secondary px-3 text-red-500 hover:bg-red-50 hover:border-red-200">
-                        <FiTrash2 />
-                      </button>
-                    )}
+                    <button onClick={() => setDeleteMeetingId(m._id)} className="btn-secondary px-3 text-red-500 hover:bg-red-50 hover:border-red-200" title="Delete Meeting">
+                      <FiTrash2 />
+                    </button>
                   </div>
                 )}
               </div>
@@ -287,12 +290,13 @@ export default function Meetings() {
               {watchMeetingType === 'client' && (
                 <div className="animate-fade-in">
                   <label className="form-label">Select Client <span className="text-xs text-slate-400 font-normal">(Optional)</span></label>
-                  <select {...register('client')} className="form-select">
-                    <option value="">-- No specific client --</option>
-                    {clients.map(c => (
-                      <option key={c._id} value={c._id}>{c.companyName || c.contactPerson}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={watch('client')}
+                    onChange={(v) => setValue('client', v)}
+                    loadOptions={lookupLoaders.clients()}
+                    placeholder="Search for a client..."
+                    isClearable={true}
+                  />
                 </div>
               )}
 
@@ -616,6 +620,19 @@ export default function Meetings() {
         </div>,
         document.body
       )}
+
+      <PasswordConfirmModal
+        open={Boolean(deleteMeetingId)}
+        onClose={() => setDeleteMeetingId(null)}
+        title="Delete meeting?"
+        message="This permanently removes the meeting record. Enter your admin password to confirm."
+        confirmLabel="Delete meeting"
+        isSubmitting={deleteMut.isPending}
+        onConfirm={async (password) => {
+          if (!deleteMeetingId) return
+          await deleteMut.mutateAsync({ id: deleteMeetingId, password })
+        }}
+      />
     </div>
   )
 }

@@ -66,11 +66,17 @@ export default function PasswordConfirmModal({
             <label className="form-label text-xs">Password</label>
             <input
               type="password"
-              autoComplete="current-password"
+              name="action-confirm-password"
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              readOnly
+              onFocus={(e) => e.target.removeAttribute('readonly')}
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your login password"
+              placeholder="Enter password manually"
               disabled={isSubmitting}
             />
           </div>
