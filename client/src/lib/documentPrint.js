@@ -20,7 +20,8 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
     showTagline !== undefined
       ? showTagline
       : settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Next Level Tech'
-  const logo = companyLogoHtml(company, { forPrint, maxHeight: 64 })
+  // Always use absolute URLs for logo to ensure cross-origin compatibility (hosted frontend ≠ backend)
+  const logo = companyLogoHtml(company, { forPrint: true, maxHeight: 64 })
   const contactHtml = contactBlockHtml(company)
 
   return `
@@ -87,10 +88,11 @@ export function directorSealBlockHtml({ directorName, sealUrl, forPrint = true }
   if (!directorName && !sealUrl) return ''
   let src = ''
   if (sealUrl) {
-    if (sealUrl.startsWith('data:') || /^https?:\/\//i.test(sealUrl)) {
+    if (sealUrl.startsWith('data:') || sealUrl.startsWith('blob:') || /^https?:\/\//i.test(sealUrl)) {
       src = sealUrl
     } else {
-      src = forPrint ? absoluteMediaUrl(sealUrl) : mediaUrl(sealUrl)
+      // Always use absoluteMediaUrl so images work cross-origin (hosted frontend ≠ backend)
+      src = absoluteMediaUrl(sealUrl)
     }
   }
   return `

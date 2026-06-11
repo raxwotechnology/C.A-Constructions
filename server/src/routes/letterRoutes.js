@@ -16,6 +16,7 @@ const {
 const { protect, authorize } = require('../middleware/auth');
 
 router.post('/generate', protect, authorize('admin', 'manager'), generateLetter);
+router.post('/generate-pdf', protect, authorize('admin', 'manager'), require('../controllers/letterController').generateLetterPdf);
 router.get('/company-info', protect, getCompanyInfo);
 router.get('/templates', protect, authorize('admin', 'manager'), getLetterTemplates);
 router.post('/templates', protect, authorize('admin', 'manager'), createLetterTemplate);

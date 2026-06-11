@@ -18,15 +18,58 @@ function esc(s) {
 function absUploadUrl(path) {
   if (!path) return '';
   const p = String(path).trim();
+  if (/^data:/i.test(p)) return p;
   if (/^https?:\/\//i.test(p)) return p;
   const rel = p.startsWith('/') ? p : `/${p}`;
   return `${API_URL}${rel}`;
 }
 
+/**
+ * Convert a /uploads/... path to a base64 data URI by reading the file from disk.
+ * Falls back to absUploadUrl if the file doesn't exist locally.
+ * This ensures images always render in Puppeteer PDFs regardless of network/SSL issues.
+ */
+function localFileToDataUri(uploadPath) {
+  if (!uploadPath) return '';
+  const p = String(uploadPath).trim();
+  if (/^data:/i.test(p)) return p;
+
+  // Try to read from local filesystem
+  try {
+    const path = require('path');
+    const fs = require('fs');
+    const { getUploadsRoot } = require('../utils/uploadsPath');
+
+    let relPath = p;
+    // Strip leading /uploads/ or uploads/ to get relative path within uploads dir
+    if (relPath.startsWith('/uploads/')) relPath = relPath.slice('/uploads/'.length);
+    else if (relPath.startsWith('uploads/')) relPath = relPath.slice('uploads/'.length);
+    // If it's a full URL, extract the path portion
+    else if (/^https?:\/\//i.test(relPath)) {
+      try {
+        const url = new URL(relPath);
+        relPath = url.pathname;
+        if (relPath.startsWith('/uploads/')) relPath = relPath.slice('/uploads/'.length);
+      } catch { /* ignore */ }
+    }
+
+    const filePath = path.join(getUploadsRoot(), relPath);
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath);
+      const ext = path.extname(filePath).toLowerCase().replace('.', '');
+      const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
+      const mime = mimeMap[ext] || 'image/png';
+      return `data:${mime};base64,${data.toString('base64')}`;
+    }
+  } catch { /* fallback to URL */ }
+
+  return absUploadUrl(p);
+}
+
 function buildLetterhead(settings) {
   const name = settings.siteName || 'Company';
   const tagline = settings.letterheadTagline || settings.siteDescription || 'Next Level Tech';
-  const logo = settings.logoUrl ? absUploadUrl(settings.logoUrl) : '';
+  const logo = settings.logoUrl ? localFileToDataUri(settings.logoUrl) : '';
   const logoHtml = logo
     ? `<img src="${logo.replace(/"/g, '')}" alt="" style="max-height:64px;object-fit:contain"/>`
     : `<span style="font-weight:800;font-size:22px;color:#1e3a8a">${esc((name || 'C').charAt(0))}</span>`;
@@ -238,7 +281,7 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
       ${showSeal && (directorName || sealUrl) ? `
         <div style="margin-top:20px;text-align:right;page-break-inside:avoid">
           ${directorName ? `<p style="font-weight:700;margin:0 0 8px;font-size:11pt;color:#0f172a">${esc(directorName)}</p>` : ''}
-          ${sealUrl ? `<img src="${absUploadUrl(sealUrl).replace(/"/g, '')}" style="max-height:90px;object-fit:contain"/>` : ''}
+          ${sealUrl ? `<img src="${localFileToDataUri(sealUrl).replace(/"/g, '')}" style="max-height:90px;object-fit:contain"/>` : ''}
           <p style="margin:8px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
         </div>` : ''}
       <!-- Reference -->
@@ -293,19 +336,19 @@ async function buildInvoiceDocumentHtml(invoice) {
   const signaturesHtml = (sigAuth?.data || sigSeal?.data)
     ? `<div style="display:flex;justify-content:flex-end;margin-top:40px;page-break-inside:avoid">
         <div style="width:260px;text-align:center">
-          ${sigAuth?.data ? `<img src="${absUploadUrl(sigAuth.data).replace(/"/g, '')}" style="max-height:70px;margin-bottom:8px;display:block;margin-inline:auto"/>` : '<div style="height:70px"></div>'}
+          ${sigAuth?.data ? `<img src="${localFileToDataUri(sigAuth.data).replace(/"/g, '')}" style="max-height:70px;margin-bottom:8px;display:block;margin-inline:auto"/>` : '<div style="height:70px"></div>'}
           <div style="border-top:2px solid #0f172a;padding-top:8px;margin-bottom:16px">
             <p style="margin:0;font-weight:700;font-size:10pt;text-transform:uppercase">${esc(sigAuth?.name || 'Authorized Signatory')}</p>
             ${sigAuth?.title ? `<p style="margin:4px 0 0;font-size:8.5pt;color:#64748b">${esc(sigAuth.title)}</p>` : ''}
           </div>
-          ${sigSeal?.data ? `<img src="${absUploadUrl(sigSeal.data).replace(/"/g, '')}" style="max-height:110px;display:block;margin-inline:auto"/>` : ''}
+          ${sigSeal?.data ? `<img src="${localFileToDataUri(sigSeal.data).replace(/"/g, '')}" style="max-height:110px;display:block;margin-inline:auto"/>` : ''}
           ${sigSeal?.note ? `<p style="margin:8px 0 0;font-size:8.5pt;color:#64748b;font-style:italic">${esc(sigSeal.note)}</p>` : ''}
         </div>
       </div>`
     : (directorName || sealUrl)
       ? `<div style="margin-top:20px;text-align:right;page-break-inside:avoid">
           ${directorName ? `<p style="font-weight:700;margin:0 0 8px;font-size:11pt">${esc(directorName)}</p>` : ''}
-          ${sealUrl ? `<img src="${absUploadUrl(sealUrl).replace(/"/g, '')}" style="max-height:90px;object-fit:contain"/>` : ''}
+          ${sealUrl ? `<img src="${localFileToDataUri(sealUrl).replace(/"/g, '')}" style="max-height:90px;object-fit:contain"/>` : ''}
           <p style="margin:8px 0 0;font-size:9pt;color:#64748b">Authorized Signatory</p>
         </div>`
       : '';

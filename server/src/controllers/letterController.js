@@ -349,3 +349,19 @@ exports.getCompanyInfo = async (req, res, next) => {
     res.json({ success: true, company });
   } catch (err) { next(err); }
 };
+
+// @desc    Generate PDF from HTML content (for crisp vector letters)
+// @route   POST /api/letters/generate-pdf
+exports.generateLetterPdf = async (req, res, next) => {
+  try {
+    const { html, filename } = req.body;
+    if (!html) {
+      return res.status(400).json({ success: false, message: 'HTML content is required' });
+    }
+    const { htmlToPdfBuffer } = require('../services/documentPdfService');
+    const pdfBuffer = await htmlToPdfBuffer(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename || 'letter'}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) { next(err); }
+};

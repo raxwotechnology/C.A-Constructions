@@ -4,6 +4,7 @@ import { absoluteMediaUrl } from './media'
 import { buildCompanyFromSettings, companyContactLines, companyLogoHtml, contactBlockHtml } from './companyBranding'
 import { buildDocumentLetterheadHtml } from './documentPrint'
 import { resolveLetterSignatory } from './letterSignatures'
+import api from './api'
 
 function safeImgSrc(u) {
   if (!u || typeof u !== 'string') return ''
@@ -179,7 +180,7 @@ const A4_CONTENT_HEIGHT_PX = 1015
 
 const PRINT_STYLES = `
   @page { margin: 25mm 15mm; size: A4; }
-  body { margin: 0; padding: 0; background: #fff; }
+  body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; }
   ${LETTER_COMPACT_CSS}
   /* Letter body prose styles */
   .letter-body p, .letter-body .letter-p { margin: 0 0 10px; }
@@ -354,68 +355,52 @@ async function waitForImages(container) {
   )
 }
 
+async function inlineImagesToDataUrls(html) {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  const imgs = div.querySelectorAll('img')
+  for (const img of imgs) {
+    try {
+      const src = img.src
+      if (!src || src.startsWith('data:')) continue
+      const res = await fetch(src)
+      const blob = await res.blob()
+      const reader = new FileReader()
+      const dataUrl = await new Promise(r => { reader.onloadend = () => r(reader.result); reader.readAsDataURL(blob) })
+      img.src = dataUrl
+    } catch(e) {}
+  }
+  return div.innerHTML
+}
+
 export async function downloadLetterPdf(opts, filenameBase = 'letter') {
   const { fitToOnePage = false, letterScale = 1, ...buildOpts } = opts
-  const wrap = document.createElement('div')
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;box-sizing:border-box;'
-  const st = document.createElement('style')
-  st.textContent = `${PRINT_STYLES}
-    .letter-pdf-page { width:794px;min-height:1123px;padding:56px 64px;background:#fff;box-sizing:border-box; }
+  const innerHtml = buildLetterInnerForPrint(buildOpts)
+  
+  // Inline any blob: or remote URLs into base64 so backend Puppeteer doesn't fail fetching them
+  const inlinedInnerHtml = await inlineImagesToDataUrls(innerHtml)
+
+  const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(buildOpts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}
+    .letter-pdf-page { width:794px;min-height:1123px;padding:56px 64px;background:#fff;box-sizing:border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     .letter-pdf-page .letter-page-wrap { max-width:100%;margin:0; }
-    .letter-pdf-page .letter-body { font-size:11pt;line-height:1.58;color:#0f172a; }
+    .letter-pdf-page .letter-body { font-size:11pt;line-height:1.58;color:#0f172a; font-family: 'Segoe UI', system-ui, sans-serif; }
     .letter-pdf-page .letter-body p { margin:0 0 10px; }
     .letter-pdf-page header { margin-bottom:22px;padding-bottom:16px; }
-  `
-  wrap.appendChild(st)
+  </style></head><body style="margin:0;padding:0;background:#fff">
+    <div class="letter-pdf-page">${inlinedInnerHtml}</div>
+  </body></html>`
 
-  const page = document.createElement('div')
-  page.className = 'letter-pdf-page'
-  page.innerHTML = buildLetterInnerForPrint(buildOpts)
-  wrap.appendChild(page)
-  document.body.appendChild(wrap)
+  const res = await api.post('/letters/generate-pdf', {
+    html: fullHtml,
+    filename: filenameBase,
+  }, { responseType: 'blob' })
 
-  try {
-    await waitForImages(page)
-    applyLetterPageFit({ body: wrap }, { fitToOnePage, scale: letterScale })
-
-    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const marginX = 14
-    const marginY = 14
-    const contentWidth = pageWidth - marginX * 2
-    const sliceHeightPx = 1015
-    const totalHeight = page.scrollHeight
-    const slices = Math.max(1, Math.ceil(totalHeight / sliceHeightPx))
-
-    for (let i = 0; i < slices; i++) {
-      const slice = document.createElement('div')
-      slice.style.cssText = `position:fixed;left:-9999px;top:0;width:794px;background:#fff;overflow:hidden;height:${sliceHeightPx}px;`
-      const inner = page.cloneNode(true)
-      inner.style.marginTop = `-${i * sliceHeightPx}px`
-      slice.appendChild(inner)
-      document.body.appendChild(slice)
-      await waitForImages(slice)
-
-      const canvas = await html2canvas(slice, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: sliceHeightPx,
-      })
-      document.body.removeChild(slice)
-
-      const imgData = canvas.toDataURL('image/png')
-      const imgHeight = (canvas.height * contentWidth) / canvas.width
-      if (i > 0) pdf.addPage()
-      pdf.addImage(imgData, 'PNG', marginX, marginY, contentWidth, Math.min(imgHeight, pageHeight - marginY * 2))
-    }
-
-    pdf.save(`${String(filenameBase).replace(/[^\w\-]+/g, '_')}.pdf`)
-  } finally {
-    document.body.removeChild(wrap)
-  }
+  const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${String(filenameBase).replace(/[^\w\-]+/g, '_')}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  window.URL.revokeObjectURL(url)
 }
