@@ -7,7 +7,21 @@ async function getBrowser() {
   if (!browserPromise) {
     browserPromise = puppeteer.launch({
       headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage', // Critical for Render/Docker
+        '--single-process', // Critical for low memory environments
+        '--no-zygote',
+        '--disable-gpu'
+      ],
+      // If deployed on Render and using their Puppeteer buildpack,
+      // it sets PUPPETEER_EXECUTABLE_PATH. Use it if available.
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
+    }).catch(err => {
+      console.error('[Puppeteer] Failed to launch browser:', err);
+      browserPromise = null; // Reset so it retries next time
+      throw err;
     });
   }
   return browserPromise;
