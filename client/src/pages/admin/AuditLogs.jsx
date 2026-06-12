@@ -3,21 +3,23 @@ import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
-import { FiShield, FiSearch, FiFilter, FiTrash2, FiEdit2, FiEye, FiUserCheck, FiAlertTriangle, FiInfo, FiX } from 'react-icons/fi'
+import { FiShield, FiSearch, FiFilter, FiTrash2, FiEdit2, FiEye, FiUserCheck, FiAlertTriangle, FiInfo, FiX, FiDollarSign } from 'react-icons/fi'
 
 const ACTION_COLORS = {
   create: 'badge-green', update: 'badge-blue', delete: 'badge-red',
   view: 'badge-gray', login: 'badge-navy', logout: 'badge-gray',
   approve: 'badge-green', reject: 'badge-red', export: 'badge-purple',
+  pay: 'badge-green',
 }
 const ACTION_ICONS = {
   create: FiUserCheck, update: FiEdit2, delete: FiTrash2,
   view: FiEye, approve: FiUserCheck, reject: FiAlertTriangle, export: FiFilter,
+  pay: FiDollarSign,
 }
-const MODULES = ['','employees','payroll','leaves','attendance','projects','invoices','clients',
+const MODULES = ['','employees','payroll','pay','loans','leaves','attendance','projects','invoices','clients',
   'subscriptions','recruitment','letters','financial','services','portfolio','rewards',
-  'settings','auth','quotations','branches','performance','analytics','exports']
-const ACTIONS = ['','create','update','delete','view','login','logout','approve','reject','export']
+  'settings','auth','quotations','branches','performance','analytics','exports','advances','cheques','bank']
+const ACTIONS = ['','create','update','delete','view','login','logout','approve','reject','export','pay']
 const SEVERITIES = ['','info','warning','critical']
 
 export default function AdminAuditLogs() {
@@ -130,8 +132,29 @@ export default function AdminAuditLogs() {
                     <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full capitalize">{log.module}</span>
                   </td>
                   <td>
-                    <p className="text-sm text-gray-700">{log.description}</p>
+                    <p className="text-sm text-gray-700 font-medium">{log.description}</p>
                     {log.entityName && <p className="text-xs text-gray-400 mt-0.5">Entity: {log.entityName}</p>}
+                    
+                    {(log.changes?.before || log.changes?.after) && (
+                      <div className="mt-2 space-y-2 max-w-xl">
+                        {log.changes?.before != null && (
+                          <details className="bg-slate-50 border border-slate-200 rounded text-xs">
+                            <summary className="p-1.5 font-semibold text-slate-500 hover:text-slate-800 cursor-pointer">View Previous Details</summary>
+                            <pre className="p-2 border-t border-slate-200 overflow-auto max-h-60 bg-white text-[10px]">
+                              {JSON.stringify(log.changes.before, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                        {log.changes?.after != null && (
+                          <details className="bg-slate-50 border border-slate-200 rounded text-xs">
+                            <summary className="p-1.5 font-semibold text-slate-500 hover:text-slate-800 cursor-pointer">View New Details</summary>
+                            <pre className="p-2 border-t border-slate-200 overflow-auto max-h-60 bg-white text-[10px]">
+                              {JSON.stringify(log.changes.after, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span className={`badge capitalize ${sevColor[log.severity] || 'badge-gray'}`}>{log.severity}</span>
@@ -161,7 +184,7 @@ export default function AdminAuditLogs() {
 
       {viewLog && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="font-bold text-slate-800">Audit detail</h3>
               <button type="button" onClick={() => setViewLog(null)} className="p-2 hover:bg-slate-100 rounded-lg"><FiX/></button>
@@ -179,13 +202,25 @@ export default function AdminAuditLogs() {
               {viewLog.changes?.before != null && (
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-1">Previous values</p>
-                  <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-40">{JSON.stringify(viewLog.changes.before, null, 2)}</pre>
+                  <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-[60vh]">{JSON.stringify(viewLog.changes.before, null, 2)}</pre>
                 </div>
               )}
               {viewLog.changes?.after != null && (
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase mb-1">New values</p>
-                  <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-40">{JSON.stringify(viewLog.changes.after, null, 2)}</pre>
+                  <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-[60vh]">{JSON.stringify(viewLog.changes.after, null, 2)}</pre>
+                </div>
+              )}
+              {viewLog.bankImpact && (
+                <div className="border-t pt-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Bank impact</p>
+                  <pre className="text-xs bg-amber-50 border border-amber-100 rounded-lg p-3 overflow-auto max-h-32">{JSON.stringify(viewLog.bankImpact, null, 2)}</pre>
+                </div>
+              )}
+              {viewLog.metadata && Object.keys(viewLog.metadata).length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Extra details</p>
+                  <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-32">{JSON.stringify(viewLog.metadata, null, 2)}</pre>
                 </div>
               )}
               {viewLog.ipAddress && <p className="text-xs text-slate-400">IP: {viewLog.ipAddress}</p>}

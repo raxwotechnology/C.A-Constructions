@@ -92,7 +92,7 @@ export default function DocumentAssetPicker({
         </select>
       )}
       {value?.data && (
-        <img src={value.data} alt="" className="max-h-16 object-contain border border-slate-200 rounded bg-white p-1" />
+        <img src={mediaUrl(value.data)} alt="" className="max-h-16 object-contain border border-slate-200 rounded bg-white p-1" />
       )}
     </div>
   )

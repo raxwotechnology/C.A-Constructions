@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import ExportBar from '../../components/ui/ExportBar'
-import { FiArrowLeft, FiFilter } from 'react-icons/fi'
+import { FiArrowLeft, FiFilter, FiTrash2 } from 'react-icons/fi'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 const MODULE_SOURCES = ['manual', 'loans', 'cheques', 'payroll', 'invoices', 'advances', 'finance', 'income_tax', 'subscriptions', 'petty_cash']
 const TX_TYPES = ['deposit', 'withdrawal', 'transfer_in', 'transfer_out']
 
 export default function BankTransactionHistory() {
+  const qc = useQueryClient()
   const [filters, setFilters] = useState({
     fromDate: '',
     toDate: '',
@@ -39,8 +42,23 @@ export default function BankTransactionHistory() {
   const accounts = bankData?.accounts || []
   const rows = data?.transactions || []
 
+  const deleteMut = useMutation({
+    mutationFn: (tx) => api.delete(`/bank-accounts/${tx.bankAccountId}/transaction/${tx._id}`),
+    onSuccess: () => {
+      qc.invalidateQueries(['bank-tx-history-all'])
+      qc.invalidateQueries(['bank-accounts'])
+      toast.success('Transaction deleted successfully')
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Delete failed')
+  })
+
+  const { requestDelete, DeletePasswordModal } = useDeleteWithPassword(deleteMut, {
+    title: 'Delete Bank Transaction',
+    message: 'This will reverse the amount from the bank balance. Enter admin password to proceed.',
+  })
+
   const columns = [
-    { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString('en-LK') },
+    { header: 'Date & Time', accessor: (r) => new Date(r.date).toLocaleString('en-LK', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Colombo' }) },
     { header: 'Bank', accessor: (r) => r.bankName },
     { header: 'Account', accessor: (r) => r.accountNumber },
     { header: 'Type', accessor: (r) => r.type },
@@ -111,16 +129,17 @@ export default function BankTransactionHistory() {
             <thead className="bg-slate-50 border-b">
               <tr>
                 {columns.map(c => <th key={c.header} className="px-4 py-3 text-left font-semibold text-slate-600">{c.header}</th>)}
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={9} className="p-8 text-center text-slate-400">Loading…</td></tr>
+                <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={9} className="p-8 text-center text-slate-400">No transactions</td></tr>
+                <tr><td colSpan={10} className="p-8 text-center text-slate-400">No transactions</td></tr>
               ) : rows.map((r) => (
                 <tr key={String(r._id)} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">{new Date(r.date).toLocaleString('en-LK')}</td>
+                  <td className="px-4 py-3">{new Date(r.date).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}</td>
                   <td className="px-4 py-3 font-medium">{r.bankName}</td>
                   <td className="px-4 py-3 text-slate-500">{r.accountNumber}</td>
                   <td className="px-4 py-3"><span className={`badge text-[10px] ${['deposit', 'transfer_in'].includes(r.type) ? 'badge-green' : 'badge-red'}`}>{r.type}</span></td>
@@ -131,6 +150,11 @@ export default function BankTransactionHistory() {
                   </td>
                   <td className="px-4 py-3">LKR {(r.balanceAfter ?? 0).toLocaleString()}</td>
                   <td className="px-4 py-3 text-slate-500">{r.performedBy}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button type="button" onClick={() => requestDelete(r)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                      <FiTrash2 size={14} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -142,6 +166,7 @@ export default function BankTransactionHistory() {
           </div>
         )}
       </div>
+      {DeletePasswordModal}
     </div>
   )
 }

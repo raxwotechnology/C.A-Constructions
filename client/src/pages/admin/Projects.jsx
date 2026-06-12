@@ -178,7 +178,7 @@ export default function AdminProjects() {
       const missing = selectedTeam.filter((userId) => {
         const emp = employees.find((e) => String(e.userId?._id) === String(userId))
         const alloc = commissionAllocations.find((a) => String(a.employeeId) === String(emp?._id))
-        return !alloc || Number(alloc.commission) <= 0
+        return alloc == null || Number(alloc.commission) < 0
       })
       if (missing.length > 0) {
         toast.error('Enter a commission amount for each selected team member')

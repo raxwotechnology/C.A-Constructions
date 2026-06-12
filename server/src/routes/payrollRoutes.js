@@ -6,12 +6,13 @@ const {
   getEpfSummary, addOvertime, getOvertime, deleteOvertime,
   syncPayroll, reopenPayroll, getRecalcLogs, getEmployeeFinancialSummary, getPayrollLiveSnapshot,
   initiateSalaryPayHere, salaryPayHereNotify,
-  updateEpfRecord, deletePayroll,
+  updateEpfRecord, deletePayroll, sendPayrollNotification, generatePayslipPdf,
 } = require('../controllers/payrollController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.post('/generate', protect, authorize('admin'), generatePayroll);
 router.post('/generate-all', protect, authorize('admin'), generateAllPayroll);
+router.post('/generate-pdf', protect, authorize('admin', 'manager'), generatePayslipPdf);
 router.post('/sync', protect, authorize('admin'), syncPayroll);
 router.get('/recalc-logs', protect, authorize('admin'), getRecalcLogs);
 router.get('/employee-summary/:employeeId', protect, authorize('admin'), getEmployeeFinancialSummary);
@@ -28,6 +29,7 @@ router.get('/', protect, authorize('admin'), getPayrolls);
 router.put('/:id/review', protect, authorize('admin'), reviewPayroll);
 router.put('/:id/approve', protect, authorize('admin'), approvePayroll);
 router.put('/:id/pay', protect, authorize('admin'), markPaid);
+router.post('/:id/send', protect, authorize('admin'), sendPayrollNotification);
 router.put('/:id/epf', protect, authorize('admin'), updateEpfRecord);
 router.put('/:id', protect, authorize('admin'), updatePayroll);
 router.post('/:id/payhere/init', protect, authorize('admin'), initiateSalaryPayHere);

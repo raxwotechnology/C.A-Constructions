@@ -103,8 +103,10 @@ export function directorSealBlockHtml({ directorName, sealUrl, forPrint = true }
     </div>`
 }
 
+import { inlineImagesToDataUrls } from './media'
+
 /** Print without popup URL bar noise (about:blank) — uses hidden iframe on same page. */
-export function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
+export async function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden;'
@@ -117,7 +119,8 @@ export function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
   }
 
   const safeTitle = ' '
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${safeTitle}</title><style>${documentPrintStyles()}${extraCss}</style></head><body>${bodyHtml}</body></html>`
+  const rawHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${safeTitle}</title><style>${documentPrintStyles()}${extraCss}</style></head><body>${bodyHtml}</body></html>`
+  const html = await inlineImagesToDataUrls(rawHtml)
 
   doc.open()
   doc.write(html)
@@ -141,6 +144,6 @@ export function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
 }
 
 /** @deprecated Prefer printHtmlContent */
-export function openDocumentPrintWindow({ title, bodyHtml, extraCss = '' }) {
-  return printHtmlContent({ title, bodyHtml, extraCss })
+export async function openDocumentPrintWindow({ title, bodyHtml, extraCss = '' }) {
+  return await printHtmlContent({ title, bodyHtml, extraCss })
 }

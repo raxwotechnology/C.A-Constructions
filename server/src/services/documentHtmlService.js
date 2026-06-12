@@ -407,6 +407,19 @@ function bankLabelFromAccount(bank) {
   return `${bank.bankName || ''} · ${bank.accountNumber || ''}`.trim();
 }
 
+/** Replace img src URLs in HTML with base64 data URIs from local uploads (hosted PDF fix). */
+function inlineUploadImagesInHtml(html) {
+  if (!html) return html;
+  return String(html).replace(
+    /(<img[^>]+src=["'])([^"']+)(["'][^>]*>)/gi,
+    (match, prefix, src, suffix) => {
+      const inlined = localFileToDataUri(src);
+      if (!inlined || inlined === src) return match;
+      return `${prefix}${inlined.replace(/"/g, '')}${suffix}`;
+    },
+  );
+}
+
 async function buildTabularExportHtml(title, headers, rows, metaLine = '') {
   const settings = (await SiteSetting.findOne().lean()) || {};
   const head = headers.map((h) => `<th>${esc(h)}</th>`).join('');
@@ -432,5 +445,7 @@ module.exports = {
   buildTabularExportHtml,
   buildLetterhead,
   bankLabelFromAccount,
+  inlineUploadImagesInHtml,
+  localFileToDataUri,
   APP_URL,
 };

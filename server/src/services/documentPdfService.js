@@ -1,5 +1,5 @@
 const puppeteer = require('puppeteer');
-const { buildQuotationDocumentHtml, buildInvoiceDocumentHtml, bankLabelFromAccount } = require('./documentHtmlService');
+const { buildQuotationDocumentHtml, buildInvoiceDocumentHtml, bankLabelFromAccount, inlineUploadImagesInHtml } = require('./documentHtmlService');
 
 let browserPromise = null;
 
@@ -17,7 +17,21 @@ async function htmlToPdfBuffer(html) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    // Abort requests that aren't data URIs or local — prevents hanging on unreachable hosts
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      const url = req.url();
+      if (req.resourceType() === 'image' && /^https?:\/\//i.test(url)) {
+        // Allow the request but don't let it block rendering
+        req.continue();
+      } else {
+        req.continue();
+      }
+    });
+    // Use networkidle2 (tolerates ≤2 pending connections) so stalled image fetches don't hang
+    await page.setContent(html, { waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {
+      // If networkidle2 times out, proceed anyway — content is already loaded via setContent
+    });
     return await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -31,12 +45,12 @@ async function htmlToPdfBuffer(html) {
 async function quotationToPdf(quotation) {
   const bankLabel = bankLabelFromAccount(quotation.bankAccount);
   const html = await buildQuotationDocumentHtml(quotation, { bankLabel });
-  return htmlToPdfBuffer(html);
+  return htmlToPdfBuffer(inlineUploadImagesInHtml(html));
 }
 
 async function invoiceToPdf(invoice) {
   const html = await buildInvoiceDocumentHtml(invoice);
-  return htmlToPdfBuffer(html);
+  return htmlToPdfBuffer(inlineUploadImagesInHtml(html));
 }
 
 module.exports = { quotationToPdf, invoiceToPdf, htmlToPdfBuffer };

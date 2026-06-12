@@ -8,6 +8,7 @@ const {
   updateAgreement,
   deleteAgreement,
   generatePreview,
+  generateAgreementPdf,
   getAgreementTemplates,
   createAgreementTemplate,
   deleteAgreementTemplate,
@@ -19,6 +20,7 @@ router.post('/templates', protect, authorize('admin', 'manager'), createAgreemen
 router.delete('/templates/:templateId', protect, authorize('admin', 'manager'), deleteAgreementTemplate);
 
 router.post('/generate-preview', protect, authorize('admin', 'manager'), generatePreview);
+router.post('/generate-pdf', protect, authorize('admin', 'manager'), generateAgreementPdf);
 router.get('/', protect, getAgreements);
 router.get('/:id', protect, getAgreement);
 router.post('/', protect, authorize('admin', 'manager'), createAgreement);

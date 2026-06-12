@@ -266,13 +266,15 @@ exports.updateInvoice = async (req, res, next) => {
     }
 
     let updates = {
-      notes, paymentTerms, currency,
+      ...(notes !== undefined && { notes }),
+      ...(paymentTerms !== undefined && { paymentTerms }),
+      ...(currency !== undefined && { currency }),
       exchangeRateToLKR: exchangeRateToLKR !== undefined
         ? (Number(exchangeRateToLKR) > 0 ? Number(exchangeRateToLKR) : 1)
         : (existing.exchangeRateToLKR != null ? existing.exchangeRateToLKR : 1),
-      dueDate: dueDate || existing.dueDate,
-      invoiceDate: invoiceDate || existing.invoiceDate,
-      client: client || existing.client,
+      dueDate: dueDate !== undefined ? dueDate : existing.dueDate,
+      invoiceDate: invoiceDate !== undefined ? invoiceDate : existing.invoiceDate,
+      client: client !== undefined ? client : existing.client,
       project: project !== undefined ? (project || null) : existing.project,
       branch: branch !== undefined ? (branch || null) : existing.branch,
       quotationRef: quotationRef !== undefined ? (quotationRef || null) : existing.quotationRef,

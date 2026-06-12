@@ -70,8 +70,16 @@ exports.searchLookup = async (req, res, next) => {
         total = await Employee.countDocuments(empQuery.getFilter());
         const rows = await empQuery.sort({ createdAt: -1 }).skip(skip).limit(l + 1);
         hasMore = rows.length > l;
-        const slice = hasMore ? rows.slice(0, l) : rows;
-        options = toOptions(slice, '_id', e => `${e.userId?.name || '—'} (${e.employeeNo || '—'})`);
+        const sliceRaw = hasMore ? rows.slice(0, l) : rows;
+        const slice = sliceRaw.filter((e) => e.userId);
+        const seenUsers = new Set();
+        const deduped = slice.filter((e) => {
+          const uid = String(e.userId?._id || e.userId);
+          if (seenUsers.has(uid)) return false;
+          seenUsers.add(uid);
+          return true;
+        });
+        options = toOptions(deduped, '_id', e => `${e.userId?.name || '—'} (${e.employeeNo || '—'})`);
         break;
       }
       case 'clients': {

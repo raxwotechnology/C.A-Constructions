@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
 import { FiDownload, FiTrendingUp, FiTrendingDown, FiDollarSign, FiPieChart, FiFilter } from 'react-icons/fi'
 
-const PAYMENT_METHODS = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other']
+const PAYMENT_METHODS = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Online Payment', 'Other']
 
 function fmt(n) { return `LKR ${Number(n || 0).toLocaleString()}` }
 
@@ -71,16 +71,17 @@ export default function FinancialReports() {
   const maxIncome = Math.max(...incomeCat.map(c => c.amount), 1)
   const maxExpense = Math.max(...expenseCat.map(c => c.amount), 1)
 
-  const exportReport = async (format) => {
+  const exportReport = async (format, dataset = 'financial_overview') => {
     try {
-      const p = new URLSearchParams({ dataset: 'financial_overview', format, from, to })
+      const p = new URLSearchParams({ dataset, format, from, to })
       if (branchFilter) p.set('branch', branchFilter)
       if (paymentMethod) p.set('paymentMethod', paymentMethod)
       const res = await api.get(`/finance/export?${p.toString()}`, { responseType: 'blob' })
       const blob = new Blob([res.data], { type: res.headers['content-type'] })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
-      a.download = `financial_report.${format === 'excel' ? 'xlsx' : 'pdf'}`
+      const ext = format === 'excel' ? 'xlsx' : 'pdf'
+      a.download = `${dataset}.${ext}`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -128,8 +129,10 @@ export default function FinancialReports() {
             title="Financial Report"
             filters={{ From: from, To: to, Branch: branchFilter || 'All', Method: paymentMethod || 'All' }}
           />
-          <button onClick={() => exportReport('excel')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Server Excel</button>
-          <button onClick={() => exportReport('pdf')} className="btn-outline btn-sm gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"><FiDownload size={13}/> Server PDF</button>
+          <button onClick={() => exportReport('excel')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Overview Excel</button>
+          <button onClick={() => exportReport('pdf')} className="btn-outline btn-sm gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"><FiDownload size={13}/> Overview PDF</button>
+          <button onClick={() => exportReport('pdf', 'incomes')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Income PDF</button>
+          <button onClick={() => exportReport('pdf', 'expenses')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Expense PDF</button>
         </div>
       </div>
 

@@ -169,7 +169,7 @@ export default function AdminQuotations() {
     return {
       role: key,
       name: profile?.label || siteSettings.quotationDirectorName || '',
-      sealUrl: profile?.url || siteSettings.sealUrl || '',
+      sealUrl: siteSettings.sealUrl || '',
     }
   }
 

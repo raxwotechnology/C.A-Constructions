@@ -219,6 +219,9 @@ exports.toggleUserStatus = async (req, res, next) => {
 // @route   PUT /api/auth/users/:id
 exports.updateUserByAdmin = async (req, res, next) => {
   try {
+    const userBefore = await User.findById(req.params.id);
+    if (!userBefore) return res.status(404).json({ success: false, message: 'User not found' });
+
     const { name, email, phone, isActive, role, branch, referralCode } = req.body;
     const payload = {
       ...(name !== undefined ? { name } : {}),
@@ -229,7 +232,6 @@ exports.updateUserByAdmin = async (req, res, next) => {
       ...(branch !== undefined ? { branch: branch || null } : {}),
     };
     const user = await User.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     if (referralCode !== undefined && user.role === 'client') {
       const Reward = require('../models/Reward');
@@ -249,6 +251,13 @@ exports.updateUserByAdmin = async (req, res, next) => {
         await getOrCreateReward(user._id);
       }
     }
+
+    const { createAuditLog } = require('./auditController');
+    await createAuditLog({
+      user: req.user, action: 'update', module: user.role === 'client' ? 'clients' : 'employees', entityId: user._id, entityName: user.name,
+      description: `Updated profile for ${user.name}`,
+      changes: { before: userBefore.toObject(), after: user.toObject() }
+    });
 
     res.json({ success: true, user });
   } catch (err) { next(err); }
@@ -271,6 +280,14 @@ exports.deleteUserByAdmin = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Only client accounts can be deleted from this endpoint' });
     }
     await user.deleteOne();
+
+    const { createAuditLog } = require('./auditController');
+    await createAuditLog({
+      user: req.user, action: 'delete', module: 'clients', entityId: user._id, entityName: user.name,
+      description: `Deleted client account ${user.name}`,
+      changes: { after: user.toObject() }
+    });
+
     res.json({ success: true, message: 'User deleted' });
   } catch (err) { next(err); }
 };
@@ -293,6 +310,7 @@ exports.createClient = async (req, res, next) => {
       role: 'client',
       branch: branch || null,
     });
+    const { getOrCreateReward, handleReferralForNewClient, awardPoints } = require('../services/rewardService');
     await getOrCreateReward(user._id);
     await awardPoints({
       userId: user._id,
@@ -313,6 +331,13 @@ exports.createClient = async (req, res, next) => {
     } catch (msgErr) {
       console.warn('[createClient] Welcome notifications failed:', msgErr.message);
     }
+
+    const { createAuditLog } = require('./auditController');
+    await createAuditLog({
+      user: req.user, action: 'create', module: 'clients', entityId: user._id, entityName: user.name,
+      description: `Created new client account for ${user.name}`,
+      changes: { after: user.toObject() }
+    });
 
     res.status(201).json({ success: true, user });
   } catch (err) { next(err); }

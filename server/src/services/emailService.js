@@ -245,15 +245,16 @@ exports.sendSubscriptionHistoryEmail = async (clientEmail, clientName, subDetail
 /* ─── Payroll & HR Notifications ─────────────────────────────────────────────── */
 exports.sendPayslipReadyEmail = async (employeeEmail, employeeName, details) => {
   const monthName = new Date(details.year, details.month - 1).toLocaleString('default', { month: 'long' });
+  const viewUrl = details.viewUrl || `${APP_URL}/developer/payslips`;
   const html = await buildEmailHTML('Salary Payment Confirmation', `
     <p>Hi <strong>${employeeName}</strong>,</p>
     <p>Your salary payment for <strong>${monthName} ${details.year}</strong> has been processed.</p>
     ${infoBoxHtml([
       { label: 'Net Salary', value: `LKR ${Number(details.netSalary).toLocaleString()}` },
-      { label: 'Payment Method', value: 'Bank Transfer' }
+      { label: 'Payment Method', value: details.paymentMethod || 'Bank Transfer' },
     ])}
-    <p>Your detailed payslip (including overtime, deductions, and bonuses) is now available for download.</p>
-    ${btnHtml('Download Payslip', `${APP_URL}/developer/payslips`)}
+    <p>Your detailed payslip is available online. Use the link below to view or download your payment bill.</p>
+    ${btnHtml('View Payment Bill / Payslip', viewUrl)}
   `);
   await sendLoggedMail({ to: employeeEmail, subject: `Salary Confirmation: ${monthName} ${details.year}`, html }, 'payroll');
 };

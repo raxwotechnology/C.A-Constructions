@@ -11,9 +11,13 @@ import { formatMoney } from '../../lib/currencies'
 import { handlePayrollSyncResponse } from '../../lib/payrollSync'
 import ExportBar from '../../components/ui/ExportBar'
 import { useSiteBranding } from '../../hooks/useSiteBranding'
-import { buildCompanyFromSettings, companyContactLines } from '../../lib/companyBranding'
-import { absoluteMediaUrl } from '../../lib/media'
-import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiUser, FiX, FiInfo, FiAlertCircle, FiRefreshCw, FiFileText } from 'react-icons/fi'
+import {
+  downloadPayslipPdf,
+  printPayslip,
+  payslipSignatoryPayload,
+  PAYSLIP_SIGNATORY_ROLES,
+} from '../../lib/payslipDocument'
+import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiX, FiAlertCircle, FiRefreshCw, FiFileText, FiEye, FiPrinter, FiUser } from 'react-icons/fi'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -30,110 +34,20 @@ function isLedgerBankMethod(method) {
   return false;
 }
 
-function buildPayslipHtml(p, company = {}) {
-  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-  const r = (label, val, cls='') => val > 0 ? `<div class="row ${cls}"><span>${label}</span><span>LKR ${Number(val||0).toLocaleString()}</span></div>` : ''
-  const logoUrl = absoluteMediaUrl(company.logoPath || company.logo)
-  const contacts = companyContactLines(company)
-  const contactHtml = contacts.map(c => `<span>${esc(c.label)}: ${esc(c.text)}</span>`).join(' &middot; ')
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Payslip ${MONTHS[p.month-1]} ${p.year}</title>
-  <style>
-    *{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,Arial,sans-serif;max-width:680px;margin:32px auto;padding:20px;color:#111}
-    .co-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:3px solid #1e3a8a;margin-bottom:20px}
-    .co-logo{max-height:56px;object-fit:contain}
-    .co-logo-fb{width:52px;height:52px;border-radius:10px;background:#1e3a8a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800}
-    .co-info{text-align:right;flex:1;min-width:180px}
-    .co-name{margin:0;font-size:18px;font-weight:800;color:#0f172a}
-    .co-tagline{margin:4px 0 0;font-size:10pt;color:#64748b;font-style:italic}
-    .co-contacts{margin:8px 0 0;font-size:9pt;color:#475569;line-height:1.6}
-    .slip-title{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
-    .slip-title h3{margin:0;font-size:14px;font-weight:700;color:#1e3a8a}
-    .slip-title .status{font-size:11px;font-weight:700;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:#dbeafe;color:#1e40af}
-    .info{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px}
-    .info-row{display:flex;justify-content:space-between;font-size:12px;color:#555;padding:3px 0;border-bottom:1px solid #f0f0f0}
-    .info-row span:last-child{font-weight:600;color:#111}
-    .sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#666;font-weight:700;margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid #e5e7eb}
-    .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
-    .add{color:#16a34a}.ded{color:#dc2626}
-    .net{background:#f0fdf4;border-radius:8px;padding:12px 16px;margin-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:15px;color:#15803d}
-    .foot{margin-top:20px;font-size:9px;color:#9ca3af;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px}
-    @media print{body{margin:0;padding:12mm}}
-  </style></head><body>
-  <div class="co-header">
-    <div>${logoUrl ? `<img src="${logoUrl}" alt="" class="co-logo"/>` : `<div class="co-logo-fb">${esc((company.name||'C').charAt(0))}</div>`}</div>
-    <div class="co-info">
-      <h1 class="co-name">${esc(company.name || 'Company')}</h1>
-      ${company.tagline ? `<p class="co-tagline">${esc(company.tagline)}</p>` : ''}
-      ${contactHtml ? `<div class="co-contacts">${contactHtml}</div>` : ''}
-    </div>
-  </div>
-  <div class="slip-title">
-    <h3>Official Payslip — ${esc(MONTHS[p.month-1])} ${p.year}</h3>
-    <span class="status">${esc((p.status||'').toUpperCase())}</span>
-  </div>
-  <div class="info">
-    <div class="info-row"><span>Employee</span><span>${esc(p.employee?.userId?.name||'N/A')}</span></div>
-    <div class="info-row"><span>Emp No</span><span>${esc(p.employee?.employeeNo||'N/A')}</span></div>
-    <div class="info-row"><span>Department</span><span>${esc(p.employee?.department||'—')}</span></div>
-    <div class="info-row"><span>Designation</span><span>${esc(p.employee?.designation||'—')}</span></div>
-  </div>
-  <div class="sec-title">Earnings</div>
-  ${r('Basic Salary', p.basicSalary)}
-  ${r('Allowances', p.allowances, 'add')}
-  ${r('Overtime Pay', p.otPay||p.overtime, 'add')}
-  ${r('Bonus'+(p.bonusNote?' ('+p.bonusNote+')':''), p.bonus, 'add')}
-  ${r('Commissions', p.commissions, 'add')}
-  ${r('Project Commissions', p.projectCommissions, 'add')}
-  <div class="row" style="font-weight:600"><span>Gross Salary</span><span>LKR ${Number(p.grossSalary||0).toLocaleString()}</span></div>
-  <div class="sec-title">Deductions</div>
-  ${r('EPF Employee', p.epfEmployee, 'ded')}
-  ${r('Income Tax', p.incomeTaxDeduction, 'ded')}
-  ${r('Advance Deduction', p.advanceDeduction||p.advancePayment, 'ded')}
-  ${r('Loan Deduction', p.loanDeduction, 'ded')}
-  ${r('Leave Deduction', p.leaveDeduction, 'ded')}
-  ${r('Late Penalties', p.penaltyDeduction, 'ded')}
-  ${r('Other Deductions', p.deductions, 'ded')}
-  <div class="row" style="font-weight:600;margin-top:6px"><span>Total Deductions</span><span>LKR ${Number(p.totalDeductions||0).toLocaleString()}</span></div>
-  <div class="net"><span>Net Salary</span><span>LKR ${Number(p.netSalary||0).toLocaleString()}</span></div>
-  <div class="sec-title">Statutory (Employer Contributions — Informational)</div>
-  ${r('EPF Employer (12%)', p.epfEmployer)}
-  ${r('ETF Employer (3%)', p.etfEmployer)}
-  <div class="foot">${esc(company.name || '')} ${company.footer || company.address ? '· ' + esc(company.footer || company.address) : ''}<br/>Computer-generated payslip — no signature required &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
-  </body></html>`
+function requiresBankAccount(method) {
+  const m = String(method || '').toLowerCase().replace(/[\s-]+/g, '_')
+  return m === 'bank_transfer' || m === 'cheque'
 }
 
-async function downloadPayslipPdf(p, company = {}) {
-  const html2canvas = (await import('html2canvas')).default
-  const { jsPDF } = await import('jspdf')
-  const wrap = document.createElement('div')
-  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:680px;padding:0;background:#fff;box-sizing:border-box;'
-  wrap.innerHTML = buildPayslipHtml(p, company).replace(/^.*<body>/s, '').replace(/<\/body>.*$/s, '')
-  // inject styles
-  const styleMatch = buildPayslipHtml(p, company).match(/<style>([\s\S]*?)<\/style>/)
-  if (styleMatch) {
-    const st = document.createElement('style'); st.textContent = styleMatch[1]; wrap.prepend(st)
-  }
-  document.body.appendChild(wrap)
-  try {
-    const canvas = await html2canvas(wrap, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' })
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-    const pageW = pdf.internal.pageSize.getWidth()
-    const pageH = pdf.internal.pageSize.getHeight()
-    const margin = 10
-    const imgW = pageW - margin * 2
-    const imgH = (canvas.height * imgW) / canvas.width
-    let heightLeft = imgH, y = margin
-    pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH)
-    heightLeft -= pageH - margin * 2
-    while (heightLeft > 0) { y = margin - (imgH - heightLeft); pdf.addPage(); pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH); heightLeft -= pageH - margin * 2 }
-    const empName = (p.employee?.userId?.name || 'payslip').replace(/[^\w-]+/g, '_')
-    pdf.save(`Payslip_${empName}_${MONTHS[p.month-1]}_${p.year}.pdf`)
-    toast.success('Pay slip PDF downloaded')
-  } finally { document.body.removeChild(wrap) }
+function isChequeMethod(method) {
+  return String(method || '').toLowerCase().replace(/[\s-]+/g, '_') === 'cheque'
 }
 
-const PAYROLL_METHODS_NEEDING_BANK = ['bank_transfer', 'online_transfer', 'card_payment', 'payhere']
+const PAYROLL_PAY_METHODS = [
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'cheque', label: 'Cheque' },
+]
 
 export default function AdminPayroll() {
   const qc = useQueryClient()
@@ -172,6 +86,50 @@ export default function AdminPayroll() {
 
   const [payBank, setPayBank] = useState('')
   const [payMethod, setPayMethod] = useState('bank_transfer')
+  const [payChequeNumber, setPayChequeNumber] = useState('')
+  const [payslipSignatoryRole, setPayslipSignatoryRole] = useState('hr')
+  const [payslipCustomSignatureUrl, setPayslipCustomSignatureUrl] = useState('')
+  const [payslipSignatureUploading, setPayslipSignatureUploading] = useState(false)
+
+  const { settings: siteSettings } = useSiteBranding()
+
+  const currentSignatoryOpts = useMemo(() => ({
+    role: payslipSignatoryRole,
+    customSignatureUrl: payslipCustomSignatureUrl,
+  }), [payslipSignatoryRole, payslipCustomSignatureUrl])
+
+  const uploadPayslipSignature = async (file) => {
+    if (!file) return
+    setPayslipSignatureUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('image', file)
+      const { data } = await api.post('/uploads/image', fd)
+      setPayslipCustomSignatureUrl(data.imageUrl || '')
+      toast.success('Signature uploaded — will appear on payslip')
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Signature upload failed')
+    } finally {
+      setPayslipSignatureUploading(false)
+    }
+  }
+
+  const buildSignatoryPayload = () => payslipSignatoryPayload(
+    payslipSignatoryRole,
+    payslipCustomSignatureUrl,
+    siteSettings || {},
+  )
+
+  const signatoryOptsForPayroll = (p) => {
+    if (previewPayroll && String(previewPayroll._id) === String(p._id)) {
+      return currentSignatoryOpts
+    }
+    const saved = p?.payslipSignatory
+    if (saved?.role) {
+      return { role: saved.role, customSignatureUrl: saved.signatureUrl }
+    }
+    return currentSignatoryOpts
+  }
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['payroll', month, year, branchFilter],
@@ -242,13 +200,17 @@ export default function AdminPayroll() {
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const generateOneMut = useMutation({
-    mutationFn: () => api.post('/payroll/generate', { 
-      month, year, employeeId: selectedEmployee, 
-      allowances, commissions, bonus, deductions: otherDeductions, 
-      paymentMethod,
-      continueLoanDeduction,
-      bankAccount: payBank
-    }),
+    mutationFn: async () => {
+      const payslipSignatory = buildSignatoryPayload()
+      return api.post('/payroll/generate', {
+        month, year, employeeId: selectedEmployee,
+        allowances, commissions, bonus, deductions: otherDeductions,
+        paymentMethod,
+        continueLoanDeduction,
+        bankAccount: payBank,
+        payslipSignatory,
+      }).then(r => r.data)
+    },
     onSuccess: (res) => {
       handlePayrollSyncResponse(qc, res.data, toast)
       qc.invalidateQueries({ queryKey: ['payroll'] })
@@ -297,13 +259,19 @@ export default function AdminPayroll() {
     onError: e => toast.error(e.response?.data?.message || 'Approval failed'),
   })
   const payMut = useMutation({
-    mutationFn: id => api.put(`/payroll/${id}/pay`, { paymentMethod: payMethod, bankAccount: payBank }),
-    onSuccess: () => { 
+    mutationFn: id => api.put(`/payroll/${id}/pay`, {
+      paymentMethod: payMethod,
+      bankAccount: payBank,
+      chequeNumber: payChequeNumber,
+      payslipSignatory: buildSignatoryPayload(),
+    }),
+    onSuccess: () => {
       qc.invalidateQueries(['payroll'])
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      qc.invalidateQueries({ queryKey: ['bank-tx-history-all'] })
       refetch()
       toast.success('Marked as paid')
-      setPreviewPayroll(null) 
+      setPreviewPayroll(null)
     },
     onError: e => toast.error(e.response?.data?.message || 'Payment failed'),
   })
@@ -313,12 +281,20 @@ export default function AdminPayroll() {
     setPayMethod(previewPayroll.paymentMethod || 'bank_transfer')
     const bid = previewPayroll.bankAccount?._id || previewPayroll.bankAccount
     setPayBank(bid ? String(bid) : '')
+    setPayChequeNumber(previewPayroll.chequeNumber || '')
+    const saved = previewPayroll.payslipSignatory
+    if (saved?.role) setPayslipSignatoryRole(saved.role)
+    setPayslipCustomSignatureUrl(saved?.signatureUrl || '')
   }, [previewPayroll])
 
   const confirmPayrollPayment = () => {
     if (!previewPayroll) return
-    if (isLedgerBankMethod(payMethod) && !payBank) {
+    if (requiresBankAccount(payMethod) && !payBank) {
       toast.error('Select which company bank account this payment is drawn from')
+      return
+    }
+    if (isChequeMethod(payMethod) && !String(payChequeNumber || '').trim()) {
+      toast.error('Cheque number is required')
       return
     }
     payMut.mutate(previewPayroll._id)
@@ -377,13 +353,9 @@ export default function AdminPayroll() {
   const totalEtf = filteredPayrolls.reduce((a, b) => a + b.etfEmployer, 0)
 
   const handleGenerateClick = () => {
-    const exists = payrolls.find(p => String(p.employee?._id) === String(selectedEmployee))
+    const exists = payrolls.find(p => String(p.employee?._id || p.employee) === String(selectedEmployee))
     if (exists) {
-      if (exists.status === 'paid') {
-        toast.error('Cannot regenerate a PAID payroll')
-      } else {
-        setShowReplaceConfirm(true)
-      }
+      setShowReplaceConfirm(true)
     } else {
       generateOneMut.mutate()
     }
@@ -393,31 +365,57 @@ export default function AdminPayroll() {
 
   const previewCalc = useMemo(() => {
     if (!liveSnap || !selectedEmp) return null
+    
+    const currentAllowances = Number(allowances || 0)
+    const currentCommissions = Number(commissions || 0)
+    const currentBonus = Number(bonus || 0)
+    const currentAdvance = Number(advanceDeduction || 0)
+    const currentLoan = Number(loanDeduction || 0)
+    const currentOtherDeductions = Number(otherDeductions || 0)
+    const currentLeave = Number(leaveDeduction || 0)
+
+    const basic = liveSnap.basicSalary || 0
+    const otTotal = liveSnap.overtime || liveSnap.otPay || 0
+    const projectComm = Number(liveSnap.projectCommissions || projectCommissionTotal || 0)
+    const incentives = Number(liveSnap.incentives || 0)
+    
+    const totalCommissions = currentCommissions + projectComm
+    const gross = basic + otTotal + currentAllowances + totalCommissions + currentBonus + incentives
+
+    const epfEmp = liveSnap.epfEmployee || 0
+    const epfEmpl = liveSnap.epfEmployer || 0
+    const etf = liveSnap.etfEmployer || 0
+    
+    const penalty = liveSnap.penaltyDeduction || 0
+    const incomeTax = liveSnap.incomeTaxDeduction || livePayrollData?.incomeTax?.taxAmount || 0
+
+    const totalDeductions = epfEmp + currentAdvance + currentLoan + currentLeave + penalty + currentOtherDeductions + incomeTax
+    
+    const net = gross - totalDeductions
+
     return {
-      basic: liveSnap.basicSalary || 0,
-      otTotal: liveSnap.overtime || liveSnap.otPay || 0,
-      gross: liveSnap.grossSalary || 0,
-      epfEmp: liveSnap.epfEmployee || 0,
-      epfEmpl: liveSnap.epfEmployer || 0,
-      etf: liveSnap.etfEmployer || 0,
-      net: liveSnap.netSalary || 0,
+      basic,
+      otTotal,
+      gross,
+      epfEmp,
+      epfEmpl,
+      etf,
+      net,
       epfEnrolled: Boolean(selectedEmp.epfEtfEnrolled),
       totalAdvance: activeAdvances.reduce((s, a) => s + Number(a.outstandingBalance || 0), 0),
-      deductedAdvance: liveSnap.advanceDeduction || 0,
-      projectCommissionTotal: liveSnap.projectCommissions || projectCommissionTotal,
-      incomeTax: liveSnap.incomeTaxDeduction || livePayrollData?.incomeTax?.taxAmount || 0,
-      loanDeduction: liveSnap.loanDeduction || 0,
-      leaveDeduction: liveSnap.leaveDeduction || 0,
-      penaltyDeduction: liveSnap.penaltyDeduction || 0,
-      bonus: liveSnap.bonus || 0,
-      commissions: liveSnap.commissions || 0,
-      allowances: liveSnap.allowances || 0,
-      incentives: liveSnap.incentives || 0,
+      deductedAdvance: currentAdvance,
+      projectCommissionTotal: projectComm,
+      incomeTax,
+      loanDeduction: currentLoan,
+      leaveDeduction: currentLeave,
+      penaltyDeduction: penalty,
+      bonus: currentBonus,
+      commissions: totalCommissions,
+      allowances: currentAllowances,
+      incentives,
+      otherDeductions: currentOtherDeductions
     }
-  }, [liveSnap, selectedEmp, activeAdvances, projectCommissionTotal, livePayrollData])
-
-  const { settings: siteSettings } = useSiteBranding()
-  const company = useMemo(() => buildCompanyFromSettings(siteSettings), [siteSettings])
+  }, [liveSnap, selectedEmp, activeAdvances, projectCommissionTotal, livePayrollData, allowances, commissions, bonus, advanceDeduction, loanDeduction, otherDeductions, leaveDeduction])
 
   const payrollExportColumns = [
     { header: 'Employee', accessor: r => r.employee?.userId?.name || '—' },
@@ -434,17 +432,43 @@ export default function AdminPayroll() {
     { header: 'Status', accessor: r => r.status },
   ]
 
-  const handlePrintSlip = (p) => {
-    const w = window.open('', '_blank')
-    if (!w) return
-    w.document.write(buildPayslipHtml(p, company))
-    w.document.close()
-    w.onload = () => w.print()
+  const handlePrintSlip = async (p) => {
+    try {
+      await printPayslip(p, siteSettings || {}, signatoryOptsForPayroll(p))
+    } catch {
+      toast.error('Failed to prepare print')
+    }
   }
 
-  const handleDownloadSlip = (p) => {
-    downloadPayslipPdf(p, company)
+  const handleDownloadSlip = async (p) => {
+    try {
+      await downloadPayslipPdf(p, siteSettings || {}, signatoryOptsForPayroll(p))
+      toast.success('Payslip PDF downloaded')
+    } catch {
+      toast.error('PDF export failed')
+    }
   }
+
+  const PayslipSignatoryFields = ({ compact = false } = {}) => (
+    <div className={`grid ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'} gap-3`}>
+      <div>
+        <label className="form-label text-xs">Authorized signatory</label>
+        <select className="form-select text-sm" value={payslipSignatoryRole} onChange={e => setPayslipSignatoryRole(e.target.value)}>
+          {PAYSLIP_SIGNATORY_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        <p className="text-[10px] text-slate-400 mt-1">Uses name & title from Admin Settings</p>
+      </div>
+      <div>
+        <label className="form-label text-xs">Signature image (optional)</label>
+        <input type="file" accept="image/*" className="form-input text-sm py-1.5" disabled={payslipSignatureUploading}
+          onChange={e => uploadPayslipSignature(e.target.files?.[0])} />
+        {payslipCustomSignatureUrl && <p className="text-[10px] text-emerald-600 mt-1">✓ Custom signature loaded</p>}
+        {!payslipCustomSignatureUrl && (
+          <p className="text-[10px] text-slate-400 mt-1">Upload a signature image to show on payslip</p>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -640,6 +664,10 @@ export default function AdminPayroll() {
               </div>
             )}
           </div>
+          <div className="border-t border-slate-100 pt-3 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Payslip letterhead & seal</p>
+            <PayslipSignatoryFields />
+          </div>
           <button className="btn-primary" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
             <FiPlay size={14}/> {generateOneMut.isPending ? 'Generating…' : 'Generate Payslip'}
           </button>
@@ -747,9 +775,23 @@ export default function AdminPayroll() {
                 <td><span className={`badge ${statusColor[p.status]||'badge-gray'}`}>{p.status}</span></td>
                 <td>
                   <div className="flex gap-1 items-center">
-                    <button onClick={() => setPreviewPayroll(p)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="View Details">
-                      <FiInfo size={14}/>
-                    </button>
+                    {p.status !== 'paid' ? (
+                      <button
+                        onClick={() => setPreviewPayroll(p)}
+                        className="btn-primary btn-sm px-2 py-1 text-[10px] font-bold uppercase"
+                        title="Review & pay"
+                      >
+                        Pay
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setPreviewPayroll(p)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        title="View payment record"
+                      >
+                        <FiEye size={14}/>
+                      </button>
+                    )}
                     {(p.status === 'draft' || p.status === 'reviewed') && (
                       <button
                         onClick={() => syncPayrollMut.mutate({ employeeId: p.employee?._id })}
@@ -780,13 +822,8 @@ export default function AdminPayroll() {
                         <FiCheck size={14}/>
                       </button>
                     )}
-                    {p.status === 'approved' && (
-                      <button onClick={() => setPreviewPayroll(p)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg" title="Pay Now">
-                        <FiDollarSign size={14}/>
-                      </button>
-                    )}
-                    <button onClick={() => handlePrintSlip(p)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Print Payslip">
-                      <FiUser size={14}/>
+                    <button onClick={() => handlePrintSlip(p)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Print payslip">
+                      <FiPrinter size={14}/>
                     </button>
                     <button onClick={() => handleDownloadSlip(p)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Download PDF Slip">
                       <FiFileText size={14}/>
@@ -822,12 +859,14 @@ export default function AdminPayroll() {
       {previewPayroll && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="font-bold text-primary font-heading">Payment Preview</h3>
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b flex-shrink-0">
+              <h3 className="font-bold text-primary font-heading">
+                {previewPayroll.status === 'approved' ? 'Payment Preview' : previewPayroll.status === 'paid' ? 'Payment Record' : 'Payroll Details'}
+              </h3>
               <button onClick={() => setPreviewPayroll(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16}/></button>
             </div>
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 flex-1 overflow-y-auto">
               {/* Employee Header */}
               <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
                 <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-white font-bold text-lg">
@@ -920,34 +959,66 @@ export default function AdminPayroll() {
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
-                <div>
-                  <label className="form-label text-xs">Payment Method</label>
-                  <select className="form-select text-sm" value={payMethod} onChange={(e) => {
-                    const v = e.target.value
-                    setPayMethod(v)
-                    if (!PAYROLL_METHODS_NEEDING_BANK.includes(v)) setPayBank('')
-                  }}>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="cash">Cash</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="card_payment">Card Payment</option>
-                    <option value="online_transfer">Online Transfer</option>
-                    <option value="payhere">PayHere</option>
-                  </select>
+              {previewPayroll.status !== 'paid' && (
+                <div className="grid grid-cols-1 gap-4 mt-4 pt-4 border-t border-gray-100 bg-slate-50/80 rounded-xl p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Payslip signatory & seal</p>
+                  <PayslipSignatoryFields compact />
                 </div>
-                {isLedgerBankMethod(payMethod) && (
+              )}
+              {previewPayroll.status !== 'paid' && (
+              <div className="grid grid-cols-1 gap-4 mt-4 pt-4 border-t border-gray-100 bg-slate-50/80 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Payment details</p>
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label text-xs">Company Bank & Branch</label>
-                    <p className="text-[10px] text-slate-500 mb-1">Net salary will be deducted from this account&apos;s balance.</p>
-                    <select className="form-select text-sm" value={payBank} onChange={e => setPayBank(e.target.value)}>
-                      <option value="">Select Account...</option>
-                      {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''} ({b.accountNumber})</option>)}
+                    <label className="form-label text-xs">Payment method</label>
+                    <select className="form-select text-sm" value={payMethod} onChange={(e) => {
+                      const v = e.target.value
+                      setPayMethod(v)
+                      if (!requiresBankAccount(v)) {
+                        setPayBank('')
+                        setPayChequeNumber('')
+                      }
+                    }}>
+                      {PAYROLL_PAY_METHODS.map((m) => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
                     </select>
                   </div>
-                )}
+                  {requiresBankAccount(payMethod) && (
+                    <div>
+                      <label className="form-label text-xs">Company bank account *</label>
+                      <select className="form-select text-sm" value={payBank} onChange={e => setPayBank(e.target.value)}>
+                        <option value="">Select account…</option>
+                        {bankAccounts.map(b => (
+                          <option key={b._id} value={b._id}>
+                            {b.bankName}{b.branchName ? ` · ${b.branchName}` : ''} ({b.accountNumber})
+                          </option>
+                        ))}
+                      </select>
+                      {payBank && (() => {
+                        const sel = bankAccounts.find(b => String(b._id) === String(payBank))
+                        return sel ? (
+                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">
+                            Selected: {sel.bankName} · Balance LKR {Number(sel.currentBalance || 0).toLocaleString()}
+                          </p>
+                        ) : null
+                      })()}
+                    </div>
+                  )}
+                  {isChequeMethod(payMethod) && (
+                    <div className="sm:col-span-2">
+                      <label className="form-label text-xs">Cheque number *</label>
+                      <input className="form-input text-sm" value={payChequeNumber} onChange={e => setPayChequeNumber(e.target.value)} placeholder="Enter cheque number" />
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-3 pt-4 flex-wrap">
+              )}
+            </div>
+            <div className="flex gap-3 p-5 border-t border-gray-100 flex-wrap flex-shrink-0">
+              <button onClick={() => handlePrintSlip(previewPayroll)} className="btn-outline btn-sm gap-1">
+                  <FiPrinter size={13}/> Print
+                </button>
                 <button onClick={() => handleDownloadSlip(previewPayroll)} className="btn-outline btn-sm gap-1 text-red-600 border-red-200 hover:border-red-300">
                   <FiFileText size={13}/> Export PDF
                 </button>
@@ -976,16 +1047,17 @@ export default function AdminPayroll() {
                   <FiSend size={13}/> SMS
                 </button>
                 <div className="flex-1" />
-                <button onClick={() => setPreviewPayroll(null)} className="btn-ghost justify-center">Cancel</button>
+                <button onClick={() => setPreviewPayroll(null)} className="btn-ghost justify-center">Close</button>
+                {previewPayroll.status !== 'paid' && (
                 <button type="button" onClick={confirmPayrollPayment} disabled={payMut.isPending} className="btn-primary justify-center bg-green-600 hover:bg-green-700 border-green-600">
-                  {payMut.isPending ? <span className="spinner"/> : <><FiCheck size={14}/> Confirm & Pay</>}
+                  {payMut.isPending ? <span className="spinner"/> : <><FiCheck size={14}/> Pay</>}
                 </button>
+                )}
               </div>
-            </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+            </motion.div>
+          </div>,
+          document.body
+        )}
       {/* Delete Confirmation Modal */}
       {deleteId && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
@@ -1020,17 +1092,13 @@ export default function AdminPayroll() {
               <div><label className="form-label text-xs font-bold uppercase tracking-tight">Commissions</label><input type="number" className="form-input text-sm" value={editForm.commissions} onChange={e => setEditForm(s => ({...s, commissions: Number(e.target.value)}))} /></div>
               <div><label className="form-label text-xs font-bold uppercase tracking-tight">Bonus</label><input type="number" className="form-input text-sm" value={editForm.bonus} onChange={e => setEditForm(s => ({...s, bonus: Number(e.target.value)}))} /></div>
               <div><label className="form-label text-xs font-bold uppercase tracking-tight">Loan Deduction</label><input type="number" className="form-input text-sm" value={editForm.loanDeduction} onChange={e => setEditForm(s => ({...s, loanDeduction: Number(e.target.value)}))} /></div>
-              <div className={`${isLedgerBankMethod(editForm.paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
+              <div className={`${requiresBankAccount(editForm.paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
                 <label className="form-label text-xs font-bold uppercase tracking-tight">Payment Method</label>
                 <select className="form-select text-sm" value={editForm.paymentMethod} onChange={e => setEditForm(s => ({...s, paymentMethod: e.target.value}))}>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="cash">Cash</option>
-                  <option value="online_transfer">Online Transfer</option>
-                  <option value="card_payment">Card Payment</option>
-                  <option value="cheque">Cheque</option>
+                  {PAYROLL_PAY_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
-              {isLedgerBankMethod(editForm.paymentMethod) && (
+              {requiresBankAccount(editForm.paymentMethod) && (
                 <div className="col-span-1">
                   <label className="form-label text-xs font-bold uppercase tracking-tight">Source Bank & Branch</label>
                   <select className="form-select text-sm" value={editForm.bankAccount || ''} onChange={e => setEditForm(s => ({...s, bankAccount: e.target.value}))}>

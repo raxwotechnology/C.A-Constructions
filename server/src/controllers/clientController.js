@@ -72,6 +72,7 @@ exports.updateClientProfile = async (req, res, next) => {
     const { companyName, contactPerson, designation, clientType, industry, clientSource, primaryPhone, secondaryPhone, billingAddress, shippingAddress, branch, accountManager, status } = req.body;
     
     let profile = await ClientProfile.findOne({ userId });
+    let profileBefore = profile ? profile.toObject() : null;
     if (!profile) {
       profile = new ClientProfile({ userId });
     }
@@ -92,6 +93,14 @@ exports.updateClientProfile = async (req, res, next) => {
 
     await profile.save();
     
+    const user = await User.findById(userId).select('name');
+    const { createAuditLog } = require('./auditController');
+    await createAuditLog({
+      user: req.user, action: 'update', module: 'clients', entityId: userId, entityName: user?.name || profile.companyName,
+      description: `Updated client profile details for ${user?.name || profile.companyName}`,
+      changes: { before: profileBefore, after: profile.toObject() }
+    });
+
     res.json({ success: true, profile });
   } catch (err) { next(err); }
 };

@@ -122,7 +122,7 @@ exports.createQuotation = async (req, res, next) => {
     const { subtotal, discountTotal, tax, total } = totals;
     const role = String(req.body.directorRole || '').trim()
     const settings = await SiteSetting.findOne().lean()
-    const roleSeal = settings?.signatures?.[role]?.url || ''
+    const roleSeal = settings?.sealUrl || ''
     const roleLabel = settings?.signatures?.[role]?.label || ''
     const payload = {
       ...req.body,
@@ -205,7 +205,7 @@ exports.updateQuotation = async (req, res, next) => {
     if (updates.directorSealUrl != null) updates.directorSealUrl = String(updates.directorSealUrl || '').trim()
     if (updates.directorRole && !updates.directorSealUrl) {
       const settings = await SiteSetting.findOne().lean()
-      updates.directorSealUrl = settings?.signatures?.[updates.directorRole]?.url || settings?.sealUrl || ''
+      updates.directorSealUrl = settings?.sealUrl || ''
       if (!updates.directorName) {
         updates.directorName = settings?.signatures?.[updates.directorRole]?.label || settings?.quotationDirectorName || ''
       }

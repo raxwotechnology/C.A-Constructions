@@ -9,6 +9,7 @@ import { FiX, FiPrinter, FiDollarSign, FiCreditCard, FiCalendar, FiClock, FiChec
 import { printHtmlContent } from '../../lib/documentPrint'
 import { layoutPrintExtraCss, loadQuotationLayout } from '../../lib/quotationPrintLayout'
 import InvoicePrintBody from '../../components/documents/InvoicePrintBody'
+import InvoicePreviewPanel from '../../components/documents/InvoicePreviewPanel'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
@@ -136,6 +137,21 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
     }
   }
 
+  const downloadInvoicePdf = async (id, invoiceNo) => {
+    try {
+      const res = await api.get(`/invoices/${id}/pdf`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `Invoice_${invoiceNo}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.parentNode.removeChild(link)
+    } catch (e) {
+      toast.error('Failed to download PDF')
+    }
+  }
+
   return createPortal(
     <div className="fixed inset-0 bg-black/60 z-50 flex justify-end" >
       <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
@@ -170,7 +186,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
         {/* Tabs */}
         <div className="flex px-6 border-b bg-slate-50 overflow-x-auto hide-scrollbar flex-shrink-0">
-          {['Overview', 'Line Items', 'Payments & Advances'].map(t => (
+          {['Overview', 'Line Items', 'Payments & Advances', 'Document Preview'].map(t => (
             <button key={t} onClick={() => setActiveTab(t)} className={`px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${activeTab === t ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
               {t}
             </button>
@@ -316,6 +332,18 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
             </div>
           )}
 
+          {activeTab === 'Document Preview' && (
+            <div className="h-[600px] border border-slate-200 rounded-xl overflow-hidden bg-slate-100 flex flex-col">
+              <InvoicePreviewPanel
+                invoice={inv}
+                siteSettings={site}
+                onDownloadPdf={() => downloadInvoicePdf(inv._id, inv.invoiceNo)}
+                printRootId="invoice-detail-preview-root"
+                isDraft={false}
+              />
+            </div>
+          )}
+
         </div>
 
         <div className="hidden" aria-hidden="true">
@@ -355,7 +383,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                     </select>
                   </div>
                 </div>
-                {['bank_transfer', 'card', 'online_transfer', 'payhere'].includes(watch('method')) && (
+                {['bank_transfer', 'card', 'online_transfer', 'payhere', 'cheque'].includes(watch('method')) && (
                   <div>
                     <label className="form-label">Bank Account</label>
                     <select {...register('bankAccount')} className="form-select">

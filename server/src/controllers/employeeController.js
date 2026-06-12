@@ -103,6 +103,16 @@ exports.getEmployees = async (req, res, next) => {
         e.designation?.toLowerCase().includes(s)
       );
     }
+
+    employees = employees.filter((e) => e.userId);
+    const seenUsers = new Set();
+    employees = employees.filter((e) => {
+      const uid = String(e.userId?._id || e.userId);
+      if (seenUsers.has(uid)) return false;
+      seenUsers.add(uid);
+      return true;
+    });
+
     res.json({ success: true, count: employees.length, employees });
   } catch (err) { next(err); }
 };
@@ -235,6 +245,7 @@ exports.createEmployee = async (req, res, next) => {
     await createAuditLog({
       user: req.user, action: 'create', module: 'employees', entityId: employee._id, entityName: name,
       description: `Created new employee profile for ${name} (${employeeNo})`,
+      changes: { after: employee.toObject() }
     });
 
     // Send welcome email and SMS to new employee
@@ -318,14 +329,15 @@ exports.updateEmployee = async (req, res, next) => {
       payload.profilePhoto = photo;
       await User.findByIdAndUpdate(employeeBefore.userId, { avatar: photo });
     }
-
     const employee = await Employee.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       .populate('userId', 'name email phone avatar role');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
+    const empName = employee.userId?.name || employee.employeeNo;
     await createAuditLog({
-      user: req.user, action: 'update', module: 'employees', entityId: employee._id, entityName: employee.employeeNo,
-      description: `Updated employee profile ${employee.employeeNo}${nameUpdate ? ` (name → ${nameUpdate})` : ''}`,
+      user: req.user, action: 'update', module: 'employees', entityId: employee._id, entityName: empName,
+      description: `Updated employee profile for ${empName} (${employee.employeeNo})`,
+      changes: { before: employeeBefore.toObject(), after: employee.toObject() }
     });
 
     res.json({ success: true, employee });
@@ -350,12 +362,14 @@ exports.deleteEmployee = async (req, res, next) => {
         },
       },
       { new: true }
-    );
+    ).populate('userId', 'name');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
     
+    const empName = employee.userId?.name || employee.employeeNo;
     await createAuditLog({
-      user: req.user, action: 'delete', module: 'employees', entityId: employee._id, entityName: employee.employeeNo,
-      description: `Marked employee ${employee.employeeNo} as former`,
+      user: req.user, action: 'delete', module: 'employees', entityId: employee._id, entityName: empName,
+      description: `Marked employee ${empName} (${employee.employeeNo}) as former`,
+      changes: { after: employee.toObject() }
     });
 
     res.json({ success: true, message: 'Employee marked as former. All data retained.' });

@@ -1,7 +1,5 @@
-import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
-import { buildLetterheadHtml, buildRefDateHtml, buildSigsHtml, buildFooterHtml, LETTER_COMPACT_CSS, applyLetterPageFit } from './letterDocument'
-
+import api from './api'
+import { buildLetterheadHtml, buildRefDateHtml, buildFooterHtml, LETTER_COMPACT_CSS, applyLetterPageFit } from './letterDocument'
 import { absoluteMediaUrl } from './media'
 
 function escapeHtml(s) {
@@ -147,9 +145,10 @@ const AGREEMENT_PRINT_STYLES = `
   }
 `
 
-export function openAgreementPrint(opts) {
+export async function openAgreementPrint(opts) {
   const inner = buildAgreementBodyHtml(opts)
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(opts.title || 'Agreement')}</title><style>${AGREEMENT_PRINT_STYLES}</style></head><body>${inner}</body></html>`
+  const rawHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(opts.title || 'Agreement')}</title><style>${AGREEMENT_PRINT_STYLES}</style></head><body>${inner}</body></html>`
+  const html = await inlineImagesToDataUrls(rawHtml)
 
   // Use a hidden iframe (same approach as letters) to avoid browser header/footer
   const oldFrame = document.getElementById('__agreement-print-frame')
@@ -186,53 +185,44 @@ export function openAgreementPrint(opts) {
   }
 }
 
-export async function downloadAgreementPdf(opts, filenameBase = 'agreement') {
-  const wrap = document.createElement('div')
-  wrap.setAttribute('dir', 'ltr')
-  wrap.style.cssText =
-    'position:fixed;left:-9999px;top:0;width:794px;padding:40px 48px;background:#fff;box-sizing:border-box;'
-  const st = document.createElement('style')
-  st.textContent = AGREEMENT_PRINT_STYLES
-  wrap.appendChild(st)
-  const content = document.createElement('div')
-  content.innerHTML = buildAgreementBodyHtml(opts)
-  wrap.appendChild(content)
-  document.body.appendChild(wrap)
-  try {
-    applyLetterPageFit({ body: wrap }, { fitToOnePage: true, scale: 1 })
-    const canvas = await html2canvas(content, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      width: wrap.scrollWidth,
-      height: wrap.scrollHeight,
-    })
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 10
-    const imgWidth = pageWidth - margin * 2
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-    let heightLeft = imgHeight
-    let y = margin
-
-    pdf.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight)
-    heightLeft -= pageHeight - margin * 2
-
-    while (heightLeft > 0) {
-      y = margin - (imgHeight - heightLeft)
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', margin, y, imgWidth, imgHeight)
-      heightLeft -= pageHeight - margin * 2
-    }
-
-    const safe = String(filenameBase).replace(/[^\w\-]+/g, '_')
-    pdf.save(`${safe}.pdf`)
-  } finally {
-    document.body.removeChild(wrap)
+async function inlineImagesToDataUrls(html) {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  const imgs = div.querySelectorAll('img')
+  for (const img of imgs) {
+    try {
+      const src = img.src
+      if (!src || src.startsWith('data:')) continue
+      const res = await fetch(src)
+      const blob = await res.blob()
+      const reader = new FileReader()
+      const dataUrl = await new Promise((r) => { reader.onloadend = () => r(reader.result); reader.readAsDataURL(blob) })
+      img.src = dataUrl
+    } catch { /* keep original src */ }
   }
+  return div.innerHTML
+}
+
+export async function downloadAgreementPdf(opts, filenameBase = 'agreement') {
+  const inner = buildAgreementBodyHtml(opts)
+  const inlinedInner = await inlineImagesToDataUrls(inner)
+  const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(opts.title || 'Agreement')}</title><style>${AGREEMENT_PRINT_STYLES}
+    .agreement-pdf-page { width:794px;min-height:1123px;padding:40px 48px;background:#fff;box-sizing:border-box; }
+  </style></head><body style="margin:0;padding:0;background:#fff">
+    <div class="agreement-pdf-page">${inlinedInner}</div>
+  </body></html>`
+
+  const res = await api.post('/agreements/generate-pdf', {
+    html: fullHtml,
+    filename: filenameBase,
+  }, { responseType: 'blob' })
+
+  const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${String(filenameBase).replace(/[^\w\-]+/g, '_')}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  window.URL.revokeObjectURL(url)
 }

@@ -1,25 +1,15 @@
 const mongoose = require('mongoose');
+const { postsToBankLedger, parseLedgerDate } = require('./paymentMethods');
 
-/**
- * True when money should move on a company bank account (when bankAccount id is set).
- */
+/** @deprecated use postsToBankLedger from paymentMethods */
 function isLedgerBankMethod(method) {
-  const raw = String(method || '').trim();
-  if (!raw) return false;
-  const m = raw.toLowerCase().replace(/[\s-]+/g, '_');
-  if (!m || m === 'cash' || m === 'cheque' || m === 'other' || m === 'manual' || m === 'salary_deduction') return false;
-  if (m.includes('payhere')) return true;
-  if (m === 'bank_transfer' || (m.includes('bank') && m.includes('transfer'))) return true;
-  if (m.includes('card')) return true;
-  if (m.includes('online')) return true;
-  if (m.endsWith('_transfer') || m.includes('transfer')) return true;
-  return false;
+  return postsToBankLedger(method);
 }
 
 function isFinanceBankMethod(paymentMethod) {
   const p = String(paymentMethod || '').trim();
-  if (['Bank Transfer', 'Card', 'Online Payment'].includes(p)) return true;
-  return isLedgerBankMethod(paymentMethod);
+  if (['Bank Transfer', 'Card', 'Online Payment', 'Cheque'].includes(p)) return true;
+  return postsToBankLedger(paymentMethod);
 }
 
 /**
@@ -38,12 +28,18 @@ async function appendBankTransaction(bankAccountId, {
   recordedBy,
   paymentMethod = '',
 }) {
-  if (!bankAccountId || !mongoose.Types.ObjectId.isValid(String(bankAccountId))) return null;
+  if (!bankAccountId || !mongoose.Types.ObjectId.isValid(String(bankAccountId))) {
+    throw new Error(`Invalid bank account ID: ${bankAccountId}`);
+  }
   const BankAccount = require('../models/BankAccount');
   const account = await BankAccount.findById(bankAccountId);
-  if (!account) return null;
+  if (!account) {
+    throw new Error(`Bank account not found for ID: ${bankAccountId}`);
+  }
   const amt = Math.abs(Number(amount) || 0);
-  if (!amt) return null;
+  if (!amt) {
+    throw new Error(`Invalid transaction amount: ${amount}`);
+  }
 
   const balanceBefore = account.currentBalance || 0;
   const isCredit = txType === 'deposit' || txType === 'transfer_in';
@@ -52,6 +48,8 @@ async function appendBankTransaction(bankAccountId, {
 
   const ref = String(referenceId || reference || '').slice(0, 200);
   const payLabel = String(paymentMethod || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const txDate = parseLedgerDate(date);
+
   account.transactions.push({
     type: isCredit ? 'deposit' : 'withdrawal',
     transactionType: payLabel || txType,
@@ -59,7 +57,7 @@ async function appendBankTransaction(bankAccountId, {
     balanceBefore,
     balanceAfter: account.currentBalance,
     description: String(description || '').slice(0, 500),
-    date: date ? new Date(date) : new Date(),
+    date: txDate,
     reference: ref,
     referenceId: ref,
     moduleSource: String(moduleSource || 'manual').slice(0, 80),
@@ -75,4 +73,6 @@ module.exports = {
   isLedgerBankMethod,
   isFinanceBankMethod,
   appendBankTransaction,
+  postsToBankLedger,
+  parseLedgerDate,
 };

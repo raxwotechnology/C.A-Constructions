@@ -251,8 +251,22 @@ exports.updateSubscription = async (req, res, next) => {
 // ── DELETE subscription (admin) ───────────────────────
 exports.deleteSubscription = async (req, res, next) => {
   try {
-    const sub = await Subscription.findByIdAndDelete(req.params.id);
+    const sub = await Subscription.findById(req.params.id).populate('client', 'name email');
     if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+
+    const { createAuditLog } = require('./auditController');
+    await createAuditLog({
+      user: req.user,
+      action: 'delete',
+      module: 'subscriptions',
+      entityId: sub._id,
+      entityName: sub.title || sub.subscriptionNo,
+      description: `Deleted subscription "${sub.title}" for ${sub.client?.name || 'client'} (collected LKR ${Number(sub.totalPaid || 0).toLocaleString()})`,
+      changes: { before: sub.toObject() },
+      severity: 'warning',
+    });
+
+    await sub.deleteOne();
     res.json({ success: true, message: 'Subscription deleted' });
   } catch (err) { next(err); }
 };
@@ -397,6 +411,55 @@ exports.removeAgreement = async (req, res, next) => {
     await sub.save();
 
     res.json({ success: true, message: 'Agreement removed', subscription: sub });
+  } catch (err) { next(err); }
+};
+
+// ── BULK SEND HISTORY (admin) ─────────────────────────
+exports.bulkSendHistory = async (req, res, next) => {
+  try {
+    const { subscriptionIds = [], methods = ['email'] } = req.body;
+    if (!Array.isArray(subscriptionIds) || subscriptionIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Select at least one subscription' });
+    }
+
+    const emailService = require('../services/emailService');
+    const smsService = require('../services/smsService');
+    const results = [];
+
+    for (const id of subscriptionIds) {
+      const sub = await Subscription.findById(id).populate('client', 'name email phone');
+      if (!sub?.client) {
+        results.push({ id, success: false, message: 'Subscription or client not found' });
+        continue;
+      }
+      const client = sub.client;
+      let sentEmail = false;
+      let sentSms = false;
+      try {
+        if (methods.includes('email') && client.email) {
+          await emailService.sendSubscriptionHistoryEmail(client.email, client.name, sub);
+          sentEmail = true;
+        }
+        if (methods.includes('sms') && client.phone) {
+          await smsService.sendSubscriptionHistorySms(client.phone, client.name, sub.title, sub.totalPaid);
+          sentSms = true;
+        }
+        if (!sentEmail && !sentSms) {
+          results.push({ id, success: false, message: 'No valid contact methods' });
+        } else {
+          results.push({ id, success: true, sentEmail, sentSms, title: sub.title });
+        }
+      } catch (err) {
+        results.push({ id, success: false, message: err.message || 'Send failed' });
+      }
+    }
+
+    const ok = results.filter((r) => r.success).length;
+    res.json({
+      success: ok > 0,
+      message: `Sent ${ok} of ${subscriptionIds.length} subscription invoice(s)`,
+      results,
+    });
   } catch (err) { next(err); }
 };
 
@@ -585,6 +648,105 @@ exports.processOverdue = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// ── CREATE INVOICE FROM PAYMENT (admin) ─────────────────
+exports.createInvoiceFromPayment = async (req, res, next) => {
+  try {
+    const sub = await Subscription.findById(req.params.id);
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+    const payment = sub.payments.id(req.params.paymentId);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+    
+    const { generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
+    const invoiceNo = await generateAutoInvoiceNo('INV');
+    const Invoice = require('../models/Invoice');
+
+    const invoice = await Invoice.create({
+      client: sub.client,
+      project: sub.project,
+      invoiceNo,
+      invoiceDate: payment.paidAt,
+      dueDate: payment.paidAt,
+      items: [{
+        description: `Subscription Payment - ${sub.title}`,
+        quantity: 1,
+        unitPrice: payment.amount,
+        total: payment.amount
+      }],
+      subtotal: payment.amount,
+      total: payment.amount,
+      status: 'paid',
+      paymentMethod: payment.method,
+      bankAccount: payment.bankAccount,
+      notes: `Generated from subscription ${sub.subscriptionNo || sub.title} payment (${payment.reference || payment.note || 'No ref'})`,
+      createdBy: req.user._id,
+      payments: [{
+        amount: payment.amount,
+        date: payment.paidAt,
+        method: payment.method,
+        reference: payment.reference,
+        notes: payment.note,
+        bankAccount: payment.bankAccount,
+        recordedBy: payment.recordedBy,
+        isAdvance: false
+      }]
+    });
+
+    res.json({ success: true, message: 'Invoice created successfully', invoice });
+  } catch (err) { next(err); }
+};
+
+// ── SEND PAYMENT RECEIPT (admin) ───────────────────────
+exports.sendPaymentReceipt = async (req, res, next) => {
+  try {
+    const sub = await Subscription.findById(req.params.id).populate('client', 'name email phone');
+    if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+    const payment = sub.payments.id(req.params.paymentId);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+    
+    const methods = req.body.methods || ['email'];
+    const smsService = require('../services/smsService');
+    const client = sub.client;
+
+    let sentEmail = false;
+    let sentSms = false;
+
+    if (methods.includes('email') && client.email) {
+      const { sendMail } = require('../utils/mailer');
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Payment Receipt</h2>
+          <p>Dear ${client.name},</p>
+          <p>We have received your payment of <strong>LKR ${payment.amount.toLocaleString()}</strong> for subscription <strong>${sub.title}</strong>.</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+            <tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Date</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${new Date(payment.paidAt).toLocaleDateString()}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Method</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${payment.method.replace('_', ' ').toUpperCase()}</td></tr>
+            ${payment.reference ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Reference</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${payment.reference}</td></tr>` : ''}
+          </table>
+          <p style="margin-top: 20px;">Thank you for your business!</p>
+          <p style="font-size: 12px; color: #64748b;">— Raxwo Team</p>
+        </div>
+      `;
+      await sendMail({
+        to: client.email,
+        subject: `Payment Receipt - ${sub.title}`,
+        html,
+        text: `We have received your payment of LKR ${payment.amount} for ${sub.title}.`
+      });
+      sentEmail = true;
+    }
+
+    if (methods.includes('sms') && client.phone) {
+      const msg = `Dear ${client.name}, we received LKR ${payment.amount.toLocaleString()} for subscription "${sub.title}". Thank you!`;
+      await smsService.sendSms(client.phone, msg, client.name, 'subscription');
+      sentSms = true;
+    }
+
+    if (!sentEmail && !sentSms) return res.status(400).json({ success: false, message: 'No valid contact methods.' });
+    
+    res.json({ success: true, message: 'Receipt sent successfully' });
+  } catch (err) { next(err); }
+};
+
 // ── CLIENT: get my subscription summary ───────────────
 exports.getMySubscriptionSummary = async (req, res, next) => {
   try {
@@ -622,5 +784,3 @@ exports.getMySubscriptionSummary = async (req, res, next) => {
     });
   } catch (err) { next(err); }
 };
-
-

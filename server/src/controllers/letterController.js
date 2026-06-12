@@ -359,7 +359,8 @@ exports.generateLetterPdf = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'HTML content is required' });
     }
     const { htmlToPdfBuffer } = require('../services/documentPdfService');
-    const pdfBuffer = await htmlToPdfBuffer(html);
+    const { inlineUploadImagesInHtml } = require('../services/documentHtmlService');
+    const pdfBuffer = await htmlToPdfBuffer(inlineUploadImagesInHtml(html));
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename || 'letter'}.pdf"`);
     res.send(pdfBuffer);

@@ -8,7 +8,8 @@ import { mediaUrl } from '../../lib/media'
 import toast from 'react-hot-toast'
 import {
   FiPlus, FiSearch, FiEdit2, FiTrash2, FiFileText,
-  FiLink, FiServer, FiAlertCircle, FiDollarSign, FiX, FiList, FiEye, FiExternalLink
+  FiLink, FiServer, FiAlertCircle, FiDollarSign, FiX, FiList, FiEye, FiExternalLink,
+  FiMail, FiMessageSquare, FiUsers
 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import ExportBar from '../../components/ui/ExportBar'
@@ -64,6 +65,8 @@ export default function AdminSubscriptions() {
   const [statusFilter, setStatusFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [selectedSubIds, setSelectedSubIds] = useState([])
+  const [bulkSending, setBulkSending] = useState(false)
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -105,7 +108,32 @@ export default function AdminSubscriptions() {
   const subs = data?.subscriptions || []
   const clients = (clientsData?.users || []).filter(u => u.role === 'client')
   const overview = overviewData?.overview || {}
+  const clientSummaries = overview.clientSummaries || []
   const bankAccounts = bankData?.accounts || []
+
+  const toggleSubSelection = (id) => {
+    setSelectedSubIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+  const toggleClientSelection = (summary) => {
+    const ids = summary.subscriptions.map((s) => s._id)
+    const allSelected = ids.every((id) => selectedSubIds.includes(id))
+    setSelectedSubIds((prev) => (
+      allSelected ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]
+    ))
+  }
+  const bulkSend = async (methods) => {
+    if (!selectedSubIds.length) return toast.error('Select at least one subscription')
+    setBulkSending(true)
+    try {
+      const res = await api.post('/subscriptions/bulk-send-history', { subscriptionIds: selectedSubIds, methods })
+      toast.success(res.data?.message || 'Invoices sent')
+      setSelectedSubIds([])
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bulk send failed')
+    } finally {
+      setBulkSending(false)
+    }
+  }
   const filteredSubs = subs.filter(s =>
     s.title?.toLowerCase().includes(search.toLowerCase()) ||
     s.subscriptionNo?.toLowerCase().includes(search.toLowerCase()) ||
@@ -298,6 +326,96 @@ export default function AdminSubscriptions() {
           </div>
         ))}
       </div>
+
+      {/* Client payment summaries — bulk invoice email/SMS */}
+      {clientSummaries.length > 0 && (
+        <div className="card">
+          <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <FiUsers className="text-secondary" size={18} />
+              <div>
+                <h3 className="font-bold text-slate-800">Client Payment Summaries</h3>
+                <p className="text-xs text-slate-500">Select subscriptions and send payment history by email or SMS</p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                className="btn-outline btn-sm gap-1.5"
+                disabled={!selectedSubIds.length || bulkSending}
+                onClick={() => bulkSend(['email'])}
+              >
+                <FiMail size={14} /> Email selected ({selectedSubIds.length})
+              </button>
+              <button
+                type="button"
+                className="btn-outline btn-sm gap-1.5"
+                disabled={!selectedSubIds.length || bulkSending}
+                onClick={() => bulkSend(['sms'])}
+              >
+                <FiMessageSquare size={14} /> SMS selected
+              </button>
+              <button
+                type="button"
+                className="btn-primary btn-sm gap-1.5"
+                disabled={!selectedSubIds.length || bulkSending}
+                onClick={() => bulkSend(['email', 'sms'])}
+              >
+                Email + SMS
+              </button>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+            {clientSummaries.map((cs) => {
+              const ids = cs.subscriptions.map((s) => s._id)
+              const allSelected = ids.length > 0 && ids.every((id) => selectedSubIds.includes(id))
+              const someSelected = ids.some((id) => selectedSubIds.includes(id))
+              return (
+                <div key={cs.client?._id || cs.client?.email} className="p-4">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
+                      onChange={() => toggleClientSelection(cs)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-slate-800">{cs.client?.name}</p>
+                          <p className="text-xs text-slate-400">{cs.client?.email}</p>
+                        </div>
+                        <div className="text-right text-xs">
+                          <p className="text-slate-600">Paid: <span className="font-semibold text-emerald-600">LKR {Number(cs.totalPaid || 0).toLocaleString()}</span></p>
+                          {cs.overdueAmount > 0 && (
+                            <p className="text-red-500 font-medium">Overdue: LKR {Number(cs.overdueAmount).toLocaleString()} ({cs.overdueSubs} sub{cs.overdueSubs !== 1 ? 's' : ''})</p>
+                          )}
+                        </div>
+                      </div>
+                      <ul className="mt-2 space-y-1">
+                        {cs.subscriptions.map((s) => (
+                          <li key={s._id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={selectedSubIds.includes(s._id)}
+                              onChange={() => toggleSubSelection(s._id)}
+                            />
+                            <span className="font-medium text-slate-700">{s.title}</span>
+                            <span className="text-xs text-slate-400">LKR {Number(s.amount || 0).toLocaleString()}</span>
+                            {s.overdueDays > 0 && <span className="badge badge-red text-[10px]">{s.overdueDays}d overdue</span>}
+                            <span className={`badge text-[10px] ${s.status === 'overdue' ? 'badge-red' : 'badge-green'}`}>{s.status}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="card">
@@ -726,6 +844,7 @@ export default function AdminSubscriptions() {
                         <th>Method</th>
                         <th>Ref / Note</th>
                         <th>Recorded By</th>
+                        <th className="text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -740,6 +859,47 @@ export default function AdminSubscriptions() {
                             {p.method === 'cheque' && <p className="text-xs text-slate-400">Cheque: {p.chequeNumber} {p.chequeBank ? `(${p.chequeBank})` : ''}</p>}
                           </td>
                           <td>{p.recordedBy?.name || '—'}</td>
+                          <td>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const res = await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/invoice`);
+                                    toast.success(res.data?.message || 'Invoice created');
+                                    // Optional: Redirect to invoices page or open invoice?
+                                  } catch (e) { toast.error(e.response?.data?.message || 'Failed to create invoice'); }
+                                }}
+                                className="btn-outline btn-xs gap-1 border-slate-200 hover:border-slate-300 text-slate-600"
+                                title="Create Invoice"
+                              >
+                                Invoice
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/receipt`, { methods: ['email'] });
+                                    toast.success('Email receipt sent');
+                                  } catch (e) { toast.error(e.response?.data?.message || 'Failed to send email'); }
+                                }}
+                                className="btn-outline btn-xs gap-1 border-blue-200 hover:border-blue-300 text-blue-600"
+                                title="Email Receipt"
+                              >
+                                <FiMail size={12} /> Email
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/receipt`, { methods: ['sms'] });
+                                    toast.success('SMS receipt sent');
+                                  } catch (e) { toast.error(e.response?.data?.message || 'Failed to send SMS'); }
+                                }}
+                                className="btn-outline btn-xs gap-1 border-emerald-200 hover:border-emerald-300 text-emerald-600"
+                                title="SMS Receipt"
+                              >
+                                <FiMessageSquare size={12} /> SMS
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

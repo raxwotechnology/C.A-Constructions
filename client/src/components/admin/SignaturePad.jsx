@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
+import { mediaUrl } from '../../lib/media'
 
 export default function SignaturePad({ label, value, onChange, disabled }) {
   const canvasRef = useRef(null)
@@ -15,12 +16,13 @@ export default function SignaturePad({ label, value, onChange, disabled }) {
     ctx.fillRect(0, 0, w, h)
     if (value) {
       const img = new Image()
+      img.crossOrigin = 'anonymous'
       img.onload = () => {
         ctx.fillStyle = '#ffffff'
         ctx.fillRect(0, 0, w, h)
         ctx.drawImage(img, 0, 0, w, h)
       }
-      img.src = value
+      img.src = mediaUrl(value)
     }
   }, [value])
 

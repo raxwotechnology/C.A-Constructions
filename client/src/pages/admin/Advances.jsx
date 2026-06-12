@@ -21,15 +21,20 @@ const EMPTY = {
   paymentMethod: 'cash',
   bankAccount: '',
   paymentReference: '',
+  chequeNumber: '',
 }
 const REPAY_EMPTY = { amount: '', date: new Date().toISOString().split('T')[0], note: '' }
 
-function isBankPaymentMethod(method) {
+function requiresBankAccount(method) {
   const m = String(method || '').toLowerCase().replace(/[\s-]+/g, '_')
-  return m === 'card' || m === 'bank_transfer' || m.includes('card') || (m.includes('bank') && m.includes('transfer'))
+  return m === 'bank_transfer' || m === 'cheque'
 }
 
-const PAYMENT_LABELS = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer' }
+function isChequeMethod(method) {
+  return String(method || '').toLowerCase().replace(/[\s-]+/g, '_') === 'cheque'
+}
+
+const PAYMENT_LABELS = { cash: 'Cash', bank_transfer: 'Bank Transfer', cheque: 'Cheque' }
 
 export default function AdminAdvances() {
   const qc = useQueryClient()
@@ -103,8 +108,12 @@ export default function AdminAdvances() {
 
   const submitCreate = () => {
     if (!form.employeeId || !form.amount) { toast.error('Employee and amount required'); return }
-    if (isBankPaymentMethod(form.paymentMethod) && !form.bankAccount) {
-      toast.error('Select a bank account for card or bank transfer')
+    if (requiresBankAccount(form.paymentMethod) && !form.bankAccount) {
+      toast.error('Select a bank account for bank transfer or cheque payment')
+      return
+    }
+    if (isChequeMethod(form.paymentMethod) && !String(form.chequeNumber || '').trim()) {
+      toast.error('Cheque number is required')
       return
     }
     createMut.mutate(form)
@@ -254,18 +263,18 @@ export default function AdminAdvances() {
               <div>
                 <label className="form-label">Payment method *</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {['cash', 'card', 'bank_transfer'].map(m => (
+                  {['cash', 'bank_transfer', 'cheque'].map(m => (
                     <label key={m} className={`cursor-pointer p-3 rounded-xl border-2 text-center text-sm transition-all ${form.paymentMethod === m ? 'border-secondary bg-blue-50 font-semibold' : 'border-slate-200 hover:border-slate-300'}`}>
-                      <input type="radio" className="hidden" value={m} checked={form.paymentMethod === m} onChange={() => setForm(s => ({ ...s, paymentMethod: m, bankAccount: m === 'cash' ? '' : s.bankAccount }))} />
-                      {m === 'cash' && '💵 '}{m === 'card' && <FiCreditCard className="inline mr-1" size={14} />}{PAYMENT_LABELS[m]}
+                      <input type="radio" className="hidden" value={m} checked={form.paymentMethod === m} onChange={() => setForm(s => ({ ...s, paymentMethod: m, bankAccount: m === 'cash' ? '' : s.bankAccount, chequeNumber: m === 'cheque' ? s.chequeNumber : '' }))} />
+                      {m === 'cash' && '💵 '}{PAYMENT_LABELS[m]}
                     </label>
                   ))}
                 </div>
               </div>
 
-              {isBankPaymentMethod(form.paymentMethod) && (
+              {requiresBankAccount(form.paymentMethod) && (
                 <div className="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <p className="text-xs font-semibold text-slate-600">Bank account (required) — amount will be deducted</p>
+                  <p className="text-xs font-semibold text-slate-600">Bank account (required) — amount will be deducted from this account</p>
                   <div>
                     <label className="form-label">Bank account *</label>
                     <SearchableSelect
@@ -275,10 +284,17 @@ export default function AdminAdvances() {
                       placeholder="Search bank account…"
                     />
                   </div>
-                  <div>
-                    <label className="form-label">Reference (optional)</label>
-                    <input className="form-input" value={form.paymentReference} onChange={e => setForm(s => ({ ...s, paymentReference: e.target.value }))} placeholder="Transfer ref / receipt no." />
-                  </div>
+                  {isChequeMethod(form.paymentMethod) ? (
+                    <div>
+                      <label className="form-label">Cheque number *</label>
+                      <input className="form-input" value={form.chequeNumber} onChange={e => setForm(s => ({ ...s, chequeNumber: e.target.value }))} placeholder="Cheque no." />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="form-label">Reference (optional)</label>
+                      <input className="form-input" value={form.paymentReference} onChange={e => setForm(s => ({ ...s, paymentReference: e.target.value }))} placeholder="Transfer ref / receipt no." />
+                    </div>
+                  )}
                 </div>
               )}
 

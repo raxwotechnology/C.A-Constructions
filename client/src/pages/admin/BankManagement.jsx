@@ -305,7 +305,7 @@ export default function AdminBankManagement() {
                       <tr><td colSpan={8} className="text-center py-8 text-slate-400">No transactions</td></tr>
                     ) : historyData.transactions.map(tx => (
                       <tr key={tx._id}>
-                        <td>{tx.date ? new Date(tx.date).toLocaleString('en-LK') : '—'}</td>
+                        <td>{tx.date ? new Date(tx.date).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' }) : '—'}</td>
                         <td className="capitalize">{tx.transactionType || tx.type}</td>
                         <td className="font-mono text-xs">{tx.referenceId || '—'}</td>
                         <td className="capitalize">{tx.moduleSource || '—'}</td>

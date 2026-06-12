@@ -61,18 +61,48 @@ export function mediaUrl(url) {
   return path
 }
 
-/** Full URL for print/PDF/html2canvas (same-origin in dev via Vite proxy). */
+/** Full URL for print/PDF/html2canvas — prefers backend uploads origin in production. */
 export function absoluteMediaUrl(url) {
   const path = mediaUrl(url)
   if (!path) return ''
   if (path.startsWith('data:')) return path
   if (path.startsWith('blob:')) return path
   if (/^https?:\/\//i.test(path)) return path
+
+  const uploadsOrigin = getUploadsOrigin()
+  if (uploadsOrigin) {
+    return path.startsWith('/') ? `${uploadsOrigin}${path}` : `${uploadsOrigin}/${path}`
+  }
+
   if (typeof window !== 'undefined') {
     const origin = window.location.origin
     return path.startsWith('/') ? `${origin}${path}` : `${origin}/${path}`
   }
-  const origin = getUploadsOrigin()
-  const suffix = path.startsWith('/') ? path : `/${path}`
-  return origin ? `${origin}${suffix}` : path
+
+  return path
+}
+
+/** Convert all <img> src attributes in an HTML string to data URLs (base64). Essential for hosted PDF/Print. */
+export async function inlineImagesToDataUrls(html) {
+  if (typeof document === 'undefined') return html
+  const div = document.createElement('div')
+  div.innerHTML = html
+  const imgs = div.querySelectorAll('img')
+  for (const img of imgs) {
+    try {
+      const src = img.getAttribute('src')
+      if (!src || src.startsWith('data:')) continue
+      const res = await fetch(src)
+      const blob = await res.blob()
+      const reader = new FileReader()
+      const dataUrl = await new Promise((r) => {
+        reader.onloadend = () => r(reader.result)
+        reader.readAsDataURL(blob)
+      })
+      img.setAttribute('src', dataUrl)
+    } catch {
+      // Keep original if failed
+    }
+  }
+  return div.innerHTML
 }

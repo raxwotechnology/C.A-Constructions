@@ -197,3 +197,25 @@ exports.recordTransaction = async (req, res, next) => {
     res.json({ success: true, account });
   } catch (err) { next(err); }
 };
+
+// DELETE /api/bank-accounts/:accountId/transaction/:transactionId
+exports.deleteTransaction = async (req, res, next) => {
+  try {
+    const account = await BankAccount.findById(req.params.accountId);
+    if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+    const txIndex = account.transactions.findIndex(t => String(t._id) === req.params.transactionId);
+    if (txIndex === -1) return res.status(404).json({ success: false, message: 'Transaction not found' });
+
+    const tx = account.transactions[txIndex];
+    // Reverse the balance impact
+    const isCredit = ['deposit', 'transfer_in'].includes(tx.type);
+    const amt = Number(tx.amount) || 0;
+    account.currentBalance = (account.currentBalance || 0) + (isCredit ? -amt : amt);
+
+    account.transactions.splice(txIndex, 1);
+    await account.save();
+
+    res.json({ success: true, message: 'Transaction deleted and balance reverted', account });
+  } catch (err) { next(err); }
+};

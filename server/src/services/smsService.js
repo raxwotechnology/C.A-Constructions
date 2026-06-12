@@ -95,8 +95,9 @@ exports.sendQuotationLinkSms = async (phone, name, quotationNo, shareLink) => {
   return sendSms(phone, msg, name, 'quotation');
 };
 
-exports.sendPayslipSms = async (phone, name, monthName, netSalary) => {
-  const msg = `Hi ${name}, your salary for ${monthName} (LKR ${Number(netSalary).toLocaleString()}) has been processed. Download payslip from your portal.`;
+exports.sendPayslipSms = async (phone, name, monthName, netSalary, billUrl) => {
+  const link = billUrl || `${process.env.APP_URL || 'http://localhost:5173'}/developer/payslips`;
+  const msg = `Hi ${name}, your salary for ${monthName} (LKR ${Number(netSalary).toLocaleString()}) has been processed. View your payment bill: ${link}`;
   return sendSms(phone, msg, name, 'payroll');
 };
 

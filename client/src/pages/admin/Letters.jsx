@@ -663,7 +663,7 @@ export default function AdminLetters() {
                       value={watch('employeeId')}
                       onChange={(v) => setValue('employeeId', v, { shouldValidate: true })}
                       loadOptions={async (params) => {
-                        const res = await lookupLoaders.employeesAll()(params)
+                        const res = await lookupLoaders.employees()(params)
                         if (params.page === 1) {
                           const customOpt = { value: 'custom', label: '-- External / Custom (No Employee) --' }
                           if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {

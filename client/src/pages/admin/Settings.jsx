@@ -78,6 +78,7 @@ export default function AdminSettings() {
         hr: { url: siteData?.settings?.signatures?.hr?.url || '', label: siteData?.settings?.signatures?.hr?.label || 'HR' },
         admin: { url: siteData?.settings?.signatures?.admin?.url || '', label: siteData?.settings?.signatures?.admin?.label || 'Admin' },
         manager: { url: siteData?.settings?.signatures?.manager?.url || '', label: siteData?.settings?.signatures?.manager?.label || 'Manager' },
+        director: { url: siteData?.settings?.signatures?.director?.url || '', label: siteData?.settings?.signatures?.director?.label || 'Director' },
       },
       quotationThankYouMessage: siteData?.settings?.quotationThankYouMessage || '',
       quotationNotesTemplate: siteData?.settings?.quotationNotesTemplate || '',
@@ -266,7 +267,7 @@ export default function AdminSettings() {
               if (uploaded) sealUrl = uploaded
             }
             const signatures = { ...(d.signatures || {}) }
-            for (const key of ['hr', 'admin', 'manager']) {
+            for (const key of ['hr', 'admin', 'manager', 'director']) {
               if (sigFiles[key]) {
                 const uploaded = await uploadImage(sigFiles[key])
                 if (uploaded) signatures[key] = { ...signatures[key], url: uploaded }
@@ -333,6 +334,7 @@ export default function AdminSettings() {
             <div><label className="form-label">Default signatory role</label>
               <select {...reg3('quotationDirectorRole')} className="form-select">
                 <option value="">Use custom director name</option>
+                <option value="director">Director</option>
                 <option value="admin">Admin</option>
                 <option value="manager">Manager</option>
                 <option value="hr">HR</option>
@@ -357,8 +359,8 @@ export default function AdminSettings() {
               </label>
             </div>
           </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {['hr', 'admin', 'manager'].map((key) => (
+          <div className="grid md:grid-cols-4 gap-4">
+            {['hr', 'admin', 'manager', 'director'].map((key) => (
               <div key={key}><label className="form-label capitalize">{key} signature upload</label>
                 <input type="file" accept="image/*" className="form-input text-sm" onChange={(e) => setSigFiles((s) => ({ ...s, [key]: e.target.files?.[0] || null }))} />
               </div>

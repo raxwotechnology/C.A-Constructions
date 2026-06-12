@@ -81,6 +81,8 @@ const payrollSchema = new mongoose.Schema({
     default: 'bank_transfer',
   },
   bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
+  chequeNumber: { type: String, default: '', trim: true },
+  paymentReference: { type: String, default: '' },
 
   // ── Workflow status ───────────────────────────────────────────────────────────
   status: {
@@ -94,6 +96,13 @@ const payrollSchema = new mongoose.Schema({
   approvedAt: Date,
   paidAt: Date,
   payslipUrl: String,
+  payslipSignatory: {
+    role: { type: String, enum: ['director', 'manager', 'hr', 'admin', ''], default: '' },
+    signatureUrl: { type: String, default: '' },
+    signatureName: { type: String, default: '' },
+    signatureTitle: { type: String, default: '' },
+    sealUrl: { type: String, default: '' },
+  },
 
   generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   notes: String,

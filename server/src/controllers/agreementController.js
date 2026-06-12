@@ -217,6 +217,22 @@ exports.generatePreview = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// ── POST /api/agreements/generate-pdf ─────────────────────────────────────────
+exports.generateAgreementPdf = async (req, res, next) => {
+  try {
+    const { html, filename } = req.body;
+    if (!html) {
+      return res.status(400).json({ success: false, message: 'HTML content is required' });
+    }
+    const { htmlToPdfBuffer } = require('../services/documentPdfService');
+    const { inlineUploadImagesInHtml } = require('../services/documentHtmlService');
+    const pdfBuffer = await htmlToPdfBuffer(inlineUploadImagesInHtml(html));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename || 'agreement'}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) { next(err); }
+};
+
 function buildCustomAgreementShell(companyName, companyAddress, companyPhone, companyEmail, clientName, today) {
   const addrLine = [companyAddress, companyPhone, companyEmail].filter(Boolean).join(' · ');
   return `

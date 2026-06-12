@@ -9,7 +9,9 @@ const EpfRecord = require('../models/EpfRecord');
 const Loan = require('../models/Loan');
 const Advance = require('../models/Advance');
 const AuditLog = require('../models/AuditLog');
-const { appendBankTransaction, isLedgerBankMethod } = require('../utils/bankLedger');
+const { appendBankTransaction, postsToBankLedger } = require('../utils/bankLedger');
+const { requiresBankAccount, isChequeMethod, parseLedgerDate } = require('../utils/paymentMethods');
+const Cheque = require('../models/Cheque');
 const { getStatutoryRates } = require('../utils/statutoryRates');
 const { calculateMonthlyIncomeTax } = require('../services/incomeTaxService');
 const IncomeTaxRecord = require('../models/IncomeTaxRecord');
@@ -248,9 +250,17 @@ exports.generatePayroll = async (req, res, next) => {
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
-    const exists = await Payroll.findOne({ employee: employeeId, month, year });
-    if (exists && exists.status === 'paid') {
-      return res.status(400).json({ success: false, message: 'Cannot regenerate a payroll that is already marked as PAID' });
+    const exists = await Payroll.findOne({ employee: employeeId, month, year })
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name' } });
+    if (exists) {
+      console.log('[GENERATE] Existing payroll found. Status:', exists.status, 'ID:', exists._id);
+      if (exists.status === 'paid') {
+        console.log('[GENERATE] Calling reversePaidPayroll for paid payroll:', exists._id);
+        await reversePaidPayroll(exists);
+        console.log('[GENERATE] ✅ Reversal complete');
+      }
+      await Payroll.findByIdAndDelete(exists._id);
+      console.log('[GENERATE] Deleted old payroll:', exists._id);
     }
 
     const sync = await syncPayrollForEmployee(employeeId, month, year, {
@@ -272,6 +282,12 @@ exports.generatePayroll = async (req, res, next) => {
     const payroll = sync.payroll;
     if (!payroll) {
       return res.status(500).json({ success: false, message: sync.message || 'Payroll sync failed' });
+    }
+
+    const { payslipSignatory } = req.body;
+    if (payslipSignatory && typeof payslipSignatory === 'object') {
+      payroll.payslipSignatory = payslipSignatory;
+      await payroll.save();
     }
 
     await createNotification({
@@ -346,6 +362,7 @@ exports.getPayrolls = async (req, res, next) => {
 
     const payrolls = await Payroll.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
+      .populate('bankAccount', 'bankName accountNumber branchName currentBalance')
       .populate('deductedLoans')
       .sort({ year: -1, month: -1 });
     res.json({ success: true, count: payrolls.length, payrolls });
@@ -426,6 +443,7 @@ exports.updatePayroll = async (req, res, next) => {
     const {
       allowances, otHours, otRate, otMultiplier, bonus, bonusNote,
       commissions, advanceDeduction, loanDeduction, notes, paymentMethod,
+      bankAccount, chequeNumber,
       otherAdditions, otherDeductions,
     } = req.body;
 
@@ -470,6 +488,8 @@ exports.updatePayroll = async (req, res, next) => {
         loanDeduction: loanDeduction ?? existing.loanDeduction,
         notes: notes ?? existing.notes,
         paymentMethod: paymentMethod ?? existing.paymentMethod,
+        bankAccount: bankAccount !== undefined ? (bankAccount || null) : existing.bankAccount,
+        chequeNumber: chequeNumber !== undefined ? chequeNumber : existing.chequeNumber,
         otherAdditions: otherAdditions ?? existing.otherAdditions,
         otherDeductions: otherDeductions ?? existing.otherDeductions,
         epfEmployee, epfEmployer, etfEmployer,
@@ -483,7 +503,7 @@ exports.updatePayroll = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-const PAYROLL_METHODS_NEEDING_BANK = ['bank_transfer', 'card_payment', 'online_transfer', 'payhere'];
+const PAYROLL_METHODS_NEEDING_BANK = ['bank_transfer', 'cheque'];
 
 // @desc    Mark payroll as paid
 exports.markPaid = async (req, res, next) => {
@@ -491,27 +511,37 @@ exports.markPaid = async (req, res, next) => {
     const paymentMethod = req.body.paymentMethod || 'bank_transfer';
     const rawBank = req.body.bankAccount;
     const bankAccountId = rawBank && String(rawBank).trim() ? String(rawBank).trim() : undefined;
+    const chequeNumber = String(req.body.chequeNumber || '').trim();
 
-    if (isLedgerBankMethod(paymentMethod) && !bankAccountId) {
+    if (requiresBankAccount(paymentMethod) && !bankAccountId) {
       return res.status(400).json({
         success: false,
         message: 'Select which company bank account this payment is drawn from',
       });
+    }
+    if (isChequeMethod(paymentMethod) && !chequeNumber) {
+      return res.status(400).json({ success: false, message: 'Cheque number is required for cheque payments' });
     }
 
     const updatePayload = {
       status: 'paid',
       paidAt: new Date(),
       paymentMethod,
+      chequeNumber: isChequeMethod(paymentMethod) ? chequeNumber : '',
     };
-    if (isLedgerBankMethod(paymentMethod)) {
+    if (req.body.payslipSignatory && typeof req.body.payslipSignatory === 'object') {
+      updatePayload.payslipSignatory = req.body.payslipSignatory;
+    }
+    if (requiresBankAccount(paymentMethod)) {
       updatePayload.bankAccount = bankAccountId;
     } else {
       updatePayload.bankAccount = null;
+      updatePayload.chequeNumber = '';
     }
 
     const payroll = await Payroll.findByIdAndUpdate(req.params.id, updatePayload, { new: true })
-      .populate({ path: 'employee', populate: { path: 'userId', select: '_id name email phone' } });
+      .populate({ path: 'employee', populate: { path: 'userId', select: '_id name email phone' } })
+      .populate('bankAccount', 'bankName accountNumber branchName');
     if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
 
     await createNotification({
@@ -606,15 +636,53 @@ exports.markPaid = async (req, res, next) => {
         await Loan.updateMany({ _id: { $in: payroll.deductedLoans } }, { $set: { payrollDeductionPaused: false } });
       }
     }
+    console.log('[PAY] ===== BANK DEDUCTION CHECK =====');
+    console.log('[PAY] paymentMethod:', payroll.paymentMethod);
+    console.log('[PAY] bankAccount:', payroll.bankAccount);
+    console.log('[PAY] netSalary:', payroll.netSalary);
 
-    if (payroll.bankAccount && isLedgerBankMethod(payroll.paymentMethod)) {
-      await appendBankTransaction(payroll.bankAccount, {
+    if (payroll.paymentMethod !== 'cash' && payroll.paymentMethod !== 'other') {
+      if (!payroll.bankAccount) {
+        throw new Error('Bank account is missing for this payment method.');
+      }
+      if (!postsToBankLedger(payroll.paymentMethod)) {
+        throw new Error(`Payment method '${payroll.paymentMethod}' is not configured to post to the bank ledger.`);
+      }
+      const bankId = payroll.bankAccount._id || payroll.bankAccount;
+      console.log('[PAY] bankId resolved to:', bankId);
+      const ref = isChequeMethod(payroll.paymentMethod)
+        ? payroll.chequeNumber
+        : `PAY-${payroll.month}-${payroll.year}-${payroll._id}`;
+      console.log('[PAY] Calling appendBankTransaction with withdrawal amount:', payroll.netSalary);
+      const updatedAccount = await appendBankTransaction(bankId, {
         type: 'withdrawal',
         amount: payroll.netSalary || 0,
         description: `Payroll: ${payroll.employee?.userId?.name} (${payroll.month}/${payroll.year})`,
-        date: new Date(),
+        date: parseLedgerDate(payroll.paidAt),
+        referenceId: ref,
+        moduleSource: 'payroll',
+        sourceType: 'Payroll',
+        sourceId: payroll._id,
         recordedBy: req.user._id,
+        paymentMethod: payroll.paymentMethod,
       });
+      console.log('[PAY] ✅ Bank updated! New balance:', updatedAccount?.currentBalance);
+
+      if (isChequeMethod(payroll.paymentMethod) && payroll.chequeNumber) {
+        await Cheque.create({
+          direction: 'issued',
+          source: 'payroll',
+          status: 'cleared',
+          amount: payroll.netSalary || 0,
+          currency: 'LKR',
+          chequeNumber: payroll.chequeNumber,
+          chequeDate: payroll.paidAt || new Date(),
+          drawerOrPayee: payroll.employee?.userId?.name || 'Employee',
+          bankAccount: bankId,
+          notes: `Salary ${payroll.month}/${payroll.year}`,
+          recordedBy: req.user._id,
+        }).catch((e) => console.warn('[Payroll] Cheque record:', e.message));
+      }
     }
     
     await createAuditLog({
@@ -634,7 +702,45 @@ exports.markPaid = async (req, res, next) => {
       });
     }
 
+    const FinanceEntry = require('../models/FinanceEntry');
+    let finMethod = 'Cash';
+    if (payroll.paymentMethod === 'bank_transfer') finMethod = 'Bank Transfer';
+    else if (payroll.paymentMethod === 'card') finMethod = 'Card';
+    else if (payroll.paymentMethod === 'online') finMethod = 'Online Payment';
+    else if (payroll.paymentMethod === 'cheque') finMethod = 'Cheque';
+    else if (payroll.paymentMethod === 'other') finMethod = 'Other';
+
+    await FinanceEntry.create({
+      type: 'expense',
+      category: 'Payroll',
+      title: `Salary ${MONTHS[payroll.month - 1]} ${payroll.year} - ${payroll.employee?.userId?.name || 'Employee'}`,
+      amount: payroll.netSalary || 0,
+      date: payroll.paidAt || new Date(),
+      paymentMethod: finMethod,
+      bankAccount: payroll.bankAccount ? (payroll.bankAccount._id || payroll.bankAccount) : undefined,
+      note: `Payroll ID: ${payroll._id}`,
+      createdBy: req.user._id,
+      branch: payroll.employee?.branch || undefined,
+    }).catch(e => console.warn('[Payroll] FinanceEntry:', e.message));
+
     res.json({ success: true, payroll });
+  } catch (err) { next(err); }
+};
+
+// @desc    Generate payslip PDF from HTML (hosted-safe with image inlining)
+// @route   POST /api/payroll/generate-pdf
+exports.generatePayslipPdf = async (req, res, next) => {
+  try {
+    const { html, filename } = req.body;
+    if (!html) {
+      return res.status(400).json({ success: false, message: 'HTML content is required' });
+    }
+    const { htmlToPdfBuffer } = require('../services/documentPdfService');
+    const { inlineUploadImagesInHtml } = require('../services/documentHtmlService');
+    const pdfBuffer = await htmlToPdfBuffer(inlineUploadImagesInHtml(html));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename || 'payslip'}.pdf"`);
+    res.send(pdfBuffer);
   } catch (err) { next(err); }
 };
 
@@ -714,18 +820,129 @@ exports.updateEpfRecord = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Delete a payroll / EPF record
+async function reversePaidPayroll(rec) {
+  if (rec.status !== 'paid') return;
+  if (rec.bankAccount && postsToBankLedger(rec.paymentMethod)) {
+    const { appendBankTransaction } = require('../utils/bankLedger');
+    await appendBankTransaction(rec.bankAccount, {
+      type: 'deposit',
+      amount: rec.netSalary || 0,
+      description: `Payroll Reversal (Overwritten/Deleted): ${rec.employee?.userId?.name || 'Employee'} (${rec.month}/${rec.year})`,
+      date: new Date(),
+      referenceId: `REV-PAY-${rec._id}`,
+      moduleSource: 'payroll',
+      sourceType: 'Payroll',
+      sourceId: rec._id,
+      paymentMethod: rec.paymentMethod,
+    });
+
+    if (isChequeMethod(rec.paymentMethod) && rec.chequeNumber) {
+      const Cheque = require('../models/Cheque');
+      await Cheque.findOneAndDelete({ source: 'payroll', chequeNumber: rec.chequeNumber });
+    }
+  }
+
+  const FinanceEntry = require('../models/FinanceEntry');
+  await FinanceEntry.deleteMany({ note: `Payroll ID: ${rec._id}` });
+
+  await EpfRecord.findOneAndUpdate(
+    { employee: rec.employee?._id || rec.employee, month: rec.month, year: rec.year },
+    { isPaid: false, paidAt: null, paidBy: null },
+  );
+
+  if (rec.advanceDeduction > 0 && rec.deductedAdvances?.length) {
+    for (const advId of rec.deductedAdvances) {
+      const advance = await Advance.findById(advId);
+      if (!advance) continue;
+      const repayment = (advance.repayments || []).find((r) => String(r.payrollId) === String(rec._id));
+      if (!repayment) continue;
+      const repayAmt = Number(repayment.amount || 0);
+      advance.repayments = advance.repayments.filter((r) => String(r.payrollId) !== String(rec._id));
+      advance.totalRecovered = Math.max(0, (advance.totalRecovered || 0) - repayAmt);
+      advance.outstandingBalance = Math.min(advance.amount, (advance.outstandingBalance || 0) + repayAmt);
+      if (advance.outstandingBalance > 0) advance.status = 'active';
+      await advance.save();
+      await Employee.findByIdAndUpdate(rec.employee?._id || rec.employee, { $inc: { advanceBalance: repayAmt } });
+    }
+  }
+
+  if (rec.loanDeduction > 0 && rec.deductedLoans?.length) {
+    for (const loanId of rec.deductedLoans) {
+      const loan = await Loan.findById(loanId);
+      if (!loan) continue;
+      const payment = (loan.payments || []).find((p) => String(p.payrollId) === String(rec._id));
+      if (!payment) continue;
+      const payAmt = Number(payment.amount || 0);
+      loan.payments = loan.payments.filter((p) => String(p.payrollId) !== String(rec._id));
+      loan.totalPaid = Math.max(0, (loan.totalPaid || 0) - payAmt);
+      loan.installmentsPaid = Math.max(0, (loan.installmentsPaid || 0) - 1);
+      loan.outstandingBalance = Math.min(loan.totalAmount, (loan.outstandingBalance || 0) + payAmt);
+      if (loan.outstandingBalance > 0) loan.status = 'active';
+      await loan.save();
+      await Employee.findByIdAndUpdate(rec.employee?._id || rec.employee, { $inc: { loanBalance: payAmt } });
+    }
+  }
+}
+
+// @desc    Delete a payroll / EPF record (with financial reversal if paid)
 // @route   DELETE /api/payroll/:id
 exports.deletePayroll = async (req, res, next) => {
   try {
-    const rec = await Payroll.findByIdAndDelete(req.params.id);
+    const rec = await Payroll.findById(req.params.id)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name' } });
     if (!rec) return res.status(404).json({ success: false, message: 'Record not found' });
-    
+
+    await reversePaidPayroll(rec);
+
+    await Payroll.findByIdAndDelete(req.params.id);
+
     await createAuditLog({
-      user: req.user, action: 'delete', module: 'payroll', entityId: rec._id, entityName: `Payroll deleted`,
-      description: `Deleted payroll record ${rec._id} (${rec.month}/${rec.year})`,
+      user: req.user,
+      action: 'delete',
+      module: 'payroll',
+      entityId: rec._id,
+      entityName: `Payroll ${rec.month}/${rec.year}`,
+      description: `Deleted payroll for ${rec.employee?.userId?.name || 'employee'} (${rec.month}/${rec.year})`,
+      changes: { before: rec.toObject() },
+      severity: 'warning',
     });
     res.json({ success: true, message: 'Record deleted' });
+  } catch (err) { next(err); }
+};
+
+// @desc    Send payslip notification (email / SMS)
+// @route   POST /api/payroll/:id/send
+exports.sendPayrollNotification = async (req, res, next) => {
+  try {
+    const methods = Array.isArray(req.body.methods) ? req.body.methods : ['email'];
+    const payroll = await Payroll.findById(req.params.id)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email phone' } });
+    if (!payroll) return res.status(404).json({ success: false, message: 'Payroll not found' });
+
+    const emp = payroll.employee?.userId;
+    const monthName = MONTHS[payroll.month - 1];
+    const billUrl = `${process.env.APP_URL || 'http://localhost:5173'}/developer/payslips`;
+    const results = { email: false, sms: false };
+
+    if (methods.includes('email') && emp?.email) {
+      const { sendPayslipReadyEmail } = require('../services/emailService');
+      await sendPayslipReadyEmail(emp.email, emp.name, {
+        month: payroll.month,
+        year: payroll.year,
+        netSalary: payroll.netSalary,
+        viewUrl: billUrl,
+      });
+      results.email = true;
+    }
+
+    if (methods.includes('sms') && (emp?.phone || payroll.employee?.phone)) {
+      const { sendPayslipSms } = require('../services/smsService');
+      const phone = emp?.phone || payroll.employee?.phone;
+      await sendPayslipSms(phone, emp?.name, monthName, payroll.netSalary, billUrl);
+      results.sms = true;
+    }
+
+    res.json({ success: true, results, message: 'Notification sent' });
   } catch (err) { next(err); }
 };
 
@@ -985,7 +1202,7 @@ exports.salaryPayHereNotify = async (req, res, next) => {
       ).populate({ path: 'employee', populate: { path: 'userId', select: '_id name' } });
 
       if (payment) {
-        const payroll = await Payroll.findByIdAndUpdate(payment.payroll, { status: 'paid', paidAt: new Date() }, { new: true });
+        const payroll = await Payroll.findByIdAndUpdate(payment.payroll, { status: 'paid', paidAt: new Date(), paymentMethod: 'online' }, { new: true });
         if (payroll) {
           await createNotification({
             recipient: payment.employee.userId._id,
@@ -994,6 +1211,17 @@ exports.salaryPayHereNotify = async (req, res, next) => {
             type: 'payroll',
             link: '/developer/payslips',
           });
+          const FinanceEntry = require('../models/FinanceEntry');
+          await FinanceEntry.create({
+            type: 'expense',
+            category: 'Payroll',
+            title: `Salary ${MONTHS[payroll.month - 1] || 'Month'} ${payroll.year} - ${payment.employee?.userId?.name || 'Employee'}`,
+            amount: payroll.netSalary || 0,
+            date: payroll.paidAt || new Date(),
+            paymentMethod: 'Online Payment',
+            note: `Payroll ID: ${payroll._id}`,
+            createdBy: payment.employee?.userId?._id, // Fallback since it's a webhook
+          }).catch(e => console.warn('[Payroll] FinanceEntry:', e.message));
         }
       }
     }

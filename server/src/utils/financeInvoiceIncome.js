@@ -3,16 +3,8 @@ const FinanceEntry = require('../models/FinanceEntry');
 const Invoice = require('../models/Invoice');
 
 function mapInvoicePaymentMethod(method = '') {
-  const map = {
-    cash: 'Cash',
-    card: 'Card',
-    bank_transfer: 'Bank Transfer',
-    cheque: 'Cheque',
-    payhere: 'Online Payment',
-    online_transfer: 'Online Payment',
-  };
-  const key = String(method || 'cash').toLowerCase().replace(/\s+/g, '_');
-  return map[key] || 'Other';
+  const { mapToFinancePaymentMethod } = require('./paymentMethods');
+  return mapToFinancePaymentMethod(method);
 }
 
 function isInvoiceIncomeEntry(entry) {
@@ -111,7 +103,9 @@ async function resolveInvoicePaymentIncome(branchId, dateFilter, paymentMethod) 
     .map(normalizeFinanceRow)
     .filter((e) => !paymentMethod || e.paymentMethod === paymentMethod || mapInvoicePaymentMethod(paymentMethod) === e.paymentMethod);
 
-  const paymentEntries = agg.payments.map(normalizePaymentRow);
+  const paymentEntries = agg.payments
+    .map(normalizePaymentRow)
+    .filter((pe) => !paymentMethod || pe.paymentMethod === paymentMethod || mapInvoicePaymentMethod(paymentMethod) === pe.paymentMethod);
 
   const merged = [...financeEntries];
   for (const pe of paymentEntries) {

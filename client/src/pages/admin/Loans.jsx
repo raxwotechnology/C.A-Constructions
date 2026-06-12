@@ -9,7 +9,7 @@ import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import { handlePayrollSyncResponse } from '../../lib/payrollSync'
 import ExportBar from '../../components/ui/ExportBar'
-import { FiPlus, FiX, FiCheck, FiRefreshCw, FiEdit2, FiAlertCircle, FiDollarSign, FiCalendar } from 'react-icons/fi'
+import { FiPlus, FiX, FiCheck, FiRefreshCw, FiEdit2, FiAlertCircle, FiDollarSign, FiCalendar, FiEye, FiTrash2 } from 'react-icons/fi'
 
 const EMPTY = { employeeId: '', totalAmount: '', monthlyInstallment: '', repaymentMonths: '', startDate: new Date().toISOString().split('T')[0], reason: '', deductionType: 'salary', taxRate: 0 }
 const PAY_EMPTY = { amount: '', date: new Date().toISOString().split('T')[0], note: '', method: 'salary_deduction', bankAccount: '' }
@@ -30,6 +30,7 @@ export default function AdminLoans() {
   const [deleteId, setDeleteId] = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
   const [verifying, setVerifying] = useState(false)
+  const [viewTarget, setViewTarget] = useState(null)
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -233,16 +234,16 @@ export default function AdminLoans() {
                     <td><span className={`badge ${l.status === 'cleared' ? 'badge-green' : 'badge-yellow'}`}>{l.status}</span></td>
                     <td>
                       <div className="flex gap-1">
+                        <button onClick={() => setViewTarget(l)} title="View Details"
+                          className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg"><FiEye size={13} /></button>
+                        <button onClick={() => { setEditTarget(l); setForm({ monthlyInstallment: l.monthlyInstallment, reason: l.reason, deductionType: l.deductionType || 'salary', taxRate: l.taxRate || 0, startDate: l.startDate?.split('T')[0] || '', repaymentMonths: l.repaymentMonths || l.totalInstallments || '' }) }}
+                          title="Edit" className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-500 rounded-lg"><FiEdit2 size={13} /></button>
                         {l.status === 'active' && (
-                          <>
-                            <button onClick={() => { setEditTarget(l); setForm({ monthlyInstallment: l.monthlyInstallment, reason: l.reason, deductionType: l.deductionType || 'salary', taxRate: l.taxRate || 0, startDate: l.startDate?.split('T')[0] || '' }) }}
-                              title="Edit" className="p-1.5 hover:bg-blue-50 text-slate-300 hover:text-blue-500 rounded-lg"><FiEdit2 size={13} /></button>
-                            <button onClick={() => { setPayTarget(l); setPayForm({ ...PAY_EMPTY, amount: l.monthlyInstallment }) }} title="Record Payment"
-                              className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg"><FiRefreshCw size={13} /></button>
-                          </>
+                          <button onClick={() => { setPayTarget(l); setPayForm({ ...PAY_EMPTY, amount: l.monthlyInstallment }) }} title="Record Payment"
+                            className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg"><FiRefreshCw size={13} /></button>
                         )}
-                        <button onClick={() => setDeleteId(l._id)}
-                          className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiX size={13} /></button>
+                        <button onClick={() => setDeleteId(l._id)} title="Delete"
+                          className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiTrash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -383,7 +384,22 @@ export default function AdminLoans() {
                 <div><label className="form-label text-xs">Monthly Installment</label>
                   <input type="number" className="form-input" value={form.monthlyInstallment} onChange={e => setForm(s => ({ ...s, monthlyInstallment: e.target.value }))} /></div>
                 <div><label className="form-label text-xs">Repayment Months</label>
-                  <input type="number" className="form-input" value={form.repaymentMonths} onChange={e => setForm(s => ({ ...s, repaymentMonths: e.target.value }))} /></div>
+                  <select className="form-select text-sm py-1.5" value={form.repaymentMonths} onChange={e => {
+                    const months = e.target.value
+                    setForm(s => {
+                      const next = { ...s, repaymentMonths: months }
+                      if (months && Number(months) > 0) {
+                        const total = Number(editTarget.totalAmount || 0)
+                        const interest = total * (Number(next.taxRate || 0) / 100)
+                        next.monthlyInstallment = Math.ceil((total + interest) / Number(months))
+                      }
+                      return next
+                    })
+                  }}>
+                    <option value="">Manual / No fixed term</option>
+                    {[3,6,12,18,24,36,48,60].map(m => <option key={m} value={m}>{m} Months</option>)}
+                  </select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="form-label text-xs">Interest Rate (%)</label>
@@ -510,6 +526,110 @@ export default function AdminLoans() {
               <button onClick={confirmDelete} disabled={verifying || !deletePassword} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
                 {verifying || deleteMut.isPending ? <span className="spinner" /> : 'Confirm Delete'}
               </button>
+            </div>
+          </motion.div>
+        </div>, document.body
+      )}
+
+      {/* View Loan Modal */}
+      {viewTarget && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
+              <h3 className="font-bold text-primary font-heading text-base">Loan Details — {viewTarget.employee?.userId?.name}</h3>
+              <button onClick={() => setViewTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
+            </div>
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm">
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Employee No</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{viewTarget.employee?.employeeNo}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Principal</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">LKR {viewTarget.totalAmount?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Monthly Installment</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">LKR {viewTarget.monthlyInstallment?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Outstanding Balance</p>
+                  <p className="font-bold text-red-600 mt-0.5">LKR {viewTarget.outstandingBalance?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Paid</p>
+                  <p className="font-bold text-emerald-600 mt-0.5">LKR {viewTarget.totalPaid?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Deduction Type</p>
+                  <span className={`inline-block badge ${viewTarget.deductionType === 'salary' ? 'badge-blue' : 'badge-purple'} mt-0.5 capitalize`}>
+                    {viewTarget.deductionType === 'salary' ? 'Salary Deduct' : 'Separate'}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Interest Rate</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{viewTarget.taxRate > 0 ? `${viewTarget.taxRate}%` : '0%'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Start Date</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{viewTarget.startDate ? new Date(viewTarget.startDate).toLocaleDateString() : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Status</p>
+                  <span className={`inline-block badge ${viewTarget.status === 'cleared' ? 'badge-green' : 'badge-yellow'} mt-0.5`}>
+                    {viewTarget.status}
+                  </span>
+                </div>
+                {viewTarget.reason && (
+                  <div className="col-span-2 sm:col-span-3">
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Reason</p>
+                    <p className="text-slate-700 mt-0.5">{viewTarget.reason}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-bold text-slate-700 font-heading text-sm">Repayment History</h4>
+                {!viewTarget.payments || viewTarget.payments.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">No repayment recorded yet.</p>
+                ) : (
+                  <div className="border border-slate-100 rounded-xl overflow-hidden text-xs">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase tracking-wider font-semibold">
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Installment #</th>
+                          <th className="p-3">Amount</th>
+                          <th className="p-3">Method</th>
+                          <th className="p-3">Source</th>
+                          <th className="p-3">Note</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 text-slate-600">
+                        {viewTarget.payments.map((p, i) => (
+                          <tr key={i} className="hover:bg-slate-50/50">
+                            <td className="p-3 font-medium">{p.date ? new Date(p.date).toLocaleDateString() : '—'}</td>
+                            <td className="p-3">{p.installmentNo > 0 ? `#${p.installmentNo}` : '—'}</td>
+                            <td className="p-3 font-bold text-emerald-600">LKR {p.amount?.toLocaleString()}</td>
+                            <td className="p-3 capitalize">{p.method?.replace(/_/g, ' ') || 'Salary Deduct'}</td>
+                            <td className="p-3">
+                              <span className={`badge ${p.deductionSource === 'payroll' ? 'badge-blue' : 'badge-green'} text-[10px]`}>
+                                {p.deductionSource}
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-400">{p.note || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex px-6 py-4 border-t flex-shrink-0 bg-slate-50 rounded-b-2xl">
+              <button onClick={() => setViewTarget(null)} className="btn-ghost flex-1 justify-center">Close</button>
             </div>
           </motion.div>
         </div>, document.body

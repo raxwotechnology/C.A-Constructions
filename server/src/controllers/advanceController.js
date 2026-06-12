@@ -1,8 +1,11 @@
 const Advance = require('../models/Advance');
 const Employee = require('../models/Employee');
+const Cheque = require('../models/Cheque');
 const { createNotification } = require('../services/notificationService');
-const { isLedgerBankMethod, appendBankTransaction } = require('../utils/bankLedger');
+const { appendBankTransaction, postsToBankLedger } = require('../utils/bankLedger');
+const { requiresBankAccount, isChequeMethod, parseLedgerDate } = require('../utils/paymentMethods');
 const { triggerPayrollSync, monthYearFromDate, attachSyncResult } = require('../utils/payrollSyncHook');
+const { createAuditLog } = require('./auditController');
 
 // GET /api/advances
 exports.getAdvances = async (req, res, next) => {
@@ -17,7 +20,7 @@ exports.getAdvances = async (req, res, next) => {
     if (req.query.status) query.status = req.query.status;
     const advances = await Advance.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email _id' } })
-      .populate('bankAccount', 'bankName accountNumber')
+      .populate('bankAccount', 'bankName accountNumber branchName')
       .populate('recordedBy', 'name')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: advances.length, advances });
@@ -69,7 +72,7 @@ exports.createAdvance = async (req, res, next) => {
   try {
     const {
       employeeId, amount, date, reason, repaymentType, installments,
-      paymentMethod, bankAccount, paymentReference,
+      paymentMethod, bankAccount, paymentReference, chequeNumber,
     } = req.body;
     const amt = Number(amount);
     if (!employeeId || !amt || amt <= 0) {
@@ -77,16 +80,20 @@ exports.createAdvance = async (req, res, next) => {
     }
 
     const method = paymentMethod || 'cash';
-    if (isLedgerBankMethod(method) && !bankAccount) {
-      return res.status(400).json({ success: false, message: 'Bank account is required for card or bank transfer payments' });
+    if (requiresBankAccount(method) && !bankAccount) {
+      return res.status(400).json({ success: false, message: 'Bank account is required for bank transfer or cheque payments' });
+    }
+    if (isChequeMethod(method) && !String(chequeNumber || '').trim()) {
+      return res.status(400).json({ success: false, message: 'Cheque number is required for cheque payments' });
     }
 
     const inst = Number(installments) || 1;
+    const payDate = parseLedgerDate(date);
     const advance = await Advance.create({
       employee: employeeId,
       amount: amt,
       outstandingBalance: amt,
-      date: date || new Date(),
+      date: payDate,
       reason: reason || '',
       repaymentType: repaymentType || 'lump_sum',
       installments: inst,
@@ -94,6 +101,7 @@ exports.createAdvance = async (req, res, next) => {
       paymentMethod: method,
       bankAccount: bankAccount || undefined,
       paymentReference: paymentReference || '',
+      chequeNumber: isChequeMethod(method) ? String(chequeNumber).trim() : '',
       recordedBy: req.user._id,
     });
 
@@ -103,19 +111,37 @@ exports.createAdvance = async (req, res, next) => {
       { new: true }
     ).populate('userId', 'name _id');
 
-    if (isLedgerBankMethod(method) && bankAccount) {
+    if (postsToBankLedger(method) && bankAccount) {
       const empName = emp?.userId?.name || 'Employee';
+      const ref = isChequeMethod(method) ? String(chequeNumber).trim() : (paymentReference || `ADV-${advance._id}`);
       await appendBankTransaction(bankAccount, {
         type: 'withdrawal',
         amount: amt,
         description: `Advance payment — ${empName}${reason ? `: ${reason}` : ''}`,
-        date: date || new Date(),
-        referenceId: paymentReference || `ADV-${advance._id}`,
+        date: payDate,
+        referenceId: ref,
         moduleSource: 'advances',
         sourceType: 'Advance',
         sourceId: advance._id,
         recordedBy: req.user._id,
+        paymentMethod: method,
       });
+
+      if (isChequeMethod(method)) {
+        await Cheque.create({
+          direction: 'issued',
+          source: 'payroll',
+          status: 'cleared',
+          amount: amt,
+          currency: 'LKR',
+          chequeNumber: String(chequeNumber).trim(),
+          chequeDate: payDate,
+          drawerOrPayee: empName,
+          bankAccount,
+          notes: `Advance: ${reason || 'Employee advance'}`,
+          recordedBy: req.user._id,
+        }).catch((e) => console.warn('[Advance] Cheque record:', e.message));
+      }
     }
 
     if (emp?.userId?._id) {
@@ -130,7 +156,17 @@ exports.createAdvance = async (req, res, next) => {
 
     const populated = await Advance.findById(advance._id)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
-      .populate('bankAccount', 'bankName accountNumber');
+      .populate('bankAccount', 'bankName accountNumber branchName');
+
+    await createAuditLog({
+      user: req.user,
+      action: 'create',
+      module: 'financial',
+      entityId: advance._id,
+      entityName: `Advance — ${emp?.userId?.name || 'Employee'}`,
+      description: `Advance LKR ${amt.toLocaleString()} via ${method}`,
+      changes: { after: { amount: amt, paymentMethod: method, bankAccount, chequeNumber } },
+    });
 
     const period = monthYearFromDate(advance.date);
     const sync = await triggerPayrollSync({
@@ -202,24 +238,38 @@ exports.deleteAdvance = async (req, res, next) => {
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name' } });
     if (!advance) return res.status(404).json({ success: false, message: 'Not found' });
 
-    if (isLedgerBankMethod(advance.paymentMethod) && advance.bankAccount) {
+    const reversalAmt = Number(advance.amount || 0);
+    if (postsToBankLedger(advance.paymentMethod) && advance.bankAccount && reversalAmt > 0) {
       const empName = advance.employee?.userId?.name || 'Employee';
       await appendBankTransaction(advance.bankAccount, {
         type: 'deposit',
-        amount: advance.amount,
+        amount: reversalAmt,
         description: `Advance reversal (deleted) — ${empName}`,
-        date: new Date(),
+        date: parseLedgerDate(advance.date),
         referenceId: `ADV-REV-${advance._id}`,
         moduleSource: 'advances',
         sourceType: 'Advance',
         sourceId: advance._id,
         recordedBy: req.user?._id,
+        paymentMethod: advance.paymentMethod,
       });
     }
 
     await Employee.findByIdAndUpdate(advance.employee._id || advance.employee, {
       $inc: { advanceBalance: -advance.outstandingBalance },
     });
+
+    await createAuditLog({
+      user: req.user,
+      action: 'delete',
+      module: 'financial',
+      entityId: advance._id,
+      entityName: `Advance — ${advance.employee?.userId?.name || 'Employee'}`,
+      description: `Deleted advance LKR ${advance.amount?.toLocaleString()} (outstanding LKR ${advance.outstandingBalance?.toLocaleString()})`,
+      changes: { before: advance.toObject() },
+      severity: 'warning',
+    });
+
     const empId = advance.employee._id || advance.employee;
     const period = monthYearFromDate();
     await advance.deleteOne();

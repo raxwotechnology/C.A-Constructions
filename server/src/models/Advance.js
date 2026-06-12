@@ -15,11 +15,12 @@ const advanceSchema = new mongoose.Schema({
 
   paymentMethod: {
     type: String,
-    enum: ['cash', 'card', 'bank_transfer'],
+    enum: ['cash', 'bank_transfer', 'cheque', 'card'],
     default: 'cash',
   },
   bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
   paymentReference: { type: String, default: '' },
+  chequeNumber: { type: String, default: '', trim: true },
 
   repaymentType: {
     type: String,

@@ -1,60 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
+import { useSiteBranding } from '../../hooks/useSiteBranding'
+import { printPayslip as printPayslipDoc, downloadPayslipPdf } from '../../lib/payslipDocument'
 import { FiDollarSign, FiDownload, FiTrendingUp } from 'react-icons/fi'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-const printPayslip = (p) => {
-  const w = window.open('', '_blank')
-  const MF = ['January','February','March','April','May','June','July','August','September','October','November','December']
-  const r = (label, val, cls='') => val > 0 ? `<div class="row ${cls}"><span>${label}</span><span>LKR ${Number(val||0).toLocaleString()}</span></div>` : ''
-  w.document.write(`<!DOCTYPE html><html><head><title>Payslip ${MF[p.month-1]} ${p.year}</title>
-  <style>
-    *{box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:680px;margin:32px auto;padding:20px;color:#111}
-    .hdr{background:#0B1F3A;color:#fff;padding:20px 24px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between}
-    .hdr h2{margin:0;font-size:18px}.hdr p{margin:4px 0 0;opacity:.65;font-size:12px}
-    .info{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px}
-    .info-row{display:flex;justify-content:space-between;font-size:12px;color:#555;padding:3px 0;border-bottom:1px solid #f0f0f0}
-    .info-row span:last-child{font-weight:600;color:#111}
-    .sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#666;font-weight:700;margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid #e5e7eb}
-    .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
-    .add{color:#16a34a}.ded{color:#dc2626}
-    .net{background:#f0fdf4;border-radius:8px;padding:12px 16px;margin-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:15px;color:#15803d}
-    .foot{margin-top:20px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #f0f0f0;padding-top:10px}
-  </style></head><body>
-  <div class="hdr">
-    <div><h2>Raxwo Technology (Pvt) Ltd</h2><p>Official Payslip — ${MF[p.month-1]} ${p.year}</p></div>
-    <div style="text-align:right"><p style="opacity:.65;font-size:11px">Status</p><p style="font-size:13px;font-weight:700">${(p.status||'').toUpperCase()}</p></div>
-  </div>
-  <div class="info">
-    <div class="info-row"><span>Employee</span><span>${p.employee?.userId?.name||'N/A'}</span></div>
-    <div class="info-row"><span>Emp No</span><span>${p.employee?.employeeNo||'N/A'}</span></div>
-    <div class="info-row"><span>Department</span><span>${p.employee?.department||'—'}</span></div>
-    <div class="info-row"><span>Designation</span><span>${p.employee?.designation||'—'}</span></div>
-  </div>
-  <div class="sec-title">Earnings</div>
-  ${r('Basic Salary', p.basicSalary)}
-  ${r('Allowances', p.allowances, 'add')}
-  ${r('Overtime Pay', p.otPay||p.overtime, 'add')}
-  ${r('Bonus'+(p.bonusNote?' ('+p.bonusNote+')':''), p.bonus, 'add')}
-  ${r('Commissions', p.commissions, 'add')}
-  <div class="row" style="font-weight:600"><span>Gross Salary</span><span>LKR ${Number(p.grossSalary||0).toLocaleString()}</span></div>
-  <div class="sec-title">Deductions</div>
-  ${r('EPF Employee (8%)', p.epfEmployee, 'ded')}
-  ${r('Advance Deduction', p.advanceDeduction||p.advancePayment, 'ded')}
-  ${r('Loan Deduction', p.loanDeduction, 'ded')}
-  ${r('Other Deductions', p.deductions, 'ded')}
-  <div class="net"><span>Net Salary</span><span>LKR ${Number(p.netSalary||0).toLocaleString()}</span></div>
-  <div class="sec-title">Statutory (Employer Contributions — Informational)</div>
-  ${r('EPF Employer (12%)', p.epfEmployer)}
-  ${r('ETF Employer (3%)', p.etfEmployer)}
-  <div class="foot">Computer-generated payslip — no signature required &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
-  </body></html>`)
-  w.document.close(); w.print()
-}
-
-
 export default function EmployeePayslips() {
+  const { settings: siteSettings } = useSiteBranding()
   const { data, isLoading } = useQuery({
     queryKey: ['my-payrolls'],
     queryFn: () => api.get('/payroll/my').then(r => r.data),
@@ -113,9 +66,11 @@ export default function EmployeePayslips() {
                   </div>
 
                 </div>
-                <button onClick={() => printPayslip(p)} className="btn-ghost btn-sm flex-shrink-0">
+                <div className="flex gap-2 flex-shrink-0">
+                <button onClick={() => printPayslipDoc(p, siteSettings || {}, { role: p.payslipSignatory?.role, customSignatureUrl: p.payslipSignatory?.signatureUrl })} className="btn-ghost btn-sm">
                   <FiDownload size={13}/> Print
                 </button>
+                </div>
               </div>
             </div>
           ))}

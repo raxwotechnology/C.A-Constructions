@@ -297,10 +297,11 @@ export function buildLetterFullHtml(opts) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>* { box-sizing: border-box; } ${PRINT_STYLES}</style></head><body>${inner}</body></html>`
 }
 
-export function openLetterPrint(opts) {
+export async function openLetterPrint(opts) {
   const { fitToOnePage = true, letterScale = 1, ...buildOpts } = opts
   const inner = buildLetterInnerForPrint(buildOpts)
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(buildOpts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}</style></head><body>${inner}</body></html>`
+  const rawHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(buildOpts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}</style></head><body>${inner}</body></html>`
+  const html = await inlineImagesToDataUrls(rawHtml)
 
   // Use a hidden iframe instead of window.open to avoid opening a new tab.
   // The iframe prints from its own context so the parent page stays responsive.

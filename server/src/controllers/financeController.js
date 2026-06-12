@@ -566,7 +566,7 @@ const { buildTabularExportHtml } = require('../services/documentHtmlService');
 
 exports.exportData = async (req, res, next) => {
   try {
-    const { dataset = 'financial_overview', format = 'excel', month, year, from, to, category, type, employeeId, branch } = req.query;
+    const { dataset = 'financial_overview', format = 'excel', month, year, from, to, category, type, employeeId, branch, paymentMethod } = req.query;
     const lowerDataset = String(dataset).toLowerCase();
     const lowerFormat = String(format).toLowerCase();
     let headers = [];
@@ -621,32 +621,48 @@ exports.exportData = async (req, res, next) => {
     } else if (lowerDataset === 'incomes' || lowerDataset === 'expenses') {
       const dateFilter = buildDateFilter({ from, to, month, year });
       const entryType = lowerDataset === 'incomes' ? 'income' : 'expense';
+      const pmMatch = paymentMethod ? { paymentMethod } : {};
       const pcQ = { ...(branch ? { branch } : {}) };
       if (dateFilter) pcQ.date = dateFilter;
 
-      const [rawEntries, pettyCash, subIncome] = await Promise.all([
+      const [rawEntries, pettyCash, subIncome, invIncome, chequeTx, advanceExp, loanTx] = await Promise.all([
         FinanceEntry.find({
           ...branchMatch,
+          ...pmMatch,
           type: entryType,
           ...(category ? { category } : {}),
           ...(dateFilter ? { date: dateFilter } : {}),
         }).sort({ date: -1 }),
-        entryType === 'expense' || entryType === 'income' ? PettyCash.find(pcQ).sort({ date: -1 }) : Promise.resolve([]),
-        entryType === 'income' ? resolveSubscriptionIncome(branch, dateFilter) : Promise.resolve({ entries: [] }),
+        PettyCash.find(pcQ).sort({ date: -1 }),
+        entryType === 'income' ? resolveSubscriptionIncome(branch, dateFilter, paymentMethod) : Promise.resolve({ entries: [] }),
+        entryType === 'income' ? resolveInvoicePaymentIncome(branch, dateFilter, paymentMethod) : Promise.resolve({ entries: [] }),
+        resolveChequeTransactions(branch, dateFilter, paymentMethod),
+        entryType === 'expense' ? resolveAdvanceExpenses(branch, dateFilter, paymentMethod) : Promise.resolve({ entries: [] }),
+        resolveLoanTransactions(branch, dateFilter, paymentMethod),
       ]);
 
-      const merged = [
-        ...rawEntries.filter((e) => !(entryType === 'income' && isSubscriptionIncomeEntry(e))).map((e) => ({
-          date: e.date, category: e.category, title: e.title, amount: e.amount, note: e.note || '',
-        })),
-        ...normalizePettyCashEntries(pettyCash, { type: entryType }),
-        ...subIncome.entries,
-      ]
+      const financeRows = rawEntries
+        .filter((e) => !(entryType === 'income' && (isSubscriptionIncomeEntry(e) || isInvoiceIncomeEntry(e))))
+        .map((e) => ({
+          date: e.date, category: e.category, title: e.title, amount: e.amount,
+          paymentMethod: e.paymentMethod || 'Cash', note: e.note || '',
+        }));
+      const pcRows = normalizePettyCashEntries(pettyCash, { type: entryType, paymentMethod });
+      const extraIncome = entryType === 'income'
+        ? [...subIncome.entries, ...invIncome.entries, ...chequeTx.incomeEntries, ...loanTx.incomeEntries]
+        : [];
+      const extraExpense = entryType === 'expense'
+        ? [...chequeTx.expenseEntries, ...advanceExp.entries, ...loanTx.expenseEntries]
+        : [];
+
+      const merged = [...financeRows, ...pcRows, ...extraIncome, ...extraExpense]
         .filter((e) => !category || e.category === category)
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      headers = ['Date', 'Category', 'Title', 'Amount', 'Note'];
-      rows = merged.map((e) => [new Date(e.date).toLocaleDateString(), e.category, e.title, e.amount, e.note || '']);
+      headers = ['Date', 'Category', 'Title', 'Amount', 'Payment Method', 'Note'];
+      rows = merged.map((e) => [
+        new Date(e.date).toLocaleDateString(), e.category, e.title, e.amount, e.paymentMethod || 'Cash', e.note || '',
+      ]);
     } else if (lowerDataset === 'attendance_reports') {
       const records = await Attendance.find({
         ...empMatch,
@@ -790,102 +806,109 @@ exports.exportData = async (req, res, next) => {
     } else {
       const dateFilter = buildDateFilter({ from, to, month, year });
       const range = dateFilter || getRange(Number(month || (new Date().getMonth() + 1)), Number(year || new Date().getFullYear()));
-      const [paidInvoices, paidPayrolls, rawEntries, pettyCash, subIncome] = await Promise.all([
-        Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).populate('client', 'name email'),
-        Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } }),
-        FinanceEntry.find({ ...branchMatch, ...(type ? { type } : {}), ...(category ? { category } : {}), date: range }),
+      const pmMatch = paymentMethod ? { paymentMethod } : {};
+
+      const [
+        rawIncomeEntries, rawExpenseEntries, payrollRuns, pettyCash,
+        subIncomeResolved, invIncomeResolved, chequeTx, advanceExp, loanTx, bankLedger,
+      ] = await Promise.all([
+        FinanceEntry.find({ ...branchMatch, ...pmMatch, type: 'income', date: range }).sort({ date: -1 }),
+        FinanceEntry.find({ ...branchMatch, ...pmMatch, type: 'expense', date: range }).sort({ date: -1 }),
+        Payroll.find({ ...empMatch, status: 'paid', paidAt: range, ...pmMatch })
+          .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } }),
         PettyCash.find({ ...branchMatch, date: range }),
-        resolveSubscriptionIncome(branch, range),
+        resolveSubscriptionIncome(branch, range, paymentMethod),
+        resolveInvoicePaymentIncome(branch, range, paymentMethod),
+        resolveChequeTransactions(branch, range, paymentMethod),
+        resolveAdvanceExpenses(branch, range, paymentMethod),
+        resolveLoanTransactions(branch, range, paymentMethod),
+        resolveBankLedgerTransactions(branch, range),
       ]);
-      const entries = rawEntries.filter((e) => !isSubscriptionIncomeEntry(e));
-      const subsPayments = subIncome.entries;
-      const revenue = paidInvoices.reduce((s, i) => s + Number(i.total || 0), 0);
-      const salaryPayout = paidPayrolls.reduce((s, p) => s + Number(p.netSalary || 0), 0);
-      const incomeEntries = entries.filter((e) => e.type === 'income').reduce((s, e) => s + Number(e.amount || 0), 0);
-      const expenseEntries = entries.filter((e) => e.type === 'expense').reduce((s, e) => s + Number(e.amount || 0), 0);
-      const subRevenue = subIncome.total;
-      const pcIn = pettyCash.filter(p => p.type === 'in').reduce((s, p) => s + Number(p.amount || 0), 0);
-      const pcOut = pettyCash.filter(p => p.type === 'out').reduce((s, p) => s + Number(p.amount || 0), 0);
-      const totalIncome = revenue + incomeEntries + subRevenue + pcIn;
-      const totalExpense = salaryPayout + expenseEntries + pcOut;
+
+      const incomeEntries = rawIncomeEntries.filter((e) => !isSubscriptionIncomeEntry(e) && !isInvoiceIncomeEntry(e));
+      const expenseEntries = rawExpenseEntries;
+      const pcIncome = normalizePettyCashEntries(pettyCash, { type: 'income', paymentMethod });
+      const pcExpense = normalizePettyCashEntries(pettyCash, { type: 'expense', paymentMethod });
+      const bankIncome = (bankLedger.entries || []).filter((e) => e.type === 'income' && e.countsInTotals !== false);
+      const bankExpense = (bankLedger.entries || []).filter((e) => e.type === 'expense' && e.countsInTotals !== false);
+
+      const allIncome = [
+        ...incomeEntries.map((e) => ({ ...e.toObject(), source: 'Finance Entry' })),
+        ...pcIncome.map((e) => ({ ...e, source: 'Petty Cash' })),
+        ...subIncomeResolved.entries.map((e) => ({ ...e, source: 'Subscription' })),
+        ...invIncomeResolved.entries.map((e) => ({ ...e, source: 'Invoice' })),
+        ...chequeTx.incomeEntries.map((e) => ({ ...e, source: 'Cheque' })),
+        ...loanTx.incomeEntries.map((e) => ({ ...e, source: 'Loan' })),
+        ...bankIncome.map((e) => ({ ...e, source: 'Bank' })),
+      ];
+      const allExpense = [
+        ...expenseEntries.map((e) => ({ ...e.toObject(), source: 'Finance Entry' })),
+        ...pcExpense.map((e) => ({ ...e, source: 'Petty Cash' })),
+        ...chequeTx.expenseEntries.map((e) => ({ ...e, source: 'Cheque' })),
+        ...advanceExp.entries.map((e) => ({ ...e, source: 'Advance' })),
+        ...loanTx.expenseEntries.map((e) => ({ ...e, source: 'Loan' })),
+        ...bankExpense.map((e) => ({ ...e, source: 'Bank' })),
+      ];
+
+      const financeOnlyIncome = incomeEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const financeOnlyExpense = expenseEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const salaryPayout = payrollRuns.reduce((s, p) => s + Number(p.netSalary || 0), 0);
+      const subRevenue = subIncomeResolved.total;
+      const invoiceRevenue = invIncomeResolved.total;
+      const pcIn = pcIncome.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const pcOut = pcExpense.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const chequeIn = chequeTx.incomeTotal;
+      const chequeOut = chequeTx.expenseTotal;
+      const advanceExpense = advanceExp.total;
+      const loanDisbursement = loanTx.expenseTotal;
+      const loanRepayment = loanTx.incomeTotal;
+      const bankIn = bankIncome.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const bankOut = bankExpense.reduce((s, e) => s + Number(e.amount || 0), 0);
+
+      const totalIncome = allIncome.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const totalExpense = allExpense.reduce((s, e) => s + Number(e.amount || 0), 0) + salaryPayout;
       const profit = totalIncome - totalExpense;
 
       const ledger = [];
-      paidInvoices.forEach((i) => ledger.push({
-        rawDate: i.paidAt ? new Date(i.paidAt) : new Date(0),
-        row: [
-          i.paidAt ? new Date(i.paidAt).toLocaleDateString() : '—',
-          'Invoice',
-          'income',
-          'Revenue',
-          `Paid Invoice ${i.invoiceNo || ''} (${i.client?.name || 'Client'})`,
-          Number(i.total || 0),
-          '',
-        ],
-      }));
-      paidPayrolls.forEach((p) => ledger.push({
+      payrollRuns.forEach((p) => ledger.push({
         rawDate: p.paidAt ? new Date(p.paidAt) : new Date(0),
         row: [
           p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—',
-          'Payroll',
-          'expense',
-          'Salary',
+          'Payroll', 'expense', 'Salary',
           `Salary Payout ${p.employee?.userId?.name || ''} (${p.month}/${p.year})`,
-          Number(p.netSalary || 0),
-          '',
+          Number(p.netSalary || 0), p.paymentMethod || 'Cash', '',
         ],
       }));
-      entries.forEach((e) => ledger.push({
+      [...allIncome, ...allExpense].forEach((e) => ledger.push({
         rawDate: e.date ? new Date(e.date) : new Date(0),
         row: [
           e.date ? new Date(e.date).toLocaleDateString() : '—',
-          'Finance Entry',
-          e.type,
-          e.category,
-          e.title,
-          Number(e.amount || 0),
-          e.note || '',
+          e.source || 'Finance Entry', e.type, e.category || '—', e.title || '—',
+          Number(e.amount || 0), e.paymentMethod || 'Cash', e.note || '',
         ],
       }));
-      subsPayments.forEach((s) => ledger.push({
-        rawDate: s.date ? new Date(s.date) : new Date(0),
-        row: [
-          s.date ? new Date(s.date).toLocaleDateString() : '—',
-          'Subscription',
-          'income',
-          'Subscriptions',
-          s.title || 'Subscription Payment',
-          Number(s.amount || 0),
-          s.note || '',
-        ],
-      }));
-      pettyCash.forEach((p) => ledger.push({
-        rawDate: p.date ? new Date(p.date) : new Date(0),
-        row: [
-          p.date ? new Date(p.date).toLocaleDateString() : '—',
-          'Petty Cash',
-          p.type === 'out' ? 'expense' : 'income',
-          p.type === 'out' ? 'Petty Cash' : 'Petty Cash (In)',
-          `Petty Cash: ${p.description}`,
-          Number(p.amount || 0),
-          p.paidTo || '',
-        ],
-      }));
-
       ledger.sort((a, b) => b.rawDate - a.rawDate);
 
-      headers = ['Date', 'Source', 'Type', 'Category', 'Title', 'Amount', 'Note'];
+      const filterNote = paymentMethod ? ` · Method: ${paymentMethod}` : '';
+      headers = ['Date', 'Source', 'Type', 'Category', 'Title', 'Amount', 'Method', 'Note'];
       rows = [
-        ['Summary', 'System', 'income', 'Revenue', 'Revenue (paid invoices)', revenue, ''],
-        ['Summary', 'System', 'expense', 'Salary', 'Salary payout', salaryPayout, ''],
-        ['Summary', 'System', 'income', 'Finance Entries', 'Other income entries', incomeEntries, ''],
-        ['Summary', 'System', 'expense', 'Finance Entries', 'Other expense entries', expenseEntries, ''],
-        ['Summary', 'System', 'income', 'Subscriptions', 'Subscription payments', subRevenue, ''],
-        ['Summary', 'System', 'income', 'Petty Cash', 'Petty Cash (In)', pcIn, ''],
-        ['Summary', 'System', 'expense', 'Petty Cash', 'Petty Cash (Out)', pcOut, ''],
-        ['Summary', 'System', 'income', 'Total', 'Total income', totalIncome, ''],
-        ['Summary', 'System', 'expense', 'Total', 'Total expense', totalExpense, ''],
-        ['Summary', 'System', profit >= 0 ? 'income' : 'expense', 'Profit', 'Net profit', profit, ''],
+        ['Summary', 'System', 'income', 'Invoices', `Invoice payments${filterNote}`, invoiceRevenue, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'income', 'Subscriptions', `Subscription payments${filterNote}`, subRevenue, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'income', 'Finance Entries', `Other income entries${filterNote}`, financeOnlyIncome, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'expense', 'Finance Entries', `Other expense entries${filterNote}`, financeOnlyExpense, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'expense', 'Salary', 'Salary payout', salaryPayout, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'income', 'Petty Cash', 'Petty Cash (In)', pcIn, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'expense', 'Petty Cash', 'Petty Cash (Out)', pcOut, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'income', 'Cheques', 'Cheque income', chequeIn, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'expense', 'Cheques', 'Cheque expense', chequeOut, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'expense', 'Advances', 'Employee advances', advanceExpense, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'expense', 'Loans', 'Loan disbursements', loanDisbursement, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'income', 'Loans', 'Loan repayments', loanRepayment, paymentMethod || 'All', ''],
+        ['Summary', 'System', 'income', 'Bank', 'Bank deposits (ledger)', bankIn, '—', ''],
+        ['Summary', 'System', 'expense', 'Bank', 'Bank withdrawals (ledger)', bankOut, '—', ''],
+        ['Summary', 'System', 'income', 'Total', 'Total income', totalIncome, '', ''],
+        ['Summary', 'System', 'expense', 'Total', 'Total expense', totalExpense, '', ''],
+        ['Summary', 'System', profit >= 0 ? 'income' : 'expense', 'Profit', 'Net profit', profit, '', ''],
         ...ledger.map((x) => x.row),
       ];
     }

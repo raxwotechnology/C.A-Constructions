@@ -338,7 +338,25 @@ exports.deleteLoan = async (req, res, next) => {
   try {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ success: false, message: 'Not found' });
-    // Reverse outstanding balance from employee
+
+    const { postsToBankLedger, parseLedgerDate } = require('../utils/paymentMethods');
+    for (const payment of loan.payments || []) {
+      if (payment.bankAccount && postsToBankLedger(payment.method)) {
+        await appendBankTransaction(payment.bankAccount, {
+          type: 'withdrawal',
+          amount: payment.amount,
+          description: `Loan payment reversal (deleted loan) — installment ${payment.installmentNo || ''}`,
+          date: parseLedgerDate(payment.date),
+          referenceId: `LOAN-REV-${loan._id}-${payment._id || payment.installmentNo}`,
+          moduleSource: 'loans',
+          sourceType: 'Loan',
+          sourceId: loan._id,
+          recordedBy: req.user?._id,
+          paymentMethod: payment.method,
+        });
+      }
+    }
+
     await Employee.findByIdAndUpdate(loan.employee, { $inc: { loanBalance: -loan.outstandingBalance } });
     await createAuditLog({
       user: req.user, action: 'delete', module: 'loans', entityId: loan._id, entityName: `Loan deleted`,
