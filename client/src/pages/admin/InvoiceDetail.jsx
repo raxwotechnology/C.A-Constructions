@@ -139,16 +139,16 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
   const downloadInvoicePdf = async (id, invoiceNo) => {
     try {
-      const res = await api.get(`/invoices/${id}/pdf`, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `Invoice_${invoiceNo}.pdf`)
-      document.body.appendChild(link)
-      link.click()
-      link.parentNode.removeChild(link)
+      const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator')
+      const res = await api.get(`/invoices/${id}/pdf?html=true`, { responseType: 'text' })
+      const htmlStr = typeof res.data === 'string' ? res.data : await res.data.text()
+      const fname = `Invoice_${invoiceNo}.pdf`
+      toast.loading('Generating PDF...', { id: 'pdf-toast' })
+      await htmlStringToPdfDownload(htmlStr, fname)
+      toast.success('PDF downloaded', { id: 'pdf-toast' })
     } catch (e) {
-      toast.error('Failed to download PDF')
+      console.error(e)
+      toast.error('Failed to download PDF', { id: 'pdf-toast' })
     }
   }
 

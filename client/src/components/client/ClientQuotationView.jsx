@@ -38,16 +38,15 @@ export default function ClientQuotationView({ quotationId, onClose }) {
 
   const handleDownload = async () => {
     try {
-      const res = await api.get(`/quotations/${id}/pdf`, { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${q?.quotationNo || 'quotation'}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('PDF downloaded')
+      const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator')
+      const res = await api.get(`/quotations/${id}/pdf?html=true`, { responseType: 'text' })
+      const htmlStr = typeof res.data === 'string' ? res.data : await res.data.text()
+      const fname = `${q?.quotationNo || 'quotation'}.pdf`
+      toast.loading('Generating PDF...', { id: 'pdf-toast' })
+      await htmlStringToPdfDownload(htmlStr, fname)
+      toast.success('PDF downloaded', { id: 'pdf-toast' })
     } catch {
-      toast.error('Could not download PDF')
+      toast.error('Could not download PDF', { id: 'pdf-toast' })
     }
   }
 

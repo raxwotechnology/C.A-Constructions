@@ -170,18 +170,18 @@ export default function AdminInvoices() {
     }
   }
 
-  const downloadInvoicePdf = async (id, invoiceNo) => {
+  const downloadPdf = async (id, invoiceNo) => {
     try {
-      const res = await api.get(`/invoices/${id}/pdf`, { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${invoiceNo || 'invoice'}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('PDF downloaded')
-    } catch {
-      toast.error('PDF download failed')
+      const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator')
+      const res = await api.get(`/invoices/${id}/pdf?html=true`, { responseType: 'text' })
+      const htmlStr = typeof res.data === 'string' ? res.data : await res.data.text()
+      const fname = `${invoiceNo || 'invoice'}.pdf`
+      toast.loading('Generating PDF...', { id: 'pdf-toast' })
+      await htmlStringToPdfDownload(htmlStr, fname)
+      toast.success('PDF downloaded', { id: 'pdf-toast' })
+    } catch (err) {
+      console.error(err)
+      toast.error('PDF download failed', { id: 'pdf-toast' })
     }
   }
 

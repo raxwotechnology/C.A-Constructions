@@ -212,17 +212,16 @@ export async function downloadAgreementPdf(opts, filenameBase = 'agreement') {
     <div class="agreement-pdf-page">${inlinedInner}</div>
   </body></html>`
 
-  const res = await api.post('/agreements/generate-pdf', {
-    html: fullHtml,
-    filename: filenameBase,
-  }, { responseType: 'blob' })
-
-  const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${String(filenameBase).replace(/[^\w\-]+/g, '_')}.pdf`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  window.URL.revokeObjectURL(url)
+  try {
+    const { htmlStringToPdfDownload } = await import('./pdfGenerator')
+    const res = await api.post('/agreements/generate-pdf?html=true', {
+      html: fullHtml,
+      filename: filenameBase,
+    }, { responseType: 'text' })
+    const finalHtml = typeof res.data === 'string' ? res.data : await res.data.text()
+    
+    await htmlStringToPdfDownload(finalHtml, filenameBase)
+  } catch (err) {
+    console.error('Agreement PDF Generation Error:', err)
+  }
 }

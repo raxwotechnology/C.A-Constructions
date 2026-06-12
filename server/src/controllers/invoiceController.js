@@ -611,8 +611,17 @@ exports.downloadInvoicePdf = async (req, res, next) => {
       }
     }
 
-    const { invoiceToPdf } = require('../services/documentPdfService');
-    const pdf = await invoiceToPdf(invoice);
+    const { buildInvoiceDocumentHtml, bankLabelFromAccount, inlineUploadImagesInHtml } = require('../services/documentHtmlService');
+    const bankLabel = bankLabelFromAccount(invoice.bankAccount);
+    const html = await buildInvoiceDocumentHtml(invoice, { bankLabel });
+    const inlinedHtml = inlineUploadImagesInHtml(html);
+
+    if (req.query.html === 'true') {
+      return res.send(inlinedHtml);
+    }
+
+    const { htmlToPdfBuffer } = require('../services/documentPdfService');
+    const pdf = await htmlToPdfBuffer(inlinedHtml);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNo || 'invoice'}.pdf"`);
     res.send(pdf);

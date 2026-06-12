@@ -174,15 +174,16 @@ export async function downloadPayslipPdf(payroll, siteSettings, signatoryOpts = 
   const empName = (payroll?.employee?.userId?.name || 'payslip').replace(/[^\w-]+/g, '_')
   const fname = filenameBase || `Payslip_${empName}_${MONTHS[(payroll?.month || 1) - 1]}_${payroll?.year || ''}`
 
-  const res = await api.post('/payroll/generate-pdf', { html: inlined, filename: fname }, { responseType: 'blob' })
-  const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${fname.replace(/[^\w\-]+/g, '_')}.pdf`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  window.URL.revokeObjectURL(url)
+  try {
+    const { htmlStringToPdfDownload } = await import('./pdfGenerator')
+    // We send the HTML to the backend to apply letterhead wrapping/inlining (if needed) and get final HTML string back
+    const res = await api.post(`/payroll/generate-pdf?html=true`, { html: inlined, filename: fname }, { responseType: 'text' })
+    const finalHtml = typeof res.data === 'string' ? res.data : await res.data.text()
+    
+    await htmlStringToPdfDownload(finalHtml, fname)
+  } catch (err) {
+    console.error('Payslip PDF Generation Error:', err)
+  }
 }
 
 export async function printPayslip(payroll, siteSettings, signatoryOpts = {}) {

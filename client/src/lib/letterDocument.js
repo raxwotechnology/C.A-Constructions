@@ -391,17 +391,16 @@ export async function downloadLetterPdf(opts, filenameBase = 'letter') {
     <div class="letter-pdf-page">${inlinedInnerHtml}</div>
   </body></html>`
 
-  const res = await api.post('/letters/generate-pdf', {
-    html: fullHtml,
-    filename: filenameBase,
-  }, { responseType: 'blob' })
-
-  const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${String(filenameBase).replace(/[^\w\-]+/g, '_')}.pdf`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  window.URL.revokeObjectURL(url)
+  try {
+    const { htmlStringToPdfDownload } = await import('./pdfGenerator')
+    const res = await api.post('/letters/generate-pdf?html=true', {
+      html: fullHtml,
+      filename: filenameBase,
+    }, { responseType: 'text' })
+    const finalHtml = typeof res.data === 'string' ? res.data : await res.data.text()
+    
+    await htmlStringToPdfDownload(finalHtml, filenameBase)
+  } catch (err) {
+    console.error('Letter PDF Generation Error:', err)
+  }
 }

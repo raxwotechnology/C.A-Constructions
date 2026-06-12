@@ -454,8 +454,17 @@ exports.downloadQuotationPdf = async (req, res, next) => {
       }
     }
 
-    const { quotationToPdf } = require('../services/documentPdfService');
-    const pdf = await quotationToPdf(quotation);
+    const { buildQuotationDocumentHtml, bankLabelFromAccount, inlineUploadImagesInHtml } = require('../services/documentHtmlService');
+    const bankLabel = bankLabelFromAccount(quotation.bankAccount);
+    const html = await buildQuotationDocumentHtml(quotation, { bankLabel });
+    const inlinedHtml = inlineUploadImagesInHtml(html);
+
+    if (req.query.html === 'true') {
+      return res.send(inlinedHtml);
+    }
+
+    const { htmlToPdfBuffer } = require('../services/documentPdfService');
+    const pdf = await htmlToPdfBuffer(inlinedHtml);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${quotation.quotationNo || 'quotation'}.pdf"`);
     res.send(pdf);

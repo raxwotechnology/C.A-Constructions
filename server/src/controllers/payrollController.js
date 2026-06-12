@@ -735,9 +735,15 @@ exports.generatePayslipPdf = async (req, res, next) => {
     if (!html) {
       return res.status(400).json({ success: false, message: 'HTML content is required' });
     }
-    const { htmlToPdfBuffer } = require('../services/documentPdfService');
     const { inlineUploadImagesInHtml } = require('../services/documentHtmlService');
-    const pdfBuffer = await htmlToPdfBuffer(inlineUploadImagesInHtml(html));
+    const inlinedHtml = inlineUploadImagesInHtml(html);
+
+    if (req.query.html === 'true') {
+      return res.send(inlinedHtml);
+    }
+
+    const { htmlToPdfBuffer } = require('../services/documentPdfService');
+    const pdfBuffer = await htmlToPdfBuffer(inlinedHtml);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename || 'payslip'}.pdf"`);
     res.send(pdfBuffer);
