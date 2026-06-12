@@ -223,5 +223,6 @@ export async function downloadAgreementPdf(opts, filenameBase = 'agreement') {
     await htmlStringToPdfDownload(finalHtml, filenameBase)
   } catch (err) {
     console.error('Agreement PDF Generation Error:', err)
+    throw err
   }
 }

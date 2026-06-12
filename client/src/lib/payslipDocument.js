@@ -183,6 +183,7 @@ export async function downloadPayslipPdf(payroll, siteSettings, signatoryOpts = 
     await htmlStringToPdfDownload(finalHtml, fname)
   } catch (err) {
     console.error('Payslip PDF Generation Error:', err)
+    throw err
   }
 }
 

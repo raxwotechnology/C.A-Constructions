@@ -402,5 +402,6 @@ export async function downloadLetterPdf(opts, filenameBase = 'letter') {
     await htmlStringToPdfDownload(finalHtml, filenameBase)
   } catch (err) {
     console.error('Letter PDF Generation Error:', err)
+    throw err
   }
 }
