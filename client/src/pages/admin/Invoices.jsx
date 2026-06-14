@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -44,6 +44,7 @@ export default function AdminInvoices() {
     authorizer: { data: '', name: '', title: 'Authorized Signatory' },
     seal: { data: '' }
   })
+  const [signatoryEmpId, setSignatoryEmpId] = useState('')
   const [deletePending, setDeletePending] = useState(null)
   const [viewingInv, setViewingInv] = useState(null)
   const [sendTarget, setSendTarget] = useState(null)
@@ -292,6 +293,7 @@ export default function AdminInvoices() {
       authorizer: { data: '', name: '', title: 'Authorized Signatory' },
       seal: { data: '', note: '' }
     })
+    setSignatoryEmpId('')
     setEditing(null)
     setShowModal(true)
   }
@@ -341,8 +343,9 @@ export default function AdminInvoices() {
       },
       seal: { data: inv.signatures?.seal?.data || '', note: inv.signatures?.seal?.note || '' }
     })
+    setSignatoryEmpId('')
   }
-  const closeModal = () => { setShowModal(false); setEditing(null); reset() }
+  const closeModal = () => { setShowModal(false); setEditing(null); setSignatoryEmpId(''); reset() }
 
   const editingPaid = editing?.status === 'paid'
 
@@ -452,10 +455,41 @@ export default function AdminInvoices() {
           <option value="online">Online</option>
           <option value="custom">Custom</option>
         </select>
-        <input type="date" className="form-input py-2 text-sm w-32" value={startDate} onChange={e => setStartDate(e.target.value)}/>
-        <span className="text-gray-400 text-xs">to</span>
-        <input type="date" className="form-input py-2 text-sm w-32" value={endDate} onChange={e => setEndDate(e.target.value)}/>
+        {/* Date range picker */}
+        <div className="flex items-center gap-0 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="flex items-center gap-1.5 px-3 py-2 border-r border-slate-100">
+            <svg className="text-slate-400 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">From</span>
+          </div>
+          <input
+            type="date"
+            className="border-0 bg-transparent text-sm text-slate-700 px-2 py-2 focus:outline-none focus:ring-0 w-[130px]"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+          />
+          <div className="px-1 text-slate-300 select-none">→</div>
+          <div className="flex items-center gap-1.5 px-3 py-2 border-l border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To</span>
+          </div>
+          <input
+            type="date"
+            className="border-0 bg-transparent text-sm text-slate-700 px-2 py-2 focus:outline-none focus:ring-0 w-[130px]"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+          />
+          {(startDate || endDate) && (
+            <button
+              type="button"
+              onClick={() => { setStartDate(''); setEndDate('') }}
+              className="px-2 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors border-l border-slate-100"
+              title="Clear dates"
+            >
+              <FiX size={13}/>
+            </button>
+          )}
+        </div>
       </div>
+
 
       <div className="table-container">
         <table className="table">
@@ -804,6 +838,32 @@ export default function AdminInvoices() {
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <p className="text-xs font-bold text-slate-500 tracking-wide">Authorizer Signature</p>
+                      <div>
+                        <label className="form-label text-xs">Auto-fill from Employee (optional)</label>
+                        <SearchableSelect
+                          value={signatoryEmpId}
+                          onChange={async (empId) => {
+                            setSignatoryEmpId(empId)
+                            if (!empId) return
+                            try {
+                              const res = await api.get(`/employees/${empId}`)
+                              const emp = res.data?.employee
+                              if (emp) {
+                                setSignatures((s) => ({
+                                  ...s,
+                                  authorizer: {
+                                    ...s.authorizer,
+                                    name: emp.userId?.name || emp.name || s.authorizer.name,
+                                    title: emp.designation || '',
+                                  },
+                                }))
+                              }
+                            } catch {}
+                          }}
+                          loadOptions={lookupLoaders.employeesAll()}
+                          placeholder="Search employee to auto-fill…"
+                        />
+                      </div>
                       <DocumentAssetPicker label="Signature (upload or saved)" value={{ data: signatures.authorizer.data }} onChange={(v) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data: v.data } }))} roleKey="admin" />
                       <div>
                         <label className="form-label text-xs">Signatory Name</label>

@@ -26,8 +26,10 @@ const QUILL_FORMATS = ['bold', 'italic', 'underline', 'strike', 'size', 'font', 
 export default function EnterpriseLetterBuilder({ 
   initialData = null, 
   employee, 
+  clientData = null,
   company, 
   employeesList = [],
+  clientsList = [],
   letterTypesList = [],
   onSave, 
   onCancel, 
@@ -44,10 +46,15 @@ export default function EnterpriseLetterBuilder({
     footer: true
   })
 
+  // Detect recipient type from initialData
+  const isClientRecipient = initialData?.recipientType === 'client'
+
   // We initialize the form with structured data if it exists, otherwise defaults.
   const defaultValues = {
     // DB Meta
     dbEmployeeId: initialData?.employee?._id || initialData?.employee || employee?._id || '',
+    dbClientId: initialData?.client?._id || initialData?.dbClientId || clientData?._id || '',
+    dbRecipientType: initialData?.recipientType || (clientData ? 'client' : 'employee'),
     dbLetterType: initialData?.type || 'custom',
     letterName: initialData?.title || 'Custom Letter',
 
@@ -66,11 +73,11 @@ export default function EnterpriseLetterBuilder({
     senderDesignation: initialData?.structuredData?.senderDesignation || 'Human Resources',
     senderDepartment: initialData?.structuredData?.senderDepartment || '',
     
-    // To
-    recipientName: initialData?.structuredData?.recipientName || employee?.userId?.name || '',
-    recipientDesignation: initialData?.structuredData?.recipientDesignation || employee?.designation || '',
-    recipientCompany: initialData?.structuredData?.recipientCompany || '',
-    recipientAddress: initialData?.structuredData?.recipientAddress || '',
+    // To — pre-fill from client if this is a client letter
+    recipientName: initialData?.structuredData?.recipientName || (isClientRecipient ? clientData?.name : employee?.userId?.name) || '',
+    recipientDesignation: initialData?.structuredData?.recipientDesignation || (isClientRecipient ? '' : employee?.designation) || '',
+    recipientCompany: initialData?.structuredData?.recipientCompany || (isClientRecipient ? clientData?.company || '' : '') || '',
+    recipientAddress: initialData?.structuredData?.recipientAddress || (isClientRecipient ? clientData?.address || '' : '') || '',
     
     // Body
     bodyContent: initialData?.structuredData?.bodyContent || initialData?.content || '',
@@ -114,6 +121,8 @@ export default function EnterpriseLetterBuilder({
       title: data.letterName || data.subject,
       content: finalHtml,
       dbEmployeeId: data.dbEmployeeId,
+      dbClientId: data.dbClientId,
+      dbRecipientType: data.dbRecipientType,
       dbLetterType: data.dbLetterType,
       structuredData: {
         ...data,
@@ -289,15 +298,43 @@ export default function EnterpriseLetterBuilder({
                             <label className="form-label text-xs">Letter Name (For Dashboard)</label>
                             <input {...register('letterName')} className="form-input text-xs" />
                           </div>
-                          <select {...register('dbEmployeeId')} className="form-select text-xs">
-                            <option value="">-- Select Employee --</option>
-                            {employeesList.map(e => (
-                              <option key={e._id} value={e._id}>{e.userId?.name} ({e.designation})</option>
-                            ))}
-                          </select>
+                          {formData.dbRecipientType === 'client' ? (
+                            <>
+                              <label className="form-label text-xs">Customer (For Dashboard)</label>
+                              <select
+                                {...register('dbClientId')}
+                                className="form-select text-xs"
+                                onChange={(e) => {
+                                  register('dbClientId').onChange(e)
+                                  const sel = clientsList.find(c => String(c._id) === String(e.target.value))
+                                  if (sel) {
+                                    setValue('recipientName', sel.name || '')
+                                    setValue('recipientCompany', sel.company || '')
+                                    setValue('recipientAddress', sel.address || '')
+                                    setValue('recipientDesignation', '')
+                                  }
+                                }}
+                              >
+                                <option value="">-- Select Customer --</option>
+                                {clientsList.map(c => (
+                                  <option key={c._id} value={c._id}>{c.name}{c.email ? ` (${c.email})` : ''}</option>
+                                ))}
+                              </select>
+                            </>
+                          ) : (
+                            <select {...register('dbEmployeeId')} className="form-select text-xs">
+                              <option value="">-- Select Employee --</option>
+                              {employeesList.map(e => (
+                                <option key={e._id} value={e._id}>{e.userId?.name} ({e.designation})</option>
+                              ))}
+                            </select>
+                          )}
                           <select {...register('dbLetterType')} className="form-select text-xs">
                             <option value="custom">Custom Letter</option>
-                            {letterTypesList.filter(t => t.value !== 'custom').map(t => (
+                            {letterTypesList
+                              .filter(t => t.value !== 'custom')
+                              .filter(t => !t.category || t.category === 'both' || t.category === formData.dbRecipientType)
+                              .map(t => (
                               <option key={t.value} value={t.value}>{t.label}</option>
                             ))}
                           </select>

@@ -307,7 +307,7 @@ ${signatureBlock(data.issuedByName, data.signatoryTitle || 'Human Resources')}
 };
 
 function buildLetterBodyHtml(type, employee, data, company) {
-  const fn = LETTER_HTML[type];
+  const fn = LETTER_HTML[type] || LETTER_HTML['custom'];
   if (!fn) throw new Error(`Unknown letter type: ${type}`);
   return fn(employee, data, company);
 }

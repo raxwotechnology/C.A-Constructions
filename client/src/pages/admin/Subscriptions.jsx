@@ -303,8 +303,21 @@ export default function AdminSubscriptions() {
             title="Subscriptions Report"
             filters={{ Status: statusFilter, Branch: branches.find(b => b._id === branchFilter)?.name }}
           />
-          <button className="btn-secondary btn-sm" onClick={() => processOverdueMut.mutate()} disabled={processOverdueMut.isPending}>
-            <FiAlertCircle size={14} /> Process Overdue
+          <button 
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border transition-all shadow-sm
+              ${processOverdueMut.isPending 
+                ? 'bg-amber-100 border-amber-200 text-amber-500 cursor-not-allowed' 
+                : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-300'
+              }`}
+            onClick={() => processOverdueMut.mutate()} 
+            disabled={processOverdueMut.isPending}
+          >
+            {processOverdueMut.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+            ) : (
+              <FiAlertCircle size={14} className="text-amber-600" />
+            )}
+            <span>{processOverdueMut.isPending ? 'Processing...' : 'Process Overdue'}</span>
           </button>
           <button className="btn-primary btn-sm" onClick={openNew}>
             <FiPlus size={14} /> New Subscription

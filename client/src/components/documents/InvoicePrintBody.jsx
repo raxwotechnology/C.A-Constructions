@@ -41,6 +41,11 @@ export default function InvoicePrintBody({
   const termsLines = termsLinesFromDoc(inv)
   const bank = bankLabel(inv)
 
+  const hasCustomSig = inv.signatures?.authorizer?.data || 
+                       inv.signatures?.seal?.data || 
+                       inv.signatures?.authorizer?.name ||
+                       (inv.signatures?.authorizer?.title && inv.signatures.authorizer.title !== 'Authorized Signatory');
+
   return (
     <div className="invoice-doc-inner" style={{ fontFamily: FONT, color: CLR.dark, fontSize: '10.5pt', lineHeight: 1.55 }}>
 
@@ -178,31 +183,31 @@ export default function InvoicePrintBody({
         </div>
       )}
 
-      {(inv.signatures?.authorizer?.data || inv.signatures?.seal?.data) && (
+      {hasCustomSig && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '40px', pageBreakInside: 'avoid' }}>
           <div style={{ width: '260px', textAlign: 'center' }}>
-            {inv.signatures.authorizer?.data ? (
+            {inv.signatures?.authorizer?.data ? (
               <img src={sigImgSrc(inv.signatures.authorizer.data, forPrint)} alt="Signature" style={{ maxHeight: '70px', marginBottom: '8px', display: 'block', marginInline: 'auto' }} />
             ) : (
               <div style={{ height: '70px', marginBottom: '8px' }} />
             )}
             <div style={{ borderTop: `2px solid ${CLR.dark}`, paddingTop: '8px', marginTop: '4px', marginBottom: '16px' }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: '10pt', color: CLR.dark, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{inv.signatures.authorizer?.name || 'Authorized Signatory'}</p>
-              {inv.signatures.authorizer?.title && (
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '10pt', color: CLR.dark, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{inv.signatures?.authorizer?.name || 'Authorized Signatory'}</p>
+              {inv.signatures?.authorizer?.title && (
                 <p style={{ margin: '4px 0 0', fontSize: '8.5pt', color: CLR.mid }}>{inv.signatures.authorizer.title}</p>
               )}
             </div>
-            {inv.signatures.seal?.data && (
+            {inv.signatures?.seal?.data && (
               <img src={sigImgSrc(inv.signatures.seal.data, forPrint)} alt="Seal" style={{ maxHeight: '110px', display: 'block', marginInline: 'auto', marginBottom: '8px' }} />
             )}
-            {inv.signatures.seal?.note && (
+            {inv.signatures?.seal?.note && (
               <p style={{ margin: 0, fontSize: '8.5pt', color: CLR.mid, fontStyle: 'italic' }}>{inv.signatures.seal.note}</p>
             )}
           </div>
         </div>
       )}
 
-      {!inv.signatures?.authorizer?.data && !inv.signatures?.seal?.data && siteSettings && (
+      {!hasCustomSig && siteSettings && (
         <div dangerouslySetInnerHTML={{
           __html: directorSealBlockHtml({
             directorName: siteSettings.quotationDirectorName || '',

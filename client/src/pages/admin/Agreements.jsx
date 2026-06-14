@@ -430,11 +430,28 @@ export default function Agreements() {
                       {agr.agreementNo} · {AGREEMENT_TYPES.find((t) => t.value === agr.agreementType)?.label || agr.agreementType}
                     </p>
                   </td>
-                  <td className="text-sm text-slate-600">
-                    {agr.client && <p>Client: {agr.client.name}</p>}
-                    {agr.project && <p className="text-xs text-slate-500 truncate max-w-[200px]">Project: {agr.project.title}</p>}
-                    {agr.invoice && <p className="text-xs text-slate-500">Invoice: {agr.invoice.invoiceNo}</p>}
-                    {!agr.client && !agr.project && !agr.invoice && <span className="text-slate-400">—</span>}
+                  <td>
+                    <div className="flex flex-col gap-1">
+                      {agr.client && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"/>
+                          {agr.client.name}
+                        </span>
+                      )}
+                      {agr.project && (
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-500 truncate max-w-[180px]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0"/>
+                          {agr.project.title}
+                        </span>
+                      )}
+                      {agr.invoice && (
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"/>
+                          {agr.invoice.invoiceNo}
+                        </span>
+                      )}
+                      {!agr.client && !agr.project && !agr.invoice && <span className="text-slate-300 text-xs">—</span>}
+                    </div>
                   </td>
                   <td>
                     <select
@@ -462,48 +479,48 @@ export default function Agreements() {
                   </td>
                   <td className="text-slate-600 whitespace-nowrap text-sm">{new Date(agr.createdAt).toLocaleDateString('en-LK')}</td>
                   <td className="text-right">
-                    <div className="flex justify-end flex-wrap gap-1">
+                    <div className="flex justify-end flex-wrap gap-1.5 items-center">
                       <button
                         type="button"
-                        title="History"
+                        title="Version history"
                         onClick={() => setHistoryFor(agr)}
-                        className="p-2 text-slate-400 hover:text-secondary hover:bg-blue-50 rounded-lg"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-800 transition-colors"
                       >
-                        <FiClock size={14} />
+                        <FiClock size={12} /> History
                       </button>
                       <button
                         type="button"
-                        title="Print"
+                        title="Print agreement"
                         onClick={() => handlePrintAgreement(agr)}
-                        className="p-2 text-slate-400 hover:text-secondary hover:bg-blue-50 rounded-lg"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors"
                       >
-                        <FiPrinter size={14} />
+                        <FiPrinter size={12} /> Print
                       </button>
                       <button
                         type="button"
-                        title="PDF"
+                        title="Download PDF"
                         onClick={() => handlePdfAgreement(agr)}
-                        className="p-2 text-slate-400 hover:text-secondary hover:bg-blue-50 rounded-lg"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
                       >
-                        <FiDownload size={14} />
+                        <FiDownload size={12} /> PDF
                       </button>
                       <button
                         type="button"
-                        title="Edit"
+                        title="Edit agreement"
                         onClick={() => openEdit(agr)}
-                        className="p-2 text-slate-400 hover:text-secondary hover:bg-blue-50 rounded-lg"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
                       >
-                        <FiEdit2 size={14} />
+                        <FiEdit2 size={12} /> Edit
                       </button>
                       <button
                         type="button"
-                        title="Delete"
+                        title="Delete agreement"
                         onClick={() => {
                           if (window.confirm('Delete agreement?')) deleteMut.mutate(agr._id)
                         }}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
                       >
-                        <FiTrash2 size={14} />
+                        <FiTrash2 size={12} /> Delete
                       </button>
                     </div>
                   </td>

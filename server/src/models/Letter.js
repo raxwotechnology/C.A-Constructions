@@ -6,7 +6,7 @@ const letterSchema = new mongoose.Schema({
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   type: {
     type: String,
-    enum: ['offer', 'appointment', 'confirmation', 'experience', 'salary', 'service_agreement', 'epf_confirmation', 'warning', 'termination', 'internship', 'contract', 'part_time', 'resignation', 'custom'],
+    enum: ['offer', 'appointment', 'confirmation', 'experience', 'salary', 'service_agreement', 'epf_confirmation', 'warning', 'termination', 'internship', 'contract', 'part_time', 'resignation', 'custom', 'quotation_cover', 'welcome', 'thank_you', 'overdue_notice', 'renewal_notice'],
     required: true
   },
   title: { type: String, required: true },
