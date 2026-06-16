@@ -5,10 +5,21 @@ const User = require('./models/User');
 let io;
 const userSocketMap = new Map();
 
+const ALLOWED_ORIGINS = [
+  process.env.CLIENT_URL,
+  'https://manage.raxwo.net',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+].filter(Boolean);
+
 function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: (origin, cb) => {
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+        cb(new Error('Socket CORS: origin not allowed'));
+      },
       credentials: true,
     },
   });
