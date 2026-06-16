@@ -21,11 +21,10 @@ export default function DocumentAssetPicker({
 
   const savedOptions = assetType === 'seal'
     ? (settings.sealUrl ? [{ id: 'seal', label: 'Company seal', url: settings.sealUrl }] : [])
-    : ['hr', 'admin', 'manager'].map((k) => {
-      const sig = settings.signatures?.[k]
-      if (!sig?.url) return null
-      return { id: k, label: sig.label || k.toUpperCase(), url: sig.url }
-    }).filter(Boolean)
+    : ['director', 'admin', 'manager', 'hr', 'marketing'].map((k) => {
+      const sig = settings.signatures?.[k] || {}
+      return { id: k, label: sig.label || k.toUpperCase(), url: sig.url || '' }
+    })
 
   const uploadImage = async (file) => {
     const fd = new FormData()
@@ -34,9 +33,9 @@ export default function DocumentAssetPicker({
     return data.imageUrl
   }
 
-  const applyUrl = (url) => {
-    const src = url.startsWith('data:') ? url : mediaUrl(url)
-    onChange?.({ ...value, data: src })
+  const applyUrl = (url, label) => {
+    const src = url ? (url.startsWith('data:') ? url : mediaUrl(url)) : ''
+    onChange?.({ ...value, data: src, label })
   }
 
   return (
@@ -48,7 +47,7 @@ export default function DocumentAssetPicker({
           value=""
           onChange={(e) => {
             const opt = savedOptions.find((o) => o.id === e.target.value)
-            if (opt) applyUrl(opt.url)
+            if (opt) applyUrl(opt.url, opt.label)
             e.target.value = ''
           }}
         >

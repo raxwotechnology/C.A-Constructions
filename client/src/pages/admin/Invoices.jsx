@@ -126,10 +126,10 @@ export default function AdminInvoices() {
   const formSnapshot = watch()
   const livePreviewInvoice = useMemo(
     () => ({
-      ...buildInvoiceDraft(formSnapshot, { clients, editing, projects }),
+      ...buildInvoiceDraft(formSnapshot, { clients, editing, projects, banks }),
       signatures
     }),
-    [formSnapshot, clients, editing, projects, signatures],
+    [formSnapshot, clients, editing, projects, signatures, banks],
   )
 
   const syncPreviewToForm = (partial) => {
@@ -288,6 +288,8 @@ export default function AdminInvoices() {
       status: 'draft',
       invoiceDate: new Date().toISOString().split('T')[0],
       items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
+      paymentTerms: localStorage.getItem('defaultInvoiceTerms') || '',
+      terms: localStorage.getItem('defaultInvoiceTerms') || '',
     })
     setSignatures({
       authorizer: { data: '', name: '', title: 'Authorized Signatory' },
@@ -752,7 +754,6 @@ export default function AdminInvoices() {
                         <option value="bank_transfer">Bank Transfer</option>
                         <option value="cheque">Cheque</option>
                         <option value="card">Card</option>
-                        <option value="online">Online Payment</option>
                         <option value="custom">Custom</option>
                       </select>
                     </div>
@@ -829,6 +830,18 @@ export default function AdminInvoices() {
                         className="form-input resize-none"
                         placeholder="Terms & Conditions..."
                       />
+                      <div className="flex justify-end mt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.setItem('defaultInvoiceTerms', watch('paymentTerms') || '')
+                            toast.success('Default terms saved')
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          Save as default
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -864,7 +877,20 @@ export default function AdminInvoices() {
                           placeholder="Search employee to auto-fill…"
                         />
                       </div>
-                      <DocumentAssetPicker label="Signature (upload or saved)" value={{ data: signatures.authorizer.data }} onChange={(v) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, data: v.data } }))} roleKey="admin" />
+                      <DocumentAssetPicker 
+                        label="Signature (upload or saved)" 
+                        value={{ data: signatures.authorizer.data }} 
+                        onChange={(v) => {
+                          setSignatures((s) => ({
+                            ...s,
+                            authorizer: {
+                              ...s.authorizer,
+                              data: v.data,
+                              ...(v.label ? { name: v.label, title: v.label } : {})
+                            }
+                          }))
+                        }} 
+                      />
                       <div>
                         <label className="form-label text-xs">Signatory Name</label>
                         <input className="form-input text-sm" placeholder="Name" value={signatures.authorizer.name} onChange={(e) => setSignatures((s) => ({ ...s, authorizer: { ...s.authorizer, name: e.target.value } }))} />

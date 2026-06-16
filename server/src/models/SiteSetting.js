@@ -36,6 +36,7 @@ const siteSettingSchema = new mongoose.Schema({
     admin: { url: { type: String, default: '' }, label: { type: String, default: 'Admin' } },
     manager: { url: { type: String, default: '' }, label: { type: String, default: 'Manager' } },
     director: { url: { type: String, default: '' }, label: { type: String, default: 'Director' } },
+    marketing: { url: { type: String, default: '' }, label: { type: String, default: 'Marketing' } },
   },
   mapLat: { type: Number, default: 7.0289 },
   mapLng: { type: Number, default: 80.0153 },

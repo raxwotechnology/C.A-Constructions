@@ -148,7 +148,7 @@ exports.createEmployee = async (req, res, next) => {
     const {
       name, email, password, role, department, designation, basicSalary, allowances, joinedDate,
       idType, idNumber, nic, dob, gender, address, primaryPhone, secondaryPhone, cvUrl,
-      emergencyContact, bank, bankBranch, accountNumber, skills, manager,
+      emergencyContact, bank, bankBranch, accountNumber, accountHolder, accountType, skills, manager,
       // file upload fields
       profilePhoto, nicPhotoUrl, nicPhotoBackUrl, agreementUrl,
       // employment extras
@@ -216,6 +216,8 @@ exports.createEmployee = async (req, res, next) => {
       bank,
       bankBranch,
       accountNumber,
+      accountHolder,
+      accountType,
       skills: skills ? skills.split(',').map(s => s.trim()) : [],
       manager,
       // uploaded file URLs

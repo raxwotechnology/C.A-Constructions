@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import toast from 'react-hot-toast'
 import {
-  FiUser, FiKey, FiBriefcase, FiDollarSign, FiPhone, FiUpload, FiFile, FiLink, FiTrash2,
+  FiUser, FiKey, FiBriefcase, FiDollarSign, FiPhone, FiUpload, FiFile, FiLink, FiTrash2, FiCreditCard,
 } from 'react-icons/fi'
 import { DEPARTMENTS, ROLES, EMPLOYEE_STATUSES } from '../../constants/employeeStatus'
 import { mediaUrl } from '../../lib/media'
@@ -242,6 +242,21 @@ export default function EmployeeFormModal({
             <div><label className="form-label text-xs">Reason</label><input {...register('resignationReason')} className="form-input" /></div>
           </div>
         )}
+      </FormSection>
+
+      <FormSection title="Bank Details" icon={FiCreditCard}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className="form-label">Bank Name</label><input {...register('bank')} className="form-input" placeholder="e.g. Commercial Bank" /></div>
+          <div><label className="form-label">Branch</label><input {...register('bankBranch')} className="form-input" placeholder="e.g. Colombo 03" /></div>
+          <div><label className="form-label">Account Name</label><input {...register('accountHolder')} className="form-input" placeholder="e.g. John Doe" /></div>
+          <div><label className="form-label">Account Number</label><input {...register('accountNumber')} className="form-input" placeholder="e.g. 100020003000" /></div>
+          <div><label className="form-label">Account Type</label>
+            <select {...register('accountType')} className="form-select">
+              <option value="savings">Savings</option>
+              <option value="current">Current</option>
+            </select>
+          </div>
+        </div>
       </FormSection>
 
       <FormSection title="Salary & statutory" icon={FiDollarSign}>

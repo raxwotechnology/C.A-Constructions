@@ -165,6 +165,10 @@ exports.getPayrollLiveSnapshot = async (req, res, next) => {
         epfEtfEnrolled: Boolean(employee.epfEtfEnrolled),
         advanceBalance: employee.advanceBalance || 0,
         loanBalance: employee.loanBalance || 0,
+        bank: employee.bank || '',
+        bankBranch: employee.bankBranch || '',
+        accountNumber: employee.accountNumber || '',
+        accountHolder: employee.accountHolder || '',
       },
       period: { month, year },
       snapshot,
@@ -244,11 +248,19 @@ exports.generatePayroll = async (req, res, next) => {
   try {
     const {
       month, year, employeeId, allowances = 0, overtime = 0, commissions = 0, bonus = 0,
-      deductions = 0, notes,
+      deductions = 0, notes, empBankDetails,
     } = req.body;
 
     const employee = await Employee.findById(employeeId);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    if (empBankDetails) {
+      employee.bank = empBankDetails.bank || '';
+      employee.bankBranch = empBankDetails.bankBranch || '';
+      employee.accountHolder = empBankDetails.accountHolder || '';
+      employee.accountNumber = empBankDetails.accountNumber || '';
+      await employee.save();
+    }
 
     const exists = await Payroll.findOne({ employee: employeeId, month, year })
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name' } });
@@ -436,9 +448,32 @@ exports.approvePayroll = async (req, res, next) => {
 // @route   PUT /api/payroll/:id
 exports.updatePayroll = async (req, res, next) => {
   try {
-    const existing = await Payroll.findById(req.params.id);
+    const existing = await Payroll.findById(req.params.id).populate({ path: 'employee', populate: { path: 'userId', select: 'name' } });
     if (!existing) return res.status(404).json({ success: false, message: 'Payroll not found' });
-    if (existing.status === 'paid') return res.status(400).json({ success: false, message: 'Cannot edit a paid payroll' });
+    
+    if (existing.status === 'paid') {
+      const newStatus = req.body.status;
+      if (newStatus && newStatus !== 'paid') {
+        // Rollback triggered by status change from paid -> something else
+        await reversePaidPayroll(existing);
+        existing.status = newStatus;
+        existing.isPaid = false;
+        existing.paidAt = null;
+        await existing.save();
+        await createAuditLog({
+          user: req.user,
+          action: 'PAYROLL_ROLLBACK',
+          module: 'payroll',
+          entityId: existing._id,
+          entityName: `Payroll ${existing.month}/${existing.year}`,
+          description: `Status changed from paid to ${newStatus}. Bank and financials reversed.`,
+          severity: 'warning'
+        });
+        return res.json({ success: true, payroll: existing });
+      }
+      // status is still 'paid' or not provided — no changes allowed on paid payrolls
+      return res.json({ success: true, payroll: existing, message: 'No changes made to paid payroll' });
+    }
 
     const {
       allowances, otHours, otRate, otMultiplier, bonus, bonusNote,
@@ -494,7 +529,7 @@ exports.updatePayroll = async (req, res, next) => {
         otherDeductions: otherDeductions ?? existing.otherDeductions,
         epfEmployee, epfEmployer, etfEmployer,
         grossSalary, totalDeductions, netSalary,
-        status: 'draft', // reset to draft after edit
+        status: req.body.status || 'draft',
       },
       { new: true }
     ).populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });

@@ -166,6 +166,21 @@ export default function AdminPayroll() {
   const activeLoans = livePayrollData?.activeLoans || []
   const activeAdvances = livePayrollData?.activeAdvances || []
 
+  const [empBankDetails, setEmpBankDetails] = useState({ bank: '', bankBranch: '', accountHolder: '', accountNumber: '' })
+
+  useEffect(() => {
+    if (liveEmp) {
+      setEmpBankDetails({
+        bank: liveEmp.bank || '',
+        bankBranch: liveEmp.bankBranch || '',
+        accountHolder: liveEmp.accountHolder || '',
+        accountNumber: liveEmp.accountNumber || ''
+      })
+    } else {
+      setEmpBankDetails({ bank: '', bankBranch: '', accountHolder: '', accountNumber: '' })
+    }
+  }, [liveEmp])
+
   const selectedEmp = useMemo(() => {
     if (liveEmp) {
       return {
@@ -176,6 +191,10 @@ export default function AdminPayroll() {
         basicSalary: liveEmp.basicSalary,
         epfEtfEnrolled: liveEmp.epfEtfEnrolled,
         allowances: liveEmp.allowances,
+        bank: liveEmp.bank,
+        bankBranch: liveEmp.bankBranch,
+        accountNumber: liveEmp.accountNumber,
+        accountHolder: liveEmp.accountHolder,
       }
     }
     return activeEmployees.find(e => String(e._id) === String(selectedEmployee))
@@ -209,6 +228,7 @@ export default function AdminPayroll() {
         continueLoanDeduction,
         bankAccount: payBank,
         payslipSignatory,
+        empBankDetails,
       }).then(r => r.data)
     },
     onSuccess: (res) => {
@@ -606,6 +626,13 @@ export default function AdminPayroll() {
                 <span>EPF Employer (12%):</span><span className="font-medium">LKR {previewCalc.epfEmpl.toLocaleString()}</span>
                 <span>ETF Employer (3%):</span><span className="font-medium">LKR {previewCalc.etf.toLocaleString()}</span>
               </div>
+              <div className="mt-2 pt-2 border-t border-blue-200 grid grid-cols-2 gap-x-4 text-blue-800">
+                <span className="font-bold col-span-2 mb-1">Employee Bank Details</span>
+                <span>Bank Name:</span><span className="font-medium">{selectedEmp.bank || '—'}</span>
+                <span>Branch:</span><span className="font-medium">{selectedEmp.bankBranch || '—'}</span>
+                <span>Account Name:</span><span className="font-medium">{selectedEmp.accountHolder || '—'}</span>
+                <span>Account Number:</span><span className="font-medium">{selectedEmp.accountNumber || '—'}</span>
+              </div>
             </div>
           )}
 
@@ -668,7 +695,29 @@ export default function AdminPayroll() {
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Payslip letterhead & seal</p>
             <PayslipSignatoryFields />
           </div>
-          <button className="btn-primary" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
+          <div className="border-t border-slate-100 pt-3 mt-1 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Employee Bank Details (Auto-fill)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label text-[10px]">Bank Name</label>
+                <input type="text" className="form-input text-xs" value={empBankDetails.bank} onChange={e => setEmpBankDetails({...empBankDetails, bank: e.target.value})} placeholder="Bank Name" />
+              </div>
+              <div>
+                <label className="form-label text-[10px]">Branch</label>
+                <input type="text" className="form-input text-xs" value={empBankDetails.bankBranch} onChange={e => setEmpBankDetails({...empBankDetails, bankBranch: e.target.value})} placeholder="Branch" />
+              </div>
+              <div>
+                <label className="form-label text-[10px]">Account Holder</label>
+                <input type="text" className="form-input text-xs" value={empBankDetails.accountHolder} onChange={e => setEmpBankDetails({...empBankDetails, accountHolder: e.target.value})} placeholder="Account Holder" />
+              </div>
+              <div>
+                <label className="form-label text-[10px]">Account Number</label>
+                <input type="text" className="form-input text-xs" value={empBankDetails.accountNumber} onChange={e => setEmpBankDetails({...empBankDetails, accountNumber: e.target.value})} placeholder="A/C Number" />
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-400">Editing these details here will permanently save them to the employee's profile.</p>
+          </div>
+          <button className="btn-primary mt-4" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
             <FiPlay size={14}/> {generateOneMut.isPending ? 'Generating…' : 'Generate Payslip'}
           </button>
         </div>
@@ -828,22 +877,21 @@ export default function AdminPayroll() {
                     <button onClick={() => handleDownloadSlip(p)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Download PDF Slip">
                       <FiFileText size={14}/>
                     </button>
-                    {p.status !== 'paid' && (
-                      <button onClick={() => { 
-                        setEditPayroll(p); 
-                        setEditForm({ 
-                          allowances: p.allowances, 
-                          commissions: p.commissions, 
-                          bonus: p.bonus, 
-                          deductions: p.deductions, 
-                          loanDeduction: p.loanDeduction, 
-                          paymentMethod: p.paymentMethod || 'bank_transfer',
-                          bankAccount: p.bankAccount?._id || p.bankAccount || ''
-                        }) 
-                      }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg" title="Edit">
-                        <FiPlay size={13} className="rotate-90"/>
-                      </button>
-                    )}
+                    <button onClick={() => { 
+                      setEditPayroll(p); 
+                      setEditForm({ 
+                        status: p.status,
+                        allowances: p.allowances, 
+                        commissions: p.commissions, 
+                        bonus: p.bonus, 
+                        deductions: p.deductions, 
+                        loanDeduction: p.loanDeduction, 
+                        paymentMethod: p.paymentMethod || 'bank_transfer',
+                        bankAccount: p.bankAccount?._id || p.bankAccount || ''
+                      }) 
+                    }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg" title="Edit">
+                      <FiPlay size={13} className="rotate-90"/>
+                    </button>
                     <button onClick={() => setDeleteId(p._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Delete">
                       <FiX size={14}/>
                     </button>
@@ -1047,6 +1095,24 @@ export default function AdminPayroll() {
                   <FiSend size={13}/> SMS
                 </button>
                 <div className="flex-1" />
+                {previewPayroll.status === 'paid' && (
+                  <button type="button" 
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to rollback this payment? This will reverse bank withdrawals, EPF/ETF statuses, and loan repayments.")) {
+                        const loadingToast = toast.loading('Rolling back payment...');
+                        api.put(`/payroll/${previewPayroll._id}`, { status: 'reviewed' })
+                          .then(() => {
+                            toast.success('Payment rolled back successfully', { id: loadingToast });
+                            qc.invalidateQueries(['payrolls-list']);
+                            setPreviewPayroll(null);
+                          })
+                          .catch(e => toast.error(e.response?.data?.message || 'Rollback failed', { id: loadingToast }));
+                      }
+                    }} 
+                    className="btn-outline btn-sm text-amber-600 border-amber-200 hover:bg-amber-50 justify-center">
+                    <FiRefreshCw size={13} className="mr-1 inline-block"/> Rollback
+                  </button>
+                )}
                 <button onClick={() => setPreviewPayroll(null)} className="btn-ghost justify-center">Close</button>
                 {previewPayroll.status !== 'paid' && (
                 <button type="button" onClick={confirmPayrollPayment} disabled={payMut.isPending} className="btn-primary justify-center bg-green-600 hover:bg-green-700 border-green-600">
@@ -1088,20 +1154,37 @@ export default function AdminPayroll() {
               <button onClick={() => setEditPayroll(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Allowances</label><input type="number" className="form-input text-sm" value={editForm.allowances} onChange={e => setEditForm(s => ({...s, allowances: Number(e.target.value)}))} /></div>
-              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Commissions</label><input type="number" className="form-input text-sm" value={editForm.commissions} onChange={e => setEditForm(s => ({...s, commissions: Number(e.target.value)}))} /></div>
-              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Bonus</label><input type="number" className="form-input text-sm" value={editForm.bonus} onChange={e => setEditForm(s => ({...s, bonus: Number(e.target.value)}))} /></div>
-              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Loan Deduction</label><input type="number" className="form-input text-sm" value={editForm.loanDeduction} onChange={e => setEditForm(s => ({...s, loanDeduction: Number(e.target.value)}))} /></div>
+              <div className="col-span-2 border-b border-slate-100 pb-3 mb-1">
+                <label className="form-label text-xs font-bold uppercase tracking-tight">Status</label>
+                <select className="form-select text-sm font-semibold" value={editForm.status || ''} onChange={e => setEditForm(s => ({...s, status: e.target.value}))}>
+                  <option value="draft">Draft</option>
+                  <option value="reviewed">Reviewed</option>
+                  <option value="approved">Approved</option>
+                  <option value="paid">Paid</option>
+                </select>
+                {editPayroll.status === 'paid' && editForm.status !== 'paid' && (
+                  <p className="text-xs text-red-600 mt-2 font-bold bg-red-50 p-2 rounded-lg border border-red-100">
+                    ⚠️ Saving this will rollback the transaction, bank ledger, and active loan deductions!
+                  </p>
+                )}
+                {editPayroll.status === 'paid' && editForm.status === 'paid' && (
+                  <p className="text-[10px] text-gray-500 mt-1">To edit financial amounts, you must first rollback the status from Paid.</p>
+                )}
+              </div>
+              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Allowances</label><input type="number" className="form-input text-sm" value={editForm.allowances} onChange={e => setEditForm(s => ({...s, allowances: Number(e.target.value)}))} disabled={editPayroll.status === 'paid'} /></div>
+              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Commissions</label><input type="number" className="form-input text-sm" value={editForm.commissions} onChange={e => setEditForm(s => ({...s, commissions: Number(e.target.value)}))} disabled={editPayroll.status === 'paid'} /></div>
+              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Bonus</label><input type="number" className="form-input text-sm" value={editForm.bonus} onChange={e => setEditForm(s => ({...s, bonus: Number(e.target.value)}))} disabled={editPayroll.status === 'paid'} /></div>
+              <div><label className="form-label text-xs font-bold uppercase tracking-tight">Loan Deduction</label><input type="number" className="form-input text-sm" value={editForm.loanDeduction} onChange={e => setEditForm(s => ({...s, loanDeduction: Number(e.target.value)}))} disabled={editPayroll.status === 'paid'} /></div>
               <div className={`${requiresBankAccount(editForm.paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
                 <label className="form-label text-xs font-bold uppercase tracking-tight">Payment Method</label>
-                <select className="form-select text-sm" value={editForm.paymentMethod} onChange={e => setEditForm(s => ({...s, paymentMethod: e.target.value}))}>
+                <select className="form-select text-sm" value={editForm.paymentMethod} onChange={e => setEditForm(s => ({...s, paymentMethod: e.target.value}))} disabled={editPayroll.status === 'paid'}>
                   {PAYROLL_PAY_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
               {requiresBankAccount(editForm.paymentMethod) && (
                 <div className="col-span-1">
                   <label className="form-label text-xs font-bold uppercase tracking-tight">Source Bank & Branch</label>
-                  <select className="form-select text-sm" value={editForm.bankAccount || ''} onChange={e => setEditForm(s => ({...s, bankAccount: e.target.value}))}>
+                  <select className="form-select text-sm" value={editForm.bankAccount || ''} onChange={e => setEditForm(s => ({...s, bankAccount: e.target.value}))} disabled={editPayroll.status === 'paid'}>
                     <option value="">Select Account...</option>
                     {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''}</option>)}
                   </select>

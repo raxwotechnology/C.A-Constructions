@@ -1,6 +1,6 @@
 import { calcDocumentTotals } from './documentTotals'
 
-export function buildInvoiceDraft(form, { clients = [], editing = null, projects = [] } = {}) {
+export function buildInvoiceDraft(form, { clients = [], editing = null, projects = [], banks = [] } = {}) {
   const clientId = form?.client
   const clientRow = clients.find((c) => String(c._id) === String(clientId))
   const client = clientRow
@@ -9,6 +9,12 @@ export function buildInvoiceDraft(form, { clients = [], editing = null, projects
 
   const projectId = form?.project
   const projectRow = projects.find((p) => String(p._id) === String(projectId))
+
+  const bankAccountId = form?.bankAccount
+  const bankRow = banks?.find((b) => String(b._id) === String(bankAccountId))
+  const bankAccount = bankRow
+    ? { _id: bankRow._id, bankName: bankRow.bankName, accountName: bankRow.accountName, accountNumber: bankRow.accountNumber, branchName: bankRow.branchName }
+    : editing?.bankAccount || null
 
   const totals = calcDocumentTotals(form?.items || [], {
     taxRate: form?.taxRate || 0,
@@ -40,7 +46,7 @@ export function buildInvoiceDraft(form, { clients = [], editing = null, projects
     terms: form?.paymentTerms || form?.terms || '',
     paymentMethod: form?.paymentMethod || '',
     paymentMethodCustom: form?.paymentMethodCustom || '',
-    bankAccount: form?.bankAccount || editing?.bankAccount,
+    bankAccount: bankAccount,
     bankBranch: form?.bankBranch || editing?.bankBranch || '',
     invoiceDate: form?.invoiceDate || new Date().toISOString().split('T')[0],
     dueDate: form?.dueDate || '',

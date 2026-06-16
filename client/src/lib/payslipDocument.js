@@ -114,7 +114,9 @@ export function buildPayslipHtml(payroll, siteSettings = {}, signatoryOpts = {})
     <div class="info-row"><span>Department</span><span>${esc(p.employee?.department || '—')}</span></div>
     <div class="info-row"><span>Designation</span><span>${esc(p.employee?.designation || '—')}</span></div>
     <div class="info-row"><span>Payment method</span><span>${esc(payLabel)}</span></div>
-    ${bankLabel ? `<div class="info-row"><span>Bank account</span><span>${esc(bankLabel)}</span></div>` : ''}
+    ${bankLabel ? `<div class="info-row"><span>Source Bank</span><span>${esc(bankLabel)}</span></div>` : ''}
+    ${p.employee?.bank ? `<div class="info-row"><span>Employee Bank</span><span>${esc(p.employee.bank)}${p.employee.bankBranch ? ` · ${esc(p.employee.bankBranch)}` : ''}</span></div>` : ''}
+    ${p.employee?.accountNumber ? `<div class="info-row"><span>Employee A/C</span><span>${esc(p.employee.accountNumber)}</span></div>` : ''}
     ${p.chequeNumber ? `<div class="info-row"><span>Cheque no.</span><span>${esc(p.chequeNumber)}</span></div>` : ''}
   </div>
   <div class="sec-title">Earnings</div>

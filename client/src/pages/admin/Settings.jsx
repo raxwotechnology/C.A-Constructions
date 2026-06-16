@@ -79,6 +79,7 @@ export default function AdminSettings() {
         admin: { url: siteData?.settings?.signatures?.admin?.url || '', label: siteData?.settings?.signatures?.admin?.label || 'Admin' },
         manager: { url: siteData?.settings?.signatures?.manager?.url || '', label: siteData?.settings?.signatures?.manager?.label || 'Manager' },
         director: { url: siteData?.settings?.signatures?.director?.url || '', label: siteData?.settings?.signatures?.director?.label || 'Director' },
+        marketing: { url: siteData?.settings?.signatures?.marketing?.url || '', label: siteData?.settings?.signatures?.marketing?.label || 'Marketing' },
       },
       quotationThankYouMessage: siteData?.settings?.quotationThankYouMessage || '',
       quotationNotesTemplate: siteData?.settings?.quotationNotesTemplate || '',
@@ -267,7 +268,7 @@ export default function AdminSettings() {
               if (uploaded) sealUrl = uploaded
             }
             const signatures = { ...(d.signatures || {}) }
-            for (const key of ['hr', 'admin', 'manager', 'director']) {
+            for (const key of ['director', 'admin', 'manager', 'hr', 'marketing']) {
               if (sigFiles[key]) {
                 const uploaded = await uploadImage(sigFiles[key])
                 if (uploaded) signatures[key] = { ...signatures[key], url: uploaded }
@@ -359,9 +360,9 @@ export default function AdminSettings() {
               </label>
             </div>
           </div>
-          <div className="grid md:grid-cols-4 gap-4">
-            {['hr', 'admin', 'manager', 'director'].map((key) => (
-              <div key={key}><label className="form-label capitalize">{key} signature upload</label>
+          <div className="grid md:grid-cols-5 gap-4">
+            {['director', 'admin', 'manager', 'hr', 'marketing'].map((key) => (
+              <div key={key}><label className="form-label capitalize">{key} signature</label>
                 <input type="file" accept="image/*" className="form-input text-sm" onChange={(e) => setSigFiles((s) => ({ ...s, [key]: e.target.files?.[0] || null }))} />
               </div>
             ))}
