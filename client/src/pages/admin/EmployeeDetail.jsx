@@ -364,7 +364,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
                 <Field label="Employee No" value={e.employeeNo} />
                 <Field label="Department" value={e.department} />
                 <Field label="Designation" value={e.designation} />
-                <Field label="Employment Type" value={e.employmentType} />
+                <Field label="Employment Type" value={e.employmentType ? e.employmentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : '—'} />
                 <Field label="Joined Date" value={e.joinedDate ? new Date(e.joinedDate).toLocaleDateString('en-LK') : null} />
                 <Field label="EPF/ETF Enrolled" value={e.epfEtfEnrolled ? 'Yes' : 'No'} />
                 <Field label="EPF Number" value={e.epfNumber} />
@@ -407,7 +407,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Bank Details</p>
-                <Field label="Bank Name" value={e.bankName} />
+                <Field label="Bank Name" value={e.bank} />
                 <Field label="Branch" value={e.bankBranch} />
                 <Field label="Account No" value={e.accountNumber} />
                 <Field label="Account Holder" value={e.accountHolder} />

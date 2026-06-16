@@ -340,90 +340,173 @@ export default function AdminSubscriptions() {
         ))}
       </div>
 
-      {/* Client payment summaries — bulk invoice email/SMS */}
+      {/* Client Payment Summaries — Premium Redesign */}
       {clientSummaries.length > 0 && (
-        <div className="card">
-          <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <FiUsers className="text-secondary" size={18} />
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', border: '1px solid rgba(148,163,184,0.18)' }}>
+          {/* Header */}
+          <div className="px-6 py-5 flex flex-wrap items-center justify-between gap-4" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                <FiUsers className="text-white" size={20} />
+              </div>
               <div>
-                <h3 className="font-bold text-slate-800">Client Payment Summaries</h3>
-                <p className="text-xs text-slate-500">Select subscriptions and send payment history by email or SMS</p>
+                <h3 className="text-base font-bold text-white tracking-tight">Client Payment Summaries</h3>
+                <p className="text-xs text-slate-300 mt-0.5">Select subscriptions and send payment history via email or SMS</p>
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
               <button
                 type="button"
-                className="btn-outline btn-sm gap-1.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all duration-200"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}
                 disabled={!selectedSubIds.length || bulkSending}
                 onClick={() => bulkSend(['email'])}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
               >
-                <FiMail size={14} /> Email selected ({selectedSubIds.length})
+                <FiMail size={13} /> Email ({selectedSubIds.length})
               </button>
               <button
                 type="button"
-                className="btn-outline btn-sm gap-1.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all duration-200"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}
                 disabled={!selectedSubIds.length || bulkSending}
                 onClick={() => bulkSend(['sms'])}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
               >
-                <FiMessageSquare size={14} /> SMS selected
+                <FiMessageSquare size={13} /> SMS
               </button>
               <button
                 type="button"
-                className="btn-primary btn-sm gap-1.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all duration-200"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(99,102,241,0.35)' }}
                 disabled={!selectedSubIds.length || bulkSending}
                 onClick={() => bulkSend(['email', 'sms'])}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(99,102,241,0.45)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(99,102,241,0.35)' }}
               >
                 Email + SMS
               </button>
             </div>
           </div>
-          <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+
+          {/* Client Cards */}
+          <div className="p-4 grid gap-3 max-h-[480px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
             {clientSummaries.map((cs) => {
               const ids = cs.subscriptions.map((s) => s._id)
               const allSelected = ids.length > 0 && ids.every((id) => selectedSubIds.includes(id))
               const someSelected = ids.some((id) => selectedSubIds.includes(id))
+              const paidPct = cs.totalDue > 0 ? Math.min(100, Math.round((cs.totalPaid / cs.totalDue) * 100)) : 0
+              const initials = (cs.client?.name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+              const hasOverdue = cs.overdueAmount > 0
+
               return (
-                <div key={cs.client?._id || cs.client?.email} className="p-4">
-                  <div className="flex items-start gap-3">
+                <motion.div
+                  key={cs.client?._id || cs.client?.email}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="rounded-xl overflow-hidden transition-all duration-200"
+                  style={{
+                    background: '#fff',
+                    border: hasOverdue ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(148,163,184,0.15)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03)',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03)'; e.currentTarget.style.transform = 'translateY(0)' }}
+                >
+                  {/* Client Header Row */}
+                  <div className="p-4 flex items-center gap-3">
                     <input
                       type="checkbox"
-                      className="mt-1"
+                      className="w-4 h-4 rounded-md accent-indigo-500 cursor-pointer shrink-0"
                       checked={allSelected}
                       ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
                       onChange={() => toggleClientSelection(cs)}
                     />
+                    {/* Avatar */}
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold text-white"
+                      style={{ background: hasOverdue ? 'linear-gradient(135deg, #ef4444, #f97316)' : 'linear-gradient(135deg, #6366f1, #06b6d4)' }}
+                    >
+                      {initials}
+                    </div>
+                    {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-semibold text-slate-800">{cs.client?.name}</p>
-                          <p className="text-xs text-slate-400">{cs.client?.email}</p>
+                          <p className="font-bold text-slate-800 text-sm leading-tight">{cs.client?.name}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5 truncate">{cs.client?.email}</p>
                         </div>
-                        <div className="text-right text-xs">
-                          <p className="text-slate-600">Paid: <span className="font-semibold text-emerald-600">LKR {Number(cs.totalPaid || 0).toLocaleString()}</span></p>
-                          {cs.overdueAmount > 0 && (
-                            <p className="text-red-500 font-medium">Overdue: LKR {Number(cs.overdueAmount).toLocaleString()} ({cs.overdueSubs} sub{cs.overdueSubs !== 1 ? 's' : ''})</p>
+                        <div className="flex items-center gap-3 text-xs shrink-0">
+                          <div className="text-right">
+                            <p className="text-slate-400 text-[10px] uppercase tracking-wider font-medium">Collected</p>
+                            <p className="font-bold text-emerald-600">LKR {Number(cs.totalPaid || 0).toLocaleString()}</p>
+                          </div>
+                          {hasOverdue && (
+                            <div className="text-right">
+                              <p className="text-slate-400 text-[10px] uppercase tracking-wider font-medium">Overdue</p>
+                              <p className="font-bold text-red-500">LKR {Number(cs.overdueAmount).toLocaleString()}</p>
+                            </div>
                           )}
                         </div>
                       </div>
-                      <ul className="mt-2 space-y-1">
-                        {cs.subscriptions.map((s) => (
-                          <li key={s._id} className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={selectedSubIds.includes(s._id)}
-                              onChange={() => toggleSubSelection(s._id)}
-                            />
-                            <span className="font-medium text-slate-700">{s.title}</span>
-                            <span className="text-xs text-slate-400">LKR {Number(s.amount || 0).toLocaleString()}</span>
-                            {s.overdueDays > 0 && <span className="badge badge-red text-[10px]">{s.overdueDays}d overdue</span>}
-                            <span className={`badge text-[10px] ${s.status === 'overdue' ? 'badge-red' : 'badge-green'}`}>{s.status}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {/* Progress Bar */}
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: '#f1f5f9' }}>
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${paidPct}%` }}
+                            transition={{ duration: 0.8, ease: 'easeOut' }}
+                            className="h-full rounded-full"
+                            style={{ background: paidPct >= 100 ? 'linear-gradient(90deg, #10b981, #059669)' : paidPct >= 50 ? 'linear-gradient(90deg, #6366f1, #8b5cf6)' : 'linear-gradient(90deg, #f59e0b, #ef4444)' }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-400 shrink-0 w-8 text-right">{paidPct}%</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Subscription Items */}
+                  <div className="px-4 pb-3 space-y-1.5" style={{ marginLeft: '3.25rem' }}>
+                    {cs.subscriptions.map((s) => (
+                      <div
+                        key={s._id}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors duration-150"
+                        style={{ background: selectedSubIds.includes(s._id) ? 'rgba(99,102,241,0.06)' : 'rgba(248,250,252,0.8)' }}
+                        onMouseEnter={e => { if (!selectedSubIds.includes(s._id)) e.currentTarget.style.background = 'rgba(241,245,249,1)' }}
+                        onMouseLeave={e => { if (!selectedSubIds.includes(s._id)) e.currentTarget.style.background = 'rgba(248,250,252,0.8)' }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="w-3.5 h-3.5 rounded accent-indigo-500 cursor-pointer shrink-0"
+                          checked={selectedSubIds.includes(s._id)}
+                          onChange={() => toggleSubSelection(s._id)}
+                        />
+                        <span className="font-medium text-slate-700 text-sm truncate flex-1">{s.title}</span>
+                        <span className="text-xs font-semibold text-slate-500 shrink-0">LKR {Number(s.amount || 0).toLocaleString()}</span>
+                        {s.overdueDays > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold shrink-0"
+                            style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}
+                          >
+                            <FiAlertCircle size={9} /> {s.overdueDays}d
+                          </span>
+                        )}
+                        <span
+                          className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shrink-0"
+                          style={{
+                            background: s.status === 'overdue' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+                            color: s.status === 'overdue' ? '#dc2626' : '#059669',
+                          }}
+                        >
+                          {s.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
               )
             })}
           </div>

@@ -288,26 +288,8 @@ exports.exportPdf = async (req, res, next) => {
     if (!payload) return res.status(400).json({ success: false, message: 'Invalid export category' });
 
     const html = renderHtml(category, payload);
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-    try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '16mm', bottom: '16mm', left: '12mm', right: '12mm' },
-      });
-
-      const filename = `raxwo_${fileSafe(category)}_${fileSafe(ctx.employee.employeeNo)}.pdf`;
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.status(200).send(pdf);
-    } finally {
-      await browser.close();
-    }
+    res.setHeader('Content-Type', 'text/html');
+    return res.status(200).send(html);
   } catch (err) { next(err); }
 };
 
@@ -333,18 +315,8 @@ exports.adminEmployeeExport = async (req, res, next) => {
 
     if (fmt === 'pdf') {
       const html = renderHtml(cat, payload);
-      const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-      try {
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-        const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '12mm', right: '12mm' } });
-        const filename = `raxwo_admin_${fileSafe(cat)}_${fileSafe(ctx.employee.employeeNo)}.pdf`;
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        return res.status(200).send(pdf);
-      } finally {
-        await browser.close();
-      }
+      res.setHeader('Content-Type', 'text/html');
+      return res.status(200).send(html);
     }
 
     return res.status(400).json({ success: false, message: 'Invalid export format' });

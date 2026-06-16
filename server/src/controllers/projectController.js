@@ -100,41 +100,65 @@ exports.createProject = async (req, res, next) => {
       );
     }
 
+    // Fire-and-forget: notifications + email/SMS should not block response or crash project creation
     if (project.client) {
-      await createNotification({
+      createNotification({
         recipient: project.client,
         title: 'New Project Created',
         message: `Your project "${project.title}" has been created and is in ${project.status} stage.`,
         type: 'project', link: '/my-projects',
-      });
-      const populatedProj = await Project.findById(project._id).populate('client');
-      if (populatedProj.client?.email) {
-        const { sendProjectAssignedClientEmail } = require('../services/emailService');
-        await sendProjectAssignedClientEmail(populatedProj.client.email, populatedProj.client.name, project);
-      }
-      if (populatedProj.client?.phone) {
-        const { sendProjectAssignedClientSms } = require('../services/smsService');
-        await sendProjectAssignedClientSms(populatedProj.client.phone, populatedProj.client.name, project.title);
-      }
+      }).catch(e => console.error('[Project] Notification failed:', e.message));
+
+      // Send client email/SMS in the background
+      (async () => {
+        try {
+          const populatedProj = await Project.findById(project._id).populate('client');
+          if (populatedProj?.client?.email) {
+            const { sendProjectAssignedClientEmail } = require('../services/emailService');
+            await sendProjectAssignedClientEmail(populatedProj.client.email, populatedProj.client.name, project);
+            console.log(`[Project] ✅ Email sent to client: ${populatedProj.client.email}`);
+          }
+          if (populatedProj?.client?.phone) {
+            const { sendProjectAssignedClientSms } = require('../services/smsService');
+            await sendProjectAssignedClientSms(populatedProj.client.phone, populatedProj.client.name, project.title);
+            console.log(`[Project] ✅ SMS sent to client: ${populatedProj.client.phone}`);
+          }
+        } catch (emailErr) {
+          console.error('[Project] ❌ Client email/SMS failed:', emailErr.message);
+        }
+      })();
     }
 
     if (project.assignedEmployees?.length > 0) {
-      const { sendProjectAssignedEmployeeEmail } = require('../services/emailService');
-      const { sendProjectAssignedEmployeeSms } = require('../services/smsService');
-      const populatedProj = await Project.findById(project._id).populate('client');
-      const User = require('../models/User');
-      for (const empId of project.assignedEmployees) {
-        await createNotification({
-          recipient: empId,
-          title: 'New Project Assignment',
-          message: `You have been assigned to project "${project.title}".`,
-          type: 'project', link: '/developer/projects',
-        });
-        const empUser = await User.findById(empId);
-        const pDetails = { title: project.title, deadline: project.deadline, clientName: populatedProj?.client?.name };
-        if (empUser?.email) await sendProjectAssignedEmployeeEmail(empUser.email, empUser.name, pDetails);
-        if (empUser?.phone) await sendProjectAssignedEmployeeSms(empUser.phone, empUser.name, project.title);
-      }
+      // Send employee emails/SMS in the background
+      (async () => {
+        try {
+          const { sendProjectAssignedEmployeeEmail } = require('../services/emailService');
+          const { sendProjectAssignedEmployeeSms } = require('../services/smsService');
+          const populatedProj = await Project.findById(project._id).populate('client');
+          const User = require('../models/User');
+          for (const empId of project.assignedEmployees) {
+            createNotification({
+              recipient: empId,
+              title: 'New Project Assignment',
+              message: `You have been assigned to project "${project.title}".`,
+              type: 'project', link: '/developer/projects',
+            }).catch(e => console.error('[Project] Employee notification failed:', e.message));
+            const empUser = await User.findById(empId);
+            const pDetails = { title: project.title, deadline: project.deadline, clientName: populatedProj?.client?.name };
+            if (empUser?.email) {
+              await sendProjectAssignedEmployeeEmail(empUser.email, empUser.name, pDetails);
+              console.log(`[Project] ✅ Email sent to employee: ${empUser.email}`);
+            }
+            if (empUser?.phone) {
+              await sendProjectAssignedEmployeeSms(empUser.phone, empUser.name, project.title);
+              console.log(`[Project] ✅ SMS sent to employee: ${empUser.phone}`);
+            }
+          }
+        } catch (empErr) {
+          console.error('[Project] ❌ Employee email/SMS failed:', empErr.message);
+        }
+      })();
     }
 
     const populated = await Project.findById(project._id).populate(POPULATE);

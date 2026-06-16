@@ -113,21 +113,30 @@ export default function AdminExports() {
       if (selectedDataset?.supportsCategory && category) params.set('category', category)
       if (selectedDataset?.supportsType && type) params.set('type', type)
       const res = await api.get(`/finance/export?${params.toString()}`, { responseType: 'blob' })
-      const mime = {
-        pdf: 'application/pdf',
-        excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        csv: 'text/csv',
-      }
-      const ext = format === 'excel' ? 'xlsx' : format
-      const blob = new Blob([res.data], { type: res.headers['content-type'] || mime[format] })
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
+      const contentType = res.headers['content-type']
       const suffix = employeeId && selected ? `_${selected.employeeNo}` : ''
-      a.download = `${dataset}${suffix}.${ext}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(a.href)
+      const filename = `${dataset}${suffix}.${format === 'excel' ? 'xlsx' : format}`
+
+      if (format === 'pdf' && contentType && contentType.includes('text/html')) {
+        const htmlText = await res.data.text()
+        const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator')
+        await htmlStringToPdfDownload(htmlText, filename)
+      } else {
+        const mime = {
+          pdf: 'application/pdf',
+          excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          csv: 'text/csv',
+        }
+        const blob = new Blob([res.data], { type: contentType || mime[format] })
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(a.href)
+      }
+
       const entry = {
         dataset,
         label: selectedDataset?.label || dataset,

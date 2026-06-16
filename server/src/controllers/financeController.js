@@ -926,17 +926,8 @@ exports.exportData = async (req, res, next) => {
     if (lowerFormat === 'pdf') {
       const metaLine = `Generated: ${new Date().toLocaleString()} · ${rows.length} rows`;
       const html = await buildTabularExportHtml(`${lowerDataset.replace(/_/g, ' ')}`, headers, rows, metaLine);
-      const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-      try {
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-        const pdf = await page.pdf({ format: 'A4', printBackground: true });
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${lowerDataset}.pdf"`);
-        return res.send(pdf);
-      } finally {
-        await browser.close();
-      }
+      res.setHeader('Content-Type', 'text/html');
+      return res.send(html);
     }
 
     if (lowerFormat === 'csv') {

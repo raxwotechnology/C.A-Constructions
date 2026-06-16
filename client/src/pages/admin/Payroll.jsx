@@ -11,6 +11,7 @@ import { formatMoney } from '../../lib/currencies'
 import { handlePayrollSyncResponse } from '../../lib/payrollSync'
 import ExportBar from '../../components/ui/ExportBar'
 import { useSiteBranding } from '../../hooks/useSiteBranding'
+import { mediaUrl } from '../../lib/media'
 import {
   downloadPayslipPdf,
   printPayslip,
@@ -469,26 +470,51 @@ export default function AdminPayroll() {
     }
   }
 
-  const PayslipSignatoryFields = ({ compact = false } = {}) => (
-    <div className={`grid ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'} gap-3`}>
-      <div>
-        <label className="form-label text-xs">Authorized signatory</label>
-        <select className="form-select text-sm" value={payslipSignatoryRole} onChange={e => setPayslipSignatoryRole(e.target.value)}>
-          {PAYSLIP_SIGNATORY_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
-        <p className="text-[10px] text-slate-400 mt-1">Uses name & title from Admin Settings</p>
+  const PayslipSignatoryFields = ({ compact = false } = {}) => {
+    const selectedSig = siteSettings?.signatures?.[payslipSignatoryRole]
+    const previewUrl = payslipCustomSignatureUrl || selectedSig?.url
+
+    return (
+      <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-3`}>
+        <div>
+          <label className="form-label text-xs">Authorized signatory</label>
+          <select className="form-select text-sm" value={payslipSignatoryRole} onChange={e => {
+            setPayslipSignatoryRole(e.target.value)
+            setPayslipCustomSignatureUrl('')
+          }}>
+            {PAYSLIP_SIGNATORY_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <p className="text-[10px] text-slate-400 mt-1">Uses name & title from Admin Settings</p>
+        </div>
+        <div>
+          <label className="form-label text-xs">Signature preview & override</label>
+          <div className="flex gap-2 items-start">
+            <div className="flex-1">
+              <input type="file" accept="image/*" className="form-input text-sm py-1" disabled={payslipSignatureUploading}
+                onChange={e => uploadPayslipSignature(e.target.files?.[0])} />
+              {payslipCustomSignatureUrl ? (
+                <div className="text-[10px] text-emerald-600 mt-1 flex items-center justify-between">
+                  <span>✓ Custom override loaded</span>
+                  <button type="button" className="text-red-500 hover:underline" onClick={() => setPayslipCustomSignatureUrl('')}>Clear</button>
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-400 mt-1">Upload to override saved signature</p>
+              )}
+            </div>
+            {previewUrl ? (
+              <div className="shrink-0 w-16 h-10 bg-white border border-slate-200 rounded p-1 flex items-center justify-center shadow-sm">
+                <img src={mediaUrl(previewUrl)} alt="Signature" className="max-w-full max-h-full object-contain" />
+              </div>
+            ) : (
+              <div className="shrink-0 w-16 h-10 bg-slate-50 border border-slate-200 border-dashed rounded p-1 flex items-center justify-center shadow-sm">
+                <span className="text-[8px] text-slate-400 text-center leading-tight">No sig<br/>found</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-      <div>
-        <label className="form-label text-xs">Signature image (optional)</label>
-        <input type="file" accept="image/*" className="form-input text-sm py-1.5" disabled={payslipSignatureUploading}
-          onChange={e => uploadPayslipSignature(e.target.files?.[0])} />
-        {payslipCustomSignatureUrl && <p className="text-[10px] text-emerald-600 mt-1">✓ Custom signature loaded</p>}
-        {!payslipCustomSignatureUrl && (
-          <p className="text-[10px] text-slate-400 mt-1">Upload a signature image to show on payslip</p>
-        )}
-      </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -699,23 +725,23 @@ export default function AdminPayroll() {
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Employee Bank Details (Auto-fill)</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="form-label text-[10px]">Bank Name</label>
-                <input type="text" className="form-input text-xs" value={empBankDetails.bank} onChange={e => setEmpBankDetails({...empBankDetails, bank: e.target.value})} placeholder="Bank Name" />
+                <label className="form-label text-xs">Bank Name</label>
+                <input type="text" className="form-input text-sm" value={empBankDetails.bank} onChange={e => setEmpBankDetails({...empBankDetails, bank: e.target.value})} placeholder="Bank Name" />
               </div>
               <div>
-                <label className="form-label text-[10px]">Branch</label>
-                <input type="text" className="form-input text-xs" value={empBankDetails.bankBranch} onChange={e => setEmpBankDetails({...empBankDetails, bankBranch: e.target.value})} placeholder="Branch" />
+                <label className="form-label text-xs">Branch</label>
+                <input type="text" className="form-input text-sm" value={empBankDetails.bankBranch} onChange={e => setEmpBankDetails({...empBankDetails, bankBranch: e.target.value})} placeholder="Branch" />
               </div>
               <div>
-                <label className="form-label text-[10px]">Account Holder</label>
-                <input type="text" className="form-input text-xs" value={empBankDetails.accountHolder} onChange={e => setEmpBankDetails({...empBankDetails, accountHolder: e.target.value})} placeholder="Account Holder" />
+                <label className="form-label text-xs">Account Holder</label>
+                <input type="text" className="form-input text-sm" value={empBankDetails.accountHolder} onChange={e => setEmpBankDetails({...empBankDetails, accountHolder: e.target.value})} placeholder="Account Holder" />
               </div>
               <div>
-                <label className="form-label text-[10px]">Account Number</label>
-                <input type="text" className="form-input text-xs" value={empBankDetails.accountNumber} onChange={e => setEmpBankDetails({...empBankDetails, accountNumber: e.target.value})} placeholder="A/C Number" />
+                <label className="form-label text-xs">Account Number</label>
+                <input type="text" className="form-input text-sm" value={empBankDetails.accountNumber} onChange={e => setEmpBankDetails({...empBankDetails, accountNumber: e.target.value})} placeholder="A/C Number" />
               </div>
             </div>
-            <p className="text-[10px] text-gray-400">Editing these details here will permanently save them to the employee's profile.</p>
+            <p className="text-xs text-gray-400 mt-1.5">Editing these details here will permanently save them to the employee's profile.</p>
           </div>
           <button className="btn-primary mt-4" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
             <FiPlay size={14}/> {generateOneMut.isPending ? 'Generating…' : 'Generate Payslip'}

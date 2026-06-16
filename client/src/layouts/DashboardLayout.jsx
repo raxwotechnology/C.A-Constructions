@@ -21,6 +21,7 @@ const adminNav = [
     { to: '/admin', label: 'Dashboard', icon: FiHome, exact: true },
     { to: '/admin/analytics', label: 'Analytics', icon: FiBarChart2 },
     { to: '/admin/ai-analyzer', label: 'AI Analyzer', icon: FiZap },
+    { to: '/admin/social-analytics', label: 'Social Analytics', icon: FiPieChart },
   ]},
   { group: 'Human Resources', items: [
     { to: '/admin/employees', label: 'Employees', icon: FiUsers },
@@ -48,7 +49,6 @@ const adminNav = [
     { to: '/admin/bookings', label: 'Bookings', icon: FiBook },
     { to: '/admin/services', label: 'Services & Products', icon: FiLayers },
     { to: '/admin/portfolio', label: 'Portfolio', icon: FiPieChart },
-    { to: '/admin/social-analytics', label: 'Social Analytics', icon: FiPieChart },
     { to: '/admin/leaders', label: 'Leaders', icon: FiUsers },
     { to: '/admin/rewards', label: 'Rewards & Loyalty', icon: FiGift },
     { to: '/admin/feedback', label: 'Feedback', icon: FiMessageSquare },

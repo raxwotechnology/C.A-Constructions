@@ -91,7 +91,7 @@ function advanceDueDate(current, frequency) {
 // Admin: all, Client: own
 exports.getSubscriptions = async (req, res, next) => {
   try {
-    const query = req.user.role === 'client' ? { client: req.user._id } : {};
+    const query = req.user.role === 'client' ? { client: req.user._id } : { client: { $ne: null } };
 
     if (req.query.status) query.status = req.query.status;
     if (req.query.type) query.subscriptionType = req.query.type;
@@ -109,16 +109,32 @@ exports.getSubscriptions = async (req, res, next) => {
       });
     }
 
+    const now = new Date();
+
     // Compute live overdue for each
     const enriched = subs.map((s) => {
       const obj = s.toObject();
       obj.overdueDays = calcOverdueDays(s.nextDueDate);
-      obj.remainingBalance = Math.max(0, s.totalBilled - s.totalPaid);
+
+      // Dynamically add to totalBilled for past cycles that haven't been added yet
+      let amount = s.amount || 0;
+      let totalPaid = s.totalPaid || 0;
+      let dynamicBilled = s.totalBilled || 0;
+      if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
+      let tempNext = new Date(s.nextDueDate || new Date());
+      while (now >= tempNext) {
+         dynamicBilled += amount;
+         tempNext = advanceDueDate(tempNext, s.billingFrequency);
+      }
+      obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
       obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
       return obj;
     });
 
-    res.json({ success: true, count: enriched.length, subscriptions: enriched });
+    // Filter out orphaned subscriptions (client was deleted from DB)
+    const filtered = enriched.filter(s => s.client && s.client._id);
+
+    res.json({ success: true, count: filtered.length, subscriptions: filtered });
   } catch (err) { next(err); }
 };
 
@@ -136,7 +152,19 @@ exports.getSubscription = async (req, res, next) => {
     }
     const obj = sub.toObject();
     obj.overdueDays = calcOverdueDays(sub.nextDueDate);
-    obj.remainingBalance = Math.max(0, sub.totalBilled - sub.totalPaid);
+    
+    const now = new Date();
+    let amount = sub.amount || 0;
+    let totalPaid = sub.totalPaid || 0;
+    let dynamicBilled = sub.totalBilled || 0;
+    if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
+    let tempNext = new Date(sub.nextDueDate || new Date());
+    while (now >= tempNext) {
+       dynamicBilled += amount;
+       tempNext = advanceDueDate(tempNext, sub.billingFrequency);
+    }
+    obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
+    
     obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType;
     res.json({ success: true, subscription: obj });
   } catch (err) { next(err); }
@@ -313,11 +341,15 @@ exports.recordPayment = async (req, res, next) => {
 
     sub.totalPaid += Number(amount);
 
-    // If fully paid for current cycle, advance due date
-    if (sub.totalPaid >= sub.totalBilled) {
+    // If they pay in advance for future cycles, advance the due date
+    while (sub.totalPaid >= sub.totalBilled + sub.amount) {
       sub.nextDueDate = advanceDueDate(sub.nextDueDate, sub.billingFrequency);
       sub.totalBilled += sub.amount; // Add next cycle billing
-      if (sub.status === 'overdue') sub.status = 'active';
+    }
+
+    // Reset overdue status if caught up
+    if (sub.status === 'overdue' && calcOverdueDays(sub.nextDueDate) <= 0) {
+      sub.status = 'active';
       sub.overdueDays = 0;
     }
 
@@ -501,7 +533,12 @@ exports.sendHistory = async (req, res, next) => {
 exports.getBillingOverview = async (req, res, next) => {
   try {
     const { branch } = req.query;
-    const subMatch = { status: { $in: ['active', 'overdue'] }, ...(branch ? { branch } : {}) };
+    // We shouldn't filter by branch strictly if branch is missing. 
+    // And if branch is 'undefined' or 'null', handle it
+    let subMatch = { status: { $in: ['active', 'overdue'] }, client: { $ne: null } };
+    if (branch && branch !== 'undefined' && branch !== 'null') {
+      subMatch.branch = branch;
+    }
 
     const subs = await Subscription.find(subMatch)
       .populate('client', 'name email')
@@ -516,21 +553,34 @@ exports.getBillingOverview = async (req, res, next) => {
     const clientSummaries = {};
 
     subs.forEach((s) => {
+      let amount = s.amount || 0;
+      let totalPaid = s.totalPaid || 0;
       // Monthly Recurring Revenue
-      let monthlyEquiv = s.amount;
-      if (s.billingFrequency === 'quarterly') monthlyEquiv = s.amount / 3;
-      else if (s.billingFrequency === 'semi_annual') monthlyEquiv = s.amount / 6;
-      else if (s.billingFrequency === 'annual') monthlyEquiv = s.amount / 12;
+      let monthlyEquiv = amount;
+      if (s.billingFrequency === 'quarterly') monthlyEquiv = amount / 3;
+      else if (s.billingFrequency === 'semi_annual') monthlyEquiv = amount / 6;
+      else if (s.billingFrequency === 'annual') monthlyEquiv = amount / 12;
       totalMRR += monthlyEquiv;
 
       const overdue = calcOverdueDays(s.nextDueDate);
-      const remaining = Math.max(0, s.totalBilled - s.totalPaid);
+      
+      let dynamicBilled = s.totalBilled || 0;
+      if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
+      let tempNext = new Date(s.nextDueDate || new Date());
+      while (now >= tempNext) {
+         dynamicBilled += amount;
+         tempNext = advanceDueDate(tempNext, s.billingFrequency);
+      }
+      const remaining = Math.max(0, dynamicBilled - totalPaid);
 
-      if (overdue > 0) {
+      if (overdue > 0 || remaining > 0 && overdue > 0) {
         totalOverdue += remaining;
         overdueCount++;
       }
-      totalCollected += s.totalPaid;
+      totalCollected += totalPaid;
+
+      // Skip orphaned subscriptions (client was deleted) from client grouping
+      if (!s.client || !s.client._id) return;
 
       const clientId = String(s.client._id);
       if (!clientSummaries[clientId]) {
@@ -554,7 +604,7 @@ exports.getBillingOverview = async (req, res, next) => {
         nextDueDate: s.nextDueDate,
         remaining,
       });
-      clientSummaries[clientId].totalDue += s.totalBilled;
+      clientSummaries[clientId].totalDue += dynamicBilled;
       clientSummaries[clientId].totalPaid += s.totalPaid;
       if (overdue > 0) {
         clientSummaries[clientId].overdueAmount += remaining;
@@ -567,7 +617,7 @@ exports.getBillingOverview = async (req, res, next) => {
     const hostingRenewals = await Subscription.find({
       'hostingDetails.expiryDate': { $lte: thirtyDaysOut, $gte: now },
       status: { $in: ['active', 'overdue'] },
-      ...(branch ? { branch } : {}),
+      ...(subMatch.branch ? { branch: subMatch.branch } : {}),
     }).populate('client', 'name email').populate('project', 'title');
 
     // Monthly revenue for chart (last 12 months)
@@ -578,7 +628,7 @@ exports.getBillingOverview = async (req, res, next) => {
       const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
       let revenue = 0;
       subs.forEach((s) => {
-        s.payments.forEach((p) => {
+        (s.payments || []).forEach((p) => {
           const pd = new Date(p.paidAt);
           if (pd >= monthStart && pd <= monthEnd) revenue += p.amount;
         });
@@ -597,9 +647,7 @@ exports.getBillingOverview = async (req, res, next) => {
       typeDist[label] = (typeDist[label] || 0) + 1;
     });
 
-    res.json({
-      success: true,
-      overview: {
+      const result = {
         totalMRR: Math.round(totalMRR),
         totalOverdue: Math.round(totalOverdue),
         totalCollected: Math.round(totalCollected),
@@ -610,9 +658,13 @@ exports.getBillingOverview = async (req, res, next) => {
         hostingRenewals,
         monthlyRevenue,
         typeDist: Object.entries(typeDist).map(([name, value]) => ({ name, value })),
-      },
-    });
-  } catch (err) { next(err); }
+      };
+
+      res.json({
+        success: true,
+        overview: result,
+      });
+    } catch (err) { next(err); }
 };
 
 // ── CHECK & UPDATE OVERDUE (cron-like) ────────────────
@@ -758,14 +810,27 @@ exports.getMySubscriptionSummary = async (req, res, next) => {
     let totalDue = 0;
     let totalPaid = 0;
     let overdueCount = 0;
+    const now = new Date();
 
     const enriched = subs.map((s) => {
       const obj = s.toObject();
       obj.overdueDays = calcOverdueDays(s.nextDueDate);
-      obj.remainingBalance = Math.max(0, s.totalBilled - s.totalPaid);
+      
+      let amount = s.amount || 0;
+      let subTotalPaid = s.totalPaid || 0;
+      let dynamicBilled = s.totalBilled || 0;
+      if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
+      let tempNext = new Date(s.nextDueDate || new Date());
+      while (now >= tempNext) {
+         dynamicBilled += amount;
+         tempNext = advanceDueDate(tempNext, s.billingFrequency);
+      }
+      
+      obj.remainingBalance = Math.max(0, dynamicBilled - subTotalPaid);
       obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
-      totalDue += s.totalBilled;
-      totalPaid += s.totalPaid;
+      
+      totalDue += dynamicBilled;
+      totalPaid += subTotalPaid;
       if (obj.overdueDays > 0) overdueCount++;
       return obj;
     });
