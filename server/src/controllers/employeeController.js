@@ -12,6 +12,7 @@ const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { sendMail, smtpConfigured } = require('../utils/mailer');
 const { sendLoggedMail } = require('../services/emailService');
 const { sendSms } = require('../services/smsService');
+const { ASSIGNED_STATUSES, INACTIVE_STATUSES } = require('../utils/employeeFilters');
 
 function syncEmploymentTypeFromStatus(body) {
   const status = body.status;

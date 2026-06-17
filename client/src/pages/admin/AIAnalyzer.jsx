@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
@@ -694,33 +695,6 @@ export default function AdminAIAnalyzer() {
                 </div>
               </div>
 
-              {showApiSettings && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                  <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-                    <h3 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2"><FiSettings/> Add API — {PLATFORM_CONFIG[apiSettingsPlatform]?.label || apiSettingsPlatform}</h3>
-                    <p className="text-sm text-slate-500 mb-4">Keys are saved in your browser and sent securely to the backend when fetching data. Works on localhost and Hostinger without server env vars.</p>
-                    <div className="space-y-4">
-                      {(PLATFORM_API_FIELDS[apiSettingsPlatform] || []).map((field) => (
-                        <div key={field.key}>
-                          <label className="text-sm font-semibold text-slate-600 mb-1 block">{field.label}</label>
-                          <input
-                            type="text"
-                            className="form-input w-full"
-                            placeholder={field.placeholder}
-                            value={platformApiForm[field.key] || ''}
-                            onChange={(e) => setPlatformApiForm((s) => ({ ...s, [field.key]: e.target.value }))}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-end gap-3 mt-6">
-                      <button type="button" onClick={() => setShowApiSettings(false)} className="btn-outline">Cancel</button>
-                      <button type="button" onClick={saveApiSettings} className="btn-primary"><FiSave size={14}/> Save & Fetch</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {mktgLoading && (
                 <div className="card card-body text-center py-16">
                   <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"/>
@@ -928,6 +902,34 @@ export default function AdminAIAnalyzer() {
           </div>
         )}
       </AnimatePresence>
+
+      {showApiSettings && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2"><FiSettings/> Add API — {PLATFORM_CONFIG[apiSettingsPlatform]?.label || apiSettingsPlatform}</h3>
+            <p className="text-sm text-slate-500 mb-4">Keys are saved in your browser and sent securely to the backend when fetching data. Works on localhost and Hostinger without server env vars.</p>
+            <div className="space-y-4">
+              {(PLATFORM_API_FIELDS[apiSettingsPlatform] || []).map((field) => (
+                <div key={field.key}>
+                  <label className="text-sm font-semibold text-slate-600 mb-1 block">{field.label}</label>
+                  <input
+                    type="text"
+                    className="form-input w-full"
+                    placeholder={field.placeholder}
+                    value={platformApiForm[field.key] || ''}
+                    onChange={(e) => setPlatformApiForm((s) => ({ ...s, [field.key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button type="button" onClick={() => setShowApiSettings(false)} className="btn-outline">Cancel</button>
+              <button type="button" onClick={saveApiSettings} className="btn-primary"><FiSave size={14}/> Save & Fetch</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   )
