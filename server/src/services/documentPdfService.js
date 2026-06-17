@@ -3,68 +3,89 @@ const { buildQuotationDocumentHtml, buildInvoiceDocumentHtml, bankLabelFromAccou
 
 let browserPromise = null;
 
+function launchArgs() {
+  const args = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+  ];
+  // Linux/Docker low-memory flags — break Chromium on Windows
+  if (process.platform === 'linux') {
+    args.push('--single-process', '--no-zygote');
+  }
+  return args;
+}
+
+async function launchBrowser() {
+  return puppeteer.launch({
+    headless: 'new',
+    args: launchArgs(),
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+  });
+}
+
 async function getBrowser() {
   if (!browserPromise) {
-    browserPromise = puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage', // Critical for Render/Docker
-        '--single-process', // Critical for low memory environments
-        '--no-zygote',
-        '--disable-gpu'
-      ],
-      // If deployed on Render and using their Puppeteer buildpack,
-      // it sets PUPPETEER_EXECUTABLE_PATH. Use it if available.
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
-    }).catch(err => {
-      console.error('[Puppeteer] Failed to launch browser:', err);
-      browserPromise = null; // Reset so it retries next time
+    browserPromise = launchBrowser().catch((err) => {
+      console.error('[Puppeteer] Failed to launch browser:', err.message);
+      browserPromise = null;
       throw err;
     });
   }
   return browserPromise;
 }
 
-async function htmlToPdfBuffer(html) {
+async function resetBrowser() {
+  if (browserPromise) {
+    try {
+      const b = await browserPromise;
+      await b.close().catch(() => {});
+    } catch (_) { /* ignore */ }
+    browserPromise = null;
+  }
+}
+
+async function renderPdfOnce(html) {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
-    // Abort requests that aren't data URIs or local — prevents hanging on unreachable hosts
-    await page.setRequestInterception(true);
-    page.on('request', (req) => {
-      const url = req.url();
-      if (req.resourceType() === 'image' && /^https?:\/\//i.test(url)) {
-        // Allow the request but don't let it block rendering
-        req.continue();
-      } else {
-        req.continue();
-      }
-    });
-    // Use networkidle2 (tolerates ≤2 pending connections) so stalled image fetches don't hang
-    await page.setContent(html, { waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {
-      // If networkidle2 times out, proceed anyway — content is already loaded via setContent
-    });
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30000 });
     return await page.pdf({
       format: 'A4',
       printBackground: true,
       margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
     });
   } finally {
-    await page.close();
+    await page.close().catch(() => {});
+  }
+}
+
+async function htmlToPdfBuffer(html) {
+  const prepared = inlineUploadImagesInHtml(html);
+  try {
+    return await renderPdfOnce(prepared);
+  } catch (err) {
+    const msg = err?.message || '';
+    const retriable = /Connection closed|Protocol error|Target closed|Session closed|Browser has disconnected/i.test(msg);
+    if (retriable) {
+      console.warn('[Puppeteer] PDF failed, restarting browser:', msg);
+      await resetBrowser();
+      return renderPdfOnce(prepared);
+    }
+    throw err;
   }
 }
 
 async function quotationToPdf(quotation) {
   const bankLabel = bankLabelFromAccount(quotation.bankAccount);
   const html = await buildQuotationDocumentHtml(quotation, { bankLabel });
-  return htmlToPdfBuffer(inlineUploadImagesInHtml(html));
+  return htmlToPdfBuffer(html);
 }
 
 async function invoiceToPdf(invoice) {
   const html = await buildInvoiceDocumentHtml(invoice);
-  return htmlToPdfBuffer(inlineUploadImagesInHtml(html));
+  return htmlToPdfBuffer(html);
 }
 
-module.exports = { quotationToPdf, invoiceToPdf, htmlToPdfBuffer };
+module.exports = { quotationToPdf, invoiceToPdf, htmlToPdfBuffer, resetBrowser };

@@ -501,7 +501,47 @@ export default function AdminLetters() {
           <h2 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Issued letters</h2>
           <span className="text-xs text-slate-500">{letters.length} on file</span>
         </div>
-        <div className="table-container border-0 shadow-none rounded-xl overflow-hidden">
+
+        {/* Mobile card list */}
+        <div className="sm:hidden space-y-3">
+          {isLoading ? (
+            <div className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></div>
+          ) : letters.length === 0 ? (
+            <div className="text-center py-12 text-slate-400"><FiFileText size={36} className="mx-auto mb-2 opacity-25" />No letters yet.</div>
+          ) : letters.map((l) => (
+            <div key={l._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-mono text-xs text-slate-500">{l.letterRef || '—'}</span>
+                  <p className="font-semibold text-slate-800 mt-0.5 truncate">{l.recipientType === 'client' ? l.client?.name : l.employee?.userId?.name}</p>
+                  <p className="text-xs text-slate-400">{l.recipientType === 'client' ? 'Customer' : l.employee?.employeeNo}</p>
+                </div>
+                <span className="badge badge-navy capitalize shrink-0">{TYPE_MAP[l.type]?.label || l.type}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>{l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK') : '—'}</span>
+                <select
+                  className="form-select text-xs py-1 min-w-[7.5rem]"
+                  value={l.approvalStatus || 'none'}
+                  onChange={(e) => approvalMut.mutate({ id: l._id, approvalStatus: e.target.value })}
+                >
+                  <option value="none">None</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                </select>
+              </div>
+              <div className="flex gap-1.5 pt-1 border-t border-slate-100">
+                <button type="button" onClick={() => openPreview(l)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiEye size={13}/> View</button>
+                <button type="button" onClick={() => handlePrint(l)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiPrinter size={13}/> Print</button>
+                <button type="button" onClick={() => handlePdf(l)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiDownload size={13}/> PDF</button>
+                <button type="button" onClick={() => { setLetterDeleteId(l._id); setLetterPwdOpen(true) }} className="flex-1 btn-ghost btn-sm justify-center text-xs text-red-500 hover:bg-red-50"><FiTrash2 size={13}/> Del</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block table-container border-0 shadow-none rounded-xl overflow-hidden">
           <table className="table">
             <thead>
               <tr>
@@ -555,26 +595,10 @@ export default function AdminLetters() {
                     </td>
                     <td className="text-right">
                       <div className="inline-flex flex-wrap justify-end gap-0.5">
-                        <button type="button" title="Preview" onClick={() => openPreview(l)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                          <FiEye size={15} />
-                        </button>
-                        <button type="button" title="Print" onClick={() => handlePrint(l)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg">
-                          <FiPrinter size={15} />
-                        </button>
-                        <button type="button" title="PDF" onClick={() => handlePdf(l)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
-                          <FiDownload size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          title="Delete letter"
-                          onClick={() => {
-                            setLetterDeleteId(l._id)
-                            setLetterPwdOpen(true)
-                          }}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                        >
-                          <FiTrash2 size={15} />
-                        </button>
+                        <button type="button" title="Preview" onClick={() => openPreview(l)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><FiEye size={15} /></button>
+                        <button type="button" title="Print" onClick={() => handlePrint(l)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><FiPrinter size={15} /></button>
+                        <button type="button" title="PDF" onClick={() => handlePdf(l)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"><FiDownload size={15} /></button>
+                        <button type="button" title="Delete letter" onClick={() => { setLetterDeleteId(l._id); setLetterPwdOpen(true) }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><FiTrash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -585,26 +609,26 @@ export default function AdminLetters() {
         </div>
       </section>
 
-      <AnimatePresence>
-        {showModal && (
+      {showModal && createPortal(
+        <AnimatePresence>
           <div 
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4"
+            className="fixed inset-0 bg-black/50 flex items-stretch sm:items-center sm:justify-center z-[99999] sm:p-4"
             onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal() }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto custom-scrollbar"
+              className="bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-lg sm:h-auto sm:max-h-[92vh] flex flex-col"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between p-4 sm:p-5 border-b bg-slate-50 shrink-0">
                 <h3 className="text-lg font-bold text-primary font-heading">Generate letter</h3>
-                <button type="button" onClick={closeModal} className="p-2 hover:bg-slate-100 rounded-lg">
+                <button type="button" onClick={closeModal} className="p-2 hover:bg-slate-200 rounded-lg">
                   <FiX />
                 </button>
               </div>
-              <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
                 {templates.length === 0 ? (
                   <p className="text-xs text-slate-400 px-0.5">
                     No saved letter templates yet. After you generate a letter, use &quot;Save template&quot; in the preview to store one here.
@@ -876,9 +900,9 @@ export default function AdminLetters() {
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-3 pt-4 border-t border-slate-100 mt-2">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center gap-2">
-                    <FiChevronDown className="rotate-90" /> Back
+                    <FiChevronDown className="rotate-90" /> Cancel
                   </button>
                   <button type="submit" disabled={generateMut.isPending} className="btn-primary flex-1 justify-center">
                     {generateMut.isPending ? <span className="spinner" /> : 'Generate'}
@@ -887,8 +911,9 @@ export default function AdminLetters() {
               </form>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {preview &&
         createPortal(
@@ -906,16 +931,26 @@ export default function AdminLetters() {
             <motion.div
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[96vh] overflow-hidden flex flex-col"
+              className="bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-4xl h-full sm:max-h-[96vh] overflow-hidden flex flex-col"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5 border-b bg-slate-50 shrink-0">
+              {/* Header: title + close */}
+              <div className="flex items-center justify-between gap-3 p-3 sm:p-4 border-b bg-slate-50 shrink-0">
                 <div className="min-w-0">
                   <p className="text-xs font-mono text-slate-500">{preview.letterRef}</p>
-                  <h3 className="font-bold text-slate-900 truncate">{preview.title}</h3>
-                  <span className="badge badge-navy text-[10px] mt-1 capitalize">{TYPE_MAP[preview.type]?.label || preview.type}</span>
+                  <h3 className="font-bold text-slate-900 truncate text-sm sm:text-base">{preview.title}</h3>
+                  <span className="badge badge-navy text-[10px] mt-0.5 capitalize">{TYPE_MAP[preview.type]?.label || preview.type}</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setPreview(null); setEditMode(false); setLetterEditHtmlSource(false) }}
+                  className="p-2 hover:bg-slate-200 rounded-lg shrink-0"
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+              {/* Action toolbar — horizontally scrollable on mobile */}
+              <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b bg-white shrink-0 overflow-x-auto no-scrollbar">
                   <button
                     type="button"
                     onClick={() => {
@@ -997,10 +1032,8 @@ export default function AdminLetters() {
                     className="btn-ghost btn-sm gap-2 border border-slate-200 ml-1 hover:bg-slate-200"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                    Back
                   </button>
                 </div>
-              </div>
 
               <div className="overflow-y-auto flex-1 min-h-0">
                 <div className="p-4 sm:p-6 bg-[#f1f5f9] space-y-4">

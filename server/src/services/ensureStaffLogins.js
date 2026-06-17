@@ -53,10 +53,10 @@ async function upsertStaffUser(spec, { resetPassword = false } = {}) {
     console.log(`[staff-logins] Updated ${email} role/active`);
   }
 
-  // Disabled so the Employees table stays completely empty as requested:
-  // if (user && ['developer', 'designer', 'marketing', 'manager'].includes(spec.role)) {
-  //   await ensureEmployeeProfile(user, spec);
-  // }
+  // Auto-provision Employee profiles for staff portals (work logs, requests, exports)
+  if (user && ['developer', 'designer', 'marketing'].includes(spec.role)) {
+    await ensureEmployeeProfile(user, spec);
+  }
   return user;
 }
 
@@ -69,4 +69,4 @@ async function ensureStaffLogins({ resetPassword = false } = {}) {
   }
 }
 
-module.exports = { ensureStaffLogins, STAFF_SPECS };
+module.exports = { ensureStaffLogins, STAFF_SPECS, ensureEmployeeProfile };

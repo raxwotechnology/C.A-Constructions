@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getSocialAnalytics } = require('../controllers/socialController');
+const { getSocialAnalytics, postSocialAnalytics } = require('../controllers/socialController');
 const { protect, authorize } = require('../middleware/auth');
 
-// Admin/manager have full access; employee access is gated at UI by assigned platforms
+// GET uses server env; POST accepts manual credentials from AI Analyzer UI
 router.get('/', protect, getSocialAnalytics);
+router.post('/', protect, postSocialAnalytics);
 
 module.exports = router;

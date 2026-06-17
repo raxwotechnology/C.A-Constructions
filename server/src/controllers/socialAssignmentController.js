@@ -1,5 +1,6 @@
 const SocialAssignment = require('../models/SocialAssignment');
 const Employee = require('../models/Employee');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 
 // GET all assignments (admin/manager)
 exports.getAssignments = async (req, res, next) => {
@@ -46,7 +47,7 @@ exports.deleteAssignment = async (req, res, next) => {
 exports.getMyAssignedPlatforms = async (req, res, next) => {
   try {
     // Find the employee record for this user
-    const employee = await Employee.findOne({ userId: req.user._id }).lean();
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.json({ success: true, platforms: [] });
 
     const assignments = await SocialAssignment.find({ employee: employee._id })

@@ -4,15 +4,18 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const { createNotification } = require('../services/notificationService');
 const emailService = require('../services/emailService');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
+const { sanitizeWorkLogTasks } = require('../utils/workLogSanitize');
 const path = require('path');
 
 exports.submitWorkLog = async (req, res, next) => {
   try {
     const { date, tasks, blockers, notes, projectLinks } = req.body;
 
-    const employee = await Employee.findOne({ userId: req.user._id }).populate('userId', 'name role');
+    const employee = await resolveEmployeeForUser(req.user, { populate: { path: 'userId', select: 'name role' } });
     if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee record not found. Please contact your admin.' });
+      console.error(`[work-log] Employee missing for user=${req.user.email} role=${req.user.role} id=${req.user._id}`);
+      return res.status(404).json({ success: false, message: 'Employee record not found. Please log out and log in again, or contact your admin.' });
     }
 
     // Parse tasks if sent as string (multipart form)
@@ -20,12 +23,18 @@ exports.submitWorkLog = async (req, res, next) => {
     if (typeof tasks === 'string') {
       try { parsedTasks = JSON.parse(tasks); } catch { parsedTasks = []; }
     }
+    parsedTasks = sanitizeWorkLogTasks(parsedTasks);
+
+    if (!parsedTasks.length) {
+      return res.status(400).json({ success: false, message: 'At least one task with name and hours is required.' });
+    }
+
     let parsedLinks = projectLinks;
     if (typeof projectLinks === 'string') {
       try { parsedLinks = JSON.parse(projectLinks); } catch { parsedLinks = []; }
     }
 
-    const totalHours = (parsedTasks || []).reduce((sum, task) => sum + Number(task.hours || 0), 0);
+    const totalHours = parsedTasks.reduce((acc, task) => acc + Number(task.hours || 0), 0);
 
     const logDate = date ? new Date(date) : new Date();
     logDate.setHours(0, 0, 0, 0);
@@ -56,7 +65,7 @@ exports.submitWorkLog = async (req, res, next) => {
       employeeRole: req.user.role,
       branch: employee.branch,
       date: logDate,
-      tasks: parsedTasks || [],
+      tasks: parsedTasks,
       blockers: blockers || '',
       notes: notes || '',
       totalHours,
@@ -66,18 +75,35 @@ exports.submitWorkLog = async (req, res, next) => {
       approvalStatus: 'pending',
     });
 
-    // Email managers about new submission
+    // Notify managers (in-app)
     const managers = await User.find({ role: { $in: ['manager', 'admin'] }, isActive: true }).select('email').limit(5);
-    const managerEmails = managers.map(m => m.email).filter(Boolean);
-    await emailService.sendWorkLogSubmittedEmail(managerEmails, req.user.name, logDate, (parsedTasks || []).length);
+    for (const mgr of managers.filter((m) => m._id)) {
+      await createNotification({
+        recipient: mgr._id,
+        title: 'New Work Log',
+        message: `${req.user.name} submitted a work log for ${logDate.toLocaleDateString('en-LK')}`,
+        type: 'system',
+        link: '/manager/work-logs',
+      }).catch(() => {});
+    }
 
     res.status(201).json({ success: true, workLog });
-  } catch (err) { next(err); }
+
+    const managerEmails = managers.map((m) => m.email).filter(Boolean);
+    emailService.sendWorkLogSubmittedEmail(managerEmails, req.user.name, logDate, parsedTasks.length)
+      .catch((err) => console.warn('[work-log] notification email failed:', err.message));
+  } catch (err) {
+    console.error('[work-log] submit failed:', err.message);
+    if (err.name === 'ValidationError' || err.message?.includes('Cast to ObjectId')) {
+      return res.status(400).json({ success: false, message: 'Invalid task data. Leave project blank if none, and ensure hours are valid.' });
+    }
+    next(err);
+  }
 };
 
 exports.getMyWorkLogs = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee record not found.' });
     }

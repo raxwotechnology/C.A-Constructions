@@ -26,3 +26,37 @@ exports.getPerformance = async (req, res, next) => {
     res.json({ success: true, count: records.length, records });
   } catch (err) { next(err); }
 };
+
+exports.updatePerformance = async (req, res, next) => {
+  try {
+    const record = await Performance.findById(req.params.id);
+    if (!record) return res.status(404).json({ success: false, message: 'Review not found' });
+
+    const fields = ['tasksCompleted', 'commits', 'codeQuality', 'collaboration', 'notes', 'project'];
+    fields.forEach((f) => {
+      if (req.body[f] !== undefined) record[f] = req.body[f];
+    });
+    record.score = Math.round(
+      (Number(record.tasksCompleted) * 0.35) +
+      (Number(record.commits) * 0.2) +
+      (Number(record.codeQuality) * 0.3) +
+      (Number(record.collaboration) * 0.15)
+    );
+    await record.save();
+
+    const populated = await Performance.findById(record._id)
+      .populate('developer', 'name email role')
+      .populate('project', 'title status');
+
+    res.json({ success: true, record: populated });
+  } catch (err) { next(err); }
+};
+
+exports.deletePerformance = async (req, res, next) => {
+  try {
+    const record = await Performance.findById(req.params.id);
+    if (!record) return res.status(404).json({ success: false, message: 'Review not found' });
+    await record.deleteOne();
+    res.json({ success: true, message: 'Review deleted' });
+  } catch (err) { next(err); }
+};

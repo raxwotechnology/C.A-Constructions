@@ -384,13 +384,13 @@ export default function Agreements() {
 
       <div className="card overflow-hidden border border-slate-200 shadow-sm">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="relative flex-1 max-w-md">
+          <div className="relative w-full sm:flex-1 sm:max-w-md">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search agreements…"
-              className="form-input pl-9 bg-white"
+              className="form-input pl-9 bg-white w-full"
             />
           </div>
           <p className="text-xs text-slate-500 sm:ml-auto">Branding comes from Admin → Settings (logo, address, contact).</p>
@@ -409,7 +409,49 @@ export default function Agreements() {
               </button>
             </div>
           ) : (
-            <div className="table-container">
+            <>
+            {/* Mobile card list */}
+            <div className="sm:hidden space-y-3 p-3">
+              {agreements.map((agr) => (
+                <div key={agr._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 truncate">{agr.title}</p>
+                      <p className="text-xs text-slate-500 font-mono mt-0.5">
+                        {agr.agreementNo} · {AGREEMENT_TYPES.find((t) => t.value === agr.agreementType)?.label || agr.agreementType}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {agr.client && <span className="text-xs font-medium text-slate-700 truncate max-w-[120px]">{agr.client.name}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select value={agr.status} onChange={(e) => updateStatusMut.mutate({ id: agr._id, status: e.target.value })} className="form-select text-xs py-1 flex-1">
+                      <option value="draft">Draft</option>
+                      <option value="finalised">Finalised</option>
+                      <option value="signed">Signed</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                    <select value={agr.approvalStatus || 'none'} onChange={(e) => updateApprovalMut.mutate({ id: agr._id, approvalStatus: e.target.value })} className={`form-select text-xs py-1 flex-1 font-semibold border-0 ${approvalBadge(agr.approvalStatus || 'none')}`}>
+                      <option value="none">None</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+                    <button type="button" onClick={() => handlePrintAgreement(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiPrinter size={12}/> Print</button>
+                    <button type="button" onClick={() => handlePdfAgreement(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiDownload size={12}/> PDF</button>
+                    <button type="button" onClick={() => openEdit(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiEdit2 size={12}/> Edit</button>
+                    <button type="button" onClick={() => setHistoryFor(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiClock size={12}/> History</button>
+                    <button type="button" onClick={() => { if (window.confirm('Delete agreement?')) deleteMut.mutate(agr._id) }} className="flex-1 btn-ghost btn-sm justify-center text-xs text-red-600 hover:bg-red-50"><FiTrash2 size={12}/> Del</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block table-container">
           <table className="table">
             <thead>
               <tr>
@@ -529,6 +571,7 @@ export default function Agreements() {
             </tbody>
           </table>
             </div>
+            </>
           )}
         </div>
       </div>
@@ -575,7 +618,7 @@ export default function Agreements() {
             className="bg-white w-full max-w-5xl h-full shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b flex justify-between items-center bg-slate-50 shrink-0">
+            <div className="p-4 sm:p-6 border-b flex justify-between items-center bg-slate-50 shrink-0">
               <div>
                 <h2 className="text-xl font-bold font-heading text-slate-800">{editing ? 'Edit agreement' : 'New agreement'}</h2>
                 <p className="text-sm text-slate-500">{step === 1 ? 'Step 1: Type & records' : 'Step 2: Document & signatures'}</p>

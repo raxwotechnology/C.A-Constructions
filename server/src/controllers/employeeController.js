@@ -8,7 +8,7 @@ const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Payroll = require('../models/Payroll');
 const Performance = require('../models/Performance');
-const { ASSIGNED_STATUSES, INACTIVE_STATUSES } = require('../utils/employeeFilters');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { sendMail, smtpConfigured } = require('../utils/mailer');
 const { sendLoggedMail } = require('../services/emailService');
 const { sendSms } = require('../services/smsService');
@@ -133,11 +133,12 @@ exports.getEmployee = async (req, res, next) => {
 // @route   GET /api/employees/me
 exports.getMyProfile = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id })
+    const employee = await resolveEmployeeForUser(req.user);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+    const populated = await Employee.findById(employee._id)
       .populate('userId', 'name email phone avatar role')
       .populate('manager', 'name email');
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
-    res.json({ success: true, employee });
+    res.json({ success: true, employee: populated });
   } catch (err) { next(err); }
 };
 

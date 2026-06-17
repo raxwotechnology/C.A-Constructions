@@ -71,7 +71,7 @@ export default function EmployeeRequests() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit flex-wrap">
+      <div className="tab-scroll flex gap-1 bg-slate-100 rounded-xl p-1 w-full max-w-full">
         {TABS.map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${activeTab === t ? 'bg-white shadow text-secondary' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -161,14 +161,14 @@ export default function EmployeeRequests() {
       {/* Submit Request Modal */}
       <AnimatePresence>
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-0 sm:p-4">
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="p-5 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
+              className="modal-sheet bg-white rounded-none sm:rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[100dvh] sm:max-h-[90vh]">
+              <div className="modal-sheet-header p-5 border-b flex justify-between items-center bg-slate-50 sm:rounded-t-2xl">
                 <h2 className="font-bold text-primary text-lg">Submit Request</h2>
-                <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-200 rounded-xl"><FiX /></button>
+                <button type="button" onClick={() => setShowForm(false)} className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-slate-200 rounded-xl"><FiX /></button>
               </div>
-              <div className="p-5 overflow-y-auto space-y-4">
+              <div className="modal-sheet-body p-5 space-y-4">
                 <div>
                   <label className="form-label">Request Type</label>
                   <select className="form-select" value={form.type} onChange={e => setForm(s => ({ ...s, type: e.target.value }))}>
@@ -193,8 +193,8 @@ export default function EmployeeRequests() {
                   </div>
                 </div>
               </div>
-              <div className="p-5 border-t bg-slate-50 rounded-b-2xl">
-                <button onClick={() => submitMut.mutate()} disabled={!form.subject || submitMut.isPending} className="btn-primary w-full justify-center">
+              <div className="modal-sheet-footer p-5 border-t bg-slate-50 sm:rounded-b-2xl safe-area-bottom">
+                <button type="button" onClick={() => submitMut.mutate()} disabled={!form.subject?.trim() || submitMut.isPending} className="btn-primary w-full justify-center min-h-[48px]">
                   {submitMut.isPending ? <span className="spinner" /> : 'Submit Request'}
                 </button>
               </div>

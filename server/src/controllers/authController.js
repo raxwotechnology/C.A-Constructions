@@ -6,6 +6,7 @@ const { sendMail } = require('../utils/mailer');
 const { sendClientWelcomeEmail } = require('../services/welcomeEmail');
 const { validateStrongPassword } = require('../utils/passwordValidation');
 const { toRelativeUploadUrl } = require('../utils/uploadsPath');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
 
@@ -80,14 +81,28 @@ exports.login = async (req, res, next) => {
     }
 
     const token = generateToken(user._id);
+    // Ensure staff portal users have a linked Employee record (work logs, exports, requests)
+    await resolveEmployeeForUser(user).catch((err) => {
+      console.warn(`[auth/login] Employee sync for ${user.email}:`, err.message);
+    });
     res.json({ success: true, token, user: serializeUser(user) });
   } catch (err) { next(err); }
 };
 
 // @desc    Get current user
 // @route   GET /api/auth/me
-exports.getMe = async (req, res) => {
-  res.json({ success: true, user: serializeUser(req.user) });
+exports.getMe = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployeeForUser(req.user);
+    res.json({
+      success: true,
+      user: serializeUser(req.user),
+      employeeLinked: Boolean(employee),
+      employeeId: employee?._id || null,
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 // @desc    Update profile

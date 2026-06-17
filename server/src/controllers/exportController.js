@@ -1,18 +1,22 @@
-const puppeteer = require('puppeteer');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Payroll = require('../models/Payroll');
 const Project = require('../models/Project');
+const SiteSetting = require('../models/SiteSetting');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
+const { htmlToPdfBuffer } = require('../services/documentPdfService');
+const { buildLetterhead, inlineUploadImagesInHtml } = require('../services/documentHtmlService');
 
 function fileSafe(s) {
   return String(s || '').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 64);
 }
 
-async function getDeveloperContext(userId) {
-  const employee = await Employee.findOne({ userId }).populate('userId', 'name email role');
-  if (!employee) return { employee: null, userId };
+async function getDeveloperContext(user) {
+  const employee = await resolveEmployeeForUser(user, { populate: { path: 'userId', select: 'name email role' } });
+  if (!employee) return { employee: null, userId: user._id };
 
+  const userId = user._id;
   const projects = await Project.find({ assignedEmployees: userId })
     .select('title status progress deadline startDate completedAt tasks updatedAt')
     .sort({ updatedAt: -1 })
@@ -87,7 +91,10 @@ function toCategoryPayload(category, ctx) {
   }
 }
 
-function renderHtml(category, payload) {
+async function renderHtml(category, payload) {
+  const settings = (await SiteSetting.findOne().lean()) || {};
+  const letterhead = buildLetterhead(settings);
+
   const titleMap = {
     salary: 'Salary Reports',
     attendance: 'Attendance Reports',
@@ -102,21 +109,22 @@ function renderHtml(category, payload) {
 
   const style = `
     <style>
+      @page { margin: 12mm; }
       * { box-sizing: border-box; }
-      body { font-family: Inter, Arial, sans-serif; color: #0f172a; margin: 0; padding: 28px; }
-      .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
-      .brand { font-weight: 800; font-size: 16px; letter-spacing: 0.3px; }
-      .muted { color: #64748b; font-size: 12px; }
-      h1 { margin: 0; font-size: 20px; }
-      .pill { display:inline-block; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 999px; font-size: 12px; color:#334155; }
-      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-      th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; vertical-align: top; }
-      th { background: #f8fafc; text-align: left; }
+      body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; margin: 0; padding: 24px 28px; font-size: 10.5pt; line-height: 1.55; }
+      .doc-title { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 18px; }
+      .doc-title h1 { margin: 0; font-size: 18pt; font-weight: 800; letter-spacing: 0.04em; }
+      .muted { color: #64748b; font-size: 11px; }
+      .pill { display:inline-block; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 999px; font-size: 11px; color:#334155; background:#f8fafc; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; page-break-inside: auto; }
+      th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 10pt; vertical-align: top; }
+      th { background: #f1f5f9; text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }
+      tr { page-break-inside: avoid; }
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
       .card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #ffffff; }
-      .k { font-size: 12px; color: #64748b; }
-      .v { font-size: 16px; font-weight: 800; margin-top: 4px; }
-      .footer { margin-top: 18px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 11px; color:#64748b; }
+      .k { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+      .v { font-size: 16px; font-weight: 800; margin-top: 4px; color: #0f172a; }
+      .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 10px; color:#64748b; text-align: center; }
     </style>
   `;
 
@@ -231,7 +239,7 @@ function renderHtml(category, payload) {
     `;
   }
 
-  return `
+  const html = `
     <!doctype html>
     <html>
       <head>
@@ -240,30 +248,32 @@ function renderHtml(category, payload) {
         ${style}
       </head>
       <body>
-        <div class="header">
+        ${letterhead}
+        <div class="doc-title">
           <div>
-            <div class="brand">Raxwo</div>
-            <div class="muted">${safe(name)} ${empNo ? `• ${safe(empNo)}` : ''}</div>
+            <h1>${title}</h1>
+            <div class="muted">${safe(name)}${empNo ? ` · ${safe(empNo)}` : ''}</div>
           </div>
           <div style="text-align:right">
-            <h1>${title}</h1>
             <div class="muted">Generated: ${safe(gen)}</div>
             <div style="margin-top:6px"><span class="pill">${safe(category).toUpperCase()}</span></div>
           </div>
         </div>
         ${content}
-        <div class="footer">This report is system-generated for internal use.</div>
+        <div class="footer">System-generated report · ${safe(settings.siteName || 'Raxwo')}</div>
       </body>
     </html>
   `;
+
+  return inlineUploadImagesInHtml(html);
 }
 
-// @desc    Export category as JSON (developer)
+// @desc    Export category as JSON (staff)
 // @route   GET /api/exports/:category/json
 exports.exportJson = async (req, res, next) => {
   try {
     const category = String(req.params.category || '').toLowerCase();
-    const ctx = await getDeveloperContext(req.user._id);
+    const ctx = await getDeveloperContext(req.user);
     if (!ctx.employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const payload = toCategoryPayload(category, ctx);
@@ -276,21 +286,50 @@ exports.exportJson = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Export category as PDF (developer)
-// @route   GET /api/exports/:category/pdf
-exports.exportPdf = async (req, res, next) => {
+// @desc    Export category as HTML (for same-tab print)
+// @route   GET /api/exports/:category/html
+exports.exportHtml = async (req, res, next) => {
   try {
     const category = String(req.params.category || '').toLowerCase();
-    const ctx = await getDeveloperContext(req.user._id);
+    const ctx = await getDeveloperContext(req.user);
     if (!ctx.employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const payload = toCategoryPayload(category, ctx);
     if (!payload) return res.status(400).json({ success: false, message: 'Invalid export category' });
 
-    const html = renderHtml(category, payload);
-    res.setHeader('Content-Type', 'text/html');
+    const html = await renderHtml(category, payload);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(html);
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('[export] HTML generation failed:', err.message);
+    next(err);
+  }
+};
+
+// @desc    Export category as PDF (staff)
+// @route   GET /api/exports/:category/pdf
+exports.exportPdf = async (req, res, next) => {
+  try {
+    const category = String(req.params.category || '').toLowerCase();
+    const ctx = await getDeveloperContext(req.user);
+    if (!ctx.employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+
+    const payload = toCategoryPayload(category, ctx);
+    if (!payload) return res.status(400).json({ success: false, message: 'Invalid export category' });
+
+    const html = await renderHtml(category, payload);
+    const pdfBuffer = await htmlToPdfBuffer(html);
+    const filename = `raxwo_${fileSafe(category)}_${fileSafe(ctx.employee.employeeNo)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(pdfBuffer);
+  } catch (err) {
+    console.error('[export] PDF generation failed:', err.message, err.stack?.split('\n')[0]);
+    return res.status(500).json({
+      success: false,
+      message: 'PDF generation failed. Ensure Puppeteer/Chrome is installed on the server.',
+    });
+  }
 };
 
 // @desc    Admin export employee data (json/pdf)
@@ -314,9 +353,12 @@ exports.adminEmployeeExport = async (req, res, next) => {
     }
 
     if (fmt === 'pdf') {
-      const html = renderHtml(cat, payload);
-      res.setHeader('Content-Type', 'text/html');
-      return res.status(200).send(html);
+      const html = await renderHtml(cat, payload);
+      const pdfBuffer = await htmlToPdfBuffer(html);
+      const filename = `raxwo_admin_${fileSafe(cat)}_${fileSafe(ctx.employee.employeeNo)}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.status(200).send(pdfBuffer);
     }
 
     return res.status(400).json({ success: false, message: 'Invalid export format' });

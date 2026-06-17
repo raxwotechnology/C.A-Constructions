@@ -7,6 +7,7 @@ const { createAuditLog } = require('./auditController');
 const { createNotification } = require('../services/notificationService');
 const { verifyActionPassword } = require('../utils/actionPassword');
 const { toRelativeUploadUrl } = require('../utils/uploadsPath');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 
 function letterAuditSnapshot(doc) {
   if (!doc) return null;
@@ -256,7 +257,7 @@ exports.getLetter = async (req, res, next) => {
 // @route   GET /api/letters/my
 exports.getMyLetters = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
     const letters = await Letter.find({ employee: employee._id }).sort({ createdAt: -1 });
     res.json({ success: true, letters });

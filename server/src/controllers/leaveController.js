@@ -1,5 +1,6 @@
 const Leave = require('../models/Leave');
 const Employee = require('../models/Employee');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const LeavePolicy = require('../models/LeavePolicy');
 const Notification = require('../models/Notification');
 const { createNotification } = require('../services/notificationService');
@@ -120,7 +121,7 @@ async function getEmployeeBalances(employeeId) {
 // ─── @route POST /api/leaves ───────────────────────────────────────────────────
 exports.requestLeave = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const {
@@ -188,7 +189,7 @@ exports.requestLeave = async (req, res, next) => {
 // ─── @route GET /api/leaves/my/balances ───────────────────────────────────────
 exports.getMyBalances = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
     const balances = await getEmployeeBalances(employee._id);
     res.json({ success: true, balances });
@@ -321,7 +322,7 @@ exports.deletePolicy = async (req, res, next) => {
 // ─── @route GET /api/leaves/my ────────────────────────────────────────────────
 exports.getMyLeaves = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
     const [leaves, balances] = await Promise.all([

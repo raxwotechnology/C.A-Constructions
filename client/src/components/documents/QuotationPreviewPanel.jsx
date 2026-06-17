@@ -39,7 +39,7 @@ export default function QuotationPreviewPanel({
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+    <div className="doc-preview-panel flex flex-col flex-1 min-h-0 h-full overflow-hidden">
       {!isDraft && (
         <div className="no-print shrink-0 border-b bg-slate-50 px-4 py-3 flex flex-wrap items-center gap-2">
           {onSaveDraft && (

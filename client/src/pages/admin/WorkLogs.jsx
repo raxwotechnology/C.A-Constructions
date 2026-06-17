@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -37,6 +38,13 @@ export default function WorkLogs() {
 
   const isAdmin = ['admin', 'manager'].includes(user?.role)
 
+  // Ensure employee profile exists before submit (fixes "Employee record not found" on Hostinger)
+  useEffect(() => {
+    if (!isAdmin && user) {
+      api.get('/auth/me').catch(() => {})
+    }
+  }, [isAdmin, user?._id])
+
   const { data: projData } = useQuery({ queryKey: ['projects-list'], queryFn: () => api.get('/projects').then(r => r.data) })
   const projects = projData?.projects || []
 
@@ -58,11 +66,25 @@ export default function WorkLogs() {
   const logs = data?.logs || []
   const submissionRate = data?.submissionRate || 0
 
+  const canSubmit = tasks.some((t) => String(t.taskName || '').trim() && Number(t.hours) > 0)
+
   const submitMut = useMutation({
     mutationFn: async (payload) => {
+      const sanitizedTasks = (payload.tasks || [])
+        .filter((t) => t.taskName && t.hours)
+        .map((t) => {
+          const row = {
+            taskName: String(t.taskName).trim(),
+            hours: Number(t.hours),
+            notes: t.notes || '',
+          }
+          if (t.project && String(t.project).trim()) row.project = t.project
+          return row
+        })
+
       const fd = new FormData()
       fd.append('date', payload.date)
-      fd.append('tasks', JSON.stringify(payload.tasks))
+      fd.append('tasks', JSON.stringify(sanitizedTasks))
       fd.append('blockers', payload.blockers || '')
       fd.append('notes', payload.notes || '')
       fd.append('projectLinks', JSON.stringify(payload.projectLinks.filter(l => l.url)))
@@ -126,7 +148,7 @@ export default function WorkLogs() {
                 <option value="">All Branches</option>
                 {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
               </select>
-              <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white">
+              <div className="tab-scroll flex rounded-xl border border-slate-200 overflow-hidden bg-white">
                 {ROLES.map(r => (
                   <button key={r} onClick={() => setRoleFilter(r)}
                     className={`px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${roleFilter === r ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
@@ -324,15 +346,15 @@ export default function WorkLogs() {
 
       {/* Submit Modal */}
       <AnimatePresence>
-        {showSubmit && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        {showSubmit && createPortal(
+          <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-0 sm:p-4">
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh]">
-              <div className="p-5 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
+              className="modal-sheet bg-white rounded-none sm:rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[100dvh] sm:max-h-[90vh] overflow-hidden">
+              <div className="modal-sheet-header shrink-0 px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
                 <h2 className="font-bold text-primary text-lg">Submit Daily Work Log</h2>
-                <button onClick={() => setShowSubmit(false)} className="p-2 hover:bg-slate-200 rounded-xl"><FiX size={18} /></button>
+                <button type="button" onClick={() => setShowSubmit(false)} className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-slate-100 rounded-xl"><FiX size={18} /></button>
               </div>
-              <div className="p-5 overflow-y-auto space-y-5">
+              <div className="modal-sheet-body flex-1 min-h-0 overflow-y-auto px-5 py-5 space-y-5">
                 <div>
                   <label className="form-label">Date</label>
                   <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} />
@@ -412,16 +434,17 @@ export default function WorkLogs() {
                   <textarea className="form-input" rows="2" placeholder="Any other notes..." value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
               </div>
-              <div className="p-5 border-t bg-slate-50 rounded-b-2xl">
+              <div className="modal-sheet-footer shrink-0 px-5 py-4 border-t border-slate-200 bg-white safe-area-bottom">
                 <button
-                  onClick={() => submitMut.mutate({ date, tasks: tasks.filter(t => t.taskName && t.hours), blockers, notes, projectLinks })}
-                  disabled={!tasks[0]?.taskName || !tasks[0]?.hours || submitMut.isPending}
-                  className="btn-primary w-full justify-center">
+                  type="button"
+                  onClick={() => submitMut.mutate({ date, tasks, blockers, notes, projectLinks })}
+                  disabled={!canSubmit || submitMut.isPending}
+                  className="btn-primary w-full justify-center min-h-[48px] text-base">
                   {submitMut.isPending ? <span className="spinner" /> : 'Submit Work Log'}
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>, document.body
         )}
       </AnimatePresence>
     </div>

@@ -151,6 +151,7 @@ export default function DashboardLayout({ role }) {
   
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearchBox, setShowSearchBox] = useState(false)
+  const searchBoxRef = useRef(null)
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
@@ -232,6 +233,21 @@ export default function DashboardLayout({ role }) {
       window.removeEventListener('scroll', updateNotifPos, true)
     }
   }, [showNotif])
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target)) {
+        // Only close if we didn't click the search toggle button (to prevent double toggle)
+        if (!e.target.closest('.search-toggle-btn')) {
+          setShowSearchBox(false)
+        }
+      }
+    }
+    if (showSearchBox) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showSearchBox])
 
   const renderSidebar = () => (
     <div className="h-full flex flex-col bg-white border-r border-slate-200 overflow-hidden">
@@ -324,7 +340,7 @@ export default function DashboardLayout({ role }) {
           <div className="flex-1 px-4 lg:px-8 max-w-xl flex items-center justify-end sm:justify-start">
             {/* Mobile Search Toggle */}
             <button 
-              className="sm:hidden p-2 text-slate-400 hover:text-primary mr-2"
+              className="search-toggle-btn sm:hidden p-2 text-slate-400 hover:text-primary mr-2"
               onClick={() => setShowSearchBox(!showSearchBox)}
             >
               <FiSearch size={20} />
@@ -345,6 +361,8 @@ export default function DashboardLayout({ role }) {
             <AnimatePresence>
               {showSearchBox && (
                 <motion.div
+                  ref={searchBoxRef}
+                  key="mobile-search-overlay"
                   initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                   className="absolute top-full left-0 right-0 sm:mt-2 bg-white sm:rounded-xl shadow-2xl border-b sm:border border-slate-100 py-2 z-[300] max-h-[60vh] overflow-y-auto"
                 >

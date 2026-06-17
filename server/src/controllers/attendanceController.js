@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const Employee = require('../models/Employee');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { computeAttendanceHours } = require('../utils/attendanceHours');
 const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
 
@@ -10,11 +11,8 @@ const todayStart = () => {
   return d;
 };
 
-// Helper: resolve employee from userId (for employee self-service routes)
-const resolveEmployee = async (userId) => {
-  const emp = await Employee.findOne({ userId });
-  return emp || null;
-};
+// Helper: resolve employee from authenticated user (auto-provisions staff profiles)
+const resolveEmployee = async (user) => resolveEmployeeForUser(user);
 
 // Helper: get employee IDs by branch
 const getEmpIds = async (branchId) => {
@@ -103,7 +101,7 @@ exports.markAttendance = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.clockIn = async (req, res, next) => {
   try {
-    const employee = await resolveEmployee(req.user._id);
+    const employee = await resolveEmployee(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const today = todayStart();
@@ -138,7 +136,7 @@ exports.clockIn = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.clockOut = async (req, res, next) => {
   try {
-    const employee = await resolveEmployee(req.user._id);
+    const employee = await resolveEmployee(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const today = todayStart();
@@ -189,7 +187,7 @@ exports.clockOut = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.startBreak = async (req, res, next) => {
   try {
-    const employee = await resolveEmployee(req.user._id);
+    const employee = await resolveEmployee(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const today = todayStart();
@@ -218,7 +216,7 @@ exports.startBreak = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.endBreak = async (req, res, next) => {
   try {
-    const employee = await resolveEmployee(req.user._id);
+    const employee = await resolveEmployee(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const today = todayStart();
@@ -246,7 +244,7 @@ exports.endBreak = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.getToday = async (req, res, next) => {
   try {
-    const employee = await resolveEmployee(req.user._id);
+    const employee = await resolveEmployee(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
     const today = todayStart();
@@ -261,7 +259,7 @@ exports.getToday = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.getMyAttendance = async (req, res, next) => {
   try {
-    const employee = await resolveEmployee(req.user._id);
+    const employee = await resolveEmployee(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
     const { month, year } = req.query;
     const query = { employee: employee._id };

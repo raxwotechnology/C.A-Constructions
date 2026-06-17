@@ -3,13 +3,14 @@ const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
 const emailService = require('../services/emailService');
 const User = require('../models/User');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 
 // Submit a new request (employee)
 exports.submitRequest = async (req, res, next) => {
   try {
     const { type, subject, description } = req.body;
 
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee record not found.' });
     }
@@ -41,7 +42,8 @@ exports.submitRequest = async (req, res, next) => {
     }
     // Email managers
     const managerEmails = managers.map(m => m.email).filter(Boolean);
-    await emailService.sendRequestSubmittedEmail(managerEmails, req.user.name, subject, type || 'general');
+    emailService.sendRequestSubmittedEmail(managerEmails, req.user.name, subject, type || 'general')
+      .catch((err) => console.warn('[request] notification email failed:', err.message));
 
     res.status(201).json({ success: true, request });
   } catch (err) { next(err); }
@@ -50,7 +52,7 @@ exports.submitRequest = async (req, res, next) => {
 // Get my requests (employee)
 exports.getMyRequests = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
     const requests = await Request.find({ employee: employee._id })
@@ -128,7 +130,10 @@ exports.approveRequest = async (req, res, next) => {
         type: 'system',
         link: `/${request.employeeRole}/requests`,
       }).catch(() => {});
-      if (empUser?.email) await emailService.sendRequestDecisionEmail(empUser.email, empUser.name, request.subject, newStatus, note);
+      if (empUser?.email) {
+        emailService.sendRequestDecisionEmail(empUser.email, empUser.name, request.subject, newStatus, note)
+          .catch((err) => console.warn('[request] decision email failed:', err.message));
+      }
     }
 
     // If manager approved, notify admins
@@ -178,7 +183,10 @@ exports.rejectRequest = async (req, res, next) => {
         type: 'system',
         link: `/${request.employeeRole}/requests`,
       }).catch(() => {});
-      if (empUser?.email) await emailService.sendRequestDecisionEmail(empUser.email, empUser.name, request.subject, 'rejected', reason);
+      if (empUser?.email) {
+        emailService.sendRequestDecisionEmail(empUser.email, empUser.name, request.subject, 'rejected', reason)
+          .catch((err) => console.warn('[request] decision email failed:', err.message));
+      }
     }
 
     res.json({ success: true, request });

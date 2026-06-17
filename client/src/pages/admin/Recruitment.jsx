@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiBriefcase, FiUsers, FiSearch, FiEye } from 'react-icons/fi'
+import { FiPlus, FiX, FiBriefcase, FiUsers, FiSearch, FiEye, FiEdit2 } from 'react-icons/fi'
 
 const TABS = ['Jobs', 'Applications']
 
@@ -13,8 +13,9 @@ export default function AdminRecruitment() {
   const qc = useQueryClient()
   const [tab, setTab] = useState('Jobs')
   const [showModal, setShowModal] = useState(false)
+  const [editJob, setEditJob] = useState(null)
   const [search, setSearch] = useState('')
-  const { register, handleSubmit, reset } = useForm()
+  const { register, handleSubmit, reset, setValue } = useForm()
 
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['admin-jobs'],
@@ -29,12 +30,21 @@ export default function AdminRecruitment() {
 
   const createJobMut = useMutation({
     mutationFn: d => api.post('/recruitment/jobs', { ...d, skills: d.skills?.split(',').map(s => s.trim()).filter(Boolean), requirements: d.requirements?.split('\n').filter(Boolean) }),
-    onSuccess: () => { qc.invalidateQueries(['admin-jobs']); toast.success('Job posted'); reset(); setShowModal(false) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-jobs'] }); toast.success('Job posted'); reset(); setShowModal(false) },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const updateJobMut = useMutation({
+    mutationFn: ({ id, ...d }) => api.put(`/recruitment/jobs/${id}`, {
+      ...d,
+      skills: d.skills?.split(',').map(s => s.trim()).filter(Boolean),
+      requirements: d.requirements?.split('\n').filter(Boolean),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-jobs'] }); toast.success('Job updated'); reset(); setShowModal(false); setEditJob(null) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteJobMut = useMutation({
     mutationFn: id => api.delete(`/recruitment/jobs/${id}`),
-    onSuccess: () => { qc.invalidateQueries(['admin-jobs']); toast.success('Job deleted') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-jobs'] }); toast.success('Job deleted') },
   })
   const updateStatusMut = useMutation({
     mutationFn: ({ id, status }) => api.put(`/recruitment/applications/${id}/status`, { status }),
@@ -45,6 +55,26 @@ export default function AdminRecruitment() {
   const jobs = (jobsData?.jobs || []).filter(j => !search || j.title.toLowerCase().includes(search.toLowerCase()))
   const apps = (appsData?.applications || []).filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.job?.title?.toLowerCase().includes(search.toLowerCase()))
 
+  const openEditJob = (job) => {
+    setEditJob(job)
+    setShowModal(true)
+    setValue('title', job.title || '')
+    setValue('department', job.department || '')
+    setValue('type', job.type || 'full-time')
+    setValue('location', job.location || '')
+    setValue('description', job.description || '')
+    setValue('skills', (job.skills || []).join(', '))
+    setValue('requirements', (job.requirements || []).join('\n'))
+    setValue('salaryRange.min', job.salaryRange?.min || '')
+    setValue('salaryRange.max', job.salaryRange?.max || '')
+    setValue('status', job.status || 'open')
+  }
+
+  const onSubmitJob = (data) => {
+    if (editJob) updateJobMut.mutate({ id: editJob._id, ...data })
+    else createJobMut.mutate(data)
+  }
+
   const statusColor = { new:'badge-blue', reviewing:'badge-yellow', shortlisted:'badge-green', interview:'badge-purple', offered:'badge-navy', hired:'badge-green', rejected:'badge-red' }
 
   return (
@@ -54,7 +84,7 @@ export default function AdminRecruitment() {
           <h1 className="page-title">Recruitment & ATS</h1>
           <p className="page-subtitle">{jobsData?.count || 0} jobs · {appsData?.count || 0} applications</p>
         </div>
-        {tab === 'Jobs' && <button onClick={() => setShowModal(true)} className="btn-primary"><FiPlus size={15}/> Post Job</button>}
+        {tab === 'Jobs' && <button type="button" onClick={() => { setEditJob(null); reset(); setShowModal(true) }} className="btn-primary"><FiPlus size={15}/> Post Job</button>}
       </div>
 
       {/* Tabs */}
@@ -94,10 +124,11 @@ export default function AdminRecruitment() {
               </div>
               <div className="flex gap-2">
                 <Link to={`/careers/${job._id}`} target="_blank" className="btn-ghost btn-sm"><FiEye size={13}/> Preview</Link>
-                <button onClick={() => updateStatusMut.mutate({ id: job._id, status: job.status === 'open' ? 'closed' : 'open' })} className="btn-outline btn-sm">
+                <button type="button" onClick={() => openEditJob(job)} className="btn-outline btn-sm"><FiEdit2 size={13}/> Edit</button>
+                <button type="button" onClick={() => updateJobMut.mutate({ id: job._id, status: job.status === 'open' ? 'closed' : 'open' })} className="btn-outline btn-sm">
                   {job.status === 'open' ? 'Close' : 'Reopen'}
                 </button>
-                <button onClick={() => { if(window.confirm('Delete this job?')) deleteJobMut.mutate(job._id) }} className="btn-danger btn-sm"><FiX size={13}/></button>
+                <button type="button" onClick={() => { if(window.confirm('Delete this job?')) deleteJobMut.mutate(job._id) }} className="btn-danger btn-sm"><FiX size={13}/></button>
               </div>
             </div>
           ))}
@@ -154,10 +185,10 @@ export default function AdminRecruitment() {
             <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
-                <h3 className="text-lg font-bold text-primary font-heading">Post New Job</h3>
-                <button onClick={() => { setShowModal(false); reset() }} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+                <h3 className="text-lg font-bold text-primary font-heading">{editJob ? 'Edit Job' : 'Post New Job'}</h3>
+                <button type="button" onClick={() => { setShowModal(false); setEditJob(null); reset() }} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
               </div>
-              <form onSubmit={handleSubmit(d => createJobMut.mutate(d))} className="p-6 space-y-4">
+              <form onSubmit={handleSubmit(onSubmitJob)} className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="form-label">Job Title *</label>
                     <input {...register('title', {required:true})} placeholder="e.g. Full Stack Developer" className="form-input"/></div>
@@ -187,9 +218,9 @@ export default function AdminRecruitment() {
                 <div><label className="form-label">Job Description *</label>
                   <textarea {...register('description', {required:true})} rows={5} placeholder="Describe the role, responsibilities, and what the candidate will work on..." className="form-input resize-none"/></div>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => { setShowModal(false); reset() }} className="btn-ghost flex-1 justify-center">Cancel</button>
-                  <button type="submit" disabled={createJobMut.isPending} className="btn-primary flex-1 justify-center">
-                    {createJobMut.isPending ? <span className="spinner"/> : 'Post Job'}
+                  <button type="button" onClick={() => { setShowModal(false); setEditJob(null); reset() }} className="btn-ghost flex-1 justify-center">Cancel</button>
+                  <button type="submit" disabled={createJobMut.isPending || updateJobMut.isPending} className="btn-primary flex-1 justify-center">
+                    {(createJobMut.isPending || updateJobMut.isPending) ? <span className="spinner"/> : (editJob ? 'Save Changes' : 'Post Job')}
                   </button>
                 </div>
               </form>

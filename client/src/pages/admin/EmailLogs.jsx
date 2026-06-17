@@ -64,6 +64,15 @@ export default function EmailLogs() {
     onError: e => toast.error(e.response?.data?.message || 'Failed to send emails')
   })
 
+  const resendMut = useMutation({
+    mutationFn: (id) => api.post(`/email-logs/${id}/resend`).then(r => r.data),
+    onSuccess: (d) => {
+      toast.success(d.message || 'Email resent successfully!')
+      qc.invalidateQueries(['email-logs'])
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed to resend email'),
+  })
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="page-header flex justify-between items-start flex-wrap gap-3">
@@ -142,16 +151,15 @@ export default function EmailLogs() {
               <th>Subject</th>
               <th>Module</th>
               <th>Status</th>
-              <th>Error</th>
               <th>Sent At</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan="7" className="text-center py-8"><span className="spinner"></span></td></tr>
+              <tr><td colSpan="6" className="text-center py-8"><span className="spinner"></span></td></tr>
             ) : logs.length === 0 ? (
-              <tr><td colSpan="7" className="text-center py-8 text-slate-500">No email logs found.</td></tr>
+              <tr><td colSpan="6" className="text-center py-8 text-slate-500">No email logs found.</td></tr>
             ) : logs.map(log => (
               <tr key={log._id}>
                 <td className="font-medium text-slate-800">{log.recipientEmail}</td>
@@ -164,20 +172,19 @@ export default function EmailLogs() {
                     <span className="badge badge-red"><FiXCircle size={12} className="mr-1" /> Failed</span>
                   )}
                 </td>
-                <td className="text-xs text-red-500 max-w-xs truncate">{log.error || '-'}</td>
                 <td className="text-xs text-slate-500">{format(new Date(log.sentAt), 'PP p')}</td>
                 <td>
                   <button 
                     onClick={() => {
                       if (window.confirm('Resend this email?')) {
-                        api.post(`/email-logs/${log._id}/resend`)
-                          .then(() => toast.success('Resend triggered!'))
-                          .catch(e => toast.error(e.response?.data?.message || 'Failed to resend'))
+                        resendMut.mutate(log._id)
                       }
                     }}
-                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-semibold flex items-center gap-1"
+                    disabled={resendMut.isPending}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-semibold flex items-center gap-1 disabled:opacity-50"
                   >
-                    Resend
+                    <FiSend size={12} />
+                    {resendMut.isPending ? 'Sending...' : 'Resend'}
                   </button>
                 </td>
               </tr>

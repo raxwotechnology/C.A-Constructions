@@ -30,6 +30,7 @@ export default function AdminInvoices() {
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [mobileTab, setMobileTab] = useState('form')
   const [viewInvoiceId, setViewInvoiceId] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -347,7 +348,7 @@ export default function AdminInvoices() {
     })
     setSignatoryEmpId('')
   }
-  const closeModal = () => { setShowModal(false); setEditing(null); setSignatoryEmpId(''); reset() }
+  const closeModal = () => { setShowModal(false); setEditing(null); setSignatoryEmpId(''); setMobileTab('form'); reset() }
 
   const editingPaid = editing?.status === 'paid'
 
@@ -428,9 +429,9 @@ export default function AdminInvoices() {
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative w-full sm:flex-1 sm:w-auto sm:min-w-[200px]">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice no or client..." className="form-input pl-10"/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice no or client..." className="form-input pl-10 w-full"/>
         </div>
         <select className="form-select py-2 text-sm w-auto" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>
@@ -493,7 +494,39 @@ export default function AdminInvoices() {
       </div>
 
 
-      <div className="table-container">
+      {/* Mobile card list */}
+      <div className="sm:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></div>
+        ) : invoices.length === 0 ? (
+          <div className="text-center py-12 text-gray-400"><FiCreditCard size={36} className="mx-auto mb-2 opacity-30"/>No invoices found</div>
+        ) : invoices.map(inv => (
+          <div key={inv._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <span className="badge badge-navy font-mono text-xs tracking-tight">{inv.invoiceNo}</span>
+                <p className="font-semibold text-slate-800 mt-1 truncate">{inv.client?.name}</p>
+                <p className="text-xs text-slate-400">{inv.serviceType || 'Other'} {inv.branch?.name ? `· ${inv.branch.name}` : ''}</p>
+              </div>
+              <span className={`badge uppercase shrink-0 ${STATUS_COLORS[inv.status] || 'badge-gray'}`}>{inv.status}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-primary text-base">{inv.currency || 'LKR'} {inv.total?.toLocaleString()}</span>
+              <span className="text-xs text-slate-400">{inv.dueDate ? `Due: ${new Date(inv.dueDate).toLocaleDateString('en-LK')}` : ''}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+              <button onClick={() => setViewInvoiceId(inv._id)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiEye size={13}/> Details</button>
+              <button onClick={() => { setViewingInv(inv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) }} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiFileText size={13}/> Preview</button>
+              <button type="button" onClick={() => openEdit(inv)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiEdit2 size={13}/> Edit</button>
+              <button type="button" onClick={() => { setSendTarget(inv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) }} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiSend size={13}/> Send</button>
+              <button type="button" onClick={() => setDeletePending(inv)} className="flex-1 btn-ghost btn-sm justify-center text-xs text-red-500 hover:bg-red-50"><FiTrash2 size={13}/> Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden sm:block table-container">
         <table className="table">
           <thead><tr>
             <th>Invoice No</th><th>Client</th><th>Service</th><th>Branch</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th>
@@ -520,14 +553,7 @@ export default function AdminInvoices() {
                     <button onClick={() => { setViewingInv(inv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) }} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Document preview"><FiFileText size={13}/></button>
                     <button type="button" onClick={() => openEdit(inv)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg" title="Edit"><FiEdit2 size={13}/></button>
                     <button type="button" onClick={() => { setSendTarget(inv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) }} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Send"><FiSend size={13}/></button>
-                    <button
-                      type="button"
-                      onClick={() => setDeletePending(inv)}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
-                      title="Delete"
-                    >
-                      <FiTrash2 size={13}/>
-                    </button>
+                    <button type="button" onClick={() => setDeletePending(inv)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Delete"><FiTrash2 size={13}/></button>
                   </div>
                 </td>
               </tr>
@@ -537,18 +563,23 @@ export default function AdminInvoices() {
       </div>
 
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4" style={{ zIndex: 999999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4" style={{ zIndex: 999999 }}>
           <motion.div initial={{opacity:0,scale:0.98}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.98}}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[96vh] overflow-hidden flex flex-col border border-slate-200">
-            <div className="flex items-center justify-between p-4 md:p-5 border-b shrink-0">
+            className="doc-editor-modal bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200">
+            <div className="flex items-center justify-between p-3 sm:p-4 md:p-5 border-b shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Invoice' : 'New Invoice'}</h3>
+                <h3 className="text-base sm:text-lg font-bold text-primary font-heading">{editing ? 'Edit Invoice' : 'New Invoice'}</h3>
                 {(editing?.invoiceNo || watch('invoiceNo')) && <p className="text-xs text-slate-500 mt-0.5 font-mono">#{editing?.invoiceNo || watch('invoiceNo')}</p>}
               </div>
               <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
+            {/* Mobile tab switcher */}
+            <div className="lg:hidden flex border-b border-slate-200 shrink-0">
+              <button type="button" onClick={() => setMobileTab('form')} className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mobileTab === 'form' ? 'text-primary border-b-2 border-primary bg-blue-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Form</button>
+              <button type="button" onClick={() => setMobileTab('preview')} className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mobileTab === 'preview' ? 'text-primary border-b-2 border-primary bg-blue-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Preview</button>
+            </div>
             <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-                            <form onSubmit={handleSubmit(onSubmit)} className="lg:w-[min(460px,45%)] xl:w-[min(520px,42%)] shrink-0 overflow-y-auto p-4 md:p-6 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200">
+              <form onSubmit={handleSubmit(onSubmit)} className={`lg:w-[450px] xl:w-[550px] 2xl:w-[600px] overflow-y-auto p-4 md:p-6 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200 ${mobileTab === 'preview' ? 'hidden lg:flex lg:flex-col lg:shrink-0 lg:flex-none' : 'flex flex-col flex-1 min-h-0 lg:flex-none lg:shrink-0'}`}>
                 {editingPaid && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     This invoice is fully paid. You can change <strong>status</strong>, dates, branch, project, currency, and notes only. Line items and tax are locked.
@@ -930,7 +961,7 @@ export default function AdminInvoices() {
                   </button>
                 </div>
               </form>
-              <div className="flex-1 min-w-0 min-h-[280px] lg:min-h-0 flex flex-col overflow-hidden">
+              <div className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden ${mobileTab === 'form' ? 'hidden lg:flex' : 'flex'}`}>
                 <InvoicePreviewPanel
                   printRootId="invoice-form-preview-root"
                   isDraft={!editing?._id}
@@ -954,7 +985,7 @@ export default function AdminInvoices() {
       {viewingInv && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-[999999]">
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[96vh] overflow-hidden flex flex-col border border-slate-200">
+            className="bg-white rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border border-slate-200">
             <div className="flex items-center justify-between gap-3 p-4 border-b bg-slate-50 shrink-0 no-print">
               <div className="flex items-center gap-3 min-w-0">
                 <h3 className="text-lg font-bold text-slate-800 truncate">Invoice preview</h3>

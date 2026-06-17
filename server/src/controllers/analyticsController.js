@@ -475,7 +475,10 @@ exports.getAIPredictions = async (req, res, next) => {
       suggestions,
       period: { from: fromDate.toISOString(), to: now.toISOString(), months: lookback },
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('[ai-predict] Business analytics failed:', err.message);
+    next(err);
+  }
 };
 
 exports.getNotifications = async (req, res, next) => {

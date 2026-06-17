@@ -29,6 +29,7 @@ export default function AdminPerformance() {
   const [filterEmp, setFilterEmp] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [showReview, setShowReview] = useState(false)
+  const [editReview, setEditReview] = useState(null)
   const [reviewForm, setReviewForm] = useState({ developer:'', month: now.getMonth()+1, year: now.getFullYear(), tasksCompleted:0, commits:0, codeQuality:0, collaboration:0, notes:'' })
 
   // ── Data ──────────────────────────────────────────────────────────────────────
@@ -75,8 +76,21 @@ export default function AdminPerformance() {
   })
   const reviewMut = useMutation({
     mutationFn: d => api.post('/performance', d),
-    onSuccess: () => { qc.invalidateQueries(['performance-records']); toast.success('Review saved'); setShowReview(false) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['performance-records'] }); toast.success('Review saved'); setShowReview(false) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const updateReviewMut = useMutation({
+    mutationFn: ({ id, ...d }) => api.put(`/performance/${id}`, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['performance-records'] }); toast.success('Review updated'); setEditReview(null) },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const deleteReviewMut = useMutation({
+    mutationFn: id => api.delete(`/performance/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['performance-records'] }); toast.success('Review deleted') },
+  })
+  const { requestDelete: requestDeleteReview, DeletePasswordModal: reviewDeleteModal } = useDeleteWithPassword(deleteReviewMut, {
+    title: 'Delete performance review',
+    message: 'Enter your admin password to delete this review record.',
   })
 
   const tf = targetForm
@@ -216,10 +230,10 @@ export default function AdminPerformance() {
       {tab==='reviews' && (
         <div className="table-container">
           <table className="table">
-            <thead><tr><th>Employee</th><th>Period</th><th>Tasks</th><th>Commits</th><th>Code Q.</th><th>Collaboration</th><th>Score</th></tr></thead>
+            <thead><tr><th>Employee</th><th>Period</th><th>Tasks</th><th>Commits</th><th>Code Q.</th><th>Collaboration</th><th>Score</th><th>Actions</th></tr></thead>
             <tbody>
               {reviews.length===0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-slate-400">No performance reviews yet.</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-slate-400">No performance reviews yet.</td></tr>
               ) : reviews.map(r=>(
                 <tr key={r._id}>
                   <td className="font-medium">{r.developer?.name||'—'}</td>
@@ -229,6 +243,12 @@ export default function AdminPerformance() {
                   <td>{r.codeQuality||0}</td>
                   <td>{r.collaboration||0}</td>
                   <td><span className="badge badge-green">{r.score||0}</span></td>
+                  <td>
+                    <div className="flex gap-1">
+                      <button type="button" onClick={() => setEditReview(r)} className="p-1.5 hover:bg-amber-50 text-slate-300 hover:text-amber-600 rounded-lg" title="Edit"><FiEdit2 size={13}/></button>
+                      <button type="button" onClick={() => requestDeleteReview(r._id)} className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg" title="Delete"><FiTrash2 size={13}/></button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -380,6 +400,47 @@ export default function AdminPerformance() {
         </div>, document.body
       )}
 
+      {editReview && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
+          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="font-bold text-primary">Edit Review — {editReview.developer?.name}</h3>
+              <button onClick={()=>setEditReview(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16}/></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-slate-500">{MONTHS[(editReview.month||1)-1]} {editReview.year}</p>
+              {[['tasksCompleted','Tasks Completed'],['commits','Commits'],['codeQuality','Code Quality (0-100)'],['collaboration','Collaboration (0-100)']].map(([key,label])=>(
+                <div key={key}>
+                  <label className="form-label">{label}</label>
+                  <input type="number" min={0} max={100} className="form-input" defaultValue={editReview[key]||0}
+                    id={`edit-review-${key}`}/>
+                </div>
+              ))}
+              <div>
+                <label className="form-label">Notes</label>
+                <textarea rows={2} className="form-input resize-none" defaultValue={editReview.notes||''} id="edit-review-notes"/>
+              </div>
+            </div>
+            <div className="flex gap-3 p-5 border-t">
+              <button onClick={()=>setEditReview(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button disabled={updateReviewMut.isPending} onClick={()=>{
+                updateReviewMut.mutate({
+                  id: editReview._id,
+                  tasksCompleted: Number(document.getElementById('edit-review-tasksCompleted')?.value||0),
+                  commits: Number(document.getElementById('edit-review-commits')?.value||0),
+                  codeQuality: Number(document.getElementById('edit-review-codeQuality')?.value||0),
+                  collaboration: Number(document.getElementById('edit-review-collaboration')?.value||0),
+                  notes: document.getElementById('edit-review-notes')?.value||'',
+                })
+              }} className="btn-primary flex-1 justify-center">
+                {updateReviewMut.isPending?<span className="spinner"/>:'Save Changes'}
+              </button>
+            </div>
+          </motion.div>
+        </div>, document.body
+      )}
+
+      {reviewDeleteModal}
       {targetDeleteModal}
     </div>
   )

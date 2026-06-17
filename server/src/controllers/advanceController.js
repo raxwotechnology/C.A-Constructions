@@ -231,6 +231,50 @@ exports.recordRepayment = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// GET /api/advances/:id
+exports.getAdvance = async (req, res, next) => {
+  try {
+    const advance = await Advance.findById(req.params.id)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email _id' } })
+      .populate('bankAccount', 'bankName accountNumber branchName')
+      .populate('recordedBy', 'name');
+    if (!advance) return res.status(404).json({ success: false, message: 'Advance not found' });
+    res.json({ success: true, advance });
+  } catch (err) { next(err); }
+};
+
+// PUT /api/advances/:id
+exports.updateAdvance = async (req, res, next) => {
+  try {
+    const advance = await Advance.findById(req.params.id);
+    if (!advance) return res.status(404).json({ success: false, message: 'Advance not found' });
+
+    const { reason, repaymentType, installments, date } = req.body;
+    if (reason !== undefined) advance.reason = reason;
+    if (repaymentType !== undefined) advance.repaymentType = repaymentType;
+    if (installments !== undefined) advance.installments = Number(installments) || 1;
+    if (date !== undefined) advance.date = parseLedgerDate(date);
+
+    await advance.save();
+
+    const populated = await Advance.findById(advance._id)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .populate('bankAccount', 'bankName accountNumber branchName')
+      .populate('recordedBy', 'name');
+
+    await createAuditLog({
+      user: req.user,
+      action: 'update',
+      module: 'financial',
+      entityId: advance._id,
+      entityName: `Advance — ${populated.employee?.userId?.name || 'Employee'}`,
+      description: 'Advance record updated',
+    });
+
+    res.json({ success: true, advance: populated });
+  } catch (err) { next(err); }
+};
+
 // DELETE /api/advances/:id
 exports.deleteAdvance = async (req, res, next) => {
   try {

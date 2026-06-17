@@ -24,6 +24,7 @@ const {
   monthYearFromDate,
 } = require('../services/payrollEngine');
 const { attachSyncResult } = require('../utils/payrollSyncHook');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 
 // Internal audit logging helper (does not throw)
 const createAuditLog = async ({ user, action, module, entityId, entityName, description, severity = 'info' }) => {
@@ -385,7 +386,7 @@ exports.getPayrolls = async (req, res, next) => {
 // @route   GET /api/payroll/my
 exports.getMyPayrolls = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
     const payrolls = await Payroll.find({ employee: employee._id }).populate('deductedLoans').sort({ year: -1, month: -1 });
     res.json({ success: true, payrolls });

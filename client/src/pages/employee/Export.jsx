@@ -1,14 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
+import { printHtmlContent } from '../../lib/documentPrint'
 import {
-  FiDownload, FiFileText, FiCode, FiDollarSign, FiCalendar,
-  FiClock, FiFolder, FiTrendingUp, FiCheck, FiCpu
+  FiDownload, FiFileText, FiDollarSign, FiCalendar,
+  FiClock, FiFolder, FiTrendingUp, FiCheck, FiPrinter
 } from 'react-icons/fi'
-
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 const EXPORT_TYPES = [
   { value: 'salary', label: 'Salary Report', icon: FiDollarSign, desc: 'All payslips with breakdown', color: 'from-green-500 to-emerald-600' },
@@ -18,111 +17,36 @@ const EXPORT_TYPES = [
   { value: 'projects', label: 'Project History', icon: FiFolder, desc: 'Assigned projects overview', color: 'from-slate-500 to-slate-700' },
 ]
 
-function printHTML(htmlContent, title) {
-  const w = window.open('', '_blank')
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-  <style>
-    *{box-sizing:border-box}
-    body{font-family:Arial,sans-serif;max-width:720px;margin:24px auto;padding:20px;color:#111;font-size:13px}
-    h1{font-size:20px;color:#0B1F3A;margin-bottom:4px}
-    .sub{font-size:11px;color:#888;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th{background:#0B1F3A;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
-    td{padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:12px}
-    tr:nth-child(even) td{background:#f8f8f8}
-    .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700}
-    .green{background:#d1fae5;color:#065f46}.blue{background:#dbeafe;color:#1e40af}.gray{background:#f3f4f6;color:#374151}
-    .foot{margin-top:20px;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px}
-    .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #0B1F3A}
-  </style></head><body>
-  <div class="hdr"><div><h1>Raxwo Technology (Pvt) Ltd</h1><p class="sub">${title} · Generated: ${new Date().toLocaleString()}</p></div></div>
-  ${htmlContent}
-  <div class="foot">This is a computer-generated document. No signature required.</div>
-  </body></html>`)
-  w.document.close()
-  w.print()
-}
-
-function buildSalaryTable(payrolls) {
-  if (!payrolls.length) return '<p style="color:#888">No payroll records found.</p>'
-  const rows = payrolls.map(p => `<tr>
-    <td>${MONTHS[(p.month||1)-1]} ${p.year}</td>
-    <td>LKR ${(p.basicSalary||0).toLocaleString()}</td>
-    <td>LKR ${(p.grossSalary||0).toLocaleString()}</td>
-    <td class="badge green">LKR ${(p.netSalary||0).toLocaleString()}</td>
-    <td>LKR ${(p.epfEmployee||0).toLocaleString()}</td>
-    <td><span class="badge ${p.status==='paid'?'green':p.status==='approved'?'blue':'gray'}">${p.status}</span></td>
-  </tr>`).join('')
-  return `<table><thead><tr><th>Period</th><th>Basic</th><th>Gross</th><th>Net Pay</th><th>EPF 8%</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
-}
-
-function buildAttendanceTable(records) {
-  if (!records.length) return '<p style="color:#888">No attendance records found.</p>'
-  const rows = records.map(r => `<tr>
-    <td>${new Date(r.date).toLocaleDateString('en-LK')}</td>
-    <td>${r.checkIn || '—'}</td>
-    <td>${r.checkOut || '—'}</td>
-    <td>${r.hoursWorked ?? '—'} hrs</td>
-    <td><span class="badge ${r.status==='present'?'green':r.status==='absent'?'badge-red':'gray'}">${r.status||'—'}</span></td>
-  </tr>`).join('')
-  return `<table><thead><tr><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Hours</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
-}
-
-function buildLeaveTable(leaves) {
-  if (!leaves.length) return '<p style="color:#888">No leave records found.</p>'
-  const rows = leaves.map(l => `<tr>
-    <td>${l.leaveType}</td>
-    <td>${new Date(l.startDate).toLocaleDateString('en-LK')}</td>
-    <td>${new Date(l.endDate).toLocaleDateString('en-LK')}</td>
-    <td>${l.totalDays}</td>
-    <td>${l.reason||'—'}</td>
-    <td><span class="badge ${l.status==='approved'?'green':l.status==='rejected'?'badge-red':'gray'}">${l.status}</span></td>
-  </tr>`).join('')
-  return `<table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
-}
-
-function buildEpfTable(payrolls) {
-  if (!payrolls.length) return '<p style="color:#888">No EPF records found.</p>'
-  const rows = payrolls.map(p => `<tr>
-    <td>${MONTHS[(p.month||1)-1]} ${p.year}</td>
-    <td>LKR ${(p.basicSalary||0).toLocaleString()}</td>
-    <td>LKR ${(p.epfEmployee||0).toLocaleString()}</td>
-    <td>LKR ${(p.epfEmployer||0).toLocaleString()}</td>
-    <td>LKR ${(p.etfEmployer||0).toLocaleString()}</td>
-  </tr>`).join('')
-  const totalEpfEmp = payrolls.reduce((s,p)=>s+(p.epfEmployee||0),0)
-  const totalEpfEr  = payrolls.reduce((s,p)=>s+(p.epfEmployer||0),0)
-  const totalEtf    = payrolls.reduce((s,p)=>s+(p.etfEmployer||0),0)
-  return `<table><thead><tr><th>Period</th><th>Gross Salary</th><th>EPF Employee 8%</th><th>EPF Employer 12%</th><th>ETF 3%</th></tr></thead>
-  <tbody>${rows}</tbody>
-  <tfoot><tr style="font-weight:700;background:#f0fdf4"><td>Total</td><td></td><td>LKR ${totalEpfEmp.toLocaleString()}</td><td>LKR ${totalEpfEr.toLocaleString()}</td><td>LKR ${totalEtf.toLocaleString()}</td></tr></tfoot></table>`
-}
-
-function buildProjectTable(projects) {
-  if (!projects.length) return '<p style="color:#888">No projects found.</p>'
-  const rows = projects.map(p => `<tr>
-    <td><strong>${p.title}</strong></td>
-    <td>${p.status?.replace('_',' ')||'—'}</td>
-    <td>${p.progress||0}%</td>
-    <td>${p.deadline ? new Date(p.deadline).toLocaleDateString('en-LK') : '—'}</td>
-  </tr>`).join('')
-  return `<table><thead><tr><th>Project</th><th>Status</th><th>Progress</th><th>Deadline</th></tr></thead><tbody>${rows}</tbody></table>`
+function apiErrorMessage(err, fallback = 'Request failed') {
+  const status = err?.response?.status
+  const msg = err?.response?.data?.message || err?.message || fallback
+  if (status === 401) return 'Session expired — please log in again'
+  if (status === 403) return 'You do not have permission for this export'
+  if (status === 404) return msg.includes('Employee') ? `${msg} Try logging out and back in.` : msg
+  if (!err?.response) return 'Cannot reach server — check your connection or API URL'
+  if (status === 500) return msg || 'Server error — try again or contact admin'
+  return msg
 }
 
 export default function DeveloperExport() {
   const [selected, setSelected] = useState('salary')
-  const [loading, setLoading] = useState(false)
+  const [loadingPrint, setLoadingPrint] = useState(false)
+  const [loadingPdf, setLoadingPdf] = useState(false)
   const now = new Date()
+
+  useEffect(() => {
+    api.get('/auth/me').catch(() => {})
+  }, [])
 
   const { data: payrollData } = useQuery({ queryKey: ['my-payrolls'], queryFn: () => api.get('/payroll/my').then(r => r.data) })
   const { data: attendanceData } = useQuery({ queryKey: ['my-attendance-export'], queryFn: () => api.get('/attendance/my').then(r => r.data) })
   const { data: leaveData } = useQuery({ queryKey: ['my-leaves-export'], queryFn: () => api.get('/leaves/my').then(r => r.data) })
   const { data: projectData } = useQuery({ queryKey: ['my-projects-export'], queryFn: () => api.get('/projects/my').then(r => r.data) })
 
-  const payrolls  = payrollData?.payrolls || []
+  const payrolls = payrollData?.payrolls || []
   const attendance = attendanceData?.records || []
-  const leaves    = leaveData?.leaves || []
-  const projects  = projectData?.projects || []
+  const leaves = leaveData?.leaves || []
+  const projects = projectData?.projects || []
 
   const selectedCfg = EXPORT_TYPES.find(t => t.value === selected)
 
@@ -134,46 +58,54 @@ export default function DeveloperExport() {
     projects: projects.length,
   }
 
-  const printPDF = () => {
-    setLoading(true)
+  const printReport = async () => {
+    setLoadingPrint(true)
     try {
-      let html = ''
+      const res = await api.get(`/exports/${selected}/html`, { responseType: 'text' })
       const title = selectedCfg?.label || 'Report'
-      if (selected === 'salary')     html = buildSalaryTable(payrolls)
-      if (selected === 'attendance') html = buildAttendanceTable(attendance)
-      if (selected === 'leaves')     html = buildLeaveTable(leaves)
-      if (selected === 'epf')        html = buildEpfTable(payrolls)
-      if (selected === 'projects')   html = buildProjectTable(projects)
-      printHTML(html, title)
-      toast.success(`${title} opened for printing`)
-    } catch {
-      toast.error('Failed to generate PDF')
+      const ok = printHtmlContent({ title, bodyHtml: res.data })
+      if (ok) toast.success(`${title} ready to print`)
+      else toast.error('Print failed — try Download PDF instead')
+    } catch (err) {
+      console.error('[export] print failed:', err)
+      toast.error(apiErrorMessage(err, 'Print failed'))
     } finally {
-      setLoading(false)
+      setLoadingPrint(false)
     }
   }
 
-  const downloadJSON = () => {
-    setLoading(true)
+  const downloadPdf = async () => {
+    setLoadingPdf(true)
     try {
-      let obj = {}
-      if (selected === 'salary')     obj = { payrolls }
-      if (selected === 'attendance') obj = { attendance }
-      if (selected === 'leaves')     obj = { leaves }
-      if (selected === 'epf')        obj = { epf: payrolls.map(p => ({ month: p.month, year: p.year, epfEmployee: p.epfEmployee, epfEmployer: p.epfEmployer, etfEmployer: p.etfEmployer })) }
-      if (selected === 'projects')   obj = { projects }
-
-      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
+      const res = await api.get(`/exports/${selected}/pdf`, { responseType: 'blob' })
+      if (res.data?.type === 'application/json') {
+        const text = await res.data.text()
+        const json = JSON.parse(text)
+        throw new Error(json.message || 'PDF generation failed')
+      }
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = `raxwo_${selected}_${now.toISOString().slice(0,10)}.json`
-      document.body.appendChild(a); a.click(); a.remove()
-      URL.revokeObjectURL(a.href)
-      toast.success('JSON exported')
-    } catch {
-      toast.error('Export failed')
+      a.href = url
+      a.download = `raxwo_${selected}_${now.toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast.success('PDF downloaded')
+    } catch (err) {
+      console.error('[export] PDF failed:', err)
+      let msg = apiErrorMessage(err, 'PDF download failed')
+      if (err?.response?.data instanceof Blob && err.response.data.type?.includes('json')) {
+        try {
+          const text = await err.response.data.text()
+          const json = JSON.parse(text)
+          msg = json.message || msg
+        } catch { /* use default msg */ }
+      }
+      toast.error(msg)
     } finally {
-      setLoading(false)
+      setLoadingPdf(false)
     }
   }
 
@@ -182,11 +114,10 @@ export default function DeveloperExport() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Export Center</h1>
-          <p className="page-subtitle">Download your personal records as printable PDFs or JSON data exports.</p>
+          <p className="page-subtitle">Download PDF reports or print from this page — no new browser tabs.</p>
         </div>
       </div>
 
-      {/* Category cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {EXPORT_TYPES.map((t, i) => {
           const Icon = t.icon
@@ -206,7 +137,6 @@ export default function DeveloperExport() {
         })}
       </div>
 
-      {/* Export panel */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card card-body">
         <div className="flex items-center gap-3 mb-5">
           <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${selectedCfg?.color} flex items-center justify-center`}>
@@ -229,16 +159,16 @@ export default function DeveloperExport() {
           </ul>
         </div>
 
-        <div className="flex gap-3">
-          <button type="button" disabled={loading} onClick={printPDF}
-            className="btn-primary flex-1 justify-center gap-2">
-            <FiFileText size={14} />
-            {loading ? 'Generating...' : 'Print / Save PDF'}
+        <div className="flex gap-3 flex-wrap">
+          <button type="button" disabled={loadingPdf} onClick={downloadPdf}
+            className="btn-primary flex-1 min-w-[140px] justify-center gap-2">
+            <FiDownload size={14} />
+            {loadingPdf ? 'Generating PDF…' : 'Download PDF'}
           </button>
-          <button type="button" disabled={loading} onClick={downloadJSON}
-            className="btn-outline flex-1 justify-center gap-2">
-            <FiCode size={14} />
-            Export JSON
+          <button type="button" disabled={loadingPrint} onClick={printReport}
+            className="btn-outline flex-1 min-w-[140px] justify-center gap-2">
+            <FiPrinter size={14} />
+            {loadingPrint ? 'Preparing…' : 'Print'}
           </button>
         </div>
       </motion.div>

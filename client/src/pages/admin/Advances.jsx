@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import { handlePayrollSyncResponse } from '../../lib/payrollSync'
 import ExportBar from '../../components/ui/ExportBar'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
-import { FiPlus, FiX, FiCheck, FiRefreshCw, FiCreditCard } from 'react-icons/fi'
+import { FiPlus, FiX, FiCheck, FiRefreshCw, FiCreditCard, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi'
 
 const EMPTY = {
   employeeId: '',
@@ -44,6 +44,9 @@ export default function AdminAdvances() {
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [repayTarget, setRepayTarget] = useState(null)
   const [repayForm, setRepayForm] = useState(REPAY_EMPTY)
+  const [viewAdvance, setViewAdvance] = useState(null)
+  const [editAdvance, setEditAdvance] = useState(null)
+  const [editForm, setEditForm] = useState({ reason: '', repaymentType: 'lump_sum', installments: 1, date: '' })
   const [statusFilter, setStatusFilter] = useState('')
   const [empFilter, setEmpFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -90,6 +93,15 @@ export default function AdminAdvances() {
     mutationFn: id => api.delete(`/advances/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['advances'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Deleted') },
   })
+  const updateMut = useMutation({
+    mutationFn: ({ id, ...body }) => api.put(`/advances/${id}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['advances'] })
+      toast.success('Advance updated')
+      setEditAdvance(null)
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Update failed'),
+  })
   const { requestDelete: requestDeleteAdvance, DeletePasswordModal: advanceDeleteModal } = useDeleteWithPassword(deleteMut, {
     title: 'Delete advance payment',
     message: 'Enter your admin password to delete this advance. Linked bank payments will be reversed.',
@@ -117,6 +129,21 @@ export default function AdminAdvances() {
       return
     }
     createMut.mutate(form)
+  }
+
+  const openEdit = (a) => {
+    setEditAdvance(a)
+    setEditForm({
+      reason: a.reason || '',
+      repaymentType: a.repaymentType || 'lump_sum',
+      installments: a.installments || 1,
+      date: a.date ? new Date(a.date).toISOString().split('T')[0] : '',
+    })
+  }
+
+  const submitEdit = () => {
+    if (!editAdvance) return
+    updateMut.mutate({ id: editAdvance._id, ...editForm })
   }
 
   return (
@@ -189,10 +216,12 @@ export default function AdminAdvances() {
                     <td><span className={`badge ${a.status === 'cleared' ? 'badge-green' : 'badge-yellow'}`}>{a.status}</span></td>
                     <td>
                       <div className="flex gap-1">
+                        <button type="button" onClick={() => setViewAdvance(a)} className="p-1.5 hover:bg-blue-50 text-slate-300 hover:text-blue-600 rounded-lg" title="View"><FiEye size={13} /></button>
+                        <button type="button" onClick={() => openEdit(a)} className="p-1.5 hover:bg-amber-50 text-slate-300 hover:text-amber-600 rounded-lg" title="Edit"><FiEdit2 size={13} /></button>
                         {a.status === 'active' && (
-                          <button type="button" onClick={() => { setRepayTarget(a); setRepayForm(REPAY_EMPTY) }} className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg" title="Repay"><FiRefreshCw size={13} /></button>
+                          <button type="button" onClick={() => { setRepayTarget(a); setRepayForm(REPAY_EMPTY) }} className="p-1.5 hover:bg-emerald-50 text-slate-300 hover:text-emerald-600 rounded-lg" title="Record repayment"><FiCreditCard size={13} /></button>
                         )}
-                        <button type="button" onClick={() => requestDeleteAdvance(a._id)} className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg"><FiX size={13} /></button>
+                        <button type="button" onClick={() => requestDeleteAdvance(a._id)} className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg" title="Delete"><FiTrash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -344,6 +373,62 @@ export default function AdminAdvances() {
             <div className="flex gap-3 px-6 py-4 border-t">
               <button type="button" onClick={() => setRepayTarget(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
               <button type="button" onClick={() => { if (!repayForm.amount) { toast.error('Amount required'); return } repayMut.mutate({ id: repayTarget._id, ...repayForm }) }} disabled={repayMut.isPending} className="btn-primary flex-1 justify-center">Record</button>
+            </div>
+          </motion.div>
+        </div>, document.body
+      )}
+      {viewAdvance && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="font-bold text-primary">Advance Details</h3>
+              <button type="button" onClick={() => setViewAdvance(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
+            </div>
+            <div className="p-6 space-y-3 text-sm">
+              <p><span className="text-slate-500">Employee:</span> <strong>{viewAdvance.employee?.userId?.name}</strong></p>
+              <p><span className="text-slate-500">Amount:</span> LKR {(viewAdvance.amount || 0).toLocaleString()}</p>
+              <p><span className="text-slate-500">Outstanding:</span> LKR {(viewAdvance.outstandingBalance || 0).toLocaleString()}</p>
+              <p><span className="text-slate-500">Recovered:</span> LKR {(viewAdvance.totalRecovered || 0).toLocaleString()}</p>
+              <p><span className="text-slate-500">Payment:</span> {PAYMENT_LABELS[viewAdvance.paymentMethod] || viewAdvance.paymentMethod}</p>
+              <p><span className="text-slate-500">Date:</span> {new Date(viewAdvance.date).toLocaleDateString('en-LK')}</p>
+              <p><span className="text-slate-500">Repayment:</span> {viewAdvance.repaymentType?.replace('_', ' ')} ({viewAdvance.installments} installments)</p>
+              <p><span className="text-slate-500">Reason:</span> {viewAdvance.reason || '—'}</p>
+              <p><span className="text-slate-500">Status:</span> <span className={`badge ${viewAdvance.status === 'cleared' ? 'badge-green' : 'badge-yellow'}`}>{viewAdvance.status}</span></p>
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t">
+              <button type="button" onClick={() => setViewAdvance(null)} className="btn-primary flex-1 justify-center">Close</button>
+            </div>
+          </motion.div>
+        </div>, document.body
+      )}
+      {editAdvance && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="font-bold text-primary">Edit Advance</h3>
+              <button type="button" onClick={() => setEditAdvance(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-500">{editAdvance.employee?.userId?.name} · LKR {(editAdvance.amount || 0).toLocaleString()}</p>
+              <div><label className="form-label">Date</label>
+                <input type="date" className="form-input" value={editForm.date} onChange={e => setEditForm(s => ({ ...s, date: e.target.value }))} /></div>
+              <div><label className="form-label">Reason</label>
+                <input className="form-input" value={editForm.reason} onChange={e => setEditForm(s => ({ ...s, reason: e.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="form-label">Repayment type</label>
+                  <select className="form-select" value={editForm.repaymentType} onChange={e => setEditForm(s => ({ ...s, repaymentType: e.target.value }))}>
+                    <option value="lump_sum">Lump sum</option>
+                    <option value="installments">Installments</option>
+                  </select></div>
+                {editForm.repaymentType === 'installments' && (
+                  <div><label className="form-label">Months</label>
+                    <input type="number" min={1} className="form-input" value={editForm.installments} onChange={e => setEditForm(s => ({ ...s, installments: Number(e.target.value) }))} /></div>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t">
+              <button type="button" onClick={() => setEditAdvance(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
+              <button type="button" onClick={submitEdit} disabled={updateMut.isPending} className="btn-primary flex-1 justify-center">Save</button>
             </div>
           </motion.div>
         </div>, document.body

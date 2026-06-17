@@ -21,9 +21,10 @@ export default function EPFRecords() {
   const [deleteId, setDeleteId] = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
   const [verifying, setVerifying] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   /* ── query ──────────────────────────────────────────────────────────── */
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['epf-records', month, year],
     queryFn: () =>
       api.get(`/epf-records?month=${month}&year=${year}`).then(r => r.data),
@@ -37,7 +38,7 @@ export default function EPFRecords() {
   const editMut = useMutation({
     mutationFn: ({ id, body }) => api.put(`/epf-records/${id}`, body).then(r => r.data),
     onSuccess: () => {
-      qc.invalidateQueries(['epf-records'])
+      qc.invalidateQueries({ queryKey: ['epf-records', month, year] })
       toast.success('EPF record updated')
       setEditRow(null)
     },
@@ -47,7 +48,7 @@ export default function EPFRecords() {
   const payMut = useMutation({
     mutationFn: id => api.put(`/epf-records/${id}/pay`).then(r => r.data),
     onSuccess: (res) => {
-      qc.invalidateQueries(['epf-records'])
+      qc.invalidateQueries({ queryKey: ['epf-records', month, year] })
       toast.success(res.isPaid ? 'Marked as Paid ✅' : 'Reverted to Unpaid')
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
@@ -56,7 +57,7 @@ export default function EPFRecords() {
   const deleteMut = useMutation({
     mutationFn: id => api.delete(`/epf-records/${id}`).then(r => r.data),
     onSuccess: () => {
-      qc.invalidateQueries(['epf-records'])
+      qc.invalidateQueries({ queryKey: ['epf-records', month, year] })
       toast.success('Record deleted')
       setDeleteId(null); setDeletePassword('')
     },
@@ -118,6 +119,20 @@ export default function EPFRecords() {
     })
   }
 
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await api.get(`/epf-records?month=${month}&year=${year}&refresh=true`)
+      await qc.invalidateQueries({ queryKey: ['epf-records', month, year] })
+      await refetch()
+      toast.success('EPF/ETF records refreshed from employee salaries')
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Refresh failed')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   /* ── render ─────────────────────────────────────────────────────────── */
   return (
     <div className="space-y-6 animate-fade-in">
@@ -128,8 +143,8 @@ export default function EPFRecords() {
           <p className="page-subtitle">Sri Lanka statutory contributions · Enrolled employees always listed</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => refetch()} className="btn-secondary flex items-center gap-1.5">
-            <FiRefreshCw size={14}/> Refresh
+          <button type="button" onClick={handleRefresh} disabled={refreshing || isFetching} className="btn-secondary flex items-center gap-1.5 disabled:opacity-60">
+            <FiRefreshCw size={14} className={refreshing || isFetching ? 'animate-spin' : ''}/> {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
           <button onClick={exportCSV} className="btn-primary flex items-center gap-1.5">
             <FiDownload size={15}/> Export CSV

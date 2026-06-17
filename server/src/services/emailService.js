@@ -309,6 +309,66 @@ exports.sendToolRevokedEmail = async (employeeEmail, employeeName, toolName) => 
   await sendLoggedMail({ to: employeeEmail, subject: `Tool access revoked: ${toolName || 'Access'}`, html }, 'system');
 };
 
+/* ─── Work Logs & Employee Requests ─────────────────────────────────────────── */
+exports.sendWorkLogSubmittedEmail = async (managerEmails, employeeName, logDate, taskCount = 0) => {
+  const emails = (Array.isArray(managerEmails) ? managerEmails : [managerEmails]).filter(Boolean);
+  if (!emails.length) return;
+  const dateStr = logDate ? new Date(logDate).toLocaleDateString('en-LK') : 'today';
+  const html = await buildEmailHTML('Daily Work Log Submitted', `
+    <p><strong>${employeeName || 'An employee'}</strong> submitted a daily work log for <strong>${dateStr}</strong>.</p>
+    ${infoBoxHtml([
+      { label: 'Tasks logged', value: String(taskCount) },
+      { label: 'Date', value: dateStr },
+    ])}
+    ${btnHtml('Review Work Logs', `${APP_URL}/manager/work-logs`)}
+  `);
+  for (const to of emails) {
+    await sendLoggedMail({ to, subject: `Work Log: ${employeeName} — ${dateStr}`, html }, 'work-logs');
+  }
+};
+
+exports.sendWorkLogApprovedEmail = async (employeeEmail, employeeName, logDate, note = '') => {
+  if (!employeeEmail) return;
+  const dateStr = logDate ? new Date(logDate).toLocaleDateString('en-LK') : '';
+  const html = await buildEmailHTML('Work Log Approved', `
+    <p>Hi <strong>${employeeName || 'there'}</strong>,</p>
+    <p>Your work log for <strong>${dateStr}</strong> has been <strong style="color:#16a34a;">APPROVED</strong>.</p>
+    ${note ? `<div style="background:#f0fdf4;padding:12px;border-left:4px solid #16a34a;margin:16px 0;">${note}</div>` : ''}
+    ${btnHtml('View Work Logs', `${APP_URL}/developer/work-logs`)}
+  `);
+  await sendLoggedMail({ to: employeeEmail, subject: `Work Log Approved — ${dateStr}`, html }, 'work-logs');
+};
+
+exports.sendRequestSubmittedEmail = async (managerEmails, employeeName, subject, type = 'general') => {
+  const emails = (Array.isArray(managerEmails) ? managerEmails : [managerEmails]).filter(Boolean);
+  if (!emails.length) return;
+  const html = await buildEmailHTML('New Employee Request', `
+    <p><strong>${employeeName || 'An employee'}</strong> submitted a new request.</p>
+    ${infoBoxHtml([
+      { label: 'Type', value: String(type).replace(/_/g, ' ') },
+      { label: 'Subject', value: subject || '—' },
+    ])}
+    ${btnHtml('Review Requests', `${APP_URL}/manager/requests`)}
+  `);
+  for (const to of emails) {
+    await sendLoggedMail({ to, subject: `New Request: ${subject || type}`, html }, 'requests');
+  }
+};
+
+exports.sendRequestDecisionEmail = async (employeeEmail, employeeName, subject, status, note = '') => {
+  if (!employeeEmail) return;
+  const approved = ['approved', 'manager_approved', 'admin_approved'].includes(String(status));
+  const label = approved ? 'Approved' : 'Rejected';
+  const color = approved ? '#16a34a' : '#dc2626';
+  const html = await buildEmailHTML(`Request ${label}`, `
+    <p>Hi <strong>${employeeName || 'there'}</strong>,</p>
+    <p>Your request <strong>"${subject || 'Request'}"</strong> has been <strong style="color:${color};">${label.toUpperCase()}</strong>.</p>
+    ${note ? `<div style="background:#f8fafc;padding:12px;border-left:4px solid ${color};margin:16px 0;">${note}</div>` : ''}
+    ${btnHtml('View My Requests', `${APP_URL}/developer/requests`)}
+  `);
+  await sendLoggedMail({ to: employeeEmail, subject: `Request ${label}: ${subject || 'Update'}`, html }, 'requests');
+};
+
 exports.sendLoggedMail = sendLoggedMail;
 
 /* ─── Batch Operations ───────────────────────────────────────────────────────── */

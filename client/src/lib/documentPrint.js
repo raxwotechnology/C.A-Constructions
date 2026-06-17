@@ -107,6 +107,9 @@ import { inlineImagesToDataUrls } from './media'
 
 /** Print without popup URL bar noise (about:blank) — uses hidden iframe on same page. */
 export async function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
+  const raw = String(bodyHtml || '')
+  const isFullDocument = /<!doctype|<html[\s>]/i.test(raw)
+
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden;'
@@ -118,12 +121,14 @@ export async function printHtmlContent({ title, bodyHtml, extraCss = '' }) {
     return false
   }
 
-  const safeTitle = ' '
-  const rawHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${safeTitle}</title><style>${documentPrintStyles()}${extraCss}</style></head><body>${bodyHtml}</body></html>`
-  const html = await inlineImagesToDataUrls(rawHtml)
+  const html = isFullDocument
+    ? raw
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"/><title> </title><style>${documentPrintStyles()}${extraCss}</style></head><body>${raw}</body></html>`
+
+  const prepared = isFullDocument ? html : await inlineImagesToDataUrls(html)
 
   doc.open()
-  doc.write(html)
+  doc.write(prepared)
   doc.close()
 
   const runPrint = () => {

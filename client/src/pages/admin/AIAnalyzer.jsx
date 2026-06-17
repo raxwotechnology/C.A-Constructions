@@ -2,14 +2,31 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
+import toast from 'react-hot-toast'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import * as XLSX from 'xlsx'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, RadarChart, Radar, PolarGrid, PolarAngleAxis, PieChart, Pie, Cell, Legend } from 'recharts'
-import { FiZap, FiTrendingUp, FiTrendingDown, FiGlobe, FiInstagram, FiSearch, FiTarget, FiBarChart2, FiCheckCircle, FiXCircle, FiArrowLeft, FiDownload, FiFileText, FiSettings, FiSave, FiUserPlus, FiX } from 'react-icons/fi'
+import { FiZap, FiTrendingUp, FiTrendingDown, FiGlobe, FiInstagram, FiSearch, FiTarget, FiBarChart2, FiCheckCircle, FiXCircle, FiArrowLeft, FiDownload, FiFileText, FiSettings, FiSave, FiUserPlus, FiX, FiRefreshCw } from 'react-icons/fi'
 import { formatMoney, chartMoneyTick } from '../../lib/currencies'
+import {
+  PLATFORM_API_FIELDS,
+  loadSocialApiKeys,
+  savePlatformCredentials,
+  getPlatformCredentials,
+  fetchPlatformData,
+} from '../../lib/socialApiKeys'
 
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function apiErrorMessage(err, fallback = 'Request failed') {
+  const status = err?.response?.status
+  const msg = err?.response?.data?.message || err?.message || fallback
+  if (status === 401) return 'Session expired — please log in again'
+  if (status === 403) return 'You do not have permission to view this data'
+  if (!err?.response) return 'Cannot reach API — verify backend URL (VITE_API_URL) and CORS settings'
+  return msg
+}
 
 // Simulated marketing analyzer data (per platform)
 const PLATFORM_CONFIG = {
@@ -126,7 +143,8 @@ export default function AdminAIAnalyzer() {
   const [isExportingPDF, setIsExportingPDF] = useState(false)
   const dashboardRef = useRef(null)
   const [showApiSettings, setShowApiSettings] = useState(false)
-  const [apiKeys, setApiKeys] = useState({ facebook: '', instagram: '' })
+  const [apiSettingsPlatform, setApiSettingsPlatform] = useState('facebook')
+  const [platformApiForm, setPlatformApiForm] = useState({})
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignEmployeeId, setAssignEmployeeId] = useState('')
   const qc = useQueryClient()
@@ -143,6 +161,20 @@ export default function AdminAIAnalyzer() {
   });
 
   const employees = empData?.employees || [];
+
+  const openApiSettings = (platform) => {
+    setApiSettingsPlatform(platform)
+    setPlatformApiForm(getPlatformCredentials(platform))
+    setShowApiSettings(true)
+  }
+
+  const saveApiSettings = () => {
+    savePlatformCredentials(apiSettingsPlatform, platformApiForm)
+    setShowApiSettings(false)
+    toast.success(`${PLATFORM_CONFIG[apiSettingsPlatform]?.label || apiSettingsPlatform} API keys saved`)
+    if (activeTab === 'social') analyzeSocial(true)
+    if (activeTab === 'marketing' && mktgPlatform) runMarketingAnalysis(mktgPlatform, true)
+  }
 
   const exportPDF = async () => {
     if (!dashboardRef.current) return;
@@ -165,7 +197,8 @@ export default function AdminAIAnalyzer() {
       }
       pdf.save(`AI_Analytics_${mktgPlatform}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('[AI Analyzer] PDF export failed:', error)
+      toast.error('PDF export failed — try again')
     } finally {
       setIsExportingPDF(false);
     }
@@ -190,9 +223,10 @@ export default function AdminAIAnalyzer() {
     XLSX.writeFile(wb, `AI_Analytics_${mktgPlatform}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['ai-predictions', lookback],
     queryFn: () => api.get(`/system-metrics/ai-predict?months=${lookback}`).then(r => r.data),
+    retry: 1,
   })
 
   const historical = data?.historical || {}
@@ -213,37 +247,45 @@ export default function AdminAIAnalyzer() {
     setAnalyzing(false)
   }
 
-  const runMarketingAnalysis = async (platformKey) => {
+  const runMarketingAnalysis = async (platformKey, force = false) => {
     setMktgPlatform(platformKey)
     setMktgLoading(true)
-    setMktgData(null)
+    if (force) setMktgData(null)
     try {
-      const res = await api.get('/platform-data')
-      const all = res.data.data
+      const all = await fetchPlatformData(api, loadSocialApiKeys())
       const pd = all[platformKey] || {}
       const insights = genInsights(platformKey, pd)
       setMktgData({ ...insights, allPlatforms: all, status: pd.status })
+      if (pd.status === 'error') {
+        toast.error(`${PLATFORM_CONFIG[platformKey]?.label || platformKey}: not connected — click "Add API" to enter keys`)
+      } else {
+        toast.success(`${PLATFORM_CONFIG[platformKey]?.label || platformKey} data loaded`)
+      }
     } catch (err) {
-      console.error(err)
+      console.error('[AI Analyzer] marketing analysis failed:', err)
+      toast.error(apiErrorMessage(err, 'Failed to load platform data'))
       setMktgData({ error: true })
     } finally {
       setMktgLoading(false)
     }
   }
 
-  const analyzeSocial = async () => {
+  const analyzeSocial = async (force = false) => {
     setSocialAnalyzing(true)
+    if (force) setSocialData(null)
     try {
-      const res = await api.get('/platform-data')
-      const realData = res.data.data
+      const realData = await fetchPlatformData(api, loadSocialApiKeys())
       const platformData = realData[socialPlatform] || {}
       const cfg = PLATFORM_CONFIG[socialPlatform] || PLATFORM_CONFIG.instagram
       
       const isVideo = socialPlatform === 'youtube' || socialPlatform === 'tiktok'
       const followers = platformData.followers || platformData.subscribers || 0
 
-      // We still map the real API data into the shape expected by the UI.
-      // Since some APIs don't provide impressions/reach, we calculate a baseline or use actual.
+      if (platformData.status === 'error') {
+        toast.error(`${cfg.label}: not connected — click "Add API" to enter keys`)
+      } else {
+        toast.success(`${cfg.label} analytics loaded`)
+      }
       setSocialData({
         platform: cfg.label,
         icon: cfg.icon,
@@ -274,7 +316,8 @@ export default function AdminAIAnalyzer() {
         ]
       })
     } catch (err) {
-      console.error(err)
+      console.error('[AI Analyzer] social analysis failed:', err)
+      toast.error(apiErrorMessage(err, 'Social analytics failed'))
     } finally {
       setSocialAnalyzing(false)
     }
@@ -287,8 +330,7 @@ export default function AdminAIAnalyzer() {
     if (suggestionsData) return
     setSuggestionsLoading(true)
     try {
-      const res = await api.get('/platform-data')
-      const all = res.data.data
+      const all = await fetchPlatformData(api, loadSocialApiKeys())
       const fb = parseInt(all.facebook?.followers || 0)
       const ig = parseInt(all.instagram?.followers || 0)
       const tt = parseInt(all.tiktok?.followers || 0)
@@ -330,7 +372,11 @@ export default function AdminAIAnalyzer() {
           'Set up conversion tracking pixels on your website',
         ]},
       ])
-    } catch { setSuggestionsData([]) }
+    } catch (err) {
+      console.error('[AI Analyzer] suggestions failed:', err)
+      toast.error(apiErrorMessage(err, 'Failed to load AI suggestions'))
+      setSuggestionsData([])
+    }
     finally { setSuggestionsLoading(false) }
   }
 
@@ -348,7 +394,15 @@ export default function AdminAIAnalyzer() {
               <option value={6}>Last 6 months</option>
               <option value={12}>Last 12 months</option>
             </select>
-            <button onClick={() => refetch()} className="btn-primary btn-sm gap-1"><FiZap size={14}/> Re-analyze</button>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="btn-primary btn-sm gap-1 disabled:opacity-60"
+            >
+              <FiRefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+              {isFetching ? 'Refreshing…' : 'Refresh Analysis'}
+            </button>
           </div>
         )}
       </div>
@@ -369,6 +423,13 @@ export default function AdminAIAnalyzer() {
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="w-14 h-14 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"/>
             <p className="text-slate-500 text-sm font-medium">AI is analyzing your business data…</p>
+          </div>
+        ) : isError ? (
+          <div className="card card-body text-center py-16">
+            <FiXCircle className="mx-auto text-red-400 mb-3" size={40} />
+            <h3 className="font-bold text-primary mb-2">Could not load business analytics</h3>
+            <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">{apiErrorMessage(error)}</p>
+            <button type="button" onClick={() => refetch()} className="btn-primary btn-sm gap-1"><FiZap size={14}/> Retry</button>
           </div>
         ) : (
           <div className="space-y-5">
@@ -502,7 +563,10 @@ export default function AdminAIAnalyzer() {
                   </button>
                 ))}
               </div>
-              <button onClick={analyzeSocial} disabled={socialAnalyzing} className="btn-primary btn-sm gap-1">
+              <button type="button" onClick={() => openApiSettings(socialPlatform)} className="btn-outline btn-sm gap-1 text-slate-600">
+                <FiSettings size={14}/> Add API
+              </button>
+              <button onClick={() => analyzeSocial(true)} disabled={socialAnalyzing} className="btn-primary btn-sm gap-1">
                 {socialAnalyzing ? <span className="spinner"/> : <FiZap size={14}/>} {socialAnalyzing ? 'Analyzing...' : 'Analyze'}
               </button>
             </div>
@@ -605,9 +669,9 @@ export default function AdminAIAnalyzer() {
                   <button onClick={() => setShowAssignModal(true)} className="btn-outline btn-sm gap-1 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
                     <FiUserPlus size={14}/> Assign Employee
                   </button>
-                  {(mktgPlatform === 'facebook' || mktgPlatform === 'instagram') && (
-                    <button onClick={() => setShowApiSettings(true)} className="btn-outline btn-sm gap-1 text-slate-600">
-                      <FiSettings size={14}/> Add API Manually
+                  {(mktgPlatform === 'facebook' || mktgPlatform === 'instagram' || mktgPlatform === 'youtube' || mktgPlatform === 'tiktok' || mktgPlatform === 'linkedin') && (
+                    <button type="button" onClick={() => openApiSettings(mktgPlatform)} className="btn-outline btn-sm gap-1 text-slate-600">
+                      <FiSettings size={14}/> Add API
                     </button>
                   )}
                   <select 
@@ -632,22 +696,26 @@ export default function AdminAIAnalyzer() {
 
               {showApiSettings && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                  <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                    <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><FiSettings/> Add API Manually</h3>
-                    <p className="text-sm text-slate-500 mb-4">Connect {mktgPlatform} directly by entering your access tokens below to fetch precise realtime data.</p>
+                  <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <h3 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2"><FiSettings/> Add API — {PLATFORM_CONFIG[apiSettingsPlatform]?.label || apiSettingsPlatform}</h3>
+                    <p className="text-sm text-slate-500 mb-4">Keys are saved in your browser and sent securely to the backend when fetching data. Works on localhost and Hostinger without server env vars.</p>
                     <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-semibold text-slate-600 mb-1 block">Facebook Access Token</label>
-                        <input type="text" className="form-input w-full" placeholder="EAABw..." value={apiKeys.facebook} onChange={e => setApiKeys({...apiKeys, facebook: e.target.value})}/>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-slate-600 mb-1 block">Instagram Access Token</label>
-                        <input type="text" className="form-input w-full" placeholder="IGQV..." value={apiKeys.instagram} onChange={e => setApiKeys({...apiKeys, instagram: e.target.value})}/>
-                      </div>
+                      {(PLATFORM_API_FIELDS[apiSettingsPlatform] || []).map((field) => (
+                        <div key={field.key}>
+                          <label className="text-sm font-semibold text-slate-600 mb-1 block">{field.label}</label>
+                          <input
+                            type="text"
+                            className="form-input w-full"
+                            placeholder={field.placeholder}
+                            value={platformApiForm[field.key] || ''}
+                            onChange={(e) => setPlatformApiForm((s) => ({ ...s, [field.key]: e.target.value }))}
+                          />
+                        </div>
+                      ))}
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
-                      <button onClick={() => setShowApiSettings(false)} className="btn-outline">Cancel</button>
-                      <button onClick={() => setShowApiSettings(false)} className="btn-primary"><FiSave size={14}/> Save Keys</button>
+                      <button type="button" onClick={() => setShowApiSettings(false)} className="btn-outline">Cancel</button>
+                      <button type="button" onClick={saveApiSettings} className="btn-primary"><FiSave size={14}/> Save & Fetch</button>
                     </div>
                   </div>
                 </div>

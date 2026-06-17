@@ -2,6 +2,7 @@ const ToolAssignment = require('../models/ToolAssignment');
 const Employee = require('../models/Employee');
 const { createNotification } = require('../services/notificationService');
 const User = require('../models/User');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 
 function getEmailService() {
   return require('../services/emailService');
@@ -97,7 +98,7 @@ exports.getAllAssignments = async (req, res, next) => {
 // Get my assigned tools (Employee)
 exports.getMyAssignments = async (req, res, next) => {
   try {
-    const employee = await Employee.findOne({ userId: req.user._id });
+    const employee = await resolveEmployeeForUser(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
     const assignments = await ToolAssignment.find({ employee: employee._id, status: 'active' })

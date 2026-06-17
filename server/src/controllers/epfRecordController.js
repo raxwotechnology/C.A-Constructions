@@ -39,6 +39,7 @@ exports.getEpfRecords = async (req, res, next) => {
 
     const month = Number(req.query.month) || new Date().getMonth() + 1;
     const year  = Number(req.query.year)  || new Date().getFullYear();
+    const shouldRefresh = String(req.query.refresh || '').toLowerCase() === 'true';
 
     // All active enrolled employees
     const enrolled = await Employee.find({
@@ -47,6 +48,30 @@ exports.getEpfRecords = async (req, res, next) => {
     }).populate('userId', 'name email');
 
     const enrolledIds = enrolled.map(e => e._id);
+
+    // Force refresh: recalculate unpaid records from current employee basic salary
+    if (shouldRefresh) {
+      for (const emp of enrolled) {
+        const basic = emp.basicSalary || 0;
+        const ee = r(basic * F.epfEmployee);
+        const er = r(basic * F.epfEmployer);
+        const et = r(basic * F.etfEmployer);
+        await EpfRecord.findOneAndUpdate(
+          { employee: emp._id, month, year, isPaid: { $ne: true } },
+          {
+            employee: emp._id,
+            month,
+            year,
+            basicSalary: basic,
+            epfEmployee: ee,
+            epfEmployer: er,
+            etfEmployer: et,
+            totalEPF: ee + er,
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
+    }
 
     // Existing records for this period
     const existing = await EpfRecord.find({ employee: { $in: enrolledIds }, month, year });

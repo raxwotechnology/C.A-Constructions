@@ -29,13 +29,28 @@ exports.resendEmail = async (req, res, next) => {
     if (!log) {
       return res.status(404).json({ success: false, message: 'Email log not found' });
     }
-    await sendLoggedMail({
-      to: log.recipientEmail,
-      subject: `[Resent] ${log.subject}`,
-      html: `<p>This is a resent copy of a previous system email.</p><hr/><p><strong>Original subject:</strong> ${log.subject}</p>`,
-      text: `Resent: ${log.subject}`,
-    }, log.module || 'system');
-    res.json({ success: true, message: 'Resend triggered successfully' });
+    try {
+      await sendLoggedMail({
+        to: log.recipientEmail,
+        subject: log.subject,
+        html: `<p>This is a resent copy of a previous system email.</p><hr/><p><strong>Original subject:</strong> ${log.subject}</p>`,
+        text: `Resent: ${log.subject}`,
+      }, log.module || 'system');
+      // Update the original log to reflect successful resend
+      await EmailLog.findByIdAndUpdate(req.params.id, {
+        status: 'sent',
+        error: undefined,
+        sentAt: new Date(),
+      });
+      res.json({ success: true, message: 'Email resent successfully' });
+    } catch (sendErr) {
+      // Update original log with new error
+      await EmailLog.findByIdAndUpdate(req.params.id, {
+        status: 'failed',
+        error: sendErr.message || 'Resend failed',
+      });
+      return res.status(500).json({ success: false, message: sendErr.message || 'Resend failed' });
+    }
   } catch (err) {
     next(err);
   }
