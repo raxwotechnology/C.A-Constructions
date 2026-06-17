@@ -25,7 +25,7 @@ export default function AdminDashboard() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-dashboard', branchFilter],
-    queryFn: () => api.get(`/analytics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
+    queryFn: () => api.get(`/system-metrics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
   })

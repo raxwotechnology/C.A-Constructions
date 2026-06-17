@@ -72,14 +72,14 @@ export default function SocialAnalytics() {
 
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['social-analytics'],
-    queryFn: () => api.get('/social').then(res => res.data.data),
+    queryFn: () => api.get('/platform-data').then(res => res.data.data),
     refetchInterval: 300000
   });
 
   // Assignments (admin view)
   const { data: assignData, refetch: refetchAssign } = useQuery({
     queryKey: ['social-assignments'],
-    queryFn: () => api.get('/social-assignments').then(r => r.data.assignments),
+    queryFn: () => api.get('/platform-assignments').then(r => r.data.assignments),
     enabled: isAdmin,
   });
 
@@ -93,19 +93,19 @@ export default function SocialAnalytics() {
   // My assigned platforms (non-admin employees)
   const { data: myPlatformsData } = useQuery({
     queryKey: ['my-social-platforms'],
-    queryFn: () => api.get('/social-assignments/my-platforms').then(r => r.data.platforms),
+    queryFn: () => api.get('/platform-assignments/my-platforms').then(r => r.data.platforms),
     enabled: !isAdmin,
   });
   const myPlatforms = myPlatformsData || [];
 
   const assignMut = useMutation({
-    mutationFn: (body) => api.post('/social-assignments', body),
+    mutationFn: (body) => api.post('/platform-assignments', body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['social-assignments'] }); toast.success('Employee assigned'); setShowAssignModal(false); setAssignEmployeeId(''); },
     onError: (e) => toast.error(e.response?.data?.message || 'Assignment failed'),
   });
 
   const removeMut = useMutation({
-    mutationFn: (id) => api.delete(`/social-assignments/${id}`),
+    mutationFn: (id) => api.delete(`/platform-assignments/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['social-assignments'] }); toast.success('Assignment removed'); },
   });
 

@@ -30,7 +30,7 @@ export default function ClientDashboard() {
   const { data: invData }     = useQuery({ queryKey: ['client-invoices'],              queryFn: () => api.get('/invoices').then(r => r.data) })
   const { data: rewardsData } = useQuery({ queryKey: ['client-rewards-dashboard'],     queryFn: () => api.get('/rewards/me').then(r => r.data) })
   const { data: subData }     = useQuery({ queryKey: ['client-subscriptions-dashboard'], queryFn: () => api.get('/subscriptions/my-summary').then(r => r.data) })
-  const { data: notifData }   = useQuery({ queryKey: ['notifications'],                queryFn: () => api.get('/analytics/notifications').then(r => r.data) })
+  const { data: notifData }   = useQuery({ queryKey: ['notifications'],                queryFn: () => api.get('/system-metrics/notifications').then(r => r.data) })
   const { data: bookingData } = useQuery({ queryKey: ['client-bookings-dash'],         queryFn: () => api.get('/bookings').then(r => r.data) })
 
   const projects     = projData?.projects  || []

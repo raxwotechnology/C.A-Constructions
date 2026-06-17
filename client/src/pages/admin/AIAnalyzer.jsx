@@ -137,7 +137,7 @@ export default function AdminAIAnalyzer() {
   });
 
   const assignMut = useMutation({
-    mutationFn: (body) => api.post('/social-assignments', body),
+    mutationFn: (body) => api.post('/platform-assignments', body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['social-assignments'] }); toast.success('Employee assigned successfully!'); setShowAssignModal(false); setAssignEmployeeId(''); },
     onError: (e) => toast.error(e.response?.data?.message || 'Assignment failed'),
   });
@@ -192,7 +192,7 @@ export default function AdminAIAnalyzer() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['ai-predictions', lookback],
-    queryFn: () => api.get(`/analytics/ai-predict?months=${lookback}`).then(r => r.data),
+    queryFn: () => api.get(`/system-metrics/ai-predict?months=${lookback}`).then(r => r.data),
   })
 
   const historical = data?.historical || {}
@@ -218,7 +218,7 @@ export default function AdminAIAnalyzer() {
     setMktgLoading(true)
     setMktgData(null)
     try {
-      const res = await api.get('/social')
+      const res = await api.get('/platform-data')
       const all = res.data.data
       const pd = all[platformKey] || {}
       const insights = genInsights(platformKey, pd)
@@ -234,7 +234,7 @@ export default function AdminAIAnalyzer() {
   const analyzeSocial = async () => {
     setSocialAnalyzing(true)
     try {
-      const res = await api.get('/social')
+      const res = await api.get('/platform-data')
       const realData = res.data.data
       const platformData = realData[socialPlatform] || {}
       const cfg = PLATFORM_CONFIG[socialPlatform] || PLATFORM_CONFIG.instagram
@@ -287,7 +287,7 @@ export default function AdminAIAnalyzer() {
     if (suggestionsData) return
     setSuggestionsLoading(true)
     try {
-      const res = await api.get('/social')
+      const res = await api.get('/platform-data')
       const all = res.data.data
       const fb = parseInt(all.facebook?.followers || 0)
       const ig = parseInt(all.instagram?.followers || 0)

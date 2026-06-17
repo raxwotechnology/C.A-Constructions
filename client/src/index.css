@@ -356,56 +356,198 @@
 /* Button size variants */
 .btn-sm { @apply text-sm px-3 py-1.5; }
 
-/* ── Global mobile responsiveness ─────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .erp-module { padding-left: 0.75rem; padding-right: 0.75rem; }
-  .page-header { flex-direction: column; align-items: flex-start !important; gap: 0.75rem; }
-  .page-title { font-size: 1.35rem; line-height: 1.25; }
-  .page-subtitle { font-size: 0.8125rem; }
-  .filter-toolbar { grid-template-columns: 1fr !important; }
-  .card-body { padding: 1rem !important; }
-  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -0.25rem; }
-  .table { min-width: 560px; font-size: 0.8125rem; }
-  .table th, .table td { padding: 0.5rem 0.625rem; }
-  .btn-primary, .btn-outline, .btn-ghost, .btn-danger, .btn-success { min-height: 2.5rem; }
-  .form-input, .form-select, textarea.form-input { font-size: 16px; /* prevents iOS zoom */ }
-  .kpi-card { padding: 0.875rem !important; }
-  .kpi-card .text-xl { font-size: 1.125rem !important; }
-  .grid.grid-cols-2 { grid-template-columns: 1fr; }
-  .grid.md\\:grid-cols-2, .grid.md\\:grid-cols-3, .grid.md\\:grid-cols-4,
-  .grid.lg\\:grid-cols-2, .grid.lg\\:grid-cols-3, .grid.lg\\:grid-cols-4,
-  .grid.lg\\:grid-cols-6, .grid.xl\\:grid-cols-4 {
-    grid-template-columns: 1fr !important;
-  }
-  @media (min-width: 480px) {
-    .grid.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .grid.sm\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  }
-  /* Document preview panels */
-  .invoice-doc, .quotation-doc, .doc-print-frame {
-    max-width: 100% !important;
-    padding: 12px !important;
-    box-shadow: none !important;
-  }
-  .invoice-doc-inner table.doc-table,
-  .quotation-doc-inner table.doc-table { font-size: 9pt; }
-  .invoice-doc-inner table.doc-table th,
-  .invoice-doc-inner table.doc-table td,
-  .quotation-doc-inner table.doc-table th,
-  .quotation-doc-inner table.doc-table td { padding: 6px 8px !important; }
-  /* Modals full-screen on small devices */
-  .fixed.inset-0 > .max-w-lg,
-  .fixed.inset-0 > .max-w-md,
-  .fixed.inset-0 > .max-w-4xl,
-  .fixed.inset-0 > .max-w-6xl {
+/* ── Global Mobile UI Redesign ─────────────────────────────────────────── */
+@media (max-width: 1023px) {
+  /* =======================================================================
+     1. Layout & Core Spacing
+     ======================================================================= */
+  body { font-size: 14px; -webkit-tap-highlight-color: transparent; }
+  .erp-module { padding-left: 0.5rem; padding-right: 0.5rem; padding-bottom: 2.5rem; }
+  
+  /* Modal constraints - full screen app-like feel */
+  .fixed.inset-0 { padding: 0 !important; }
+  .fixed.inset-0 > div[class*="max-w-"] {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;
     border-radius: 0 !important;
-    max-height: 100vh !important;
-    height: 100vh !important;
+    height: 100% !important; /* Changed from 100vh to 100% */
+    max-height: 100% !important; /* Changed from 100vh to 100% */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important; /* Parent must hide overflow so flex children can scroll */
   }
-  /* Finance transaction cards */
-  .finance-tx-body { flex-direction: column !important; align-items: stretch !important; }
-  .finance-tx-aside { text-align: left !important; margin-top: 0.5rem; }
+  .fixed.inset-0 > div[class*="max-w-"] > div:first-child {
+    position: sticky; top: 0; z-index: 50; background: white;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 4px 15px -10px rgba(0,0,0,0.1);
+  }
+  .fixed.inset-0 > div[class*="max-w-"] > div:last-child {
+    position: sticky; bottom: 0; z-index: 50; background: white;
+    padding: 1rem 1.25rem;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 15px -10px rgba(0,0,0,0.1);
+  }
+  .fixed.inset-0 > div[class*="max-w-"] > div.overflow-y-auto {
+    flex: 1; padding: 1.25rem; -webkit-overflow-scrolling: touch;
+  }
+
+  /* =======================================================================
+     2. Page Headers & Action Bars
+     ======================================================================= */
+  .page-header { 
+    flex-direction: column; align-items: stretch !important; gap: 1rem; 
+    padding: 1.25rem 1rem; border-radius: 1.25rem; margin-bottom: 1.25rem;
+  }
+  .page-title { font-size: 1.5rem; line-height: 1.25; font-weight: 800; letter-spacing: -0.02em; }
+  .page-subtitle { font-size: 0.85rem; margin-top: 0.25rem; }
+  
+  /* Horizontal scroll for action buttons to prevent stacking and save vertical space */
+  .page-header > div:last-child {
+    display: flex; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: -0.5rem;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 0.5rem;
+  }
+  .page-header > div:last-child::-webkit-scrollbar { display: none; }
+  .page-header button, .page-header a { white-space: nowrap; flex-shrink: 0; }
+
+  /* =======================================================================
+     3. Cards & Grids
+     ======================================================================= */
+  .card { border-radius: 1.25rem; }
+  .card-body { padding: 1.25rem !important; }
+  
+  /* Smart Grid overrides */
+  .grid.grid-cols-2, .grid.md\:grid-cols-2, .grid.md\:grid-cols-3, .grid.md\:grid-cols-4,
+  .grid.lg\:grid-cols-2, .grid.lg\:grid-cols-3, .grid.lg\:grid-cols-4, .grid.lg\:grid-cols-6, .grid.xl\:grid-cols-4 {
+    grid-template-columns: 1fr !important; gap: 0.75rem;
+  }
+  @media (min-width: 480px) {
+    .grid.grid-cols-2, .grid.sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  }
+
+  /* KPI Cards */
+  .kpi-card { padding: 1.25rem !important; border-radius: 1rem; }
+  .kpi-card p:first-child { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; }
+  .kpi-card .text-2xl { font-size: 1.5rem !important; margin-top: 0.5rem; }
+
+  /* =======================================================================
+     4. Forms & Touch Targets (Apple HIG guidelines)
+     ======================================================================= */
+  /* Prevent iOS input zoom by forcing 16px font */
+  .form-input, .form-select, textarea.form-input { 
+    font-size: 16px !important; min-height: 48px; padding: 0.75rem 1rem; border-radius: 0.75rem;
+  }
+  .btn-primary, .btn-outline, .btn-ghost, .btn-danger, .btn-success, .btn-navy { 
+    min-height: 48px; justify-content: center; font-size: 0.95rem; font-weight: 600;
+  }
+  .form-label { font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 600; }
+
+  /* Filters */
+  .filter-toolbar, .card > .p-4.flex-col { 
+    display: flex; flex-direction: column; gap: 0.75rem !important; padding: 1.25rem;
+  }
+  .filter-toolbar > *, .card > .p-4.flex-col > * { width: 100% !important; max-width: 100%; }
+
+  /* =======================================================================
+     5. Tables & Data Display
+     ======================================================================= */
+  .table-container { 
+    overflow-x: auto; -webkit-overflow-scrolling: touch; 
+    margin: 0 -0.5rem; border-left: none; border-right: none; border-radius: 0;
+    box-shadow: inset -10px 0 10px -10px rgba(0,0,0,0.05);
+  }
+  .table-container::-webkit-scrollbar { height: 4px; }
+  .table-container::-webkit-scrollbar-track { background: transparent; }
+  .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .table { min-width: 700px; font-size: 0.85rem; }
+  .table th { padding: 0.875rem 1rem; font-size: 0.75rem; }
+  .table td { padding: 1rem; }
+
+  /* Finance specific */
+  .finance-tx-shell { min-height: auto; border-radius: 1rem; }
+  .finance-tx-body { flex-direction: column !important; align-items: stretch !important; padding: 1rem !important; }
+  .finance-tx-aside { 
+    text-align: left !important; flex-direction: row !important; justify-content: space-between !important;
+    margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; align-items: center;
+  }
+  .finance-tx-chips { margin-top: 0.5rem; }
+
+  /* =======================================================================
+     6. Document Editors & Previews (Quotations, Invoices, Agreements)
+     ======================================================================= */
+  /* Split Modal layout vertically for mobile */
+  .fixed.inset-0 > div > .flex-col.lg\:flex-row, .fixed.inset-0 > div > .flex-col.md\:flex-row {
+    flex-direction: column !important;
+  }
+  
+  /* Editor takes upper half */
+  .fixed.inset-0 > div > .flex-col.lg\:flex-row > form, 
+  .fixed.inset-0 > div > .flex-col.md\:flex-row > form,
+  .fixed.inset-0 > div > .flex-col.lg\:flex-row > .w-full.shrink-0, 
+  .fixed.inset-0 > div > .flex-col.md\:flex-row > .w-[400px].shrink-0, 
+  .fixed.inset-0 > div > .flex-col.md\:flex-row > .w-full.shrink-0 {
+    height: auto !important; 
+    flex: 1 1 50% !important;
+    min-height: 0 !important;
+    max-height: 50% !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-bottom: 4px solid #cbd5e1 !important; 
+    border-right: none !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* Live Preview takes lower half */
+  .fixed.inset-0 > div > .flex-col.lg\:flex-row > div:last-child, 
+  .fixed.inset-0 > div > .flex-col.md\:flex-row > div:last-child {
+    flex: 1 1 50% !important; 
+    height: auto !important; 
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    background: #e2e8f0; 
+    padding: 0.75rem !important;
+  }
+  
+  /* Guarantee iOS Touch Scrolling for ALL modal scroll containers */
+  .fixed.inset-0 .overflow-y-auto,
+  .fixed.inset-0 .overflow-auto {
+    -webkit-overflow-scrolling: touch !important;
+    min-height: 0 !important; /* Prevents flex children from breaking out */
+  }
+
+  /* Document Scaling */
+  .doc-print-frame, .invoice-doc, .quotation-doc {
+    transform-origin: top center !important; margin: 0 auto !important;
+    max-width: 100% !important; padding: 1rem !important; box-shadow: none !important; border-radius: 0 !important; border: none !important;
+  }
+  .invoice-doc-inner table.doc-table, .quotation-doc-inner table.doc-table { font-size: 0.75rem; }
+  .invoice-doc-inner table.doc-table th, .invoice-doc-inner table.doc-table td,
+  .quotation-doc-inner table.doc-table th, .quotation-doc-inner table.doc-table td { padding: 0.5rem !important; }
+
+  /* Dense Grid for Line Items in Documents */
+  .grid.grid-cols-1.md\:grid-cols-12 {
+    display: grid !important; grid-template-columns: repeat(12, minmax(0, 1fr)) !important; gap: 0.25rem;
+  }
+  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(1) { grid-column: span 12 / span 12 !important; } /* Title/Desc */
+  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(2) { grid-column: span 3 / span 3 !important; } /* Qty */
+  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(3) { grid-column: span 4 / span 4 !important; } /* Rate */
+  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(4) { grid-column: span 3 / span 3 !important; } /* Tax */
+  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(5) { grid-column: span 2 / span 2 !important; align-items: flex-end; justify-content: flex-end; } /* Delete */
+  
+  .grid.grid-cols-1.md\:grid-cols-12 .form-label.md\:sr-only {
+    display: block !important; position: static !important; width: auto !important; height: auto !important;
+    margin: 0 0 0.25rem 0 !important; clip: auto !important; white-space: normal !important; font-size: 0.65rem !important;
+  }
+  .grid.grid-cols-1.md\:grid-cols-12 .form-input {
+    padding: 0.5rem 0.4rem !important; font-size: 14px !important; min-height: 40px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Smaller screens utility adjustments */
+  .flex.items-center.justify-between.gap-3.flex-wrap {
+    flex-direction: column; align-items: stretch;
+  }
+  .letter-quill .ql-editor { padding: 1rem !important; }
 }

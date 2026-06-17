@@ -8,12 +8,12 @@ export default function NotificationDetail() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['notification-detail', id],
-    queryFn: () => api.get(`/analytics/notifications/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/system-metrics/notifications/${id}`).then((r) => r.data),
     enabled: Boolean(id),
   })
 
   const markRead = useMutation({
-    mutationFn: () => api.put(`/analytics/notifications/${id}/read`).then((r) => r.data),
+    mutationFn: () => api.put(`/system-metrics/notifications/${id}/read`).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
       qc.invalidateQueries({ queryKey: ['developer-notifications'] })

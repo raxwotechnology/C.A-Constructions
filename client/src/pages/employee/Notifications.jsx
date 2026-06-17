@@ -42,7 +42,7 @@ export default function EmployeeNotifications() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['employee-notifications'],
-    queryFn: () => api.get('/analytics/notifications').then(r => r.data),
+    queryFn: () => api.get('/system-metrics/notifications').then(r => r.data),
     refetchInterval: 30000,
   })
 
@@ -56,12 +56,12 @@ export default function EmployeeNotifications() {
   })
 
   const markOne = useMutation({
-    mutationFn: (id) => api.put(`/analytics/notifications/${id}/read`),
+    mutationFn: (id) => api.put(`/system-metrics/notifications/${id}/read`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['employee-notifications'] }); qc.invalidateQueries({ queryKey: ['notifications'] }) },
   })
 
   const markAll = useMutation({
-    mutationFn: () => api.put('/analytics/notifications/read'),
+    mutationFn: () => api.put('/system-metrics/notifications/read'),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['employee-notifications'] }); qc.invalidateQueries({ queryKey: ['notifications'] }) },
   })
 

@@ -40,12 +40,12 @@ export default function ClientNotifications() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['client-notifications-page'],
-    queryFn: () => api.get('/analytics/notifications').then(r => r.data),
+    queryFn: () => api.get('/system-metrics/notifications').then(r => r.data),
     refetchInterval: 30000,
   })
 
   const markAllRead = useMutation({
-    mutationFn: () => api.put('/analytics/notifications/read-all'),
+    mutationFn: () => api.put('/system-metrics/notifications/read-all'),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['client-notifications-page'] })
       qc.invalidateQueries({ queryKey: ['client-navbar-notifications'] })
@@ -65,7 +65,7 @@ export default function ClientNotifications() {
   const handleClick = async (item) => {
     try {
       if (!item.read) {
-        await api.put(`/analytics/notifications/${item._id}/read`)
+        await api.put(`/system-metrics/notifications/${item._id}/read`)
         qc.invalidateQueries({ queryKey: ['client-notifications-page'] })
         qc.invalidateQueries({ queryKey: ['client-navbar-notifications'] })
       }

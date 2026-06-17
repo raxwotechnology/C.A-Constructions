@@ -154,7 +154,7 @@ export default function DashboardLayout({ role }) {
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => api.get('/analytics/notifications').then(r => r.data),
+    queryFn: () => api.get('/system-metrics/notifications').then(r => r.data),
     refetchInterval: 30000,
   })
 
@@ -165,7 +165,7 @@ export default function DashboardLayout({ role }) {
     const finalRole = user?.role || role
     try {
       if (!n.read) {
-        await api.put(`/analytics/notifications/${n._id}/read`)
+        await api.put(`/system-metrics/notifications/${n._id}/read`)
         qc.setQueryData(['notifications'], (prev) => {
           if (!prev?.notifications) return prev
           return {
@@ -321,8 +321,15 @@ export default function DashboardLayout({ role }) {
             <FiMenu size={22} />
           </button>
 
-          <div className="flex-1 px-4 lg:px-8 max-w-xl">
-            <div className="relative hidden sm:block">
+          <div className="flex-1 px-4 lg:px-8 max-w-xl flex items-center justify-end sm:justify-start">
+            {/* Mobile Search Toggle */}
+            <button 
+              className="sm:hidden p-2 text-slate-400 hover:text-primary mr-2"
+              onClick={() => setShowSearchBox(!showSearchBox)}
+            >
+              <FiSearch size={20} />
+            </button>
+            <div className="relative hidden sm:block w-full">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 type="text" 
@@ -332,34 +339,48 @@ export default function DashboardLayout({ role }) {
                 onChange={e => setSearchQuery(e.target.value)}
                 onFocus={() => setShowSearchBox(true)}
               />
-              <AnimatePresence>
-                {showSearchBox && searchQuery && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-[300]"
-                  >
-                    {searchResults.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-slate-500">No matching pages found</div>
-                    ) : (
-                      searchResults.map((res, i) => (
-                        <NavLink
-                          key={i}
-                          to={res.to}
-                          className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50"
-                          onClick={() => { setShowSearchBox(false); setSearchQuery(''); }}
-                        >
-                          <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500"><res.icon size={14} /></div>
-                          <div>
-                            <p className="text-sm font-medium text-slate-700">{res.label}</p>
-                            <p className="text-[10px] text-slate-400 uppercase">{res.group}</p>
-                          </div>
-                        </NavLink>
-                      ))
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
+            
+            {/* Mobile Search Overlay */}
+            <AnimatePresence>
+              {showSearchBox && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 right-0 sm:mt-2 bg-white sm:rounded-xl shadow-2xl border-b sm:border border-slate-100 py-2 z-[300] max-h-[60vh] overflow-y-auto"
+                >
+                  <div className="sm:hidden px-4 pb-2 mb-2 border-b border-slate-100">
+                    <input 
+                      type="text" 
+                      placeholder="Search..." 
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  {searchQuery && searchResults.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-slate-500">No matching pages found</div>
+                  ) : searchQuery ? (
+                    searchResults.map((res, i) => (
+                      <NavLink
+                        key={i}
+                        to={res.to}
+                        className="flex items-center gap-3 px-4 py-3 sm:py-2 hover:bg-slate-50"
+                        onClick={() => { setShowSearchBox(false); setSearchQuery(''); }}
+                      >
+                        <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500"><res.icon size={16} sm:size={14} /></div>
+                        <div>
+                          <p className="text-[15px] sm:text-sm font-medium text-slate-700">{res.label}</p>
+                          <p className="text-[11px] sm:text-[10px] text-slate-400 uppercase">{res.group}</p>
+                        </div>
+                      </NavLink>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-slate-400 sm:hidden">Type to search...</div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -372,7 +393,7 @@ export default function DashboardLayout({ role }) {
               >
                 <FiBell size={18} className="text-gray-600" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold border-2 border-white">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -380,29 +401,37 @@ export default function DashboardLayout({ role }) {
 
               <AnimatePresence>
                 {showNotif && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                    className="fixed w-80 card shadow-2xl z-[1000]"
-                    style={{ top: `${notifPos.top}px`, right: `${notifPos.right}px` }}
-                  >
-                    <div className="p-4 border-b border-gray-100 flex justify-between">
-                      <h3 className="font-semibold text-gray-800">Notifications</h3>
-                      <span className="badge badge-blue">{unreadCount} new</span>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                      {notifications.length === 0 ? (
-                        <p className="text-center text-gray-400 text-sm py-8">No notifications</p>
-                      ) : notifications.slice(0, 8).map(n => (
-                        <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-3.5 border-b border-gray-50 ${!n.read ? 'bg-blue-50 hover:bg-blue-100/70' : 'bg-white hover:bg-slate-50'}`}>
-                          <p className="text-sm font-medium text-gray-800">{n.title}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
-                          <p className="text-xs text-gray-400 mt-1">{new Date(n.createdAt).toLocaleDateString()}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
+                  <>
+                    {/* Mobile Backdrop */}
+                    <motion.div 
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="fixed inset-0 bg-black/40 z-[999] sm:hidden"
+                      onClick={() => setShowNotif(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 100 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 100 }}
+                      className="fixed sm:absolute bottom-0 left-0 right-0 sm:bottom-auto sm:left-auto sm:w-80 bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl z-[1000] border-t sm:border border-slate-200"
+                      style={window.innerWidth > 640 ? { top: `48px`, right: `0px` } : {}}
+                    >
+                      <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-slate-50 sm:bg-transparent rounded-t-2xl">
+                        <h3 className="font-semibold text-gray-800 text-lg sm:text-base">Notifications</h3>
+                        <span className="badge badge-blue">{unreadCount} new</span>
+                      </div>
+                      <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto custom-scrollbar pb-safe">
+                        {notifications.length === 0 ? (
+                          <p className="text-center text-gray-400 text-sm py-12 sm:py-8">No notifications</p>
+                        ) : notifications.slice(0, 8).map(n => (
+                          <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-4 sm:p-3.5 border-b border-gray-50 transition-colors ${!n.read ? 'bg-blue-50/50 hover:bg-blue-50' : 'bg-white hover:bg-slate-50'}`}>
+                            <p className="text-[15px] sm:text-sm font-semibold text-gray-800 leading-tight">{n.title}</p>
+                            <p className="text-sm sm:text-xs text-gray-500 mt-1 sm:mt-0.5 leading-snug">{n.message}</p>
+                            <p className="text-[11px] sm:text-xs text-gray-400 mt-2 sm:mt-1 font-medium">{new Date(n.createdAt).toLocaleDateString()}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </>
                 )}
               </AnimatePresence>
             </div>
@@ -419,22 +448,38 @@ export default function DashboardLayout({ role }) {
               </button>
               <AnimatePresence>
                 {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                    className="absolute right-0 top-12 w-52 p-2 z-[270] rounded-2xl border border-slate-200 bg-white shadow-2xl"
-                  >
-                    <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/profile` : user?.role === 'manager' ? '/manager' : '/admin/settings'} className="btn-ghost w-full justify-start text-sm">
-                      View Profile
-                    </NavLink>
-                    <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/notifications` : user?.role === 'manager' ? '/manager/profile' : '/admin/settings'} className="btn-ghost w-full justify-start text-sm">
-                      Settings
-                    </NavLink>
-                    <button onClick={handleLogout} className="btn-ghost w-full justify-start text-sm text-red-500 hover:text-red-600">
-                      Logout
-                    </button>
-                  </motion.div>
+                  <>
+                    <motion.div 
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-[260] sm:hidden"
+                      onClick={() => setShowProfileMenu(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                      className="absolute right-0 top-12 w-56 sm:w-52 p-2 z-[270] rounded-2xl border border-slate-200 bg-white shadow-2xl origin-top-right"
+                    >
+                      <div className="px-3 py-2 mb-2 border-b border-slate-100 sm:hidden flex justify-between items-start">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-800 truncate">{user?.name}</p>
+                          <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+                        </div>
+                        <button onClick={() => setShowProfileMenu(false)} className="p-1.5 -mr-1.5 -mt-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg shrink-0">
+                          <FiX size={18} />
+                        </button>
+                      </div>
+                      <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/profile` : user?.role === 'manager' ? '/manager' : '/admin/settings'} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2">
+                        View Profile
+                      </NavLink>
+                      <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/notifications` : user?.role === 'manager' ? '/manager/profile' : '/admin/settings'} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2">
+                        Settings
+                      </NavLink>
+                      <button onClick={handleLogout} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2 text-red-500 hover:text-red-600 hover:bg-red-50">
+                        Logout
+                      </button>
+                    </motion.div>
+                  </>
                 )}
               </AnimatePresence>
             </div>

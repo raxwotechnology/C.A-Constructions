@@ -57,7 +57,7 @@ export default function PublicLayout() {
 
   const { data: notifData } = useQuery({
     queryKey: ['client-navbar-notifications'],
-    queryFn: () => api.get('/analytics/notifications').then((r) => r.data),
+    queryFn: () => api.get('/system-metrics/notifications').then((r) => r.data),
     enabled: isClient,
     refetchInterval: 30000,
   })
@@ -219,7 +219,7 @@ export default function PublicLayout() {
                               key={n._id}
                               type="button"
                               onClick={async () => {
-                                try { if (!n.read) await api.put(`/analytics/notifications/${n._id}/read`) } catch (_) {}
+                                try { if (!n.read) await api.put(`/system-metrics/notifications/${n._id}/read`) } catch (_) {}
                                 setNotifOpen(false)
                                 navigate(n.link || `/notifications/${n._id}`)
                               }}

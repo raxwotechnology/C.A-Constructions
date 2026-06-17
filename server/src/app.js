@@ -134,8 +134,11 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/letters', letterRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/system-metrics', analyticsRoutes); // Alias for Adblocker
 app.use('/api/social', socialRoutes);
+app.use('/api/platform-data', socialRoutes); // Alias for Adblocker
 app.use('/api/social-assignments', socialAssignmentRoutes);
+app.use('/api/platform-assignments', socialAssignmentRoutes); // Alias for Adblocker
 app.use('/api/payments', paymentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/attendance', attendanceRoutes);

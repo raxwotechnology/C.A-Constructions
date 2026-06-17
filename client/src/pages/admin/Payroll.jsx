@@ -475,39 +475,39 @@ export default function AdminPayroll() {
     const previewUrl = payslipCustomSignatureUrl || selectedSig?.url
 
     return (
-      <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-3`}>
-        <div>
-          <label className="form-label text-xs">Authorized signatory</label>
-          <select className="form-select text-sm" value={payslipSignatoryRole} onChange={e => {
+      <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
+        <div className="space-y-1">
+          <label className="form-label text-sm font-medium text-slate-700 block">Authorized signatory</label>
+          <select className="form-select text-sm bg-white" value={payslipSignatoryRole} onChange={e => {
             setPayslipSignatoryRole(e.target.value)
             setPayslipCustomSignatureUrl('')
           }}>
             {PAYSLIP_SIGNATORY_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
-          <p className="text-[10px] text-slate-400 mt-1">Uses name & title from Admin Settings</p>
+          <p className="text-[11px] text-slate-500">Uses name & title from Admin Settings</p>
         </div>
-        <div>
-          <label className="form-label text-xs">Signature preview & override</label>
-          <div className="flex gap-2 items-start">
-            <div className="flex-1">
-              <input type="file" accept="image/*" className="form-input text-sm py-1" disabled={payslipSignatureUploading}
+        <div className="space-y-1">
+          <label className="form-label text-sm font-medium text-slate-700 block">Signature override</label>
+          <div className="flex gap-3 items-start">
+            <div className="flex-1 space-y-1">
+              <input type="file" accept="image/*" className="form-input text-sm py-1.5 bg-white" disabled={payslipSignatureUploading}
                 onChange={e => uploadPayslipSignature(e.target.files?.[0])} />
               {payslipCustomSignatureUrl ? (
-                <div className="text-[10px] text-emerald-600 mt-1 flex items-center justify-between">
+                <div className="text-[11px] font-medium text-emerald-600 flex items-center justify-between bg-emerald-50 px-2 py-1 rounded">
                   <span>✓ Custom override loaded</span>
-                  <button type="button" className="text-red-500 hover:underline" onClick={() => setPayslipCustomSignatureUrl('')}>Clear</button>
+                  <button type="button" className="text-red-500 hover:text-red-700 font-bold ml-2" onClick={() => setPayslipCustomSignatureUrl('')}>Clear</button>
                 </div>
               ) : (
-                <p className="text-[10px] text-slate-400 mt-1">Upload to override saved signature</p>
+                <p className="text-[11px] text-slate-500">Upload to override saved signature</p>
               )}
             </div>
             {previewUrl ? (
-              <div className="shrink-0 w-16 h-10 bg-white border border-slate-200 rounded p-1 flex items-center justify-center shadow-sm">
+              <div className="shrink-0 w-16 h-12 bg-white border border-slate-200 rounded p-1 flex items-center justify-center shadow-sm">
                 <img src={mediaUrl(previewUrl)} alt="Signature" className="max-w-full max-h-full object-contain" />
               </div>
             ) : (
-              <div className="shrink-0 w-16 h-10 bg-slate-50 border border-slate-200 border-dashed rounded p-1 flex items-center justify-center shadow-sm">
-                <span className="text-[8px] text-slate-400 text-center leading-tight">No sig<br/>found</span>
+              <div className="shrink-0 w-16 h-12 bg-slate-50 border border-slate-200 border-dashed rounded p-1 flex items-center justify-center shadow-sm">
+                <span className="text-[9px] text-slate-400 text-center leading-tight">No sig<br/>found</span>
               </div>
             )}
           </div>
@@ -685,66 +685,145 @@ export default function AdminPayroll() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="form-label">Allowances</label><input type="number" className="form-input" value={allowances} onChange={e => setAllowances(Number(e.target.value || 0))} /></div>
-            <div><label className="form-label">Additional Commission</label><input type="number" className="form-input" value={commissions} onChange={e => setCommissions(Number(e.target.value || 0))} /></div>
-            <div><label className="form-label">Bonus</label><input type="number" className="form-input" value={bonus} onChange={e => setBonus(Number(e.target.value || 0))} /></div>
-            <div><label className="form-label">Advance Deduction</label><input type="number" className="form-input" value={advanceDeduction} onChange={e => setAdvanceDeduction(Number(e.target.value || 0))} /></div>
-            <div><label className="form-label">Loan Deduction <span className="text-xs text-blue-500">(auto-filled)</span></label><input type="number" className="form-input" value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} /></div>
-            <div><label className="form-label">Other Deductions</label><input type="number" className="form-input" value={otherDeductions} onChange={e => setOtherDeductions(Number(e.target.value || 0))} /></div>
-            <div><label className="form-label">Leave Deduction</label><input type="number" className="form-input" value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" /></div>
-            <div className="col-span-2 flex items-center gap-2 pt-1">
-              <input id="continue-loan-deduction" type="checkbox" className="rounded border-slate-300" checked={continueLoanDeduction} onChange={e => setContinueLoanDeduction(e.target.checked)} />
-              <label htmlFor="continue-loan-deduction" className="text-sm text-slate-600">Continue deduction next month</label>
-            </div>
-            <div className={`${isLedgerBankMethod(paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
-              <label className="form-label">Payment Method</label>
-              <select className="form-select" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="cash">Cash</option>
-                <option value="online_transfer">Online Transfer</option>
-                <option value="card_payment">Card Payment</option>
-                <option value="cheque">Cheque</option>
-              </select>
-            </div>
-            {isLedgerBankMethod(paymentMethod) && (
-              <div className="col-span-1">
-                <label className="form-label">Source Bank & Branch</label>
-                <select className="form-select" value={payBank} onChange={e => setPayBank(e.target.value)}>
-                  <option value="">Select Account...</option>
-                  {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''}</option>)}
-                </select>
-              </div>
-            )}
-          </div>
-          <div className="border-t border-slate-100 pt-3 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Payslip letterhead & seal</p>
-            <PayslipSignatoryFields />
-          </div>
-          <div className="border-t border-slate-100 pt-3 mt-1 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Employee Bank Details (Auto-fill)</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="form-label text-xs">Bank Name</label>
-                <input type="text" className="form-input text-sm" value={empBankDetails.bank} onChange={e => setEmpBankDetails({...empBankDetails, bank: e.target.value})} placeholder="Bank Name" />
-              </div>
-              <div>
-                <label className="form-label text-xs">Branch</label>
-                <input type="text" className="form-input text-sm" value={empBankDetails.bankBranch} onChange={e => setEmpBankDetails({...empBankDetails, bankBranch: e.target.value})} placeholder="Branch" />
-              </div>
-              <div>
-                <label className="form-label text-xs">Account Holder</label>
-                <input type="text" className="form-input text-sm" value={empBankDetails.accountHolder} onChange={e => setEmpBankDetails({...empBankDetails, accountHolder: e.target.value})} placeholder="Account Holder" />
-              </div>
-              <div>
-                <label className="form-label text-xs">Account Number</label>
-                <input type="text" className="form-input text-sm" value={empBankDetails.accountNumber} onChange={e => setEmpBankDetails({...empBankDetails, accountNumber: e.target.value})} placeholder="A/C Number" />
+          {/* Earnings & Deductions Sections */}
+          <div className="space-y-4 mt-4">
+            {/* Additions */}
+            <div className="p-4 bg-emerald-50/60 border border-emerald-100 rounded-xl space-y-4">
+              <h4 className="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                <FiPlus className="text-emerald-600" /> Additional Earnings
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Allowances</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
+                    <input type="number" className="form-input pl-10 text-sm bg-white" value={allowances} onChange={e => setAllowances(Number(e.target.value || 0))} />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Commissions</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
+                    <input type="number" className="form-input pl-10 text-sm bg-white" value={commissions} onChange={e => setCommissions(Number(e.target.value || 0))} />
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Bonus / Incentives</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
+                    <input type="number" className="form-input pl-10 text-sm bg-white" value={bonus} onChange={e => setBonus(Number(e.target.value || 0))} />
+                  </div>
+                </div>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">Editing these details here will permanently save them to the employee's profile.</p>
+
+            {/* Deductions */}
+            <div className="p-4 bg-orange-50/60 border border-orange-100 rounded-xl space-y-4">
+              <h4 className="text-sm font-bold text-orange-800 flex items-center gap-2">
+                <FiAlertCircle className="text-orange-600" /> Deductions
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Advance Deduction</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
+                    <input type="number" className="form-input pl-10 text-sm bg-white" value={advanceDeduction} onChange={e => setAdvanceDeduction(Number(e.target.value || 0))} />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Loan Ded. <span className="text-xs text-blue-500 font-normal ml-1">(auto)</span></label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
+                    <input type="number" className="form-input pl-10 text-sm bg-white" value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Leave Deduction</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
+                    <input type="number" className="form-input pl-10 text-sm bg-white" value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Other Deductions</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
+                    <input type="number" className="form-input pl-10 text-sm bg-white" value={otherDeductions} onChange={e => setOtherDeductions(Number(e.target.value || 0))} />
+                  </div>
+                </div>
+                <div className="col-span-2 flex items-center gap-2 pt-1 bg-white p-3 rounded-lg border border-orange-100/80 shadow-sm mt-1">
+                  <input id="continue-loan-deduction" type="checkbox" className="rounded border-orange-300 text-orange-600 focus:ring-orange-500 w-4 h-4" checked={continueLoanDeduction} onChange={e => setContinueLoanDeduction(e.target.checked)} />
+                  <label htmlFor="continue-loan-deduction" className="text-sm font-medium text-orange-900 cursor-pointer select-none">Continue loan deduction to next month</label>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment & Settings */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-5">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <FiDollarSign className="text-slate-500" /> Payment & Settings
+              </h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className={`${isLedgerBankMethod(paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
+                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Payment Method</label>
+                  <select className="form-select text-sm bg-white" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cash">Cash</option>
+                    <option value="online_transfer">Online Transfer</option>
+                    <option value="card_payment">Card Payment</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+                {isLedgerBankMethod(paymentMethod) && (
+                  <div className="col-span-1">
+                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Source Bank Account</label>
+                    <select className="form-select text-sm bg-white" value={payBank} onChange={e => setPayBank(e.target.value)}>
+                      <option value="">Select Account...</option>
+                      {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200 pt-5">
+                <p className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><FiFileText className="text-slate-400" /> Payslip Signatory</p>
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <PayslipSignatoryFields />
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-5">
+                <p className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><FiUser className="text-slate-400" /> Employee Bank Details <span className="font-normal text-slate-400 ml-1">(Auto-fill)</span></p>
+                <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                  <div>
+                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Bank Name</label>
+                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.bank} onChange={e => setEmpBankDetails({...empBankDetails, bank: e.target.value})} placeholder="e.g. BOC" />
+                  </div>
+                  <div>
+                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Branch</label>
+                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.bankBranch} onChange={e => setEmpBankDetails({...empBankDetails, bankBranch: e.target.value})} placeholder="Branch" />
+                  </div>
+                  <div>
+                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Account Holder</label>
+                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.accountHolder} onChange={e => setEmpBankDetails({...empBankDetails, accountHolder: e.target.value})} placeholder="Name on account" />
+                  </div>
+                  <div>
+                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Account Number</label>
+                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.accountNumber} onChange={e => setEmpBankDetails({...empBankDetails, accountNumber: e.target.value})} placeholder="A/C Number" />
+                  </div>
+                  <div className="col-span-2 text-[11px] text-blue-700 mt-1 bg-blue-50 px-3 py-2 rounded flex items-center gap-2 border border-blue-100">
+                    <FiAlertCircle className="shrink-0" />
+                    <span>Editing these details here will permanently save them to the employee's profile.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <button className="btn-primary mt-4" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
-            <FiPlay size={14}/> {generateOneMut.isPending ? 'Generating…' : 'Generate Payslip'}
+          
+          <button className="btn-primary w-full py-3 mt-4 text-sm font-bold shadow-md hover:shadow-lg transition-all" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
+            {generateOneMut.isPending ? <span className="spinner w-4 h-4 border-2 mr-2" /> : <FiPlay size={16} className="mr-2" />}
+            {generateOneMut.isPending ? 'Generating Payslip…' : 'Generate Payslip'}
           </button>
         </div>
 

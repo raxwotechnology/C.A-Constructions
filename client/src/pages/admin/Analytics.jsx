@@ -25,11 +25,11 @@ export default function AdminAnalytics() {
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['admin-dashboard', branchFilter],
-    queryFn: () => api.get(`/analytics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
+    queryFn: () => api.get(`/system-metrics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
   })
   const { data: advData, isLoading: advLoading } = useQuery({
     queryKey: ['advanced-analytics', startDate, endDate, branchFilter],
-    queryFn: () => api.get(`/analytics/advanced?startDate=${startDate}&endDate=${endDate}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
+    queryFn: () => api.get(`/system-metrics/advanced?startDate=${startDate}&endDate=${endDate}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
   })
 
   const kpis = dashData?.kpis || {}
