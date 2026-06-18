@@ -135,18 +135,20 @@ export default function PublicLayout() {
           {/* Desktop nav */}
           <nav className="hidden md:flex flex-1 items-center gap-1 min-w-0 px-4">
             <a href="https://raxwo.net/" className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-white/70 hover:text-white hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap">
-              <FiHome size={14} /> Back to Home
+              <FiHome size={14} /> Back
             </a>
             <span className="w-px h-4 bg-white/20 mx-1" />
             {[
+              { to: '/', label: 'Home', exact: true },
               { to: '/services', label: 'Services' },
               { to: '/careers', label: 'Careers' },
               { to: '/contact', label: 'Contact' },
               { to: '/feedback', label: 'Feedback' },
-            ].map(({ to, label }) => (
+            ].map(({ to, label, exact }) => (
               <NavLink
                 key={to}
                 to={to}
+                end={exact}
                 className={({ isActive }) =>
                   `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'
@@ -262,20 +264,22 @@ export default function PublicLayout() {
                   href="https://raxwo.net/"
                   className="px-4 py-3 rounded-lg text-sm font-medium transition-colors text-white/85 hover:bg-white/10 flex items-center gap-2"
                 >
-                  <FiHome size={16} /> Back to Home
+                  <FiHome size={16} /> Back
                 </a>
 
                 <div className="my-1 border-t border-white/10" />
 
                 {[
+                  { to: '/', label: 'Home', exact: true },
                   { to: '/services', label: 'Services' },
                   { to: '/careers', label: 'Careers' },
                   { to: '/contact', label: 'Contact' },
                   { to: '/feedback', label: 'Feedback' },
-                ].map(({ to, label }) => (
+                ].map(({ to, label, exact }) => (
                   <NavLink
                     key={to}
                     to={to}
+                    end={exact}
                     className={({ isActive }) =>
                       `px-4 py-3 rounded-lg text-sm font-medium transition-colors block ${
                         isActive ? 'text-white bg-white/15' : 'text-white/85 hover:bg-white/10'
