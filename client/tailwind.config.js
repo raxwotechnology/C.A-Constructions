@@ -17,7 +17,7 @@ export default {
           900: '#000066',
           950: '#00003b',
         },
-        primary: '#000066',
+        primary: '#0C0227',
         secondary: '#1d4ed8',
         accent: '#22C55E',
         surface: '#F8FAFC',
@@ -27,9 +27,9 @@ export default {
         heading: ['Poppins', 'sans-serif'],
       },
       backgroundImage: {
-        'gradient-navy': 'linear-gradient(135deg, #000066 0%, #1d4ed8 50%, #5b21b6 100%)',
-        'gradient-blue': 'linear-gradient(135deg, #1d4ed8 0%, #3730a3 100%)',
-        'gradient-hero': 'linear-gradient(140deg, #000066 0%, #1e40af 45%, #4c1d95 100%)',
+        'gradient-navy': 'linear-gradient(135deg, #0C0227 0%, #1d4ed8 50%, #5b21b6 100%)',
+        'gradient-blue': 'linear-gradient(135deg, #1d4ed8 0%, #0C0227 100%)',
+        'gradient-hero': 'linear-gradient(140deg, #0C0227 0%, #1e40af 45%, #4c1d95 100%)',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',

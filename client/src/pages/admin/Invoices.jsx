@@ -459,35 +459,33 @@ export default function AdminInvoices() {
           <option value="custom">Custom</option>
         </select>
         {/* Date range picker */}
-        <div className="flex items-center gap-0 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center gap-1.5 px-3 py-2 border-r border-slate-100">
-            <svg className="text-slate-400 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">From</span>
+        <div className="w-full sm:w-auto grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2">
+          <div className="relative flex-1 sm:w-40">
+            <span className="absolute left-2.5 top-1 text-[9px] font-bold text-slate-400 uppercase">From</span>
+            <input
+              type="date"
+              className="form-input pt-4 pb-1 px-2.5 text-xs text-slate-700 bg-white border border-slate-200 rounded-xl focus:ring-secondary/20 w-full"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+            />
           </div>
-          <input
-            type="date"
-            className="border-0 bg-transparent text-sm text-slate-700 px-2 py-2 focus:outline-none focus:ring-0 w-[130px]"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-          />
-          <div className="px-1 text-slate-300 select-none">→</div>
-          <div className="flex items-center gap-1.5 px-3 py-2 border-l border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To</span>
+          <div className="relative flex-1 sm:w-40">
+            <span className="absolute left-2.5 top-1 text-[9px] font-bold text-slate-400 uppercase">To</span>
+            <input
+              type="date"
+              className="form-input pt-4 pb-1 px-2.5 text-xs text-slate-700 bg-white border border-slate-200 rounded-xl focus:ring-secondary/20 w-full"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+            />
           </div>
-          <input
-            type="date"
-            className="border-0 bg-transparent text-sm text-slate-700 px-2 py-2 focus:outline-none focus:ring-0 w-[130px]"
-            value={endDate}
-            onChange={e => setEndDate(e.target.value)}
-          />
           {(startDate || endDate) && (
             <button
               type="button"
               onClick={() => { setStartDate(''); setEndDate('') }}
-              className="px-2 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors border-l border-slate-100"
+              className="col-span-2 sm:col-span-1 py-2 px-3 text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
               title="Clear dates"
             >
-              <FiX size={13}/>
+              <FiX size={13}/> Clear Dates
             </button>
           )}
         </div>
@@ -563,15 +561,15 @@ export default function AdminInvoices() {
       </div>
 
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4" style={{ zIndex: 999999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4 z-[999999]">
           <motion.div initial={{opacity:0,scale:0.98}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.98}}
             className="doc-editor-modal bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200">
-            <div className="flex items-center justify-between p-3 sm:p-4 md:p-5 border-b shrink-0">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-primary font-heading">{editing ? 'Edit Invoice' : 'New Invoice'}</h3>
-                {(editing?.invoiceNo || watch('invoiceNo')) && <p className="text-xs text-slate-500 mt-0.5 font-mono">#{editing?.invoiceNo || watch('invoiceNo')}</p>}
+            <div className="flex items-center justify-between px-4 py-3 sm:p-4 md:p-5 border-b shrink-0 bg-white z-10">
+              <div className="min-w-0 pr-2">
+                <h3 className="text-base sm:text-lg font-bold text-primary font-heading truncate">{editing ? 'Edit Invoice' : 'New Invoice'}</h3>
+                {(editing?.invoiceNo || watch('invoiceNo')) && <p className="text-xs text-slate-500 mt-0.5 font-mono truncate">#{editing?.invoiceNo || watch('invoiceNo')}</p>}
               </div>
-              <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+              <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg shrink-0"><FiX/></button>
             </div>
             {/* Mobile tab switcher */}
             <div className="lg:hidden flex border-b border-slate-200 shrink-0">
@@ -579,7 +577,7 @@ export default function AdminInvoices() {
               <button type="button" onClick={() => setMobileTab('preview')} className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mobileTab === 'preview' ? 'text-primary border-b-2 border-primary bg-blue-50/50' : 'text-slate-500 hover:bg-slate-50'}`}>Preview</button>
             </div>
             <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-              <form onSubmit={handleSubmit(onSubmit)} className={`lg:w-[450px] xl:w-[550px] 2xl:w-[600px] overflow-y-auto p-4 md:p-6 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200 ${mobileTab === 'preview' ? 'hidden lg:flex lg:flex-col lg:shrink-0 lg:flex-none' : 'flex flex-col flex-1 min-h-0 lg:flex-none lg:shrink-0'}`}>
+              <form onSubmit={handleSubmit(onSubmit)} className={`lg:w-[450px] xl:w-[550px] 2xl:w-[600px] overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200 ${mobileTab === 'preview' ? 'hidden lg:flex lg:flex-col lg:shrink-0 lg:flex-none' : 'flex flex-col flex-1 min-h-0 min-w-0 lg:flex-none lg:shrink-0'}`}>
                 {editingPaid && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     This invoice is fully paid. You can change <strong>status</strong>, dates, branch, project, currency, and notes only. Line items and tax are locked.
@@ -983,16 +981,20 @@ export default function AdminInvoices() {
       )}
 
       {viewingInv && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-[999999]">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-4 z-[999999]">
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border border-slate-200">
-            <div className="flex items-center justify-between gap-3 p-4 border-b bg-slate-50 shrink-0 no-print">
-              <div className="flex items-center gap-3 min-w-0">
-                <h3 className="text-lg font-bold text-slate-800 truncate">Invoice preview</h3>
-                <span className="badge badge-navy font-mono text-xs shrink-0">{viewingInv.invoiceNo}</span>
-                <span className={`badge uppercase shrink-0 ${STATUS_COLORS[viewingInv.status] || 'badge-gray'}`}>{viewingInv.status}</span>
+            className="bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200">
+            <div className="flex items-start justify-between gap-4 p-4 sm:p-5 border-b bg-slate-50 shrink-0 no-print">
+              <div className="min-w-0 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800">Preview</h3>
+                  <span className="badge badge-navy font-mono text-[10px] sm:text-xs px-2 py-0.5">{viewingInv.invoiceNo}</span>
+                </div>
+                <div className="flex items-center">
+                  <span className={`badge uppercase text-[10px] sm:text-xs px-2 py-0.5 ${STATUS_COLORS[viewingInv.status] || 'badge-gray'}`}>{viewingInv.status}</span>
+                </div>
               </div>
-              <button type="button" onClick={() => setViewingInv(null)} className="p-2 hover:bg-slate-200 rounded-lg shrink-0"><FiX/></button>
+              <button type="button" onClick={() => setViewingInv(null)} className="p-2 sm:p-2.5 bg-white hover:bg-slate-100 rounded-xl shrink-0 border border-slate-200 shadow-sm transition-colors"><FiX size={18}/></button>
             </div>
             <InvoicePreviewPanel
               invoice={viewingInv}

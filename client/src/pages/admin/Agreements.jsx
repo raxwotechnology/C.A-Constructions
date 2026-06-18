@@ -64,6 +64,26 @@ export default function Agreements() {
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const tplQuillRef = useRef(null)
   
+  const previewContainerRef = useRef(null)
+  const [previewScale, setPreviewScale] = useState(1)
+
+  useEffect(() => {
+    if (step !== 2 || !previewContainerRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const w = entry.contentRect.width
+        const availableW = w - 32
+        if (availableW < 794 && availableW > 0) {
+          setPreviewScale(availableW / 794)
+        } else {
+          setPreviewScale(1)
+        }
+      }
+    })
+    ro.observe(previewContainerRef.current)
+    return () => ro.disconnect()
+  }, [step])
+
   const TEMPLATE_TOKENS = [
     { label: 'Client Name', value: '{{ClientName}}' },
     { label: 'Project Name', value: '{{ProjectName}}' },
@@ -372,12 +392,12 @@ export default function Agreements() {
           <h1 className="page-title">Agreements</h1>
           <p className="page-subtitle">Corporate agreements, templates, signatures, and approvals</p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => setShowTemplatesModal(true)} className="btn-outline">
-            <FiBookmark size={15} /> Manage templates
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+          <button type="button" onClick={() => setShowTemplatesModal(true)} className="w-full sm:w-auto btn-outline justify-center py-2 text-sm font-semibold transition-all">
+            <FiBookmark size={14} className="mr-1" /> Manage templates
           </button>
-          <button type="button" onClick={openCreate} className="btn-primary">
-            <FiPlus size={15} /> New agreement
+          <button type="button" onClick={openCreate} className="w-full sm:w-auto btn-primary justify-center py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all">
+            <FiPlus size={14} className="mr-1" /> New agreement
           </button>
         </div>
       </div>
@@ -410,48 +430,8 @@ export default function Agreements() {
             </div>
           ) : (
             <>
-            {/* Mobile card list */}
-            <div className="sm:hidden space-y-3 p-3">
-              {agreements.map((agr) => (
-                <div key={agr._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{agr.title}</p>
-                      <p className="text-xs text-slate-500 font-mono mt-0.5">
-                        {agr.agreementNo} · {AGREEMENT_TYPES.find((t) => t.value === agr.agreementType)?.label || agr.agreementType}
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-1 shrink-0">
-                      {agr.client && <span className="text-xs font-medium text-slate-700 truncate max-w-[120px]">{agr.client.name}</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <select value={agr.status} onChange={(e) => updateStatusMut.mutate({ id: agr._id, status: e.target.value })} className="form-select text-xs py-1 flex-1">
-                      <option value="draft">Draft</option>
-                      <option value="finalised">Finalised</option>
-                      <option value="signed">Signed</option>
-                      <option value="expired">Expired</option>
-                    </select>
-                    <select value={agr.approvalStatus || 'none'} onChange={(e) => updateApprovalMut.mutate({ id: agr._id, approvalStatus: e.target.value })} className={`form-select text-xs py-1 flex-1 font-semibold border-0 ${approvalBadge(agr.approvalStatus || 'none')}`}>
-                      <option value="none">None</option>
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-                    <button type="button" onClick={() => handlePrintAgreement(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiPrinter size={12}/> Print</button>
-                    <button type="button" onClick={() => handlePdfAgreement(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiDownload size={12}/> PDF</button>
-                    <button type="button" onClick={() => openEdit(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiEdit2 size={12}/> Edit</button>
-                    <button type="button" onClick={() => setHistoryFor(agr)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiClock size={12}/> History</button>
-                    <button type="button" onClick={() => { if (window.confirm('Delete agreement?')) deleteMut.mutate(agr._id) }} className="flex-1 btn-ghost btn-sm justify-center text-xs text-red-600 hover:bg-red-50"><FiTrash2 size={12}/> Del</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden sm:block table-container">
+            {/* Scrollable Table */}
+            <div className="table-container border-0 shadow-none rounded-xl overflow-x-auto w-full">
           <table className="table">
             <thead>
               <tr>
@@ -610,20 +590,17 @@ export default function Agreements() {
       )}
 
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 flex justify-end z-[999999]" >
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-            className="bg-white w-full max-w-5xl h-full shadow-2xl flex flex-col"
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4 z-[99999]">
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            className="doc-editor-modal bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 sm:p-6 border-b flex justify-between items-center bg-slate-50 shrink-0">
-              <div>
-                <h2 className="text-xl font-bold font-heading text-slate-800">{editing ? 'Edit agreement' : 'New agreement'}</h2>
-                <p className="text-sm text-slate-500">{step === 1 ? 'Step 1: Type & records' : 'Step 2: Document & signatures'}</p>
+            <div className="flex items-center justify-between px-4 py-3 sm:p-4 md:p-5 border-b shrink-0 bg-white z-10">
+              <div className="min-w-0 pr-2">
+                <h3 className="text-base sm:text-lg font-bold text-primary font-heading truncate">{editing ? 'Edit agreement' : 'New agreement'}</h3>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">{step === 1 ? 'Step 1: Type & records' : 'Step 2: Document & signatures'}</p>
               </div>
-              <button type="button" onClick={closeModal} className="p-2 hover:bg-slate-200 rounded-lg">
+              <button type="button" onClick={closeModal} className="p-2 hover:bg-slate-200 rounded-lg shrink-0">
                 <FiX size={20} />
               </button>
             </div>
@@ -781,16 +758,25 @@ export default function Agreements() {
                         </div>
                       </div>
                       <div className="flex-1 flex flex-col bg-slate-100 min-h-0 overflow-hidden rounded-xl border border-slate-200">
-                        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-slate-100">
-                          <div className="bg-white shadow-xl rounded-xl border border-slate-200 mx-auto max-w-[794px] min-h-[1123px] relative flex flex-col">
+                        <div ref={previewContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-slate-100">
+                          <div
+                            style={{ zoom: previewScale }}
+                            className="bg-white shadow-xl rounded-xl border border-slate-200 mx-auto w-full max-w-[794px] min-h-[1123px] relative flex flex-col overflow-hidden origin-top"
+                          >
                             <style dangerouslySetInnerHTML={{__html: `
-                              .enterprise-letter { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 48px; display: flex; flex-direction: column; min-height: 100%; flex: 1; ${watch('hasFrame') ? 'border: 12px double #1e3a8a; border-radius: 8px; outline: 2px solid #1e3a8a; outline-offset: -8px; padding: 36px;' : ''} }
-                              .enterprise-quill-wrapper { margin: 10px -15px 0 -15px; position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; }
-                              .enterprise-quill-wrapper .ql-container { font-family: Georgia, serif; font-size: 11pt; border: 2px dashed #cbd5e1 !important; border-radius: 8px; background: #f8fafc; transition: all 0.2s; cursor: text; flex: 1; min-height: 500px; }
+                              .enterprise-letter { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 24px 16px; display: flex; flex-direction: column; min-height: 100%; flex: 1; overflow-x: hidden; ${watch('hasFrame') ? 'border: 8px double #1e3a8a; border-radius: 8px; outline: 2px solid #1e3a8a; outline-offset: -6px; padding: 16px 12px;' : ''} }
+                              @media (min-width: 640px) {
+                                .enterprise-letter { padding: 48px; ${watch('hasFrame') ? 'border-width: 12px; outline-offset: -8px; padding: 36px;' : ''} }
+                              }
+                              .enterprise-quill-wrapper { margin: 10px -8px 0 -8px; position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+                              @media (min-width: 640px) { .enterprise-quill-wrapper { margin-left: -15px; margin-right: -15px; } }
+                              .enterprise-quill-wrapper .ql-container { font-family: Georgia, serif; font-size: 11pt; border: 2px dashed #cbd5e1 !important; border-radius: 8px; background: #f8fafc; transition: all 0.2s; cursor: text; flex: 1; min-height: 300px; }
+                              @media (min-width: 640px) { .enterprise-quill-wrapper .ql-container { min-height: 500px; } }
                               .enterprise-quill-wrapper .ql-container:hover { border-color: #94a3b8 !important; background: #fff; }
                               .enterprise-quill-wrapper .ql-container:focus-within { background: #fff; border-style: solid !important; border-color: #38bdf8 !important; box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2); }
                               .enterprise-quill-wrapper .ql-toolbar { border: 1px solid #e2e8f0 !important; margin-bottom: 12px; background: #fff; padding: 10px !important; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); position: sticky; top: 0; z-index: 20; }
-                              .enterprise-quill-wrapper .ql-editor { height: 100% !important; overflow-y: auto !important; padding: 24px; line-height: 1.6; color: #1e293b; }
+                              .enterprise-quill-wrapper .ql-editor { height: 100% !important; overflow-y: auto !important; padding: 16px; line-height: 1.6; color: #1e293b; overflow-x: hidden; }
+                              @media (min-width: 640px) { .enterprise-quill-wrapper .ql-editor { padding: 24px; } }
                               .enterprise-quill-wrapper .ql-editor.ql-blank::before { font-style: normal; color: #94a3b8; font-size: 11pt; }
                               .enterprise-quill-wrapper .ql-editor p { margin: 0 0 12px; }
                               .enterprise-quill-wrapper .ql-editor h1, .enterprise-quill-wrapper .ql-editor h2, .enterprise-quill-wrapper .ql-editor h3 { font-family: system-ui, sans-serif; color: #0f172a; margin-top: 1.25em; margin-bottom: 0.5em; }

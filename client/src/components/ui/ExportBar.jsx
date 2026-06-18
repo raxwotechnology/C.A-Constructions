@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FiDownload, FiPrinter, FiX, FiCheck, FiFileText } from 'react-icons/fi'
@@ -18,7 +18,7 @@ import { drawQuotationStylePdfHeader, drawPdfReportMeta } from '../../lib/export
  *   onExportExcel  — optional override; if not provided uses built-in xlsx
  *   hidePrint      — boolean to hide print button
  */
-export default function ExportBar({
+const ExportBar = forwardRef(({
   data = [],
   columns = [],
   title = 'Report',
@@ -26,8 +26,15 @@ export default function ExportBar({
   onExportPDF,
   onExportExcel,
   hidePrint = false,
-}) {
+  customTrigger = false,
+}, ref) => {
   const [modal, setModal] = useState(null) // null | 'pdf' | 'excel'
+
+  useImperativeHandle(ref, () => ({
+    exportPDF: () => setModal('pdf'),
+    exportExcel: () => setModal('excel'),
+    print: () => handlePrint(),
+  }))
 
   const filterSummary = Object.entries(filters)
     .filter(([, v]) => v)
@@ -122,34 +129,36 @@ export default function ExportBar({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setModal('pdf')}
-          className="btn-export bg-red-600 hover:bg-red-700 text-white"
-        >
-          <FiFileText size={12} />
-          <span>PDF</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setModal('excel')}
-          className="btn-export bg-emerald-600 hover:bg-emerald-700 text-white"
-        >
-          <FiDownload size={12} />
-          <span>Excel</span>
-        </button>
-        {!hidePrint && (
+      {!customTrigger && (
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
-            onClick={handlePrint}
-            className="btn-export bg-slate-100 hover:bg-slate-200 text-slate-700"
+            onClick={() => setModal('pdf')}
+            className="btn-export bg-red-600 hover:bg-red-700 text-white"
           >
-            <FiPrinter size={12} />
-            <span className="hidden sm:inline">Print</span>
+            <FiFileText size={12} />
+            <span>PDF</span>
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            onClick={() => setModal('excel')}
+            className="btn-export bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <FiDownload size={12} />
+            <span>Excel</span>
+          </button>
+          {!hidePrint && (
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="btn-export bg-slate-100 hover:bg-slate-200 text-slate-700"
+            >
+              <FiPrinter size={12} />
+              <span className="hidden sm:inline">Print</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Confirmation modal */}
       {createPortal(
@@ -247,4 +256,6 @@ export default function ExportBar({
       )}
     </>
   )
-}
+})
+
+export default ExportBar

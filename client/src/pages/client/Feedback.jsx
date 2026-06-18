@@ -60,36 +60,36 @@ export default function ClientFeedback() {
       </section>
       <section className="section-padding bg-slate-50">
         <div className="container-max space-y-6">
-          {isClient ? (
-            <>
-              <SectionHeader title="Submit Feedback" subtitle="Help us improve — your feedback is reviewed by the team." />
-              <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="card p-6 space-y-4">
-        <div>
-          <label className="form-label">Rating</label>
-          <select {...register('rating', { required: true, valueAsNumber: true })} className="form-select">
-            <option value={5}>5 - Excellent</option>
-            <option value={4}>4 - Good</option>
-            <option value={3}>3 - Average</option>
-            <option value={2}>2 - Needs Improvement</option>
-            <option value={1}>1 - Poor</option>
-          </select>
-        </div>
-        <div>
-          <label className="form-label">Your Feedback</label>
-          <textarea {...register('message', { required: true })} className="form-input min-h-28" />
-        </div>
-        <button className="btn-primary" disabled={mutation.isPending}>Submit Feedback</button>
-      </form>
-            </>
-          ) : (
-            <div className="card p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-lg font-semibold text-primary">Share Your Experience</p>
-                <p className="text-sm text-slate-500">Sign in as a client to submit your own feedback.</p>
+          <SectionHeader title="Submit Feedback" subtitle="Help us improve — your feedback is reviewed by the team." />
+          <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="card p-6 space-y-4">
+            {!isAuthenticated && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Name</label>
+                  <input {...register('name', { required: true })} className="form-input" placeholder="Your name" />
+                </div>
+                <div>
+                  <label className="form-label">Email</label>
+                  <input {...register('email', { required: true })} type="email" className="form-input" placeholder="Your email" />
+                </div>
               </div>
-              <button className="btn-primary" onClick={() => navigate('/login')}>Sign In to Submit</button>
+            )}
+            <div>
+              <label className="form-label">Rating</label>
+              <select {...register('rating', { required: true, valueAsNumber: true })} className="form-select">
+                <option value={5}>5 - Excellent</option>
+                <option value={4}>4 - Good</option>
+                <option value={3}>3 - Average</option>
+                <option value={2}>2 - Needs Improvement</option>
+                <option value={1}>1 - Poor</option>
+              </select>
             </div>
-          )}
+            <div>
+              <label className="form-label">Your Feedback</label>
+              <textarea {...register('message', { required: true })} className="form-input min-h-28" />
+            </div>
+            <button className="btn-primary" disabled={mutation.isPending}>Submit Feedback</button>
+          </form>
 
           <SectionHeader title="Public Feedback Wall" subtitle="Modern testimonial feed with ratings and reactions." />
           <div className="grid lg:grid-cols-2 gap-4">
@@ -101,10 +101,10 @@ export default function ClientFeedback() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold">
-                        {f.client?.name?.charAt(0)?.toUpperCase() || 'U'}
+                        {(f.client?.name || f.name || 'A').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-semibold text-primary">{f.client?.name || 'Client'}</p>
+                        <p className="font-semibold text-primary">{f.client?.name || f.name || 'Anonymous'}</p>
                         <p className="text-xs text-slate-400">{new Date(f.createdAt).toLocaleDateString()}</p>
                       </div>
                     </div>
@@ -143,35 +143,39 @@ export default function ClientFeedback() {
             {feedbacks.length === 0 ? <div className="card p-8 text-center text-slate-400 lg:col-span-2">No feedback available yet.</div> : null}
           </div>
 
-          <div id="feedback-history">
-            <SectionHeader title="My Feedback History" subtitle="All feedback you submitted (latest first)." />
-          </div>
-          <div className="space-y-3" id="feedback-history-list">
-            {myFeedbacks.map((f) => (
-              <div key={f._id} className="card p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-primary flex items-center gap-1">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <FiStar key={i} className={i < Number(f.rating || 0) ? 'text-amber-400 fill-amber-400' : 'text-slate-300'} size={14} />
-                      ))}
-                    </p>
-                    <p className="text-sm text-slate-600 mt-1">{f.message}</p>
-                    {f.response ? (
-                      <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                        <p className="text-xs font-semibold text-slate-500 uppercase">Team response</p>
-                        <p className="text-sm text-slate-700 mt-1">{f.response}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                  <span className="text-xs text-slate-400 whitespace-nowrap">{new Date(f.createdAt).toLocaleDateString()}</span>
-                </div>
+          {isAuthenticated && (
+            <>
+              <div id="feedback-history">
+                <SectionHeader title="My Feedback History" subtitle="All feedback you submitted (latest first)." />
               </div>
-            ))}
-            {myFeedbacks.length === 0 ? (
-              <div className="card p-8 text-center text-slate-400">No feedback submitted yet.</div>
-            ) : null}
-          </div>
+              <div className="space-y-3" id="feedback-history-list">
+                {myFeedbacks.map((f) => (
+                  <div key={f._id} className="card p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-primary flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <FiStar key={i} className={i < Number(f.rating || 0) ? 'text-amber-400 fill-amber-400' : 'text-slate-300'} size={14} />
+                          ))}
+                        </p>
+                        <p className="text-sm text-slate-600 mt-1">{f.message}</p>
+                        {f.response ? (
+                          <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                            <p className="text-xs font-semibold text-slate-500 uppercase">Team response</p>
+                            <p className="text-sm text-slate-700 mt-1">{f.response}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">{new Date(f.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
+                {myFeedbacks.length === 0 ? (
+                  <div className="card p-8 text-center text-slate-400">No feedback submitted yet.</div>
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>

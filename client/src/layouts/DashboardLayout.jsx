@@ -48,7 +48,6 @@ const adminNav = [
     { to: '/admin/subscriptions', label: 'Subscriptions', icon: FiServer },
     { to: '/admin/bookings', label: 'Bookings', icon: FiBook },
     { to: '/admin/services', label: 'Services & Products', icon: FiLayers },
-    { to: '/admin/portfolio', label: 'Portfolio', icon: FiPieChart },
     { to: '/admin/leaders', label: 'Leaders', icon: FiUsers },
     { to: '/admin/rewards', label: 'Rewards & Loyalty', icon: FiGift },
     { to: '/admin/feedback', label: 'Feedback', icon: FiMessageSquare },
@@ -249,6 +248,19 @@ export default function DashboardLayout({ role }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showSearchBox])
 
+  // When mobile sidebar opens, scroll the active nav item into view so user sees their selected tab
+  useEffect(() => {
+    if (!sidebarOpen) return
+    // Small delay to let CSS transition start
+    const timer = setTimeout(() => {
+      const activeLink = document.querySelector('.lg\\:hidden aside .sidebar-link.active')
+      if (activeLink) {
+        activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      }
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [sidebarOpen])
+
   const renderSidebar = () => (
     <div className="h-full flex flex-col bg-white border-r border-slate-200 overflow-hidden">
       {/* Logo */}
@@ -309,25 +321,26 @@ export default function DashboardLayout({ role }) {
         {renderSidebar()}
       </aside>
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile sidebar backdrop - still animated via AnimatePresence */}
       <AnimatePresence>
         {sidebarOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="lg:hidden fixed inset-0 bg-black/50 z-40"
-              onClick={() => setSidebarOpen(false)}
-            />
-            <motion.aside
-              initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
-              transition={{ type: 'spring', damping: 25 }}
-              className="lg:hidden fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 shadow-2xl"
-            >
-              {renderSidebar()}
-            </motion.aside>
-          </>
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
         )}
       </AnimatePresence>
+
+      {/* Mobile sidebar - ALWAYS in the DOM so nav scroll position is preserved between opens */}
+      <aside
+        className={`lg:hidden fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 shadow-2xl transition-transform duration-300 ease-in-out will-change-transform ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-hidden={!sidebarOpen}
+      >
+        {renderSidebar()}
+      </aside>
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 relative z-10">

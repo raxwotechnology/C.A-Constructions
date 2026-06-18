@@ -409,10 +409,10 @@ export default function AdminAIAnalyzer() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 flex-wrap shadow-sm">
+      <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 overflow-x-auto flex-nowrap md:flex-wrap shadow-sm scrollbar-none">
         {TABS.map(t => (
           <button key={t.id} onClick={() => { setActiveTab(t.id); if (t.id === 'suggestions') loadAiSuggestions() }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${activeTab === t.id ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 ${activeTab === t.id ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
             {t.label}
           </button>
         ))}

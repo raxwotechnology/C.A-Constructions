@@ -396,7 +396,7 @@ export default function IncomeTax() {
             </label>
             <button type="button" className="btn-primary" onClick={() => { if (!configForm.name?.trim()) { toast.error('Enter a config name'); return }; createConfigMut.mutate() }} disabled={createConfigMut.isPending}><FiPlus /> Save tax config</button>
           </div>
-          <div className="card overflow-hidden">
+          <div className="card overflow-hidden hidden md:block">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
@@ -427,6 +427,45 @@ export default function IncomeTax() {
               </tbody>
             </table>
           </div>
+
+          <div className="block md:hidden space-y-3">
+            {!configs.length ? (
+              <div className="p-6 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                No tax configs yet
+              </div>
+            ) : (
+              configs.map(c => (
+                <div key={c._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-sm">{c.name}</h4>
+                      <span className="text-xs text-slate-500">Tax Year: {c.year}</span>
+                    </div>
+                    {c.isActive ? (
+                      <span className="badge badge-green text-[10px]">Active</span>
+                    ) : (
+                      <span className="badge badge-gray text-[10px]">Inactive</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-2">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Standard Relief</span>
+                      <p className="font-medium text-slate-700">LKR {(c.standardRelief || 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Tax Brackets</span>
+                      <p className="font-medium text-slate-700">{c.slabs?.length || 0} slab(s)</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <button type="button" className="text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-xs" onClick={() => deleteConfigMut.mutate(c._id)}>
+                      <FiTrash2 size={13} /> Delete config
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
@@ -445,7 +484,7 @@ export default function IncomeTax() {
               <FiPlus /> New tax profile
             </button>
           </div>
-          <div className="card overflow-hidden">
+          <div className="card overflow-hidden hidden md:block">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
@@ -502,6 +541,76 @@ export default function IncomeTax() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="block md:hidden space-y-3">
+            {!profiles.length ? (
+              <div className="p-6 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                No profiles for {profileYear}
+              </div>
+            ) : (
+              profiles.map(p => (
+                <div key={p._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-sm">{p.employee?.userId?.name || '—'}</h4>
+                      <span className="text-xs text-slate-500 font-mono">TIN: {p.tin || '—'}</span>
+                    </div>
+                    {p.isExempt ? (
+                      <span className="badge badge-yellow text-[10px]">Exempt</span>
+                    ) : (
+                      <span className="badge badge-blue text-[10px]">Taxable</span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-2">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Residency</span>
+                      <p className="font-medium text-slate-700 capitalize">{p.taxResidency?.replace('_', ' ') || '—'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Filing Status</span>
+                      <p className="font-medium text-slate-700 capitalize">{p.filingStatus?.replace(/_/g, ' ') || '—'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Effective From</span>
+                      <p className="font-medium text-slate-700">
+                        {p.effectiveFrom ? new Date(p.effectiveFrom).toLocaleDateString() : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Calculation Mode</span>
+                      <p className="font-medium text-slate-700 capitalize">{p.calculationMode || 'monthly'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-1 pt-1">
+                    <button type="button" className="p-2 rounded-lg hover:bg-slate-100 text-slate-600" title="View" onClick={() => setViewProfile(p)}><FiEye size={14} /></button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg hover:bg-slate-100 text-secondary"
+                      title="Edit"
+                      onClick={() => {
+                        setProfileForm(profileToForm(p))
+                        setProfileModal('edit')
+                      }}
+                    >
+                      <FiEdit2 size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg hover:bg-red-50 text-red-500"
+                      title="Delete"
+                      onClick={() => {
+                        if (window.confirm('Delete this tax profile?')) deleteProfileMut.mutate(p._id)
+                      }}
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {(profileModal === 'create' || profileModal === 'edit') && (
@@ -726,7 +835,7 @@ export default function IncomeTax() {
             <p className="text-sm font-semibold text-slate-700">Tax records ({records.length})</p>
             <ExportBar data={records} columns={recordExportColumns} title="Income Tax Records" filters={{ fromDate, toDate }} />
           </div>
-          <div className="card overflow-hidden overflow-x-auto">
+          <div className="card overflow-hidden overflow-x-auto hidden md:block">
             <table className="w-full text-sm min-w-[800px]">
               <thead className="bg-slate-50">
                 <tr>
@@ -764,6 +873,49 @@ export default function IncomeTax() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="block md:hidden space-y-3">
+            {!records.length ? (
+              <div className="p-6 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                No records for this period
+              </div>
+            ) : (
+              records.map(r => (
+                <div key={r._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-sm">{r.employee?.userId?.name || '—'}</h4>
+                      <span className="text-xs text-slate-500 font-mono">Period: {formatRecordPeriod(r)}</span>
+                    </div>
+                    <span className="badge badge-gray text-[10px] capitalize">{r.status}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-2">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Taxable Income</span>
+                      <p className="font-medium text-slate-700">LKR {(r.taxableIncome || 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Tax Amount</span>
+                      <p className="font-bold text-purple-700">LKR {(r.taxAmount || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {r.status === 'remitted' && r.bankAccount && (
+                    <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 font-medium">
+                      Paid from: {r.bankAccount.bankName} · {r.bankAccount.accountNumber}
+                    </p>
+                  )}
+
+                  <div className="flex justify-end gap-1 pt-1">
+                    <button type="button" className="p-2 rounded-lg hover:bg-slate-100 text-slate-600" title="View" onClick={() => openRecordView(r)}><FiEye size={14} /></button>
+                    <button type="button" className="p-2 rounded-lg hover:bg-slate-100 text-secondary" title="Edit" onClick={() => openRecordEdit(r)}><FiEdit2 size={14} /></button>
+                    <button type="button" className="p-2 rounded-lg hover:bg-red-50 text-red-500 disabled:opacity-40" title={r.status === 'remitted' ? 'Cannot delete remitted' : 'Delete'} disabled={r.status === 'remitted'} onClick={() => handleDeleteRecord(r)}><FiTrash2 size={14} /></button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {viewRecord && (

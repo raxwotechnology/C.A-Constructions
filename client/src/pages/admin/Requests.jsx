@@ -55,10 +55,10 @@ export default function AdminRequests() {
         </div>
       </div>
 
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-full sm:w-fit overflow-x-auto no-scrollbar">
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${filter === f ? 'bg-white shadow text-secondary' : 'text-slate-500 hover:text-slate-700'}`}>
+            className={`px-4 py-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold whitespace-nowrap rounded-lg capitalize transition-colors ${filter === f ? 'bg-white shadow-sm text-secondary' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
             {STATUS_CONFIG[f]?.label || f}
           </button>
         ))}
@@ -67,9 +67,9 @@ export default function AdminRequests() {
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>
       ) : requests.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+        <div className="text-center py-16 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
           <FiFileText size={40} className="mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500 font-medium">No {filter} requests.</p>
+          <p className="text-slate-500 font-medium">No {filter} requests found.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -78,32 +78,36 @@ export default function AdminRequests() {
             const emp = req.employee?.userId
             return (
               <motion.div key={req._id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="card border border-slate-200 overflow-hidden">
-                <div className="p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                    {emp?.avatar ? <img src={emp.avatar} className="w-full h-full object-cover" alt="" />
-                      : <div className="w-full h-full flex items-center justify-center font-bold text-slate-500">{emp?.name?.charAt(0)}</div>}
+                className="card border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                    <div className="w-11 h-11 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                      {emp?.avatar ? <img src={emp.avatar} className="w-full h-full object-cover" alt="" />
+                        : <div className="font-bold text-slate-500 text-sm">{emp?.name?.charAt(0)}</div>}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-1">
+                        <p className="font-bold text-slate-800 text-sm truncate">{req.subject}</p>
+                        <span className={`w-fit px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${cfg.color}`}>{cfg.label}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">{emp?.name} <span className="mx-1.5 text-slate-300">•</span> {req.employeeRole} <span className="mx-1.5 text-slate-300">•</span> {new Date(req.createdAt).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-primary truncate">{req.subject}</p>
-                    <p className="text-xs text-slate-400">{emp?.name} · {req.employeeRole} · {new Date(req.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.color} shrink-0`}>{cfg.label}</span>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-0 border-slate-100 mt-1 sm:mt-0">
                     {(req.status === 'pending' || (isAdmin && req.status === 'manager_approved')) && (
-                      <>
+                      <div className="flex flex-1 sm:flex-none gap-2 mr-auto sm:mr-0">
                         <button onClick={() => { setActionTarget(req._id); setActionType('approve') }}
-                          className="btn-primary btn-sm gap-1 bg-emerald-600 hover:bg-emerald-700">
-                          <FiCheck size={12} /> Approve
+                          className="flex-1 sm:flex-none btn-primary btn-sm gap-1.5 bg-emerald-600 hover:bg-emerald-700 py-2 sm:py-1.5 px-4 text-xs font-semibold shadow-sm">
+                          <FiCheck size={14} /> Approve
                         </button>
                         <button onClick={() => { setActionTarget(req._id); setActionType('reject') }}
-                          className="btn-danger btn-sm gap-1">
-                          <FiX size={12} /> Reject
+                          className="flex-1 sm:flex-none btn-danger btn-sm gap-1.5 py-2 sm:py-1.5 px-4 text-xs font-semibold shadow-sm">
+                          <FiX size={14} /> Reject
                         </button>
-                      </>
+                      </div>
                     )}
-                    <button onClick={() => setExpanded(expanded === req._id ? null : req._id)} className="btn-ghost btn-sm p-1.5">
-                      <FiChevronRight size={16} className={`transition-transform ${expanded === req._id ? 'rotate-90' : ''}`} />
+                    <button onClick={() => setExpanded(expanded === req._id ? null : req._id)} className="btn-ghost btn-sm p-2 sm:p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors ml-auto">
+                      <FiChevronRight size={16} className={`text-slate-500 transition-transform ${expanded === req._id ? 'rotate-90' : ''}`} />
                     </button>
                   </div>
                 </div>

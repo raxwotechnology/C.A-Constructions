@@ -71,10 +71,10 @@ export default function EmployeeRequests() {
       </div>
 
       {/* Tabs */}
-      <div className="tab-scroll flex gap-1 bg-slate-100 rounded-xl p-1 w-full max-w-full">
+      <div className="tab-scroll flex gap-1 bg-slate-100 rounded-xl p-1 w-full sm:w-fit overflow-x-auto no-scrollbar">
         {TABS.map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${activeTab === t ? 'bg-white shadow text-secondary' : 'text-slate-500 hover:text-slate-700'}`}>
+            className={`px-4 py-2 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold whitespace-nowrap rounded-lg capitalize transition-colors ${activeTab === t ? 'bg-white shadow-sm text-secondary' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
             {t === 'all' ? 'All' : STATUS_CONFIG[t]?.label || t}
           </button>
         ))}
@@ -83,10 +83,10 @@ export default function EmployeeRequests() {
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>
       ) : requests.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+        <div className="text-center py-16 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
           <FiFileText size={40} className="mx-auto text-slate-300 mb-3" />
           <p className="text-slate-500 font-medium">No requests yet.</p>
-          <button onClick={() => setShowForm(true)} className="btn-primary mt-4">Submit First Request</button>
+          <button onClick={() => setShowForm(true)} className="btn-primary mt-4 shadow-sm">Submit First Request</button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -95,19 +95,25 @@ export default function EmployeeRequests() {
             const Icon = cfg.icon
             return (
               <motion.div key={req._id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="card border border-slate-200 overflow-hidden">
-                <button className="w-full p-4 text-left flex items-center gap-4" onClick={() => setExpanded(expanded === req._id ? null : req._id)}>
-                  <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
-                    <FiFileText size={18} className="text-secondary" />
+                className="card border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <button className="w-full p-4 sm:p-5 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 relative" onClick={() => setExpanded(expanded === req._id ? null : req._id)}>
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1 pr-6 sm:pr-0">
+                    <div className="w-11 h-11 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center shrink-0">
+                      <FiFileText size={20} className="text-secondary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-1">
+                        <p className="font-bold text-slate-800 text-sm truncate">{req.subject}</p>
+                        <span className={`w-fit px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${cfg.color} flex items-center gap-1 shrink-0`}>
+                          <Icon size={10} /> {cfg.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">{REQUEST_TYPES.find(t => t.value === req.type)?.label || req.type} <span className="mx-1.5 text-slate-300">•</span> {new Date(req.createdAt).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-primary truncate">{req.subject}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{REQUEST_TYPES.find(t => t.value === req.type)?.label || req.type} · {new Date(req.createdAt).toLocaleDateString()}</p>
+                  <div className="absolute top-4 right-4 sm:static sm:flex shrink-0 items-center justify-center p-1 sm:p-0">
+                    <FiChevronRight size={18} className={`text-slate-400 transition-transform ${expanded === req._id ? 'rotate-90' : ''}`} />
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.color} flex items-center gap-1 shrink-0`}>
-                    <Icon size={11} /> {cfg.label}
-                  </span>
-                  <FiChevronRight size={16} className={`text-slate-400 transition-transform ${expanded === req._id ? 'rotate-90' : ''}`} />
                 </button>
 
                 <AnimatePresence>

@@ -110,8 +110,8 @@ export default function AdminLeaders() {
           </button>
         </div>
 
-        {/* Table Card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Table Card for Desktop */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hidden md:block">
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wider">
             <div className="col-span-1 flex items-center gap-1"><FiHash size={11} /> #</div>
@@ -184,6 +184,58 @@ export default function AdminLeaders() {
             <div className="px-6 py-3 border-t border-gray-100 bg-slate-50 text-xs text-gray-400">
               {leaders.length} member{leaders.length !== 1 ? 's' : ''} total
             </div>
+          )}
+        </div>
+
+        {/* Card List for Mobile */}
+        <div className="block md:hidden space-y-3">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : leaders.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-6">
+              <FiAward className="mx-auto text-gray-200 mb-3" size={40} />
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">No leaders yet</h3>
+              <p className="text-gray-400 text-xs mb-4">Start building your leadership team.</p>
+              <button onClick={openAdd} className="btn-primary mx-auto btn-sm"><FiPlus size={14} /> Add Leader</button>
+            </div>
+          ) : (
+            leaders.map((l, idx) => (
+              <div key={l._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0">
+                    {l.imageUrl ? (
+                      <img src={resolveImg(l.imageUrl)} alt={l.name} className="w-12 h-12 rounded-xl object-cover shadow-sm" />
+                    ) : (
+                      <div className={`w-12 h-12 ${l.color} rounded-xl flex items-center justify-center text-white font-bold text-base shadow-sm`}>
+                        {l.initials}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-800 text-sm">{l.name}</p>
+                    <p className="text-xs text-primary font-medium">{l.role}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Order</span>
+                    <span className="text-xs font-mono font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{l.order}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase">{l.dept}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEdit(l)} className="p-2 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white transition-all">
+                      <FiEdit2 size={13} />
+                    </button>
+                    <button onClick={() => { if (window.confirm(`Remove ${l.name}?`)) deleteMutation.mutate(l._id) }} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                      <FiTrash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>

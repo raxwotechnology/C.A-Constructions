@@ -386,7 +386,7 @@ export default function AdminEmployees() {
         </select>
       </div>
 
-      <div className="table-container">
+      <div className="table-container hidden lg:block">
         <table className="table">
           <thead><tr>
             <th>Employee</th><th>Emp. ID / Type</th><th>Department</th><th>Designation</th>
@@ -463,6 +463,78 @@ export default function AdminEmployees() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card List */}
+      <div className="block lg:hidden space-y-3">
+        {!data && isLoading ? (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
+          </div>
+        ) : data && employees.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-slate-200">
+            <FiUser size={32} className="mx-auto mb-2 opacity-30"/>
+            <p>No employees found</p>
+          </div>
+        ) : data ? (
+          employees.map(emp => (
+            <div key={emp._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                {emp.profilePhoto
+                  ? <img src={mediaUrl(emp.profilePhoto)} alt={emp.userId?.name}
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-white shadow"/>
+                  : <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
+                      {emp.userId?.name?.charAt(0).toUpperCase()}
+                    </div>
+                }
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-slate-800 text-sm truncate">{emp.userId?.name}</p>
+                    <span className={`badge text-[10px] ${statusColor[emp.status]||'badge-gray'}`}>{EMPLOYEE_STATUSES.find(s => s.value === emp.status)?.label || emp.status}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 truncate">{emp.userId?.email}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-2">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Designation</span>
+                  <p className="font-medium text-slate-700">{emp.designation || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Department</span>
+                  <p className="font-medium text-slate-700">{emp.department || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">ID / Type</span>
+                  <p className="font-medium text-slate-700">{emp.employeeNo || '—'} · <span className="capitalize">{emp.employmentType?.replace('_', ' ')}</span></p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Basic Salary</span>
+                  <p className="font-semibold text-slate-800">LKR {emp.basicSalary?.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-[11px] text-slate-400 font-mono">EPF: {emp.epfNumber || '—'}</span>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => setViewEmp(emp)}
+                    className="p-2 text-gray-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-colors" title="View Details">
+                    <FiEye size={14}/>
+                  </button>
+                  <button
+                    onClick={() => setActivityEmp(emp)}
+                    className="p-2 text-gray-500 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
+                    title="View activity" type="button">
+                    <FiActivity size={14}/>
+                  </button>
+                  <button type="button" onClick={()=>openEdit(emp)} className="p-2 text-gray-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
+                  <button type="button" onClick={() => { setDeletePendingEmp(emp); setDeletePassword('') }} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove employee"><FiTrash2 size={14}/></button>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : null}
       </div>
 
       {showModal && createPortal(

@@ -59,36 +59,6 @@ export default function InvoicePreviewPanel({
     terms: draft.paymentTerms,
   }
 
-  // Scale document to fit preview pane width (form takes ~45% of modal — 794px overflows without this)
-  useEffect(() => {
-    const container = scrollRef.current
-    if (!container) return
-
-    const updateScale = () => {
-      const pad = 24
-      const available = container.clientWidth - pad
-      if (available <= 0) return
-      const scale = Math.min(1, available / DOC_WIDTH_PX)
-      setFitScale(scale)
-      if (docRef.current) {
-        setDocHeight(docRef.current.offsetHeight * scale)
-      }
-    }
-
-    updateScale()
-    const ro = new ResizeObserver(updateScale)
-    ro.observe(container)
-    return () => ro.disconnect()
-  }, [merged, isDraft])
-
-  useEffect(() => {
-    if (!docRef.current) return
-    const t = setTimeout(() => {
-      setDocHeight(docRef.current.offsetHeight * fitScale)
-    }, 100)
-    return () => clearTimeout(t)
-  }, [merged, fitScale])
-
   const handlePrint = () => {
     const el = document.getElementById(printRootId)
     if (!el) return
@@ -131,34 +101,24 @@ export default function InvoicePreviewPanel({
 
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-3 sm:p-4 bg-slate-100/80"
+        className="flex-1 min-h-0 overflow-auto p-4 md:p-8 bg-slate-100/80"
       >
         <div
-          className="mx-auto"
+          id={printRootId}
+          ref={docRef}
+          className={`invoice-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
           style={{
-            width: scaledWidth,
-            minHeight: docHeight || undefined,
+            ...layoutToStyle(layout),
+            width: DOC_WIDTH_PX,
+            boxSizing: 'border-box',
           }}
         >
-          <div
-            id={printRootId}
-            ref={docRef}
-            className={`invoice-doc doc-print-frame bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
-            style={{
-              ...layoutToStyle(layout),
-              width: DOC_WIDTH_PX,
-              boxSizing: 'border-box',
-              transform: fitScale < 1 ? `scale(${fitScale})` : undefined,
-              transformOrigin: 'top left',
-            }}
-          >
-            <InvoicePrintBody
-              invoice={merged}
-              siteSettings={siteSettings}
-              showRefOnDocument={draft.showRefOnDocument}
-              forPrint={false}
-            />
-          </div>
+          <InvoicePrintBody
+            invoice={merged}
+            siteSettings={siteSettings}
+            showRefOnDocument={draft.showRefOnDocument}
+            forPrint={false}
+          />
         </div>
       </div>
     </div>

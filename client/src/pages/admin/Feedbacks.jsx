@@ -19,6 +19,9 @@ function StarDisplay({ rating, size = 14 }) {
 
 const STATUS_CFG = {
   pending:  { cls: 'badge-yellow', label: 'Pending', icon: FiClock },
+  approved: { cls: 'badge-green', label: 'Approved', icon: FiCheckCircle },
+  rejected: { cls: 'badge-red', label: 'Rejected', icon: FiXCircle },
+  new:      { cls: 'badge-yellow', label: 'New', icon: FiClock },
   reviewed: { cls: 'badge-blue',   label: 'Reviewed', icon: FiMessageSquare },
   resolved: { cls: 'badge-green',  label: 'Resolved', icon: FiCheckCircle },
 }
@@ -54,6 +57,16 @@ export default function AdminFeedbacks() {
       setSelectedId(null)
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed to save response'),
+  })
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }) =>
+      api.put(`/feedback/${id}/status`, { status }).then(r => r.data),
+    onSuccess: () => {
+      toast.success('Status updated')
+      qc.invalidateQueries({ queryKey: ['admin-feedbacks'] })
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed to update status'),
   })
 
   const feedbacks = data?.feedbacks || []
@@ -146,11 +159,11 @@ export default function AdminFeedbacks() {
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-secondary to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                        {item.client?.name?.charAt(0)?.toUpperCase() || '?'}
+                        {(item.client?.name || item.name || '?').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-semibold text-primary text-sm">{item.client?.name || 'Anonymous'}</p>
-                        <p className="text-xs text-slate-400">{item.client?.email || '—'}</p>
+                        <p className="font-semibold text-primary text-sm">{item.client?.name || item.name || 'Anonymous'}</p>
+                        <p className="text-xs text-slate-400">{item.client?.email || item.email || '—'}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
@@ -182,12 +195,26 @@ export default function AdminFeedbacks() {
                     </div>
                   )}
 
-                  {/* Action button */}
+                  {/* Action buttons */}
                   {!isOpen && (
-                    <button onClick={() => setSelectedId(item._id)}
-                      className="btn-outline btn-sm w-full justify-center gap-1.5 mt-1">
-                      <FiSend size={12} /> {item.response ? 'Update Response' : 'Respond'}
-                    </button>
+                    <div className="flex items-center gap-2 mt-1">
+                      <button onClick={() => setSelectedId(item._id)}
+                        className="btn-outline btn-sm flex-1 justify-center gap-1.5">
+                        <FiSend size={12} /> {item.response ? 'Update Response' : 'Respond'}
+                      </button>
+                      {item.status !== 'approved' && (
+                        <button onClick={() => statusMutation.mutate({ id: item._id, status: 'approved' })}
+                          className="btn-primary bg-green-500 hover:bg-green-600 border-none btn-sm px-3 text-white flex items-center justify-center" title="Approve">
+                          <FiCheckCircle size={14} />
+                        </button>
+                      )}
+                      {item.status !== 'rejected' && (
+                        <button onClick={() => statusMutation.mutate({ id: item._id, status: 'rejected' })}
+                          className="btn-danger btn-sm px-3 flex items-center justify-center" title="Reject">
+                          <FiXCircle size={14} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 

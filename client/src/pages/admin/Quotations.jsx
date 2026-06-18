@@ -563,15 +563,15 @@ export default function AdminQuotations() {
 
       {/* Create/Edit — form + live document preview */}
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4" style={{ zIndex: 99999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4 z-[99999]">
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
             className="doc-editor-modal bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200">
-            <div className="flex items-center justify-between p-3 sm:p-4 md:p-5 border-b shrink-0">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-primary font-heading">{editing ? 'Edit Quotation' : 'New Quotation'}</h3>
-                {(editing?.quotationNo || watch('quotationNo')) && <p className="text-xs text-slate-500 mt-0.5 font-mono">#{editing?.quotationNo || watch('quotationNo')}</p>}
+            <div className="flex items-center justify-between px-4 py-3 sm:p-4 md:p-5 border-b shrink-0 bg-white z-10">
+              <div className="min-w-0 pr-2">
+                <h3 className="text-base sm:text-lg font-bold text-primary font-heading truncate">{editing ? 'Edit Quotation' : 'New Quotation'}</h3>
+                {(editing?.quotationNo || watch('quotationNo')) && <p className="text-xs text-slate-500 mt-0.5 font-mono truncate">#{editing?.quotationNo || watch('quotationNo')}</p>}
               </div>
-              <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+              <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg shrink-0"><FiX/></button>
             </div>
             {/* Mobile tab switcher */}
             <div className="lg:hidden flex border-b border-slate-200 shrink-0">
@@ -1024,16 +1024,20 @@ export default function AdminQuotations() {
 
       {/* Full document preview — layout, fonts, editable content */}
       {viewing && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-[99999]">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-4 z-[99999]">
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border border-slate-200">
-            <div className="flex items-center justify-between gap-3 p-4 border-b bg-slate-50 shrink-0 no-print">
-              <div className="flex items-center gap-3 min-w-0">
-                <h3 className="text-lg font-bold text-slate-800 truncate">Document preview</h3>
-                <span className="badge badge-navy font-mono text-xs shrink-0">{viewing.quotationNo}</span>
-                <span className={`badge capitalize shrink-0 ${STATUS_COLOR[viewing.status] || 'badge-gray'}`}>{viewing.status}</span>
+            className="bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200">
+            <div className="flex items-start justify-between gap-4 p-4 sm:p-5 border-b bg-slate-50 shrink-0 no-print">
+              <div className="min-w-0 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800">Preview</h3>
+                  <span className="badge badge-navy font-mono text-[10px] sm:text-xs px-2 py-0.5">{viewing.quotationNo}</span>
+                </div>
+                <div className="flex items-center">
+                  <span className={`badge capitalize text-[10px] sm:text-xs px-2 py-0.5 ${STATUS_COLOR[viewing.status] || 'badge-gray'}`}>{viewing.status}</span>
+                </div>
               </div>
-              <button type="button" onClick={() => setViewing(null)} className="p-2 hover:bg-slate-200 rounded-lg shrink-0"><FiX/></button>
+              <button type="button" onClick={() => setViewing(null)} className="p-2 sm:p-2.5 bg-white hover:bg-slate-100 rounded-xl shrink-0 border border-slate-200 shadow-sm transition-colors"><FiX size={18}/></button>
             </div>
             <QuotationPreviewPanel
               quotation={viewing}

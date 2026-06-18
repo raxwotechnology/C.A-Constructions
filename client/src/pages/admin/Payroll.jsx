@@ -78,6 +78,8 @@ export default function AdminPayroll() {
   const [editForm, setEditForm] = useState({})
   const [deleteId, setDeleteId] = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showPreviewDetails, setShowPreviewDetails] = useState(false)
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -594,9 +596,11 @@ export default function AdminPayroll() {
             </div>
           </div>
 
-          {/* Auto-loaded employee summary */}
+          {/* Loader and Error Alerts */}
           {livePayrollLoading && selectedEmployee && (
-            <div className="text-center py-3 text-slate-400 text-sm animate-pulse">Calculating live payroll…</div>
+            <div className="text-center py-4 text-slate-400 text-sm animate-pulse flex items-center justify-center gap-2">
+              <span className="spinner w-4 h-4 border-2 border-slate-300 border-t-primary rounded-full animate-spin" /> Calculating live payroll…
+            </div>
           )}
           {livePayrollError && selectedEmployee && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
@@ -604,84 +608,120 @@ export default function AdminPayroll() {
               <button type="button" onClick={() => refetchLivePayroll()} className="ml-2 underline font-semibold">Retry</button>
             </div>
           )}
-          {liveEmp && liveSnap && !livePayrollLoading && (
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
-              <p className="font-bold text-slate-600 uppercase tracking-wide mb-1.5 flex items-center gap-1"><FiUser size={12} /> {liveEmp.name}</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-600">
-                <span>Active Loans:</span><span className={activeLoans.length > 0 ? 'text-red-600 font-medium' : 'text-emerald-600'}>{activeLoans.length} loan(s)</span>
-                <span>Loan Deduction (engine):</span><span className="font-semibold text-red-500">{formatMoney(liveSnap.loanDeduction || 0)}</span>
-                <span>Active Advances:</span><span>{activeAdvances.length}</span>
-                <span>Advance Deduction:</span><span className="font-semibold text-orange-600">{formatMoney(liveSnap.advanceDeduction || 0)}</span>
-              </div>
-              {activeLoans.map((loan) => (
-                <p key={loan._id} className="text-slate-500 mt-1">
-                  {loan.reason || 'Loan'}: {formatMoney(loan.monthlyInstallment || 0)}/mo · {loan.deductionType === 'salary' ? '✓ salary deduct' : 'separate'} · {formatMoney(loan.outstandingBalance || 0)} left
-                </p>
-              ))}
-              {livePayrollData?.existingPayroll?.status === 'approved' && (
-                <p className="mt-2 text-amber-700 font-medium">Payroll is approved — use ↻ Reopen in the table to apply new deductions.</p>
-              )}
-            </div>
-          )}
 
-          {/* Live preview when employee selected */}
-          {selectedEmp && previewCalc && (
-            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 text-xs space-y-1.5">
-              <p className="font-bold text-blue-800 mb-2">📋 Salary Preview — {selectedEmp.userId?.name}</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-blue-700">
-                <span>Department:</span><span className="font-medium">{selectedEmp.department}</span>
-                <span>Designation:</span><span className="font-medium">{selectedEmp.designation}</span>
-                <span>Basic Salary:</span><span className="font-medium">{formatMoney(previewCalc.basic)}</span>
-                <span>Total Advance:</span><span className="font-medium">{formatMoney(previewCalc.totalAdvance)}</span>
-                <span>Deducted Advance:</span><span className="text-orange-600 font-medium">- {formatMoney(previewCalc.deductedAdvance)}</span>
-                <span>Overtime (Auto):</span><span className={previewCalc.otTotal > 0 ? "font-bold text-orange-600" : "font-medium"}>LKR {previewCalc.otTotal.toLocaleString()}</span>
-                <span>Allowances:</span><span className="font-medium">LKR {Number(previewCalc.allowances || 0).toLocaleString()}</span>
-                <span>Project commissions:</span><span className="font-medium text-purple-700">LKR {Number(previewCalc.projectCommissionTotal || 0).toLocaleString()}</span>
-                <span>Commissions (total):</span><span className="font-medium">LKR {Number(previewCalc.commissions || 0).toLocaleString()}</span>
-                <span>Bonus / targets:</span><span className="font-medium">LKR {Number(previewCalc.bonus || 0).toLocaleString()}</span>
-                <span className="border-t border-blue-200 pt-1">Gross:</span><span className="font-bold border-t border-blue-200 pt-1">LKR {previewCalc.gross.toLocaleString()}</span>
-                <span className="text-purple-600">Income tax:</span><span className="text-purple-600 font-medium">- LKR {Number(previewCalc.incomeTax || 0).toLocaleString()}</span>
-                <span className="text-red-600">EPF (employee):</span><span className="text-red-600 font-medium">- LKR {previewCalc.epfEmp.toLocaleString()}</span>
-                <span className="text-orange-600">Loan Deduction:</span><span className="text-orange-600 font-medium">- {formatMoney(previewCalc.loanDeduction)}</span>
-                <span className="text-orange-600">Leave / penalties:</span><span className="text-orange-600 font-medium">- {formatMoney((previewCalc.leaveDeduction || 0) + (previewCalc.penaltyDeduction || 0))}</span>
-                <span className="text-orange-600">Other Deductions:</span><span className="text-orange-600 font-medium">- {formatMoney(otherDeductions)}</span>
-                <span className="font-bold text-green-700 border-t border-blue-200 pt-1">Net Salary:</span>
-                <span className="font-bold text-green-700 border-t border-blue-200 pt-1">{formatMoney(previewCalc.net)}</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-blue-200 grid grid-cols-2 gap-x-4 text-blue-600">
-                <span>EPF Employer (12%):</span><span className="font-medium">LKR {previewCalc.epfEmpl.toLocaleString()}</span>
-                <span>ETF Employer (3%):</span><span className="font-medium">LKR {previewCalc.etf.toLocaleString()}</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-blue-200 grid grid-cols-2 gap-x-4 text-blue-800">
-                <span className="font-bold col-span-2 mb-1">Employee Bank Details</span>
-                <span>Bank Name:</span><span className="font-medium">{selectedEmp.bank || '—'}</span>
-                <span>Branch:</span><span className="font-medium">{selectedEmp.bankBranch || '—'}</span>
-                <span>Account Name:</span><span className="font-medium">{selectedEmp.accountHolder || '—'}</span>
-                <span>Account Number:</span><span className="font-medium">{selectedEmp.accountNumber || '—'}</span>
-              </div>
-            </div>
-          )}
+          {/* Collapsible live preview when employee selected */}
+          {selectedEmp && previewCalc && !livePayrollLoading && (
+            <div className="border border-slate-200/80 rounded-xl overflow-hidden bg-white shadow-sm">
+              <button
+                type="button"
+                onClick={() => setShowPreviewDetails(!showPreviewDetails)}
+                className="w-full flex items-center justify-between p-3 text-left bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <FiFileText className="text-primary shrink-0" size={16} />
+                  <span className="text-xs sm:text-sm font-semibold text-slate-800 truncate">
+                    Live Preview: <span className="text-green-700 font-bold">{formatMoney(previewCalc.net)} Net</span>
+                  </span>
+                </div>
+                <FiChevronDown
+                  className={`text-slate-400 transition-transform shrink-0 ${showPreviewDetails ? 'rotate-180' : ''}`}
+                  size={16}
+                />
+              </button>
 
-          {projectPayrollPreview && (projectPayrollPreview.projectLines?.length > 0 || projectPayrollPreview.autoCommission > 0) && (
-            <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs space-y-1.5">
-              <p className="font-bold text-purple-800 mb-1">Project commission breakdown</p>
-              {(projectPayrollPreview.projectLines || []).map((line, i) => (
-                <div key={`${line.project}-${i}`} className="flex justify-between text-purple-700">
-                  <span>{line.projectName} ({line.type === 'commission' ? 'commission' : 'allocation'})</span>
-                  <span className="font-medium">LKR {Number(line.amount || 0).toLocaleString()}</span>
-                </div>
-              ))}
-              {projectPayrollPreview.autoCommission > 0 && (
-                <div className="flex justify-between text-purple-700">
-                  <span>Completed projects (auto %)</span>
-                  <span className="font-medium">LKR {Number(projectPayrollPreview.autoCommission).toLocaleString()}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-purple-200 pt-1 font-bold text-purple-900">
-                <span>Total from projects</span>
-                <span>LKR {Number(projectPayrollPreview.totalProjectCommissions || 0).toLocaleString()}</span>
-              </div>
-              <p className="text-[10px] text-purple-600">Included automatically when payroll is generated.</p>
+              <AnimatePresence>
+                {showPreviewDetails && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden border-t border-slate-100 bg-white"
+                  >
+                    <div className="p-3 space-y-3">
+                      {/* Auto-loaded employee summary */}
+                      {liveEmp && liveSnap && (
+                        <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[11px] space-y-1">
+                          <p className="font-bold text-slate-600 uppercase tracking-wide mb-1 flex items-center gap-1"><FiUser size={11} /> {liveEmp.name}</p>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-slate-600">
+                            <span>Active Loans:</span><span className={activeLoans.length > 0 ? 'text-red-600 font-medium' : 'text-emerald-600'}>{activeLoans.length} loan(s)</span>
+                            <span>Loan Deduction (engine):</span><span className="font-semibold text-red-500">{formatMoney(liveSnap.loanDeduction || 0)}</span>
+                            <span>Active Advances:</span><span>{activeAdvances.length}</span>
+                            <span>Advance Deduction:</span><span className="font-semibold text-orange-600">{formatMoney(liveSnap.advanceDeduction || 0)}</span>
+                          </div>
+                          {activeLoans.map((loan) => (
+                            <p key={loan._id} className="text-slate-500">
+                              {loan.reason || 'Loan'}: {formatMoney(loan.monthlyInstallment || 0)}/mo · {loan.deductionType === 'salary' ? '✓ salary' : 'sep'} · {formatMoney(loan.outstandingBalance || 0)} left
+                            </p>
+                          ))}
+                          {livePayrollData?.existingPayroll?.status === 'approved' && (
+                            <p className="mt-1 text-amber-700 font-medium">Payroll approved — Reopen to apply changes.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Salary Preview */}
+                      <div className="p-2.5 bg-blue-50/60 rounded-lg border border-blue-100 text-[11px] space-y-1">
+                        <p className="font-bold text-blue-800 mb-1 flex items-center gap-1">📋 Details — {selectedEmp.userId?.name}</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-blue-700">
+                          <span>Department:</span><span className="font-medium">{selectedEmp.department}</span>
+                          <span>Designation:</span><span className="font-medium">{selectedEmp.designation}</span>
+                          <span>Basic Salary:</span><span className="font-medium">{formatMoney(previewCalc.basic)}</span>
+                          <span>Total Advance:</span><span className="font-medium">{formatMoney(previewCalc.totalAdvance)}</span>
+                          <span>Deducted Advance:</span><span className="text-orange-600 font-medium">- {formatMoney(previewCalc.deductedAdvance)}</span>
+                          <span>Overtime (Auto):</span><span className={previewCalc.otTotal > 0 ? "font-bold text-orange-600" : "font-medium"}>LKR {previewCalc.otTotal.toLocaleString()}</span>
+                          <span>Allowances:</span><span className="font-medium">LKR {Number(previewCalc.allowances || 0).toLocaleString()}</span>
+                          <span>Project commissions:</span><span className="font-medium text-purple-700">LKR {Number(previewCalc.projectCommissionTotal || 0).toLocaleString()}</span>
+                          <span>Commissions (total):</span><span className="font-medium">LKR {Number(previewCalc.commissions || 0).toLocaleString()}</span>
+                          <span>Bonus / targets:</span><span className="font-medium">LKR {Number(previewCalc.bonus || 0).toLocaleString()}</span>
+                          <span className="border-t border-blue-200 pt-0.5">Gross:</span><span className="font-bold border-t border-blue-200 pt-0.5">LKR {previewCalc.gross.toLocaleString()}</span>
+                          <span className="text-purple-600">Income tax:</span><span className="text-purple-600 font-medium">- LKR {Number(previewCalc.incomeTax || 0).toLocaleString()}</span>
+                          <span className="text-red-600">EPF (employee):</span><span className="text-red-600 font-medium">- LKR {previewCalc.epfEmp.toLocaleString()}</span>
+                          <span className="text-orange-600">Loan Deduction:</span><span className="text-orange-600 font-medium">- {formatMoney(previewCalc.loanDeduction)}</span>
+                          <span className="text-orange-600">Leave / penalties:</span><span className="text-orange-600 font-medium">- {formatMoney((previewCalc.leaveDeduction || 0) + (previewCalc.penaltyDeduction || 0))}</span>
+                          <span className="text-orange-600">Other Deductions:</span><span className="text-orange-600 font-medium">- {formatMoney(otherDeductions)}</span>
+                          <span className="font-bold text-green-700 border-t border-blue-200 pt-0.5">Net Salary:</span>
+                          <span className="font-bold text-green-700 border-t border-blue-200 pt-0.5">{formatMoney(previewCalc.net)}</span>
+                        </div>
+                        <div className="mt-1.5 pt-1.5 border-t border-blue-200 grid grid-cols-2 gap-x-4 text-blue-600">
+                          <span>EPF Employer (12%):</span><span className="font-medium">LKR {previewCalc.epfEmpl.toLocaleString()}</span>
+                          <span>ETF Employer (3%):</span><span className="font-medium">LKR {previewCalc.etf.toLocaleString()}</span>
+                        </div>
+                        <div className="mt-1.5 pt-1.5 border-t border-blue-200 grid grid-cols-2 gap-x-4 text-blue-800">
+                          <span className="font-bold col-span-2 mb-0.5">Employee Bank Details</span>
+                          <span>Bank Name:</span><span className="font-medium">{selectedEmp.bank || '—'}</span>
+                          <span>Branch:</span><span className="font-medium">{selectedEmp.bankBranch || '—'}</span>
+                          <span>Account Name:</span><span className="font-medium">{selectedEmp.accountHolder || '—'}</span>
+                          <span>Account Number:</span><span className="font-medium">{selectedEmp.accountNumber || '—'}</span>
+                        </div>
+                      </div>
+
+                      {/* Project commission breakdown */}
+                      {projectPayrollPreview && (projectPayrollPreview.projectLines?.length > 0 || projectPayrollPreview.autoCommission > 0) && (
+                        <div className="p-2.5 bg-purple-50 rounded-lg border border-purple-100 text-[11px] space-y-1">
+                          <p className="font-bold text-purple-800 mb-0.5">Project commission breakdown</p>
+                          {(projectPayrollPreview.projectLines || []).map((line, i) => (
+                            <div key={`${line.project}-${i}`} className="flex justify-between text-purple-700">
+                              <span>{line.projectName} ({line.type === 'commission' ? 'commission' : 'allocation'})</span>
+                              <span className="font-medium">LKR {Number(line.amount || 0).toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {projectPayrollPreview.autoCommission > 0 && (
+                            <div className="flex justify-between text-purple-700">
+                              <span>Completed projects (auto %)</span>
+                              <span className="font-medium">LKR {Number(projectPayrollPreview.autoCommission).toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-purple-200 pt-0.5 font-bold text-purple-900">
+                            <span>Total from projects</span>
+                            <span>LKR {Number(projectPayrollPreview.totalProjectCommissions || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 
@@ -692,26 +732,26 @@ export default function AdminPayroll() {
               <h4 className="text-sm font-bold text-emerald-800 flex items-center gap-2">
                 <FiPlus className="text-emerald-600" /> Additional Earnings
               </h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Allowances</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" value={allowances} onChange={e => setAllowances(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={allowances} onChange={e => setAllowances(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Commissions</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" value={commissions} onChange={e => setCommissions(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={commissions} onChange={e => setCommissions(Number(e.target.value || 0))} />
                   </div>
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Bonus / Incentives</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" value={bonus} onChange={e => setBonus(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={bonus} onChange={e => setBonus(Number(e.target.value || 0))} />
                   </div>
                 </div>
               </div>
@@ -722,103 +762,127 @@ export default function AdminPayroll() {
               <h4 className="text-sm font-bold text-orange-800 flex items-center gap-2">
                 <FiAlertCircle className="text-orange-600" /> Deductions
               </h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Advance Deduction</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" value={advanceDeduction} onChange={e => setAdvanceDeduction(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={advanceDeduction} onChange={e => setAdvanceDeduction(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Loan Ded. <span className="text-xs text-blue-500 font-normal ml-1">(auto)</span></label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Leave Deduction</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" />
+                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Other Deductions</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" value={otherDeductions} onChange={e => setOtherDeductions(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={otherDeductions} onChange={e => setOtherDeductions(Number(e.target.value || 0))} />
                   </div>
                 </div>
-                <div className="col-span-2 flex items-center gap-2 pt-1 bg-white p-3 rounded-lg border border-orange-100/80 shadow-sm mt-1">
-                  <input id="continue-loan-deduction" type="checkbox" className="rounded border-orange-300 text-orange-600 focus:ring-orange-500 w-4 h-4" checked={continueLoanDeduction} onChange={e => setContinueLoanDeduction(e.target.checked)} />
-                  <label htmlFor="continue-loan-deduction" className="text-sm font-medium text-orange-900 cursor-pointer select-none">Continue loan deduction to next month</label>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment & Settings */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-5">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <FiDollarSign className="text-slate-500" /> Payment & Settings
-              </h4>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`${isLedgerBankMethod(paymentMethod) ? 'col-span-1' : 'col-span-2'}`}>
-                  <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Payment Method</label>
-                  <select className="form-select text-sm bg-white" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="cash">Cash</option>
-                    <option value="online_transfer">Online Transfer</option>
-                    <option value="card_payment">Card Payment</option>
-                    <option value="cheque">Cheque</option>
-                  </select>
-                </div>
-                {isLedgerBankMethod(paymentMethod) && (
-                  <div className="col-span-1">
-                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Source Bank Account</label>
-                    <select className="form-select text-sm bg-white" value={payBank} onChange={e => setPayBank(e.target.value)}>
-                      <option value="">Select Account...</option>
-                      {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''}</option>)}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t border-slate-200 pt-5">
-                <p className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><FiFileText className="text-slate-400" /> Payslip Signatory</p>
-                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <PayslipSignatoryFields />
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 pt-5">
-                <p className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><FiUser className="text-slate-400" /> Employee Bank Details <span className="font-normal text-slate-400 ml-1">(Auto-fill)</span></p>
-                <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                  <div>
-                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Bank Name</label>
-                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.bank} onChange={e => setEmpBankDetails({...empBankDetails, bank: e.target.value})} placeholder="e.g. BOC" />
-                  </div>
-                  <div>
-                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Branch</label>
-                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.bankBranch} onChange={e => setEmpBankDetails({...empBankDetails, bankBranch: e.target.value})} placeholder="Branch" />
-                  </div>
-                  <div>
-                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Account Holder</label>
-                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.accountHolder} onChange={e => setEmpBankDetails({...empBankDetails, accountHolder: e.target.value})} placeholder="Name on account" />
-                  </div>
-                  <div>
-                    <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Account Number</label>
-                    <input type="text" className="form-input text-sm bg-white" value={empBankDetails.accountNumber} onChange={e => setEmpBankDetails({...empBankDetails, accountNumber: e.target.value})} placeholder="A/C Number" />
-                  </div>
-                  <div className="col-span-2 text-[11px] text-blue-700 mt-1 bg-blue-50 px-3 py-2 rounded flex items-center gap-2 border border-blue-100">
-                    <FiAlertCircle className="shrink-0" />
-                    <span>Editing these details here will permanently save them to the employee's profile.</span>
-                  </div>
+                <div className="sm:col-span-2 flex items-center gap-2 pt-1 bg-white p-3 rounded-lg border border-orange-100/80 shadow-sm mt-1">
+                  <input id="continue-loan-deduction" type="checkbox" className="rounded border-orange-300 text-orange-600 focus:ring-orange-500 w-4 h-4 shrink-0" checked={continueLoanDeduction} onChange={e => setContinueLoanDeduction(e.target.checked)} />
+                  <label htmlFor="continue-loan-deduction" className="text-sm font-medium text-orange-900 cursor-pointer select-none leading-tight">Continue loan deduction to next month</label>
                 </div>
               </div>
             </div>
+
+            {/* Toggle Advanced Settings */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 text-slate-600 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all bg-white hover:bg-slate-50"
+              >
+                {showAdvanced ? 'Hide Payment, Signatory & Bank Settings' : 'Show Payment, Signatory & Bank Settings'}
+              </button>
+            </div>
+
+            {/* Advanced Settings Drawer */}
+            <AnimatePresence>
+              {showAdvanced && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden space-y-4 pt-1"
+                >
+                  {/* Payment & Settings */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-5">
+                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <FiDollarSign className="text-slate-500" /> Payment & Settings
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className={`${isLedgerBankMethod(paymentMethod) ? 'col-span-1' : 'sm:col-span-2'}`}>
+                        <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Payment Method</label>
+                        <select className="form-select text-sm bg-white" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                          <option value="bank_transfer">Bank Transfer</option>
+                          <option value="cash">Cash</option>
+                          <option value="online_transfer">Online Transfer</option>
+                          <option value="card_payment">Card Payment</option>
+                          <option value="cheque">Cheque</option>
+                        </select>
+                      </div>
+                      {isLedgerBankMethod(paymentMethod) && (
+                        <div className="col-span-1">
+                          <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Source Bank Account</label>
+                          <select className="form-select text-sm bg-white" value={payBank} onChange={e => setPayBank(e.target.value)}>
+                            <option value="">Select Account...</option>
+                            {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName}{b.branchName ? ` - ${b.branchName}` : ''}</option>)}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-5">
+                      <p className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><FiFileText className="text-slate-400" /> Payslip Signatory</p>
+                      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                        <PayslipSignatoryFields />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-5">
+                      <p className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><FiUser className="text-slate-400" /> Employee Bank Details <span className="font-normal text-slate-400 ml-1">(Auto-fill)</span></p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                        <div>
+                          <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Bank Name</label>
+                          <input type="text" className="form-input text-sm bg-white" value={empBankDetails.bank} onChange={e => setEmpBankDetails({...empBankDetails, bank: e.target.value})} placeholder="e.g. BOC" />
+                        </div>
+                        <div>
+                          <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Branch</label>
+                          <input type="text" className="form-input text-sm bg-white" value={empBankDetails.bankBranch} onChange={e => setEmpBankDetails({...empBankDetails, bankBranch: e.target.value})} placeholder="Branch" />
+                        </div>
+                        <div>
+                          <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Account Holder</label>
+                          <input type="text" className="form-input text-sm bg-white" value={empBankDetails.accountHolder} onChange={e => setEmpBankDetails({...empBankDetails, accountHolder: e.target.value})} placeholder="Name on account" />
+                        </div>
+                        <div>
+                          <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Account Number</label>
+                          <input type="text" className="form-input text-sm bg-white" value={empBankDetails.accountNumber} onChange={e => setEmpBankDetails({...empBankDetails, accountNumber: e.target.value})} placeholder="A/C Number" />
+                        </div>
+                        <div className="sm:col-span-2 text-[11px] text-blue-700 mt-1 bg-blue-50 px-3 py-2 rounded flex items-center gap-2 border border-blue-100">
+                          <FiAlertCircle className="shrink-0" />
+                          <span>Editing these details here will permanently save them to the employee's profile.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           
           <button className="btn-primary w-full py-3 mt-4 text-sm font-bold shadow-md hover:shadow-lg transition-all" disabled={!selectedEmp || generateOneMut.isPending} onClick={handleGenerateClick}>
@@ -888,7 +952,7 @@ export default function AdminPayroll() {
       </div>
 
       {/* Payroll Table */}
-      <div className="table-container">
+      <div className="table-container hidden lg:block">
         <table className="table">
           <thead><tr>
             <th>Employee</th><th>Basic</th><th>OT</th><th>Commissions</th><th>Bonus</th>
@@ -1006,6 +1070,135 @@ export default function AdminPayroll() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card List */}
+      <div className="block lg:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
+          </div>
+        ) : filteredPayrolls.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-slate-200">
+            <FiDollarSign size={32} className="mx-auto mb-2 opacity-30"/>
+            <p>No matching payroll found for {MONTHS[month-1]} {year}.</p>
+          </div>
+        ) : (
+          filteredPayrolls.map(p => (
+            <div key={p._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm flex-shrink-0">
+                  {p.employee?.userId?.name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-slate-800 text-sm truncate">{p.employee?.userId?.name}</p>
+                    <span className={`badge text-[10px] capitalize ${statusColor[p.status]||'badge-gray'}`}>{p.status}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono">{p.employee?.employeeNo}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-2">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Basic / Gross</span>
+                  <p className="font-medium text-slate-700">LKR {p.basicSalary?.toLocaleString()} / LKR {p.grossSalary?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Net Pay</span>
+                  <p className="font-bold text-green-700">LKR {p.netSalary?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">OT / Commission / Bonus</span>
+                  <p className="font-medium text-slate-700">
+                    LKR {p.overtime || 0} / LKR {p.commissions || 0} / LKR {p.bonus || 0}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Deductions (EPF / Loan)</span>
+                  <p className="font-medium text-red-600">LKR {p.epfEmployee || 0} / LKR {p.loanDeduction || 0}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                {p.status !== 'paid' ? (
+                  <button
+                    onClick={() => setPreviewPayroll(p)}
+                    className="btn-primary py-1.5 px-3 text-xs font-bold uppercase flex items-center gap-1"
+                    title="Review & pay"
+                  >
+                    <FiDollarSign size={12}/> Pay
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setPreviewPayroll(p)}
+                    className="btn-outline py-1.5 px-3 text-xs flex items-center gap-1"
+                    title="View payment record"
+                  >
+                    <FiEye size={12}/> View details
+                  </button>
+                )}
+
+                <div className="flex gap-1">
+                  {(p.status === 'draft' || p.status === 'reviewed') && (
+                    <button
+                      onClick={() => syncPayrollMut.mutate({ employeeId: p.employee?._id })}
+                      disabled={syncPayrollMut.isPending}
+                      className="p-2 text-gray-500 hover:text-cyan-600 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="Recalculate"
+                    >
+                      <FiRefreshCw size={13} className={syncPayrollMut.isPending ? 'animate-spin' : ''}/>
+                    </button>
+                  )}
+                  {p.status === 'approved' && (
+                    <button
+                      onClick={() => reopenMut.mutate(p._id)}
+                      disabled={reopenMut.isPending}
+                      className="p-2 text-gray-500 hover:text-amber-600 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="Reopen"
+                    >
+                      <FiRefreshCw size={13}/>
+                    </button>
+                  )}
+                  {p.status === 'draft' && (
+                    <button onClick={() => reviewMut.mutate(p._id)} className="p-2 text-gray-500 hover:text-purple-600 hover:bg-slate-100 rounded-lg transition-colors" title="Mark Reviewed">
+                      <FiCheck size={13}/>
+                    </button>
+                  )}
+                  {p.status === 'reviewed' && (
+                    <button onClick={() => approveMut.mutate(p._id)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors" title="Approve">
+                      <FiCheck size={13}/>
+                    </button>
+                  )}
+                  <button onClick={() => handlePrintSlip(p)} className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition-colors" title="Print payslip">
+                    <FiPrinter size={13}/>
+                  </button>
+                  <button onClick={() => handleDownloadSlip(p)} className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors" title="Download PDF Slip">
+                    <FiFileText size={13}/>
+                  </button>
+                  <button onClick={() => { 
+                    setEditPayroll(p); 
+                    setEditForm({ 
+                      status: p.status,
+                      allowances: p.allowances, 
+                      commissions: p.commissions, 
+                      bonus: p.bonus, 
+                      deductions: p.deductions, 
+                      loanDeduction: p.loanDeduction, 
+                      paymentMethod: p.paymentMethod || 'bank_transfer',
+                      bankAccount: p.bankAccount?._id || p.bankAccount || ''
+                    }) 
+                  }} className="p-2 text-gray-500 hover:text-blue-500 hover:bg-slate-100 rounded-lg transition-colors" title="Edit">
+                    <FiPlay size={12} className="rotate-90"/>
+                  </button>
+                  <button onClick={() => setDeleteId(p._id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                    <FiX size={13}/>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Payment Preview Modal */}

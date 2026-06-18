@@ -32,14 +32,16 @@ const CHEQUE_EXPORT_COLUMNS = [
   { header: 'Bank', accessor: (c) => c.bankName || '' },
   { header: 'Bank Account', accessor: (c) => c.bankAccount?.bankName ? `${c.bankAccount.bankName} · ${c.bankAccount.accountNumber || ''}` : '' },
   { header: 'Drawer / Payee', accessor: (c) => c.drawerOrPayee || '' },
-  { header: 'Cheque Date', accessor: (c) => (c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-LK') : '') },
+  { header: 'Cheque Date', accessor: (c) => { const fd = fmtDate(c.chequeDate); return fd === '—' ? '' : fd } },
   { header: 'Notes', accessor: (c) => c.notes || '' },
 ]
 
 function fmtDate(d) {
   if (!d) return '—'
   try {
-    return new Date(d).toLocaleDateString('en-LK')
+    const dt = new Date(d)
+    if (isNaN(dt.getTime())) return '—'
+    return dt.toLocaleDateString('en-LK')
   } catch {
     return '—'
   }
@@ -332,7 +334,7 @@ export default function AdminCheques() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card hidden md:block">
         <div className="table-container">
           <table className="table">
             <thead>
@@ -359,7 +361,7 @@ export default function AdminCheques() {
                   <tr key={c._id}>
                     <td>
                       <p className="font-mono text-sm font-semibold text-slate-800">{c.chequeNumber}</p>
-                      <p className="text-xs text-slate-500">{c.bankName || '—'} · {c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-LK') : '—'}</p>
+                      <p className="text-xs text-slate-500">{c.bankName || '—'} · {fmtDate(c.chequeDate)}</p>
                     </td>
                     <td className="capitalize text-sm">{c.direction}</td>
                     <td className="capitalize text-sm text-slate-600">{c.source}</td>
@@ -420,6 +422,88 @@ export default function AdminCheques() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-12"><div className="w-7 h-7 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></div>
+        ) : cheques.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 bg-white rounded-2xl border border-slate-200 border-dashed">No cheques yet.</div>
+        ) : cheques.map((c) => (
+          <div key={c._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+            {/* Header row */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-mono font-bold text-slate-800 text-sm">{c.chequeNumber}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{c.bankName || '—'} · {fmtDate(c.chequeDate)}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <span className={`badge text-[10px] font-bold uppercase tracking-wide ${STATUS_BADGE[c.status] || 'badge-gray'}`}>
+                  {CHEQUE_STATUS_LABEL[c.status] || c.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Direction + Source + Amount row */}
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2 flex-wrap">
+                <span className="bg-slate-100 text-slate-600 text-[10px] font-semibold capitalize px-2 py-0.5 rounded-full">{c.direction}</span>
+                <span className="bg-slate-100 text-slate-500 text-[10px] capitalize px-2 py-0.5 rounded-full">{c.source}</span>
+              </div>
+              <p className={`font-bold text-sm ${c.direction === 'received' ? 'text-emerald-600' : 'text-red-600'}`}>
+                LKR {Number(c.amount || 0).toLocaleString()}
+              </p>
+            </div>
+
+            {/* Bank account selector */}
+            <div>
+              <label className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide block mb-1">Bank Account</label>
+              <select
+                className="form-select text-xs py-1.5 w-full"
+                value={c.bankAccount?._id || c.bankAccount || ''}
+                onChange={(e) => handleBankChange(c._id, e.target.value)}
+              >
+                <option value="">— Select bank —</option>
+                {banks.filter((b) => b.isActive !== false).map((b) => (
+                  <option key={b._id} value={b._id}>{b.bankName} · {b.accountNumber}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status selector + Actions */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <select
+                className="form-select text-xs py-1.5 flex-1 capitalize"
+                value={c.status}
+                onChange={(e) => handleStatusChange(c, e.target.value)}
+              >
+                {CHEQUE_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+                {!CHEQUE_STATUS_OPTIONS.some((o) => o.value === c.status) && c.status && (
+                  <option value={c.status}>{CHEQUE_STATUS_LABEL[c.status] || c.status}</option>
+                )}
+              </select>
+              <div className="flex items-center gap-1 shrink-0">
+                <button type="button"
+                  className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                  title="View details"
+                  onClick={() => { setViewFallback(c); setViewId(c._id) }}
+                >
+                  <FiEye size={14} />
+                </button>
+                <button type="button"
+                  className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                  title="Delete"
+                  onClick={() => requestDeleteCheque(c._id)}
+                >
+                  <FiTrash2 size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {viewId &&

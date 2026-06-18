@@ -7,6 +7,7 @@ const TECH_STACK = ['React.js', 'Node.js', 'MongoDB', 'Next.js', 'React Native',
 
 const Hero3D = lazy(() => import('../../components/ui/Hero3D'))
 import TiltCard from '../../components/ui/TiltCard'
+import HomeSignInForm from '../../components/ui/HomeSignInForm'
 
 const PROCESS_STEPS = [
   { icon: FiSearch,      num: '01', title: 'Discovery',      desc: 'We understand your business goals, user needs, and technical requirements through deep consultation.' },
@@ -96,69 +97,14 @@ export default function Home() {
                 <Link to="/contact" className="btn-primary btn-lg">
                   Get a Free Quote <FiArrowRight />
                 </Link>
-                <Link to="/portfolio" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10 hover:text-white">
-                  View Our Work
+                <Link to="/services" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10 hover:text-white">
+                  View Our Services
                 </Link>
               </motion.div>
             </motion.div>
 
-            {/* Hero card */}
-            <motion.div 
-              initial={{ opacity: 0, x: 50 }} 
-              animate={{ opacity: 1, x: 0 }} 
-              transition={{ delay: 0.3, duration: 0.6 }} 
-              whileHover={{ scale: 1.02, rotateY: -5, rotateX: 5 }}
-              style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
-              className="hidden lg:block relative z-20 cursor-pointer group"
-            >
-              <div className="glass-card p-8 animate-float shadow-[0_0_50px_rgba(59,130,246,0.3)] transition-all duration-500 group-hover:shadow-[0_0_80px_rgba(59,130,246,0.5)] border-white/20">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-blue flex items-center justify-center shadow-blue">
-                    <FiCode size={22} className="text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold font-heading">Raxwo Portal</h3>
-                    <p className="text-white/50 text-sm">Enterprise HRM System</p>
-                  </div>
-                </div>
-
-                {[ 
-                  { label: 'Active Projects', value: '12', trend: '+3 this month', color: 'bg-blue-500', width: '100%' },
-                  { label: 'Team Members', value: '35', trend: '100% engaged', color: 'bg-accent', width: '80%' },
-                  { label: 'Revenue (MTD)', value: 'LKR 4.2M', trend: '+18% vs last month', color: 'bg-purple-500', width: '90%' },
-                ].map((stat, i) => (
-                  <motion.div 
-                    key={stat.label} 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.8 + i * 0.1, duration: 0.5 }}
-                    className="flex items-center gap-3 bg-white/5 rounded-xl p-3 mb-3 relative overflow-hidden group/stat"
-                    style={{ transform: `translateZ(${30 + i * 10}px)` }}
-                  >
-                    {/* Animated Background Progress */}
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: stat.width }}
-                      transition={{ duration: 1.5, delay: 1 + i * 0.2, ease: 'easeOut' }}
-                      className={`absolute left-0 top-0 bottom-0 opacity-10 ${stat.color}`}
-                    />
-                    
-                    <div className={`w-2 h-10 rounded-full ${stat.color} shadow-[0_0_10px_currentColor]`} />
-                    <div className="flex-1 relative z-10">
-                      <p className="text-white/50 text-xs">{stat.label}</p>
-                      <p className="text-white font-bold text-lg font-heading">{stat.value}</p>
-                    </div>
-                    <span className="text-green-400 text-xs font-medium relative z-10">{stat.trend}</span>
-                  </motion.div>
-                ))}
-
-                <div className="mt-4 flex gap-2">
-                  {['Recruitment', 'Payroll', 'EPF/ETF'].map(tag => (
-                    <span key={tag} className="px-2.5 py-1 bg-white/10 text-white/70 text-xs rounded-full">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
+            {/* Hero Sign In Form */}
+            <HomeSignInForm />
           </div>
         </div>
 

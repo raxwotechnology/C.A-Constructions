@@ -68,7 +68,7 @@ export default function QuotationPrintBody({
       )}
 
       {/* ── Title + Valid Until ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', pageBreakInside: 'avoid' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', pageBreakInside: 'avoid' }}>
         <div>
           <h2 style={{ margin: '0 0 4px', fontSize: '20pt', fontWeight: 800, letterSpacing: '0.06em', color: CLR.dark }}>QUOTATION</h2>
           {q.quotationNo && (
@@ -97,14 +97,15 @@ export default function QuotationPrintBody({
       </div>
 
       {/* ── Client + Prepared by info cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', pageBreakInside: 'avoid' }}>
-        <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px', pageBreakInside: 'avoid' }}>
+        <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}`, wordBreak: 'break-word' }}>
           <p style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quotation for</p>
           <p style={{ margin: 0, fontWeight: 700, fontSize: '10.5pt', color: CLR.dark }}>{q.client?.name || 'Client'}</p>
           {q.client?.email && <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>{q.client.email}</p>}
           {q.client?.phone && <p style={{ margin: '3px 0 0', fontSize: '9.5pt', color: CLR.light }}>{q.client.phone}</p>}
         </div>
-        <div style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}`, textAlign: 'right' }}>
+        <div className="quotation-meta-block" style={{ padding: '14px 16px', background: CLR.bg, borderRadius: '8px', border: `1px solid ${CLR.border}`, wordBreak: 'break-word' }}>
+          <style dangerouslySetInnerHTML={{__html: `@media (min-width: 480px) { .quotation-meta-block { text-align: right; } }`}} />
           <p style={{ margin: '0 0 6px', fontSize: '8.5pt', fontWeight: 700, color: CLR.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prepared by</p>
           <p style={{ margin: 0, fontWeight: 600, fontSize: '10.5pt', color: CLR.dark }}>{prepared || '—'}</p>
           {q.serviceType && (

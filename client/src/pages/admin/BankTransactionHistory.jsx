@@ -123,7 +123,7 @@ export default function BankTransactionHistory() {
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
@@ -163,6 +163,64 @@ export default function BankTransactionHistory() {
         {data?.hasMore && (
           <div className="p-4 border-t flex justify-center">
             <button type="button" className="btn-ghost" onClick={() => setPage(p => p + 1)}>Load more</button>
+          </div>
+        )}
+      </div>
+
+      <div className="block md:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 bg-white rounded-2xl border border-slate-200">
+            No transactions
+          </div>
+        ) : (
+          rows.map((r) => (
+            <div key={String(r._id)} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm">{r.bankName}</h4>
+                  <span className="text-xs text-slate-500 font-mono">{r.accountNumber}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">{new Date(r.date).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}</span>
+                  <span className={`badge text-[9px] mt-1 ${['deposit', 'transfer_in'].includes(r.type) ? 'badge-green' : 'badge-red'}`}>{r.type}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-slate-800 leading-snug">{r.description || 'No description'}</p>
+                <div className="flex flex-wrap gap-2 text-[10px] text-slate-500">
+                  <span className="bg-slate-100 px-2 py-0.5 rounded-full capitalize">Source: {r.moduleSource}</span>
+                  <span className="bg-slate-100 px-2 py-0.5 rounded-full">By: {r.performedBy}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-semibold">Amount</span>
+                  <p className={`font-bold text-sm ${['deposit', 'transfer_in'].includes(r.type) ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {['deposit', 'transfer_in'].includes(r.type) ? '+' : '-'} LKR {(r.amount || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-right flex items-center gap-3">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Balance After</span>
+                    <p className="font-semibold text-slate-700 text-xs">LKR {(r.balanceAfter ?? 0).toLocaleString()}</p>
+                  </div>
+                  <button type="button" onClick={() => requestDelete(r)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <FiTrash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+        {data?.hasMore && (
+          <div className="p-4 flex justify-center">
+            <button type="button" className="btn-ghost w-full" onClick={() => setPage(p => p + 1)}>Load more</button>
           </div>
         )}
       </div>

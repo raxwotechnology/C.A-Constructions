@@ -295,6 +295,8 @@
   }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   .section-padding { @apply py-16 md:py-20 px-4 md:px-6; }
   .container-max { @apply max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8; }
   .dashboard-shell { @apply rounded-2xl border border-slate-200/70 bg-white/80 shadow-card; }

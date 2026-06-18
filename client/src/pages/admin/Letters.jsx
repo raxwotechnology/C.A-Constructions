@@ -114,6 +114,7 @@ export default function AdminLetters() {
   const [editMode, setEditMode] = useState(false)
   const [letterEditHtmlSource, setLetterEditHtmlSource] = useState(false)
   const [prefilledType, setPrefilledType] = useState('')
+  const [activeTab, setActiveTab] = useState('employee')
   const [signatures, setSignatures] = useState(() =>
     normalizeLetterSignatures({}, {}),
   )
@@ -455,44 +456,62 @@ export default function AdminLetters() {
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Templates</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Choose a letter type — content is generated with company letterhead on print/PDF</p>
+            <p className="text-xs text-slate-500 mt-0.5">Choose a letter category and type — content is generated with company letterhead on print/PDF</p>
           </div>
         </div>
-        <div className="space-y-6">
-          {['employee', 'client', 'both'].map((cat) => {
-            const types = LETTER_TYPES.filter(lt => lt.category === cat)
-            if (!types.length) return null
+
+        {/* Categories Tab Bar */}
+        <div className="flex border border-slate-200/80 mb-6 bg-slate-50 p-1 rounded-xl gap-1 max-w-md">
+          {[
+            { value: 'employee', label: 'HR & Employee' },
+            { value: 'client', label: 'Customer' },
+            { value: 'both', label: 'General / Shared' }
+          ].map(tab => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === tab.value
+                  ? 'bg-white text-primary shadow-sm border border-slate-200/30'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          {(() => {
+            const types = LETTER_TYPES.filter(lt => lt.category === activeTab)
+            if (!types.length) return <p className="text-sm text-slate-400">No templates found in this category.</p>
             return (
-              <div key={cat}>
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-                  {cat === 'both' ? 'General Letters' : cat === 'client' ? 'Customer Letters' : 'HR & Employee Letters'}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {types.map((lt) => {
-                    const Icon = lt.Icon
-                    return (
-                      <button
-                        key={lt.value}
-                        type="button"
-                        onClick={() => openModal(lt.value)}
-                        className={`finance-tx-card text-left p-4 border-2 transition-all group ${lt.accent}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-primary shrink-0 group-hover:border-secondary/40">
-                            <Icon size={18} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 leading-tight group-hover:text-primary">{lt.label}</p>
-                            <p className="text-[11px] text-slate-500 mt-1 capitalize">{lt.value.replace(/_/g, ' ')}</p>
-                          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {types.map((lt) => {
+                  const Icon = lt.Icon
+                  return (
+                    <button
+                      key={lt.value}
+                      type="button"
+                      onClick={() => openModal(lt.value)}
+                      className={`finance-tx-card text-left p-4 border-2 transition-all group ${lt.accent}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-primary shrink-0 group-hover:border-secondary/40">
+                          <Icon size={18} />
                         </div>
-                      </button>
-                    )
-                  })}
-                </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 leading-tight group-hover:text-primary">{lt.label}</p>
+                          <p className="text-[11px] text-slate-500 mt-1 capitalize">{lt.value.replace(/_/g, ' ')}</p>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             )
-          })}
+          })()}
         </div>
       </section>
 
@@ -502,46 +521,8 @@ export default function AdminLetters() {
           <span className="text-xs text-slate-500">{letters.length} on file</span>
         </div>
 
-        {/* Mobile card list */}
-        <div className="sm:hidden space-y-3">
-          {isLoading ? (
-            <div className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></div>
-          ) : letters.length === 0 ? (
-            <div className="text-center py-12 text-slate-400"><FiFileText size={36} className="mx-auto mb-2 opacity-25" />No letters yet.</div>
-          ) : letters.map((l) => (
-            <div key={l._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="font-mono text-xs text-slate-500">{l.letterRef || '—'}</span>
-                  <p className="font-semibold text-slate-800 mt-0.5 truncate">{l.recipientType === 'client' ? l.client?.name : l.employee?.userId?.name}</p>
-                  <p className="text-xs text-slate-400">{l.recipientType === 'client' ? 'Customer' : l.employee?.employeeNo}</p>
-                </div>
-                <span className="badge badge-navy capitalize shrink-0">{TYPE_MAP[l.type]?.label || l.type}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>{l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK') : '—'}</span>
-                <select
-                  className="form-select text-xs py-1 min-w-[7.5rem]"
-                  value={l.approvalStatus || 'none'}
-                  onChange={(e) => approvalMut.mutate({ id: l._id, approvalStatus: e.target.value })}
-                >
-                  <option value="none">None</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                </select>
-              </div>
-              <div className="flex gap-1.5 pt-1 border-t border-slate-100">
-                <button type="button" onClick={() => openPreview(l)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiEye size={13}/> View</button>
-                <button type="button" onClick={() => handlePrint(l)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiPrinter size={13}/> Print</button>
-                <button type="button" onClick={() => handlePdf(l)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiDownload size={13}/> PDF</button>
-                <button type="button" onClick={() => { setLetterDeleteId(l._id); setLetterPwdOpen(true) }} className="flex-1 btn-ghost btn-sm justify-center text-xs text-red-500 hover:bg-red-50"><FiTrash2 size={13}/> Del</button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Desktop table */}
-        <div className="hidden sm:block table-container border-0 shadow-none rounded-xl overflow-hidden">
+        {/* Scrollable Table */}
+        <div className="table-container border-0 shadow-none rounded-xl overflow-x-auto w-full">
           <table className="table">
             <thead>
               <tr>

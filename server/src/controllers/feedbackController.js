@@ -3,16 +3,24 @@ const { awardPoints } = require('../services/rewardService');
 
 exports.submitFeedback = async (req, res, next) => {
   try {
-    const feedback = await Feedback.create({
-      ...req.body,
-      client: req.user._id,
-    });
-    await awardPoints({
-      userId: req.user._id,
-      action: 'leave_review',
-      sourceKey: `feedback:${feedback._id}`,
-      note: 'Points for submitting feedback',
-    });
+    const feedbackData = { ...req.body };
+    if (req.user) {
+      feedbackData.client = req.user._id;
+    }
+    const feedback = await Feedback.create(feedbackData);
+    
+    if (req.user) {
+      try {
+        await awardPoints({
+          userId: req.user._id,
+          action: 'leave_review',
+          sourceKey: `feedback:${feedback._id}`,
+          note: 'Points for submitting feedback',
+        });
+      } catch (err) {
+        console.error('Points award error:', err);
+      }
+    }
     res.status(201).json({ success: true, feedback });
   } catch (err) { next(err); }
 };
@@ -30,7 +38,7 @@ exports.getFeedbacks = async (req, res, next) => {
 
 exports.getPublicFeedbacks = async (req, res, next) => {
   try {
-    const feedbacks = await Feedback.find({})
+    const feedbacks = await Feedback.find({ status: 'approved' })
       .populate('client', 'name avatar')
       .populate('project', 'title')
       .sort({ createdAt: -1 })
@@ -84,6 +92,22 @@ exports.respondFeedback = async (req, res, next) => {
     const feedback = await Feedback.findByIdAndUpdate(
       req.params.id,
       { response: req.body.response || '', status: req.body.status || 'reviewed' },
+      { new: true }
+    );
+    if (!feedback) return res.status(404).json({ success: false, message: 'Feedback not found' });
+    res.json({ success: true, feedback });
+  } catch (err) { next(err); }
+};
+
+exports.updateFeedbackStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+    const feedback = await Feedback.findByIdAndUpdate(
+      req.params.id,
+      { status },
       { new: true }
     );
     if (!feedback) return res.status(404).json({ success: false, message: 'Feedback not found' });

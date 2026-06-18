@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
-import { FiSend, FiSearch, FiUsers, FiPlus, FiX } from 'react-icons/fi'
+import { FiSend, FiSearch, FiUsers, FiPlus, FiX, FiArrowLeft } from 'react-icons/fi'
 import api from '../../lib/api'
 import { getSocketOrigin } from '../../lib/devApi'
 import useAuthStore from '../../store/authStore'
@@ -45,6 +45,7 @@ export default function MessagingWorkspace({ embedded = false }) {
   const selectedKey = useMemo(() => (user?._id ? `msg:selectedChatId:${user._id}` : ''), [user?._id])
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [groupForm, setGroupForm] = useState({ name: '', members: [] })
+  const [mobileShowChat, setMobileShowChat] = useState(false)
 
   const { data: contactsData } = useQuery({
     queryKey: ['message-contacts'],
@@ -176,17 +177,17 @@ export default function MessagingWorkspace({ embedded = false }) {
   }, [contacts, groups, threads])
 
   return (
-    <div className={`${embedded ? '' : 'container-max py-10'}`}>
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="card p-4 lg:col-span-1 flex flex-col h-[620px]">
+    <div className={`${embedded ? '' : 'container-max py-4 lg:py-10'}`}>
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-6">
+        <div className={`card p-3 lg:p-4 lg:col-span-1 flex flex-col h-[calc(100vh-140px)] lg:h-[620px] ${mobileShowChat ? 'hidden lg:flex' : 'flex'}`}>
           <div className="flex items-center justify-between mb-3">
             <div className="relative flex-1">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input className="form-input pl-9" placeholder="Search chats" />
+              <input className="form-input pl-9 text-sm" placeholder="Search chats" />
             </div>
             {user?.role !== 'client' && (
-              <button onClick={() => setShowCreateGroup(true)} className="ml-2 btn-secondary p-2.5 rounded-lg" title="Create Group">
-                <FiPlus />
+              <button onClick={() => setShowCreateGroup(true)} className="ml-2 btn-secondary p-2 lg:p-2.5 rounded-lg" title="Create Group">
+                <FiPlus size={18} />
               </button>
             )}
           </div>
@@ -194,7 +195,7 @@ export default function MessagingWorkspace({ embedded = false }) {
             {sidebarItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => { setSelectedChatId(item.id); setIsGroupSelected(item.isGroup); }}
+                onClick={() => { setSelectedChatId(item.id); setIsGroupSelected(item.isGroup); setMobileShowChat(true); }}
                 className={`w-full text-left p-3 rounded-xl border transition-colors ${
                   activeChatId === item.id ? 'border-secondary/50 bg-blue-50/40' : 'border-slate-200 hover:border-secondary/30'
                 }`}
@@ -213,21 +214,29 @@ export default function MessagingWorkspace({ embedded = false }) {
           </div>
         </div>
 
-        <div className="card p-5 lg:col-span-2 h-[620px] flex flex-col">
-          <div className="pb-4 border-b border-slate-100 flex items-center justify-between">
+        <div className={`card p-3 lg:p-5 lg:col-span-2 h-[calc(100vh-140px)] lg:h-[620px] flex flex-col ${mobileShowChat ? 'flex' : 'hidden lg:flex'}`}>
+          <div className="pb-3 lg:pb-4 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileShowChat(false)}
+                className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 mr-1.5"
+                title="Back to list"
+              >
+                <FiArrowLeft size={18} />
+              </button>
               {isGroupSelected && <FiUsers className="text-slate-400" />}
-              <p className="font-semibold text-primary">{activeChatName}</p>
+              <p className="font-semibold text-primary truncate max-w-[200px] sm:max-w-xs">{activeChatName}</p>
             </div>
           </div>
 
-          <div className="flex-1 py-4 space-y-3 overflow-y-auto">
+          <div className="flex-1 py-4 space-y-3 overflow-y-auto pr-1">
             {messages.map((msg) => {
               const mine = String(msg.sender?._id || msg.sender) === String(user?._id)
               return (
-                <div key={msg._id} className={`max-w-[80%] rounded-2xl p-3 text-sm ${mine ? 'ml-auto bg-secondary text-white' : 'bg-slate-100 text-slate-700'}`}>
+                <div key={msg._id} className={`max-w-[85%] lg:max-w-[80%] rounded-2xl p-3 text-sm ${mine ? 'ml-auto bg-secondary text-white rounded-br-sm' : 'bg-slate-100 text-slate-700 rounded-bl-sm'}`}>
                   {!mine && isGroupSelected && (
-                    <p className="text-xs font-bold text-slate-500 mb-1">{msg.sender?.name}</p>
+                    <p className="text-[11px] font-bold text-slate-400 mb-1">{msg.sender?.name}</p>
                   )}
                   {mine ? renderMessageContent(msg.content) : renderReceivedMessageContent(msg.content)}
                 </div>
@@ -235,16 +244,16 @@ export default function MessagingWorkspace({ embedded = false }) {
             })}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+          <div className="pt-3 lg:pt-4 border-t border-slate-100 flex items-center gap-2 lg:gap-3">
             <input
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Type your message... (links are clickable)"
-              className="form-input"
+              placeholder="Type your message..."
+              className="form-input text-sm rounded-full px-4"
               onKeyDown={(e) => { if (e.key === 'Enter') onSend() }}
             />
-            <button className="btn-primary shrink-0" type="button" onClick={onSend} disabled={sendMutation.isPending || !content.trim()}>
-              <FiSend size={14} /> Send
+            <button className="btn-primary shrink-0 p-2.5 lg:px-4 lg:py-2.5 rounded-full flex items-center gap-1.5" type="button" onClick={onSend} disabled={sendMutation.isPending || !content.trim()}>
+              <FiSend size={16} /> <span className="hidden lg:inline">Send</span>
             </button>
           </div>
         </div>

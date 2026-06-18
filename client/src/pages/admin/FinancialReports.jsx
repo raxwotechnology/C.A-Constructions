@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -46,6 +46,8 @@ export default function FinancialReports() {
   const [branchFilter, setBranchFilter] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
   const [activeTab, setActiveTab] = useState('pl')
+  const [showExportDropdown, setShowExportDropdown] = useState(false)
+  const exportBarRef = useRef(null)
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -112,8 +114,10 @@ export default function FinancialReports() {
           <h1 className="page-title">Financial Reports</h1>
           <p className="page-subtitle">Profit & Loss, Income & Expense breakdown by branch, category, and payment method.</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="relative w-full sm:w-auto mt-2 sm:mt-0">
           <ExportBar 
+            ref={exportBarRef}
+            customTrigger={true}
             data={[
               ...incomeEntries.map(e => ({ ...e, type: 'Income' })),
               ...expenseEntries.map(e => ({ ...e, type: 'Expense' })),
@@ -129,10 +133,103 @@ export default function FinancialReports() {
             title="Financial Report"
             filters={{ From: from, To: to, Branch: branchFilter || 'All', Method: paymentMethod || 'All' }}
           />
-          <button onClick={() => exportReport('excel')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Overview Excel</button>
-          <button onClick={() => exportReport('pdf')} className="btn-outline btn-sm gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"><FiDownload size={13}/> Overview PDF</button>
-          <button onClick={() => exportReport('pdf', 'incomes')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Income PDF</button>
-          <button onClick={() => exportReport('pdf', 'expenses')} className="btn-outline btn-sm gap-1.5"><FiDownload size={13}/> Expense PDF</button>
+
+          <button
+            type="button"
+            onClick={() => setShowExportDropdown(!showExportDropdown)}
+            className="w-full sm:w-auto btn-primary justify-center py-2 px-4 text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+          >
+            <FiDownload size={15} />
+            <span>Export Reports</span>
+            <svg
+              className={`w-4 h-4 transition-transform duration-200 ${showExportDropdown ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showExportDropdown && (
+            <>
+              <div 
+                className="fixed inset-0 z-30 bg-transparent" 
+                onClick={() => setShowExportDropdown(false)}
+              />
+              <div className="absolute right-0 mt-2 w-full sm:w-72 bg-white rounded-2xl border border-slate-200/80 shadow-xl py-2 z-40 animate-fade-in origin-top-right">
+                
+                <div className="px-3.5 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  Summary Sheets (Server Export)
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowExportDropdown(false); exportReport('pdf') }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                  Overview PDF Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowExportDropdown(false); exportReport('excel') }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  Overview Excel Sheet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowExportDropdown(false); exportReport('pdf', 'incomes') }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                  Income Breakdown PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowExportDropdown(false); exportReport('pdf', 'expenses') }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  Expense Breakdown PDF
+                </button>
+
+                <div className="my-1.5 border-t border-slate-100" />
+
+                <div className="px-3.5 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                  Filtered Ledger (Local Export)
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowExportDropdown(false); exportBarRef.current?.exportPDF() }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  Filtered Ledger PDF Table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowExportDropdown(false); exportBarRef.current?.exportExcel() }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  Filtered Ledger Excel Table
+                </button>
+
+                <div className="my-1.5 border-t border-slate-100" />
+
+                <button
+                  type="button"
+                  onClick={() => { setShowExportDropdown(false); window.print() }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-3a2 2 0 00-2-2H9a2 2 0 00-2 2v3a2 2 0 002 2zm5-17V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3m6 0H9"/></svg>
+                  Print Report page
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

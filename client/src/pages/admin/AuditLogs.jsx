@@ -88,7 +88,7 @@ export default function AdminAuditLogs() {
       </div>
 
       {/* Table */}
-      <div className="table-container">
+      <div className="table-container hidden lg:block">
         <table className="table">
           <thead>
             <tr>
@@ -169,6 +169,55 @@ export default function AdminAuditLogs() {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card List */}
+      <div className="block lg:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-slate-200">
+            <FiShield size={32} className="mx-auto mb-2 opacity-30"/>
+            <p>No audit logs found</p>
+          </div>
+        ) : (
+          logs.map(log => {
+            const ActionIcon = ACTION_ICONS[log.action] || FiInfo
+            return (
+              <div key={log._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-800">{log.userName || 'System'}</span>
+                    <span className="text-[10px] text-slate-400 block capitalize">{log.userRole}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-medium text-slate-600 block">{new Date(log.createdAt).toLocaleDateString('en-LK')}</span>
+                    <span className="text-[10px] text-slate-400 block">{new Date(log.createdAt).toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className={`badge text-[10px] capitalize ${ACTION_COLORS[log.action] || 'badge-gray'}`}>
+                    <ActionIcon size={9}/> {log.action}
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full capitalize">{log.module}</span>
+                  <span className={`badge text-[10px] capitalize ${sevColor[log.severity] || 'badge-gray'}`}>{log.severity}</span>
+                </div>
+
+                <p className="text-xs text-slate-700 font-medium leading-relaxed">{log.description}</p>
+                {log.entityName && <p className="text-[10px] text-slate-400">Entity: {log.entityName}</p>}
+
+                <div className="flex justify-end pt-1">
+                  <button type="button" onClick={() => setViewLog(log)} className="btn-outline text-[11px] py-1 px-2.5 flex items-center gap-1" title="View details">
+                    <FiEye size={12}/> View details
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
       </div>
 
       {/* Pagination */}

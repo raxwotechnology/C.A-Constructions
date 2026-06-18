@@ -18,11 +18,34 @@ export default function LetterPaginatedPreview({
   measureKey = '',
   className = '',
 }) {
+  const containerRef = useRef(null)
   const contentRef = useRef(null)
   const [pageCount, setPageCount] = useState(1)
   const [autoScale, setAutoScale] = useState(1)
+  const [containerWidth, setContainerWidth] = useState(0)
 
-  const baseZoom = Math.max(0.75, Math.min(1.15, scale / 100))
+  useEffect(() => {
+    const handleResize = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth)
+      }
+    }
+    handleResize()
+    const observer = new ResizeObserver(() => {
+      handleResize()
+    })
+    if (containerRef.current) {
+      observer.observe(containerRef.current)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  const containerZoom = containerWidth > 24 && containerWidth < LETTER_PAGE_WIDTH ? ((containerWidth - 24) / LETTER_PAGE_WIDTH) : 1
+  const baseZoom = Math.max(0.25, Math.min(1.15, (scale / 100) * containerZoom))
   const compactClass = compact ? 'letter-compact letter-compact-more' : ''
 
   const measure = useCallback(() => {
@@ -57,7 +80,7 @@ export default function LetterPaginatedPreview({
   const totalHeight = pageCount * scaledH + Math.max(0, pageCount - 1) * LETTER_PAGE_GAP
 
   return (
-    <div className={`letter-paginated-preview ${className}`}>
+    <div ref={containerRef} className={`letter-paginated-preview w-full overflow-x-hidden ${className}`}>
       <style>{LETTER_COMPACT_CSS}</style>
 
       <div
@@ -75,14 +98,7 @@ export default function LetterPaginatedPreview({
               height: scaledH,
               zIndex: 0,
             }}
-          >
-            <span
-              className="absolute top-2.5 right-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
-              style={{ zoom: 1 / baseZoom }}
-            >
-              Page {i + 1} of {pageCount}
-            </span>
-          </div>
+          />
         ))}
 
         {/* Flowing letter content */}

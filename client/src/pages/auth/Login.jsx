@@ -79,69 +79,78 @@ export default function Login() {
       </div>
 
       {/* Right panel - form */}
-      <div className="flex-1 lg:max-w-md flex items-center justify-center p-8 bg-white lg:rounded-l-3xl">
+      <div className="flex-1 lg:max-w-xl flex items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
+        {/* Subtle background decoration */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
+
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="w-full max-w-sm"
+          className="w-full max-w-sm bg-white/80 backdrop-blur-xl border border-white/50 rounded-3xl p-8 sm:p-10 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] relative z-10"
         >
-          <div className="lg:hidden mb-8">
+          <div className="lg:hidden mb-8 flex justify-center">
             <SiteLogo to="/" variant="light" />
           </div>
 
-          <h2 className="text-3xl font-bold text-primary font-heading mb-1">Welcome back</h2>
-          <p className="text-gray-500 mb-8">Sign in to your portal</p>
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-primary font-heading mb-2 tracking-tight">Welcome back</h2>
+            <p className="text-slate-500 text-sm">Sign in to your portal to continue</p>
+          </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="form-label">Email Address</label>
-              <div className="relative">
-                <FiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Email Address</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
+                  <FiMail size={18} />
+                </div>
                 <input
                   {...register('email', { required: 'Email is required' })}
                   type="email"
                   placeholder="you@raxwo.com"
-                  className="form-input pl-10"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                 />
               </div>
-              {errors.email && <p className="form-error">{errors.email.message}</p>}
+              {errors.email && <p className="text-red-500 text-xs font-medium mt-1.5">{errors.email.message}</p>}
             </div>
 
             <div>
-              <label className="form-label">Password</label>
-              <div className="relative">
-                <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Password</label>
+                <Link to="/forgot-password" className="text-xs font-medium text-secondary hover:text-primary transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
+                  <FiLock size={18} />
+                </div>
                 <input
                   {...register('password', { required: 'Password is required' })}
                   type={showPass ? 'text' : 'password'}
                   placeholder="Enter your password"
-                  className="form-input pl-10 pr-10"
+                  className="w-full pl-11 pr-12 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  {showPass ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors">
+                  {showPass ? <FiEyeOff size={18} /> : <FiEye size={18} />}
                 </button>
               </div>
-              {errors.password && <p className="form-error">{errors.password.message}</p>}
+              {errors.password && <p className="text-red-500 text-xs font-medium mt-1.5">{errors.password.message}</p>}
             </div>
 
-            <div className="flex justify-end">
-              <Link to="/forgot-password" className="text-sm text-secondary hover:underline">
-                Forgot password?
-              </Link>
-            </div>
-
-            <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">
-              {loading ? <span className="spinner" /> : <>Sign In <FiArrowRight size={16} /></>}
+            <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all duration-200 mt-2">
+              {loading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Sign In <FiArrowRight size={18} /></>}
             </button>
           </form>
 
-
-
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-secondary font-medium hover:underline">Sign up</Link>
-          </p>
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+            <p className="text-sm text-slate-500">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-semibold text-secondary hover:text-primary transition-colors">Sign up now</Link>
+            </p>
+          </div>
         </motion.div>
       </div>
     </div>

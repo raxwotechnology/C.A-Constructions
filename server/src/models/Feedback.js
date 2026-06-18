@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 
 const feedbackSchema = new mongoose.Schema({
-  client: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  client: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  name: { type: String },
+  email: { type: String },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
   rating: { type: Number, min: 1, max: 5, required: true },
   message: { type: String, required: true, trim: true },
@@ -12,8 +14,8 @@ const feedbackSchema = new mongoose.Schema({
   dislikedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   status: {
     type: String,
-    enum: ['new', 'reviewed', 'resolved'],
-    default: 'new',
+    enum: ['pending', 'approved', 'rejected', 'new', 'reviewed', 'resolved'],
+    default: 'pending',
   },
 }, { timestamps: true });
 
