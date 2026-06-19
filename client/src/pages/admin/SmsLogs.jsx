@@ -82,7 +82,7 @@ export default function SmsLogs() {
           <input 
             type="text" 
             placeholder="Search by name or phone number..." 
-            className="form-input pl-10"
+            className="form-input !pl-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

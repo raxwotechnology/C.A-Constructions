@@ -518,7 +518,7 @@ export default function AdminSubscriptions() {
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 items-center">
           <div className="relative flex-1">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-            <input type="text" placeholder="Search by title, client, or number…" className="form-input pl-9 w-full" value={search} onChange={e => setSearch(e.target.value)} />
+            <input type="text" placeholder="Search by title, client, or number…" className="form-input !pl-10 w-full" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <select className="form-select w-full sm:w-40" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="">All Statuses</option>

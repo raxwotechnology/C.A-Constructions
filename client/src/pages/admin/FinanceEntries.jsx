@@ -234,35 +234,36 @@ export default function FinanceEntries() {
               return (
                 <article
                   key={e._id}
-                  className={`finance-tx-shell ${e.type === 'income' ? 'finance-tx-shell--income' : 'finance-tx-shell--expense'}`}
+                  className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow relative"
                 >
-                  <div className="finance-tx-accent" aria-hidden />
-                  <div className="finance-tx-body">
-                    <div className="finance-tx-main">
-                      <div className="finance-tx-meta">
-                        <time className="finance-tx-date" dateTime={new Date(e.date).toISOString()}>
+                  <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${e.type === 'income' ? 'bg-emerald-500' : 'bg-red-500'}`} aria-hidden />
+                  <div className="p-4 pl-5 flex flex-col sm:flex-row justify-between gap-4">
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <time className="text-xs font-semibold text-slate-500" dateTime={new Date(e.date).toISOString()}>
                           {new Date(e.date).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </time>
-                        <span className={`finance-tx-typepill capitalize ${e.type === 'income' ? 'finance-tx-typepill--income' : 'finance-tx-typepill--expense'}`}>
+                        <span className={`badge capitalize text-[10px] ${e.type === 'income' ? 'badge-green' : 'badge-red'}`}>
                           {e.type}
                         </span>
-                        <span className={`finance-payment-pill ${paymentPillClass(pm)}`} title="Payment type">
+                        <span className={`badge text-[10px] flex items-center gap-1 ${paymentPillClass(pm)}`} title="Payment type">
                           <PaymentTypeIcon method={pm} />
                           {pm}
                         </span>
                       </div>
-                      <h3 className="finance-tx-title">{e.title}</h3>
+                      <h3 className="text-sm font-bold text-slate-800 truncate">{e.title}</h3>
                       <p className="text-xs font-medium text-slate-500">{e.category}</p>
+                      
                       {e.bankAccount || e.branch ? (
-                        <div className="finance-tx-chips">
+                        <div className="flex flex-wrap gap-2 mt-1">
                           {e.bankAccount ? (
-                            <span className="finance-tx-chip max-w-[240px]" title={e.bankAccount.bankName}>
+                            <span className="inline-flex items-center gap-1 text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md max-w-[240px] truncate" title={e.bankAccount.bankName}>
                               <FiLayers size={10} className="shrink-0 opacity-70" aria-hidden />
                               <span className="truncate">{e.bankAccount.bankName}</span>
                             </span>
                           ) : null}
                           {e.branch ? (
-                            <span className="finance-tx-chip max-w-[200px]" title={e.branch.name}>
+                            <span className="inline-flex items-center text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md max-w-[200px] truncate" title={e.branch.name}>
                               <span className="truncate">Branch · {e.branch.name}</span>
                             </span>
                           ) : null}
@@ -270,17 +271,19 @@ export default function FinanceEntries() {
                       ) : (
                         <p className="text-[11px] text-slate-400 mt-0.5">No bank or branch linked</p>
                       )}
+                      
                       {e.note ? (
-                        <p className="text-xs text-slate-400 mt-1.5 leading-relaxed line-clamp-2 border-l-2 border-slate-200 pl-2.5">
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed line-clamp-2 border-l-2 border-slate-200 pl-2.5">
                           {e.note}
                         </p>
                       ) : null}
                     </div>
-                    <div className="finance-tx-aside">
-                      <p className={`finance-amount text-lg font-bold ${e.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    
+                    <div className="flex flex-col sm:items-end justify-between gap-3 shrink-0">
+                      <p className={`text-lg font-bold ${e.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
                         {e.type === 'income' ? '+' : '−'} LKR {formatLkr(e.amount)}
                       </p>
-                      <div className="flex items-center gap-0.5 shrink-0">
+                      <div className="flex items-center gap-1 self-start sm:self-end">
                         <button type="button" onClick={() => setViewingEntry(e)} className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="View">
                           <FiEye size={15} />
                         </button>
@@ -325,13 +328,13 @@ export default function FinanceEntries() {
 
       {/* Add Entry Modal */}
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
-          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-5 border-b">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-4 z-[99999]">
+          <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[100dvh] sm:max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b shrink-0">
               <h3 className="font-bold text-primary">{editingId ? 'Edit Financial Entry' : 'Add Financial Entry'}</h3>
               <button onClick={()=>{setShowModal(false); setEditingId(null)}} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16}/></button>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto min-h-0 flex-1">
               {/* Type toggle */}
               <div className="flex gap-2">
                 {[['income','Income'],['expense','Expense']].map(([v,l])=>(
@@ -403,7 +406,7 @@ export default function FinanceEntries() {
                   onChange={e=>f('file',e.target.files[0])}/>
               </div>
             </div>
-            <div className="flex gap-3 p-5 border-t">
+            <div className="flex gap-3 p-5 border-t shrink-0 bg-slate-50 pb-safe">
               <button onClick={()=>{setShowModal(false); setEditingId(null)}} className="btn-ghost flex-1 justify-center">Cancel</button>
               <button disabled={addMut.isPending || updateMut.isPending || !form.title || !form.amount || !form.category} onClick={()=>{
                 const payload = {...form, category: finalCategory}

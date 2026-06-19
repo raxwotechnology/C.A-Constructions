@@ -431,7 +431,7 @@ export default function AdminInvoices() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative w-full sm:flex-1 sm:w-auto sm:min-w-[200px]">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice no or client..." className="form-input pl-10 w-full"/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice no or client..." className="form-input !pl-10 w-full"/>
         </div>
         <select className="form-select py-2 text-sm w-auto" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>

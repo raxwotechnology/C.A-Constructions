@@ -8,6 +8,7 @@ import { SITE_SETTINGS_QUERY_KEY } from './hooks/useSiteBranding'
 
 // Layouts
 import PublicLayout from './layouts/PublicLayout'
+import HomeLayout from './layouts/HomeLayout'
 import DashboardLayout from './layouts/DashboardLayout'
 import WhatsAppButton from './components/ui/WhatsAppButton'
 
@@ -108,7 +109,7 @@ import ClientProfile from './pages/client/Profile'
 import ClientMessages from './pages/client/Messages'
 import ClientNotifications from './pages/client/Notifications'
 import ClientBooking from './pages/client/Booking'
-import ClientFeedback from './pages/client/Feedback'
+
 import ClientRewards from './pages/client/Rewards'
 import ClientServices from './pages/client/Services'
 
@@ -177,9 +178,13 @@ export default function App() {
       <DynamicFaviconFromSettings />
       <WhatsAppButton />
       <Routes>
+      {/* Home — no header */}
+      <Route element={<HomeLayout />}>
+        <Route path="/" element={<Home />} />
+      </Route>
+
       {/* Public Website */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={<Home />} />
         <Route path="/services" element={<Services />} />
         <Route path="/about" element={<About />} />
         <Route path="/portfolio" element={<Portfolio />} />
@@ -196,7 +201,7 @@ export default function App() {
         <Route path="/notifications" element={<ProtectedRoute roles={['client']}><ClientNotifications /></ProtectedRoute>} />
         <Route path="/notifications/:id" element={<ProtectedRoute roles={['client']}><NotificationDetail /></ProtectedRoute>} />
         <Route path="/my-account" element={<ProtectedRoute roles={['client']}><ClientProfile /></ProtectedRoute>} />
-        <Route path="/feedback" element={<ClientFeedback />} />
+
         <Route path="/rewards" element={<ProtectedRoute roles={['client']}><ClientRewards /></ProtectedRoute>} />
         <Route path="/our-services" element={<ProtectedRoute roles={['client']}><ClientServices /></ProtectedRoute>} />
       </Route>

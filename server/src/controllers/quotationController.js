@@ -176,7 +176,7 @@ exports.createQuotation = async (req, res, next) => {
       }
       if (populatedQ.client?.phone) {
         const { sendQuotationSms } = require('../services/smsService');
-        await sendQuotationSms(populatedQ.client.phone, populatedQ.client.name, quotation.quotationNo, quotation.total);
+        await sendQuotationSms(populatedQ.client.phone, populatedQ.client.name, quotation.quotationNo, quotation.total, quotation._id);
       }
     }
 

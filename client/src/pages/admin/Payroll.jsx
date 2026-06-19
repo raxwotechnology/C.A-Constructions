@@ -737,21 +737,21 @@ export default function AdminPayroll() {
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Allowances</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={allowances} onChange={e => setAllowances(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input !pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={allowances} onChange={e => setAllowances(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Commissions</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={commissions} onChange={e => setCommissions(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input !pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={commissions} onChange={e => setCommissions(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Bonus / Incentives</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={bonus} onChange={e => setBonus(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input !pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={bonus} onChange={e => setBonus(Number(e.target.value || 0))} />
                   </div>
                 </div>
               </div>
@@ -767,28 +767,28 @@ export default function AdminPayroll() {
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Advance Deduction</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={advanceDeduction} onChange={e => setAdvanceDeduction(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input !pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={advanceDeduction} onChange={e => setAdvanceDeduction(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Loan Ded. <span className="text-xs text-blue-500 font-normal ml-1">(auto)</span></label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input !pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={loanDeduction} onChange={e => setLoanDeduction(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Leave Deduction</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" />
+                    <input type="number" className="form-input !pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={leaveDeduction} onChange={e => setLeaveDeduction(Number(e.target.value || 0))} placeholder="0" />
                   </div>
                 </div>
                 <div>
                   <label className="form-label text-sm font-medium text-slate-700 mb-1.5 block">Other Deductions</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-slate-400 text-sm">Rs.</span>
-                    <input type="number" className="form-input pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={otherDeductions} onChange={e => setOtherDeductions(Number(e.target.value || 0))} />
+                    <input type="number" className="form-input !pl-10 text-sm bg-white" style={{ paddingLeft: '38px' }} value={otherDeductions} onChange={e => setOtherDeductions(Number(e.target.value || 0))} />
                   </div>
                 </div>
                 <div className="sm:col-span-2 flex items-center gap-2 pt-1 bg-white p-3 rounded-lg border border-orange-100/80 shadow-sm mt-1">

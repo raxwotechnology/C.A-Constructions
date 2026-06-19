@@ -83,15 +83,17 @@ export default function AdminAnalytics() {
           <h1 className="page-title">Analytics & Reports</h1>
           <p className="page-subtitle">Business intelligence with date range filtering</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="form-select py-1.5 text-xs w-auto">
+        <div className="w-full sm:w-auto mt-3 sm:mt-0 flex flex-col sm:flex-row items-center gap-2 sm:gap-3 bg-white sm:bg-transparent p-3 sm:p-0 rounded-xl sm:rounded-none border sm:border-0 border-slate-100">
+          <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="form-select py-2 sm:py-1.5 text-sm sm:text-xs w-full sm:w-auto">
             <option value="">All Branches</option>
             {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
-          <FiCalendar size={14} className="text-gray-400 ml-2"/>
-          <input type="date" className="form-input py-1.5 text-xs w-36" value={startDate} onChange={e => setStartDate(e.target.value)}/>
-          <span className="text-gray-400 text-xs">to</span>
-          <input type="date" className="form-input py-1.5 text-xs w-36" value={endDate} onChange={e => setEndDate(e.target.value)}/>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <FiCalendar size={14} className="text-gray-400 hidden sm:block"/>
+            <input type="date" className="form-input py-2 sm:py-1.5 text-sm sm:text-xs flex-1 sm:w-36" value={startDate} onChange={e => setStartDate(e.target.value)}/>
+            <span className="text-gray-400 text-xs">to</span>
+            <input type="date" className="form-input py-2 sm:py-1.5 text-sm sm:text-xs flex-1 sm:w-36" value={endDate} onChange={e => setEndDate(e.target.value)}/>
+          </div>
         </div>
       </div>
 

@@ -65,25 +65,25 @@ export default function AdminAuditLogs() {
 
       {/* Filters */}
       <div className="card card-body">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="relative col-span-2 sm:col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="relative w-full">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
-            <input placeholder="Search logs..." className="form-input pl-9 py-2 text-sm" value={search} onChange={e => setSearch(e.target.value)}/>
+            <input placeholder="Search logs..." className="form-input !pl-10 py-2 text-sm w-full" value={search} onChange={e => setSearch(e.target.value)}/>
           </div>
-          <select className="form-select py-2 text-sm" value={module} onChange={e => { setModule(e.target.value); setPage(1) }}>
+          <select className="form-select py-2 text-sm w-full" value={module} onChange={e => { setModule(e.target.value); setPage(1) }}>
             <option value="">All Modules</option>
             {MODULES.filter(Boolean).map(m => <option key={m} value={m} className="capitalize">{m}</option>)}
           </select>
-          <select className="form-select py-2 text-sm" value={action} onChange={e => { setAction(e.target.value); setPage(1) }}>
+          <select className="form-select py-2 text-sm w-full" value={action} onChange={e => { setAction(e.target.value); setPage(1) }}>
             <option value="">All Actions</option>
             {ACTIONS.filter(Boolean).map(a => <option key={a} value={a} className="capitalize">{a}</option>)}
           </select>
-          <select className="form-select py-2 text-sm" value={severity} onChange={e => { setSeverity(e.target.value); setPage(1) }}>
+          <select className="form-select py-2 text-sm w-full" value={severity} onChange={e => { setSeverity(e.target.value); setPage(1) }}>
             <option value="">All Severity</option>
             {SEVERITIES.filter(Boolean).map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
           </select>
-          <input type="date" className="form-input py-2 text-sm" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1) }} placeholder="From"/>
-          <input type="date" className="form-input py-2 text-sm" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1) }} placeholder="To"/>
+          <input type="date" className="form-input py-2 text-sm w-full" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1) }} placeholder="From"/>
+          <input type="date" className="form-input py-2 text-sm w-full" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1) }} placeholder="To"/>
         </div>
       </div>
 

@@ -141,19 +141,19 @@ export default function AdminBankManagement() {
                 </p>
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-wrap gap-2 pt-1">
                 <button type="button" onClick={() => { setHistoryAccount(acc); setHistoryPage(1) }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors">
+                  className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors">
                   <FiList size={12} /> History
                 </button>
                 <button type="button" onClick={() => setTxnTarget(acc)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg transition-colors">
+                  className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg transition-colors">
                   <FiTrendingUp size={12} /> Transaction
                 </button>
                 <button onClick={() => openEdit(acc)}
-                  className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"><FiEdit2 size={13} /></button>
+                  className="p-1.5 shrink-0 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"><FiEdit2 size={13} /></button>
                 <button type="button" onClick={() => requestDeleteBank(acc._id)}
-                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><FiTrash2 size={13} /></button>
+                  className="p-1.5 shrink-0 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><FiTrash2 size={13} /></button>
               </div>
 
               {/* Recent transactions */}
@@ -177,15 +177,15 @@ export default function AdminBankManagement() {
 
       {/* Create/Edit Modal */}
       {(showCreate || editing) && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-0 sm:p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[100dvh] sm:max-h-[90vh]">
+            <div className="flex items-center justify-between p-6 border-b shrink-0">
               <h3 className="font-bold text-primary font-heading">{editing ? 'Edit Account' : 'Add Bank Account'}</h3>
               <button onClick={() => { setShowCreate(false); setEditing(null) }} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2"><label className="form-label">Bank Name *</label>
+            <div className="p-6 space-y-4 overflow-y-auto min-h-0 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2"><label className="form-label">Bank Name *</label>
                   <input className="form-input" value={form.bankName} onChange={e => setForm(s => ({ ...s, bankName: e.target.value }))} placeholder="e.g. Commercial Bank of Ceylon" /></div>
                 <div><label className="form-label">Account Number *</label>
                   <input className="form-input font-mono" value={form.accountNumber} onChange={e => setForm(s => ({ ...s, accountNumber: e.target.value }))} placeholder="1234567890" /></div>
@@ -196,7 +196,7 @@ export default function AdminBankManagement() {
                     <option value="fixed">Fixed Deposit</option>
                   </select>
                 </div>
-                <div className="col-span-2"><label className="form-label">Account Holder *</label>
+                <div className="sm:col-span-2"><label className="form-label">Account Holder *</label>
                   <input className="form-input" value={form.accountHolder} onChange={e => setForm(s => ({ ...s, accountHolder: e.target.value }))} placeholder="Account holder name" /></div>
                 <div><label className="form-label">Branch Name</label>
                   <input className="form-input" value={form.branchName} onChange={e => setForm(s => ({ ...s, branchName: e.target.value }))} placeholder="e.g. Colombo 03" /></div>
@@ -207,13 +207,13 @@ export default function AdminBankManagement() {
                     <option value="EUR">EUR</option>
                   </select>
                 </div>
-                <div className="col-span-2"><label className="form-label">Opening / Current Balance (LKR)</label>
+                <div className="sm:col-span-2"><label className="form-label">Opening / Current Balance (LKR)</label>
                   <input type="number" className="form-input" value={form.currentBalance} onChange={e => setForm(s => ({ ...s, currentBalance: Number(e.target.value) }))} /></div>
-                <div className="col-span-2"><label className="form-label">Notes</label>
+                <div className="sm:col-span-2"><label className="form-label">Notes</label>
                   <textarea rows={2} className="form-input resize-none" value={form.notes} onChange={e => setForm(s => ({ ...s, notes: e.target.value }))} placeholder="Optional notes" /></div>
               </div>
             </div>
-            <div className="flex gap-3 px-6 py-4 border-t">
+            <div className="flex gap-3 px-6 py-4 border-t shrink-0 bg-slate-50 pb-safe">
               <button onClick={() => { setShowCreate(false); setEditing(null) }} className="btn-ghost flex-1 justify-center">Cancel</button>
               <button onClick={save} disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center gap-2">
                 {createMut.isPending || updateMut.isPending ? <span className="spinner" /> : <FiCheck size={14} />} {editing ? 'Save Changes' : 'Add Account'}
@@ -225,16 +225,16 @@ export default function AdminBankManagement() {
 
       {/* Transaction Modal */}
       {txnTarget && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-6 border-b">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-0 sm:p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[100dvh] sm:max-h-[90vh]">
+            <div className="flex items-center justify-between p-6 border-b shrink-0">
               <div>
                 <h3 className="font-bold text-primary font-heading">Record Transaction</h3>
                 <p className="text-xs text-slate-500 mt-0.5">{txnTarget.bankName} · {txnTarget.accountNumber}</p>
               </div>
               <button onClick={() => setTxnTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto min-h-0 flex-1">
               <div className="bg-slate-50 rounded-xl p-3 text-center">
                 <p className="text-xs text-slate-500">Current Balance</p>
                 <p className="text-xl font-bold text-slate-800">LKR {(txnTarget.currentBalance || 0).toLocaleString()}</p>
@@ -268,7 +268,7 @@ export default function AdminBankManagement() {
                 </div>
               )}
             </div>
-            <div className="flex gap-3 px-6 py-4 border-t">
+            <div className="flex gap-3 px-6 py-4 border-t shrink-0 bg-slate-50 pb-safe">
               <button onClick={() => setTxnTarget(null)} className="btn-ghost flex-1 justify-center">Cancel</button>
               <button onClick={() => { if (!txnForm.amount) { toast.error('Amount required'); return } txnMut.mutate({ id: txnTarget._id, ...txnForm }) }}
                 disabled={txnMut.isPending}
@@ -282,9 +282,9 @@ export default function AdminBankManagement() {
       )}
 
       {historyAccount && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-0 sm:p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[100dvh] sm:max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b shrink-0">
               <div>
                 <h3 className="font-bold text-primary font-heading">Transaction history</h3>
                 <p className="text-xs text-slate-500">{historyAccount.bankName} · {historyAccount.accountNumber}</p>

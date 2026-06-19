@@ -410,7 +410,7 @@ export default function AdminQuotations() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative w-full sm:flex-1 sm:w-auto sm:min-w-[200px]">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
-          <input placeholder="Search quotations..." className="form-input pl-9 py-2 text-sm w-full" value={search} onChange={e => setSearch(e.target.value)}/>
+          <input placeholder="Search quotations..." className="form-input !pl-10 py-2 text-sm w-full" value={search} onChange={e => setSearch(e.target.value)}/>
         </div>
         <select className="form-select py-2 text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>

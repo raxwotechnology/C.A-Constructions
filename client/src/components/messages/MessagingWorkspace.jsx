@@ -183,7 +183,7 @@ export default function MessagingWorkspace({ embedded = false }) {
           <div className="flex items-center justify-between mb-3">
             <div className="relative flex-1">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input className="form-input pl-9 text-sm" placeholder="Search chats" />
+              <input className="form-input !pl-10 text-sm" placeholder="Search chats" />
             </div>
             {user?.role !== 'client' && (
               <button onClick={() => setShowCreateGroup(true)} className="ml-2 btn-secondary p-2 lg:p-2.5 rounded-lg" title="Create Group">

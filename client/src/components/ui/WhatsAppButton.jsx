@@ -14,12 +14,9 @@ export default function WhatsAppButton() {
     staleTime: 60000,
   });
 
-  const whatsappNumber = data?.settings?.whatsappNumber;
-
-  if (!whatsappNumber || location.pathname.startsWith('/admin')) return null;
-
-  // Format the number by removing any non-digit characters
-  const formattedNumber = whatsappNumber.replace(/\D/g, '');
+  // Hardcoded as requested
+  const formattedNumber = '94743573333';
+  if (location.pathname.startsWith('/admin')) return null;
 
   const handleClick = () => {
     window.open(`https://wa.me/${formattedNumber}`, '_blank');

@@ -35,7 +35,7 @@ const navLinks = [
 
 const moreLinks = [
   { to: '/careers', label: 'Careers' },
-  { to: '/feedback', label: 'Feedback' },
+
 ]
 
 export default function PublicLayout() {
@@ -44,9 +44,11 @@ export default function PublicLayout() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false)
   const profileRef = useRef(null)
   const notifRef = useRef(null)
   const moreRef = useRef(null)
+  const servicesRef = useRef(null)
   const topbarRef = useRef(null)
   const [topbarH, setTopbarH] = useState(80)
   const { user, isAuthenticated, logout } = useAuthStore()
@@ -62,6 +64,14 @@ export default function PublicLayout() {
   })
   const notifications = notifData?.notifications || []
   const unreadCount = notifications.filter((item) => !item.read).length
+
+  const { data: servicesData } = useQuery({
+    queryKey: ['public-services'],
+    queryFn: () => api.get('/content/services').then(r => r.data),
+  })
+  const allServices = servicesData?.services || []
+  const serviceCategories = Array.from(new Set(allServices.filter(s => s.type === 'service' || !s.type).map(s => s.category).filter(Boolean)))
+  const productCategories = Array.from(new Set(allServices.filter(s => s.type === 'product').map(s => s.category).filter(Boolean)))
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 10)
@@ -88,6 +98,7 @@ export default function PublicLayout() {
       if (profileRef.current && !profileRef.current.contains(t)) setProfileOpen(false)
       if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false)
       if (moreRef.current && !moreRef.current.contains(t)) setMoreOpen(false)
+      if (servicesRef.current && !servicesRef.current.contains(t)) setServicesDropdownOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('touchstart', onDown, { passive: true })
@@ -138,26 +149,37 @@ export default function PublicLayout() {
               <FiHome size={14} /> Back
             </a>
             <span className="w-px h-4 bg-white/20 mx-1" />
-            {[
-              { to: '/', label: 'Home', exact: true },
-              { to: '/services', label: 'Services' },
-              { to: '/careers', label: 'Careers' },
-              { to: '/contact', label: 'Contact' },
-              { to: '/feedback', label: 'Feedback' },
-            ].map(({ to, label, exact }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={exact}
-                className={({ isActive }) =>
-                  `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                    isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'
-                  }`
-                }
-              >
-                {label}
-              </NavLink>
-            ))}
+            <NavLink to="/" end className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Home</NavLink>
+            
+            {/* Services & Products Dropdown */}
+            <div className="relative" ref={servicesRef}>
+              <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${servicesDropdownOpen || location.pathname === '/services' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+                Services & Products <FiChevronDown size={14} className={`transition-transform ${servicesDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <AnimatePresence>
+                {servicesDropdownOpen && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden py-2 z-[130]">
+                    <div className="px-4 pt-2 pb-1 text-xs font-bold text-slate-400 uppercase tracking-wider">Services</div>
+                    <NavLink to="/services" onClick={() => setServicesDropdownOpen(false)} className="block px-4 py-2 text-sm font-bold text-primary hover:bg-slate-50 mb-1">All Services</NavLink>
+                    {serviceCategories.map(cat => (
+                      <NavLink key={cat} to={`/services?category=${encodeURIComponent(cat)}`} onClick={() => setServicesDropdownOpen(false)} className="block px-4 py-2 text-sm font-medium text-slate-600 hover:text-primary hover:bg-blue-50/50 transition-colors">
+                        {cat}
+                      </NavLink>
+                    ))}
+                    <div className="px-4 pt-3 pb-1 text-xs font-bold text-slate-400 uppercase tracking-wider border-t border-slate-50 mt-2">Products</div>
+                    <NavLink to="/services?tab=product" onClick={() => setServicesDropdownOpen(false)} className="block px-4 py-2 text-sm font-bold text-primary hover:bg-slate-50 mb-1">All Products</NavLink>
+                    {productCategories.map(cat => (
+                      <NavLink key={cat} to={`/services?tab=product&category=${encodeURIComponent(cat)}`} onClick={() => setServicesDropdownOpen(false)} className="block px-4 py-2 text-sm font-medium text-slate-600 hover:text-primary hover:bg-blue-50/50 transition-colors">
+                        {cat}
+                      </NavLink>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <NavLink to="/careers" className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
+            <NavLink to="/contact" className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Contact</NavLink>
           </nav>
 
           <div className="hidden md:flex items-center gap-3 flex-shrink-0">
@@ -274,7 +296,7 @@ export default function PublicLayout() {
                   { to: '/services', label: 'Services' },
                   { to: '/careers', label: 'Careers' },
                   { to: '/contact', label: 'Contact' },
-                  { to: '/feedback', label: 'Feedback' },
+
                 ].map(({ to, label, exact }) => (
                   <NavLink
                     key={to}

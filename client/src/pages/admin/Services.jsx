@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown, FiArchive, FiCheck, FiDollarSign, FiLayers } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown, FiArchive, FiCheck, FiLayers, FiTag, FiFilter, FiMessageSquare, FiStar, FiClock, FiCheckCircle, FiXCircle } from 'react-icons/fi'
 import FeatureTagInput from '../../components/ui/FeatureTagInput'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
@@ -14,6 +14,7 @@ const BILLING = ['one-time', 'monthly', 'quarterly', 'yearly']
 export default function AdminServices() {
   const qc = useQueryClient()
   const [tab, setTab] = useState('service')
+  const [filterCategory, setFilterCategory] = useState('All')
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY_SERVICE)
   const [imageFile, setImageFile] = useState(null)
@@ -27,7 +28,15 @@ export default function AdminServices() {
     queryKey: ['admin-services'],
     queryFn: () => api.get('/content/services/admin').then(r => r.data),
   })
-  const services = (data?.services || []).filter(s => s.type === tab || (!s.type && tab === 'service'))
+  const allTabServices = (data?.services || []).filter(s => s.type === tab || (!s.type && tab === 'service'))
+  const categories = ['All', ...Array.from(new Set(allTabServices.map(s => s.category).filter(Boolean)))]
+  const services = filterCategory === 'All' ? allTabServices : allTabServices.filter(s => s.category === filterCategory)
+
+  const { data: fbData } = useQuery({
+    queryKey: ['admin-feedbacks'],
+    queryFn: () => api.get('/feedback').then(r => r.data),
+  })
+  const allFeedbacks = fbData?.feedbacks || []
 
   const uploadImage = async () => {
     if (!imageFile) return form.imageUrl || ''
@@ -57,6 +66,10 @@ export default function AdminServices() {
   const archiveMut = useMutation({
     mutationFn: (id) => api.put(`/content/services/${id}/archive`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Archived') },
+  })
+  const updateFbStatusMut = useMutation({
+    mutationFn: ({ id, status }) => api.put(`/feedback/${id}/status`, { status }).then(r => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-feedbacks'] }); toast.success('Feedback status updated') },
   })
   const addPkgMut = useMutation({
     mutationFn: ({ id, pkg }) => api.post(`/content/services/${id}/packages`, pkg).then(r => r.data),
@@ -100,13 +113,41 @@ export default function AdminServices() {
       </div>
 
       {/* Tab toggle */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-        {[{ val: 'service', label: '🛠 Services' }, { val: 'product', label: '📦 Products' }].map(t => (
-          <button key={t.val} onClick={() => setTab(t.val)}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${tab === t.val ? 'bg-white shadow text-secondary' : 'text-slate-500 hover:text-slate-700'}`}>
-            {t.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+          {[{ val: 'service', label: '🛠 Services' }, { val: 'product', label: '📦 Products' }].map(t => (
+            <button key={t.val} onClick={() => { setTab(t.val); setFilterCategory('All') }}
+              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${tab === t.val ? 'bg-white shadow text-secondary' : 'text-slate-500 hover:text-slate-700'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Category filter chips */}
+        {categories.length > 1 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <FiFilter size={13} className="text-slate-400" />
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setFilterCategory(cat)}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  filterCategory === cat
+                    ? 'bg-primary text-white border-primary shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-primary/40 hover:text-primary'
+                }`}
+              >
+                {cat !== 'All' && <FiTag size={10} />}
+                {cat}
+                {cat !== 'All' && (
+                  <span className={`ml-0.5 px-1 rounded-full text-[10px] font-bold ${filterCategory === cat ? 'bg-white/20' : 'bg-slate-100'}`}>
+                    {allTabServices.filter(s => s.category === cat).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -115,13 +156,18 @@ export default function AdminServices() {
         </div>
       )}
 
+
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>
       ) : services.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
           <FiLayers size={40} className="mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500">No {tab}s yet. Add your first one.</p>
-          <button onClick={() => { setEditing(null); setForm({ ...EMPTY_SERVICE, type: tab }); setShowModal(true) }} className="btn-primary mt-4">Add {tab === 'service' ? 'Service' : 'Product'}</button>
+          <p className="text-slate-500">
+            {filterCategory === 'All' ? `No ${tab}s yet. Add your first one.` : `No ${tab}s found in category "${filterCategory}".`}
+          </p>
+          {filterCategory === 'All' && (
+            <button onClick={() => { setEditing(null); setForm({ ...EMPTY_SERVICE, type: tab }); setShowModal(true) }} className="btn-primary mt-4">Add {tab === 'service' ? 'Service' : 'Product'}</button>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -136,6 +182,7 @@ export default function AdminServices() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-bold text-primary">{s.title}</h3>
+                    {s.category && <span className="badge bg-slate-100 text-slate-600 border border-slate-200 text-[10px]">{s.category}</span>}
                     <span className={`badge ${s.active ? 'badge-green' : 'badge-gray'} text-[10px]`}>{s.active ? 'Active' : 'Inactive'}</span>
                     {s.packages?.length > 0 && <span className="badge badge-blue text-[10px]">{s.packages.length} packages</span>}
                   </div>
@@ -163,34 +210,72 @@ export default function AdminServices() {
 
               {/* Packages Panel */}
               <AnimatePresence>
-                {expandedService === s._id && s.packages?.length > 0 && (
-                  <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
-                    className="overflow-hidden border-t border-slate-100">
-                    <div className="p-4 bg-slate-50">
-                      <p className="text-xs font-bold text-slate-500 uppercase mb-3">Pricing Packages</p>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {s.packages.map(pkg => (
-                          <div key={pkg._id} className={`bg-white rounded-xl border p-3 ${pkg.isPopular ? 'border-secondary shadow-sm' : 'border-slate-200'}`}>
-                            {pkg.isPopular && <span className="text-[10px] bg-secondary text-white px-2 py-0.5 rounded-full font-bold mb-2 inline-block">{pkg.promotionLabel || 'POPULAR'}</span>}
-                            <p className="font-bold text-primary">{pkg.name}</p>
-                            <p className="text-xl font-black text-secondary">{pkg.currency} {Number(pkg.price).toLocaleString()}</p>
-                            <p className="text-xs text-slate-400 capitalize">{pkg.billingCycle}{pkg.duration ? ` · ${pkg.duration}` : ''}</p>
-                            {pkg.discount > 0 && <p className="text-xs text-emerald-600 font-semibold mt-1">{pkg.discount}% discount</p>}
-                            <ul className="mt-2 space-y-1">
-                              {(pkg.features || []).slice(0, 3).map((f, i) => (
-                                <li key={i} className="flex items-center gap-1.5 text-xs text-slate-600"><FiCheck size={10} className="text-emerald-500" />{f}</li>
-                              ))}
-                              {pkg.features?.length > 3 && <li className="text-xs text-slate-400">+{pkg.features.length - 3} more</li>}
-                            </ul>
-                            <div className="flex gap-1 mt-3 pt-2 border-t border-slate-100">
-                              <button onClick={() => { setEditingPkg(pkg); setPkgForm({ ...pkg, features: (pkg.features || []).join('\n') }); setShowPkgModal(s._id) }}
-                                className="btn-ghost btn-sm text-xs"><FiEdit2 size={11} /> Edit</button>
-                              <button onClick={() => deletePkgMut.mutate({ serviceId: s._id, pkgId: pkg._id })}
-                                className="btn-ghost btn-sm text-xs text-red-500"><FiTrash2 size={11} /></button>
+                {expandedService === s._id && (
+                  <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden border-t border-slate-100">
+                    {s.packages?.length > 0 && (
+                      <div className="p-4 bg-slate-50">
+                        <p className="text-xs font-bold text-slate-500 uppercase mb-3">Pricing Packages</p>
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {s.packages.map(pkg => (
+                            <div key={pkg._id} className={`bg-white rounded-xl border p-3 ${pkg.isPopular ? 'border-secondary shadow-sm' : 'border-slate-200'}`}>
+                              {pkg.isPopular && <span className="text-[10px] bg-secondary text-white px-2 py-0.5 rounded-full font-bold mb-2 inline-block">{pkg.promotionLabel || 'POPULAR'}</span>}
+                              <p className="font-bold text-primary">{pkg.name}</p>
+                              <p className="text-xl font-black text-secondary">{pkg.currency} {Number(pkg.price).toLocaleString()}</p>
+                              <p className="text-xs text-slate-400 capitalize">{pkg.billingCycle}{pkg.duration ? ` · ${pkg.duration}` : ''}</p>
+                              {pkg.discount > 0 && <p className="text-xs text-emerald-600 font-semibold mt-1">{pkg.discount}% discount</p>}
+                              <ul className="mt-2 space-y-1">
+                                {(pkg.features || []).slice(0, 3).map((f, i) => (
+                                  <li key={i} className="flex items-center gap-1.5 text-xs text-slate-600"><FiCheck size={10} className="text-emerald-500" />{f}</li>
+                                ))}
+                                {pkg.features?.length > 3 && <li className="text-xs text-slate-400">+{pkg.features.length - 3} more</li>}
+                              </ul>
+                              <div className="flex gap-1 mt-3 pt-2 border-t border-slate-100">
+                                <button onClick={() => { setEditingPkg(pkg); setPkgForm({ ...pkg, features: (pkg.features || []).join('\n') }); setShowPkgModal(s._id) }}
+                                  className="btn-ghost btn-sm text-xs"><FiEdit2 size={11} /> Edit</button>
+                                <button onClick={() => deletePkgMut.mutate({ serviceId: s._id, pkgId: pkg._id })}
+                                  className="btn-ghost btn-sm text-xs text-red-500"><FiTrash2 size={11} /></button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
+                    )}
+                    
+                    {/* Feedbacks Panel */}
+                    <div className="p-4 bg-white border-t border-slate-100">
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2"><FiMessageSquare /> Client Feedbacks</p>
+                      {(() => {
+                        const sFeedbacks = allFeedbacks.filter(fb => fb.service?._id === s._id || fb.service === s._id)
+                        if (sFeedbacks.length === 0) return <p className="text-sm text-slate-400">No feedbacks for this item yet.</p>
+                        return (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {sFeedbacks.map(fb => (
+                              <div key={fb._id} className="p-3 border border-slate-100 rounded-xl bg-slate-50 relative group">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <p className="font-bold text-sm text-primary">{fb.name || fb.client?.name}</p>
+                                    <div className="flex text-amber-400 mt-0.5">
+                                      {[...Array(5)].map((_, i) => <FiStar key={i} size={12} fill={i < fb.rating ? 'currentColor' : 'transparent'} className={i >= fb.rating ? 'text-slate-300' : ''} />)}
+                                    </div>
+                                  </div>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${fb.status === 'approved' ? 'bg-green-100 text-green-700' : fb.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {fb.status}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-600 line-clamp-2">{fb.message}</p>
+                                <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {fb.status !== 'approved' && (
+                                    <button onClick={() => updateFbStatusMut.mutate({ id: fb._id, status: 'approved' })} className="text-xs font-bold text-green-600 hover:bg-green-50 px-2 py-1 rounded border border-green-200">Approve</button>
+                                  )}
+                                  {fb.status !== 'rejected' && (
+                                    <button onClick={() => updateFbStatusMut.mutate({ id: fb._id, status: 'rejected' })} className="text-xs font-bold text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200">Reject</button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
                     </div>
                   </motion.div>
                 )}

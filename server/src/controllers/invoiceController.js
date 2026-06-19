@@ -193,7 +193,7 @@ exports.createInvoice = async (req, res, next) => {
     }
     if (populatedInv.client?.phone) {
       const { sendInvoiceSms } = require('../services/smsService');
-      await sendInvoiceSms(populatedInv.client.phone, populatedInv.client.name, invoice.invoiceNo, invoice.total, dueDate || invoiceDate);
+      await sendInvoiceSms(populatedInv.client.phone, populatedInv.client.name, invoice.invoiceNo, invoice.total, dueDate || invoiceDate, invoice._id);
     }
 
     await syncProjectsForInvoice(invoice._id);

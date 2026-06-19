@@ -5,6 +5,7 @@ const feedbackSchema = new mongoose.Schema({
   name: { type: String },
   email: { type: String },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+  service: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
   rating: { type: Number, min: 1, max: 5, required: true },
   message: { type: String, required: true, trim: true },
   response: { type: String, default: '' },

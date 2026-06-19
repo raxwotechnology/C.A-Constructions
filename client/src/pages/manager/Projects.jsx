@@ -165,7 +165,7 @@ export default function ManagerProjects() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input className="form-input pl-9 w-full" placeholder="Search projects, clients..."
+          <input className="form-input !pl-10 w-full" placeholder="Search projects, clients..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1">

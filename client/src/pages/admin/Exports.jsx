@@ -168,7 +168,7 @@ export default function AdminExports() {
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <input
-                className="form-input pl-9"
+                className="form-input !pl-10"
                 placeholder="Search datasets…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

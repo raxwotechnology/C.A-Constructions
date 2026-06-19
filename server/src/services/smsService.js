@@ -80,13 +80,15 @@ exports.sendProjectAssignedEmployeeSms = async (phone, name, title) => {
   return sendSms(phone, msg, name, 'project');
 };
 
-exports.sendInvoiceSms = async (phone, name, invoiceNo, amount, dueDate) => {
-  const msg = `Hi ${name}, invoice ${invoiceNo} for LKR ${Number(amount).toLocaleString()} has been generated. Due by ${new Date(dueDate).toLocaleDateString()}.`;
+exports.sendInvoiceSms = async (phone, name, invoiceNo, amount, dueDate, invoiceId) => {
+  const link = `${process.env.CLIENT_URL || 'http://localhost:5173'}/payments?invoice=${invoiceId}`;
+  const msg = `Hi ${name}, invoice ${invoiceNo} for LKR ${Number(amount).toLocaleString()} has been generated. Due by ${new Date(dueDate).toLocaleDateString()}. View: ${link}`;
   return sendSms(phone, msg, name, 'invoice');
 };
 
-exports.sendQuotationSms = async (phone, name, quotationNo, amount) => {
-  const msg = `Hi ${name}, quotation ${quotationNo} for LKR ${Number(amount).toLocaleString()} is ready for your review on the client portal.`;
+exports.sendQuotationSms = async (phone, name, quotationNo, amount, quotationId) => {
+  const link = `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-account?quotation=${quotationId}`;
+  const msg = `Hi ${name}, quotation ${quotationNo} for LKR ${Number(amount).toLocaleString()} is ready for your review. View: ${link}`;
   return sendSms(phone, msg, name, 'quotation');
 };
 

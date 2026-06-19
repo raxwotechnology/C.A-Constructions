@@ -91,7 +91,7 @@ export default function Careers() {
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             <div className="relative flex-1">
               <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search positions..." className="form-input pl-10" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search positions..." className="form-input !pl-10" />
             </div>
             <select value={dept} onChange={e => setDept(e.target.value)} className="form-select md:w-48">
               <option value="">All Departments</option>

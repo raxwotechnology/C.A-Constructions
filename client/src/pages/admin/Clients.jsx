@@ -123,7 +123,7 @@ export default function AdminClients() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, email, phone, company…"
-            className="form-input pl-9"
+            className="form-input !pl-10"
           />
         </div>
         <select className="form-select w-full sm:w-40" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>

@@ -244,7 +244,7 @@ export default function AdminProjects() {
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="form-input pl-9"/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="form-input !pl-10"/>
         </div>
         <select className="form-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>

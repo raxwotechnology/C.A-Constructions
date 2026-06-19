@@ -31,6 +31,7 @@ exports.getFeedbacks = async (req, res, next) => {
     const feedbacks = await Feedback.find(query)
       .populate('client', 'name email')
       .populate('project', 'title')
+      .populate('service', 'title')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: feedbacks.length, feedbacks });
   } catch (err) { next(err); }
@@ -41,6 +42,7 @@ exports.getPublicFeedbacks = async (req, res, next) => {
     const feedbacks = await Feedback.find({ status: 'approved' })
       .populate('client', 'name avatar')
       .populate('project', 'title')
+      .populate('service', 'title')
       .sort({ createdAt: -1 })
       .limit(100);
     res.json({ success: true, count: feedbacks.length, feedbacks });

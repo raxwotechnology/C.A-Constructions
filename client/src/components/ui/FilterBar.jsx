@@ -63,7 +63,7 @@ export default function FilterBar({
             value={search}
             onChange={e => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="form-input pl-9 py-2 text-sm w-full"
+            className="form-input !pl-10 py-2 text-sm w-full"
           />
         </div>
       )}

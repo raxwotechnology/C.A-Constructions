@@ -84,31 +84,31 @@ export default function BankTransactionHistory() {
 
       <div className="card card-body">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1"><FiFilter size={12} /> Filters</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          <div><label className="form-label text-xs">From</label><input type="date" className="form-input py-2 text-sm" value={filters.fromDate} onChange={f('fromDate')} /></div>
-          <div><label className="form-label text-xs">To</label><input type="date" className="form-input py-2 text-sm" value={filters.toDate} onChange={f('toDate')} /></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div><label className="form-label text-xs">From</label><input type="date" className="form-input py-2 text-sm w-full" value={filters.fromDate} onChange={f('fromDate')} /></div>
+          <div><label className="form-label text-xs">To</label><input type="date" className="form-input py-2 text-sm w-full" value={filters.toDate} onChange={f('toDate')} /></div>
           <div><label className="form-label text-xs">Branch</label>
-            <select className="form-select py-2 text-sm" value={filters.branch} onChange={f('branch')}>
+            <select className="form-select py-2 text-sm w-full" value={filters.branch} onChange={f('branch')}>
               <option value="">All</option>
               {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
             </select></div>
           <div><label className="form-label text-xs">Bank account</label>
-            <select className="form-select py-2 text-sm" value={filters.bankAccount} onChange={f('bankAccount')}>
+            <select className="form-select py-2 text-sm w-full" value={filters.bankAccount} onChange={f('bankAccount')}>
               <option value="">All</option>
               {accounts.map(a => <option key={a._id} value={a._id}>{a.bankName} — {a.accountNumber}</option>)}
             </select></div>
           <div><label className="form-label text-xs">Module</label>
-            <select className="form-select py-2 text-sm" value={filters.moduleSource} onChange={f('moduleSource')}>
+            <select className="form-select py-2 text-sm w-full" value={filters.moduleSource} onChange={f('moduleSource')}>
               <option value="">All</option>
               {MODULE_SOURCES.map(m => <option key={m} value={m}>{m}</option>)}
             </select></div>
           <div><label className="form-label text-xs">Transaction type</label>
-            <select className="form-select py-2 text-sm" value={filters.type} onChange={f('type')}>
+            <select className="form-select py-2 text-sm w-full" value={filters.type} onChange={f('type')}>
               <option value="">All</option>
               {TX_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select></div>
           <div><label className="form-label text-xs">Payment type</label>
-            <select className="form-select py-2 text-sm" value={filters.paymentType} onChange={f('paymentType')}>
+            <select className="form-select py-2 text-sm w-full" value={filters.paymentType} onChange={f('paymentType')}>
               <option value="">All</option>
               {TX_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select></div>

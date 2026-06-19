@@ -105,6 +105,12 @@ export default function AdminBookings() {
                   </span>
                 </td>
                 <td className="text-right space-x-1">
+                  {item.status === 'pending' && (
+                    <>
+                      <button onClick={() => { if(window.confirm('Approve this booking?')) updateMut.mutate({ id: item._id, payload: { status: 'confirmed' } }) }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Approve"><FiCheck size={14} /></button>
+                      <button onClick={() => { if(window.confirm('Reject this booking?')) updateMut.mutate({ id: item._id, payload: { status: 'cancelled' } }) }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors mr-1" title="Reject"><FiX size={14} /></button>
+                    </>
+                  )}
                   <button onClick={() => setViewing(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><FiEye size={14} /></button>
                   <button onClick={() => openEdit(item)} className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"><FiEdit2 size={14} /></button>
                   <button onClick={() => { if(window.confirm('Delete this booking?')) delMut.mutate(item._id) }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={14} /></button>

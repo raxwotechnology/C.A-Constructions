@@ -180,37 +180,39 @@ export default function AdminLeaves() {
       </div>
 
       {/* Filters */}
-      <div className="card card-body flex flex-wrap gap-3 items-end">
-        <div className="flex-1 min-w-[180px]">
-          <label className="form-label text-xs">Search</label>
-          <input type="text" className="form-input py-2 text-sm" placeholder="Name or Emp No..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="card card-body">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+          <div className="lg:col-span-1">
+            <label className="form-label text-xs">Search</label>
+            <input type="text" className="form-input py-2 text-sm" placeholder="Name or Emp No..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label text-xs">Branch</label>
+            <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+              <option value="">All Branches</option>
+              {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label text-xs">Status</label>
+            <select className="form-select py-2 text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option value="">All</option>
+              {['pending','approved','rejected'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label text-xs">From Date</label>
+            <input type="date" className="form-input py-2 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label text-xs">To Date</label>
+            <input type="date" className="form-input py-2 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          </div>
+          <button onClick={() => { setDateFrom(''); setDateTo(''); setSearch(''); setStatusFilter(''); setBranchFilter('') }}
+            className="btn-ghost text-sm py-2 w-full justify-center lg:w-auto">
+            <FiFilter size={14}/> Clear
+          </button>
         </div>
-        <div>
-          <label className="form-label text-xs">Branch</label>
-          <select className="form-select py-2 text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
-            <option value="">All Branches</option>
-            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="form-label text-xs">Status</label>
-          <select className="form-select py-2 text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="">All</option>
-            {['pending','approved','rejected'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="form-label text-xs">From Date</label>
-          <input type="date" className="form-input py-2 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-        </div>
-        <div>
-          <label className="form-label text-xs">To Date</label>
-          <input type="date" className="form-input py-2 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-        </div>
-        <button onClick={() => { setDateFrom(''); setDateTo(''); setSearch(''); setStatusFilter(''); setBranchFilter('') }}
-          className="btn-ghost text-sm py-2">
-          <FiFilter size={14}/> Clear
-        </button>
       </div>
 
       {/* Leave List */}

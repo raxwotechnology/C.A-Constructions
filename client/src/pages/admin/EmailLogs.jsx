@@ -109,26 +109,24 @@ export default function EmailLogs() {
         </div>
       </div>
 
-      <div className="card card-body flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <FiSearch size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Search by email or subject..." 
-            className="form-input pl-10"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="w-48">
-          <select className="form-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+      <div className="card card-body">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="relative w-full">
+            <FiSearch size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search by email or subject..." 
+              className="form-input !pl-10 w-full"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select className="form-select w-full" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">All Statuses</option>
             <option value="sent">Sent</option>
             <option value="failed">Failed</option>
           </select>
-        </div>
-        <div className="w-48">
-          <select className="form-select" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+          <select className="form-select w-full" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
             <option value="">All Modules</option>
             <option value="payroll">Payroll</option>
             <option value="leave">Leave</option>

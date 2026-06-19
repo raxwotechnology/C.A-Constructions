@@ -99,7 +99,7 @@ export default function ForgotPassword() {
                   {...register('email', { required: 'Email is required' })}
                   type="email"
                   placeholder="you@example.com"
-                  className="form-input pl-10"
+                  className="form-input !pl-10"
                 />
               </motion.div>
               {errors.email && <p className="form-error">{errors.email.message}</p>}
@@ -141,7 +141,7 @@ export default function ForgotPassword() {
                 <input
                   {...register('password', { required: 'Password is required' })}
                   type="password"
-                  className="form-input pl-10"
+                  className="form-input !pl-10"
                   placeholder="••••••••"
                 />
               </div>

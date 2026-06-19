@@ -99,7 +99,7 @@ export default function AdminRecruitment() {
 
       <div className="relative">
         <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${tab.toLowerCase()}...`} className="form-input pl-10"/>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${tab.toLowerCase()}...`} className="form-input !pl-10"/>
       </div>
 
       {/* Jobs Tab */}

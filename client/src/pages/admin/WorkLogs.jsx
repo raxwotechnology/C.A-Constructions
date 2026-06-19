@@ -135,23 +135,25 @@ export default function WorkLogs() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="page-header flex-wrap gap-3">
+      <div className="page-header flex flex-col md:flex-row md:items-center gap-4">
         <div>
           <h1 className="page-title">Daily Work Logs</h1>
           <p className="page-subtitle">Track daily tasks and project contributions.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
           {isAdmin && (
             <>
-              <input type="date" className="form-input text-sm" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
-              <select className="form-select text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
-                <option value="">All Branches</option>
-                {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-              </select>
-              <div className="tab-scroll flex rounded-xl border border-slate-200 overflow-hidden bg-white">
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input type="date" className="form-input text-sm flex-1 sm:w-auto" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+                <select className="form-select text-sm flex-1 sm:w-auto" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div className="flex overflow-x-auto rounded-xl border border-slate-200 bg-white no-scrollbar w-full sm:w-auto">
                 {ROLES.map(r => (
                   <button key={r} onClick={() => setRoleFilter(r)}
-                    className={`px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${roleFilter === r ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                    className={`px-3 py-2 text-xs font-semibold capitalize whitespace-nowrap transition-colors flex-1 text-center ${roleFilter === r ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
                     {r}
                   </button>
                 ))}
@@ -159,7 +161,7 @@ export default function WorkLogs() {
             </>
           )}
           {!isAdmin && (
-            <button onClick={() => setShowSubmit(true)} className="btn-primary gap-2">
+            <button onClick={() => setShowSubmit(true)} className="btn-primary gap-2 w-full sm:w-auto justify-center">
               <FiPlus size={14} /> Submit Log
             </button>
           )}

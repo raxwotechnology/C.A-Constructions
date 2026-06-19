@@ -119,7 +119,7 @@ export default function AdminFeedbacks() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <FiUser size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input className="form-input pl-9 w-full" placeholder="Search client or message..."
+          <input className="form-input !pl-10 w-full" placeholder="Search client or message..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
@@ -164,6 +164,11 @@ export default function AdminFeedbacks() {
                       <div>
                         <p className="font-semibold text-primary text-sm">{item.client?.name || item.name || 'Anonymous'}</p>
                         <p className="text-xs text-slate-400">{item.client?.email || item.email || '—'}</p>
+                        {(item.service || item.project) && (
+                          <span className="inline-block mt-1 badge bg-slate-100 text-slate-600 text-[10px] border border-slate-200">
+                            {item.service?.title || item.project?.title}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">

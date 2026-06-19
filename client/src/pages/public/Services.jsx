@@ -1,153 +1,320 @@
-import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiDatabase, FiLayers, FiArrowRight, FiCheck } from 'react-icons/fi'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import {
+  FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers,
+  FiDatabase, FiLayers, FiArrowRight, FiCheck, FiX, FiStar, FiFilter
+} from 'react-icons/fi'
 import api from '../../lib/api'
 import TiltCard from '../../components/ui/TiltCard'
+import useAuthStore from '../../store/authStore'
+import toast from 'react-hot-toast'
 
-const services = [
-  {
-    icon: FiCode, title: 'Web Development', color: 'from-blue-500 to-blue-600',
-    desc: 'Full-stack web applications using React, Node.js, MongoDB, and modern cloud infrastructure. We build scalable, maintainable solutions.',
-    features: ['React / Next.js frontends', 'Node.js / Express APIs', 'MongoDB & PostgreSQL', 'REST & GraphQL APIs'],
-    price: 'From LKR 150,000'
-  },
-  {
-    icon: FiSmartphone, title: 'Mobile App Development', color: 'from-green-500 to-green-600',
-    desc: 'Cross-platform iOS and Android apps with React Native. Native performance, beautiful UI, and seamless backend integration.',
-    features: ['React Native / Expo', 'iOS & Android', 'Push notifications', 'Offline-first architecture'],
-    price: 'From LKR 250,000'
-  },
-  {
-    icon: FiCloud, title: 'Cloud & DevOps', color: 'from-purple-500 to-purple-600',
-    desc: 'End-to-end cloud infrastructure setup, CI/CD pipelines, containerization, and ongoing DevOps support.',
-    features: ['AWS / Azure / GCP', 'Docker & Kubernetes', 'CI/CD pipelines', '24/7 monitoring'],
-    price: 'From LKR 80,000/mo'
-  },
-  {
-    icon: FiLayers, title: 'Enterprise Systems', color: 'from-orange-500 to-orange-600',
-    desc: 'Custom ERP, HRM, CRM, and inventory management systems designed for Sri Lankan enterprises.',
-    features: ['ERP / HRM Systems', 'Custom workflows', 'EPF/ETF compliance', 'Multi-role portals'],
-    price: 'From LKR 500,000'
-  },
-  {
-    icon: FiDatabase, title: 'Database & Backend', color: 'from-red-500 to-red-600',
-    desc: 'Database design, optimization, API development, and backend architecture for high-performance applications.',
-    features: ['Database design', 'Query optimization', 'API security', 'Data migration'],
-    price: 'From LKR 100,000'
-  },
-  {
-    icon: FiShield, title: 'Cybersecurity', color: 'from-gray-600 to-gray-800',
-    desc: 'Security audits, penetration testing, vulnerability assessments, and security consulting for your systems.',
-    features: ['Penetration testing', 'Security audits', 'GDPR compliance', 'Secure code review'],
-    price: 'From LKR 120,000'
-  },
+/* ─── Static fallback services ─────────────────────────────────── */
+const STATIC_SERVICES = [
+  { _id: 's1', icon: 'FiCode',     title: 'Web Development',      category: 'Development', colorFrom: '#3b82f6', colorTo: '#1d4ed8', description: 'Full-stack web applications using React, Node.js, MongoDB, and modern cloud infrastructure.', features: ['React / Next.js frontends', 'Node.js / Express APIs', 'MongoDB & PostgreSQL'], priceText: 'From LKR 150,000' },
+  { _id: 's2', icon: 'FiSmartphone',title: 'Mobile App Development', category: 'Development', colorFrom: '#22c55e', colorTo: '#16a34a', description: 'Cross-platform iOS and Android apps with React Native.', features: ['React Native / Expo', 'iOS & Android', 'Push notifications'], priceText: 'From LKR 250,000' },
+  { _id: 's3', icon: 'FiCloud',    title: 'Cloud & DevOps',        category: 'Infrastructure', colorFrom: '#a855f7', colorTo: '#7c3aed', description: 'End-to-end cloud infrastructure setup, CI/CD pipelines.', features: ['AWS / Azure / GCP', 'Docker & Kubernetes', 'CI/CD pipelines'], priceText: 'From LKR 80,000/mo' },
+  { _id: 's4', icon: 'FiLayers',   title: 'Enterprise Systems',    category: 'Enterprise',   colorFrom: '#f97316', colorTo: '#ea580c', description: 'Custom ERP, HRM, CRM, and inventory management systems.', features: ['ERP / HRM Systems', 'Custom workflows', 'Multi-role portals'], priceText: 'From LKR 500,000' },
+  { _id: 's5', icon: 'FiDatabase', title: 'Database & Backend',    category: 'Infrastructure', colorFrom: '#ef4444', colorTo: '#dc2626', description: 'Database design, optimization, API development.', features: ['Database design', 'Query optimization', 'API security'], priceText: 'From LKR 100,000' },
+  { _id: 's6', icon: 'FiShield',   title: 'Cybersecurity',         category: 'Security',     colorFrom: '#64748b', colorTo: '#475569', description: 'Security audits, penetration testing, vulnerability assessments.', features: ['Penetration testing', 'Security audits', 'GDPR compliance'], priceText: 'From LKR 120,000' },
 ]
 
-const process = [
-  { step: '01', title: 'Discovery', desc: 'We analyze your requirements, business goals, and technical constraints in a free consultation session.' },
-  { step: '02', title: 'Design', desc: 'Our UI/UX team creates wireframes and prototypes. You review and approve before we write a single line of code.' },
-  { step: '03', title: 'Development', desc: 'Agile sprints with regular demos. You stay in the loop throughout the entire development cycle.' },
-  { step: '04', title: 'Delivery', desc: 'Full deployment, testing, documentation, and training. 3 months of free support included.' },
+const ICON_MAP = { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiDatabase, FiLayers }
+
+const process_steps = [
+  { step: '01', title: 'Discovery',    desc: 'We analyze your requirements, business goals, and technical constraints in a free consultation session.' },
+  { step: '02', title: 'Design',       desc: 'Our UI/UX team creates wireframes and prototypes. You review and approve before we write a single line of code.' },
+  { step: '03', title: 'Development',  desc: 'Agile sprints with regular demos. You stay in the loop throughout the entire development cycle.' },
+  { step: '04', title: 'Delivery',     desc: 'Full deployment, testing, documentation, and training. 3 months of free support included.' },
 ]
 
+/* ─── Feedback Modal ─────────────────────────────────────────────── */
+function FeedbackModal({ service, onClose }) {
+  const { user } = useAuthStore()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm()
+  const [loading, setLoading] = useState(false)
+  const [rating, setRating] = useState(0)
+
+  const onSubmit = async (data) => {
+    if (rating === 0) return toast.error('Please select a rating')
+    setLoading(true)
+    try {
+      await api.post('/feedback', {
+        ...data,
+        rating,
+        service: service._id?.startsWith('s') ? null : service._id,
+        name: user?.name || data.name || 'Anonymous',
+        email: user?.email || data.email || '',
+      })
+      toast.success('Thank you for your feedback!')
+      reset()
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit feedback')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50">
+          <div>
+            <h3 className="font-bold text-lg text-primary">Give Feedback</h3>
+            <p className="text-xs text-slate-500 mt-0.5">For: <span className="font-semibold text-secondary">{service.title}</span></p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-white rounded-xl border border-slate-200 transition-all">
+            <FiX size={18} />
+          </button>
+        </div>
+        <div className="p-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {!user && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Name</label>
+                  <input {...register('name')} className="form-input" placeholder="Your name" />
+                </div>
+                <div>
+                  <label className="form-label">Email</label>
+                  <input {...register('email')} type="email" className="form-input" placeholder="your@email.com" />
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="form-label">Rating <span className="text-red-500">*</span></label>
+              <div className="flex gap-2 mt-1">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    type="button"
+                    key={star}
+                    onClick={() => setRating(star)}
+                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${
+                      rating >= star ? 'bg-amber-400 text-white shadow-lg scale-110' : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-400'
+                    }`}
+                  >
+                    <FiStar size={18} className={rating >= star ? 'fill-current' : ''} />
+                  </button>
+                ))}
+                {rating > 0 && (
+                  <span className="ml-2 self-center text-sm font-semibold text-amber-500">
+                    {['','Poor','Fair','Good','Great','Excellent'][rating]}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="form-label">Message <span className="text-red-500">*</span></label>
+              <textarea
+                {...register('message', { required: 'Please write your feedback' })}
+                className="form-input resize-none"
+                rows={4}
+                placeholder="Tell us what you think about this service..."
+              />
+              {errors.message && <p className="form-error">{errors.message.message}</p>}
+            </div>
+            <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 mt-2">
+              {loading ? <span className="spinner" /> : 'Submit Feedback'}
+            </button>
+          </form>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/* ─── Main Services Page ─────────────────────────────────────────── */
 export default function Services() {
+  const [feedbackService, setFeedbackService] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const currentTab = searchParams.get('tab') || 'service'
+  const activeCategory = searchParams.get('category') || 'All'
+
   const { data } = useQuery({
     queryKey: ['public-services'],
     queryFn: () => api.get('/content/services').then((r) => r.data),
   })
-  const dynamicServices = data?.services || []
-  const displayServices = dynamicServices.map((s) => ({
-      ...s,
-      icon: ({ FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiDatabase, FiLayers }[s.icon]) || FiCode,
-      gradientStyle: { backgroundImage: `linear-gradient(135deg, ${s.colorFrom || '#3b82f6'}, ${s.colorTo || '#1d4ed8'})` },
-      desc: s.description,
-      features: s.features || [],
-      price: s.priceText || '',
-    }))
+
+  const raw = data?.services || []
+  const allTabServices = raw.filter(s => s.type === currentTab || (!s.type && currentTab === 'service'))
+
+  const displayServices = allTabServices.length > 0
+    ? allTabServices.map((s) => ({
+        ...s,
+        icon: ICON_MAP[s.icon] || FiCode,
+        desc: s.description,
+        features: s.features || [],
+        price: s.priceText || '',
+      }))
+    : STATIC_SERVICES.map(s => ({ ...s, icon: ICON_MAP[s.icon] || FiCode, desc: s.description, price: s.priceText }))
+
+  const categories = ['All', ...Array.from(new Set(displayServices.map(s => s.category).filter(Boolean)))]
+  const filtered = activeCategory === 'All' ? displayServices : displayServices.filter(s => s.category === activeCategory)
+
+  const handleTabChange = (t) => {
+    setSearchParams({ tab: t })
+  }
+  const handleCategoryChange = (cat) => {
+    const p = new URLSearchParams(searchParams)
+    if (cat === 'All') p.delete('category')
+    else p.set('category', cat)
+    setSearchParams(p)
+  }
 
   return (
     <div>
       {/* Header */}
       <section className="bg-gradient-hero section-padding pt-32 text-center relative overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute top-20 right-20 w-64 h-64 bg-secondary/15 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 left-20 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl" />
+          <div className="absolute top-20 right-20 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 left-20 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
         </div>
         <div className="container-max relative">
-          <motion.div 
-            initial={{ opacity: 0, y: 50, scale: 0.95, filter: 'blur(10px)' }} 
-            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }} 
-            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
             className="flex flex-col items-center"
           >
-            <motion.span 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, type: 'spring' }}
-              className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2"
-            >
-              What We Offer
-            </motion.span>
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl"
-            >
-              Our Services
-            </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="text-white/80 max-w-2xl mx-auto text-xl leading-relaxed"
-            >
+            <span className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2">What We Offer</span>
+            <h1 className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight">
+              Our {currentTab === 'service' ? 'Services' : 'Products'}
+            </h1>
+            <p className="text-white/80 max-w-2xl mx-auto text-xl leading-relaxed">
               Premium software development services tailored for businesses in Sri Lanka and beyond.
-            </motion.p>
+            </p>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Category Filter */}
+      <section className="bg-white py-6 border-b border-slate-100 sticky top-0 z-40 shadow-sm">
+        <div className="container-max">
+          <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
+            {/* Tab toggle */}
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 shrink-0 mr-4">
+              {[{ val: 'service', label: '🛠 Services' }, { val: 'product', label: '📦 Products' }].map(t => (
+                <button key={t.val} onClick={() => handleTabChange(t.val)}
+                  className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all ${currentTab === t.val ? 'bg-white text-primary shadow' : 'text-slate-500 hover:text-slate-800'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {categories.length > 1 && (
+              <>
+                <FiFilter size={14} className="text-slate-400 shrink-0" />
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => handleCategoryChange(cat)}
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                      activeCategory === cat
+                        ? 'bg-primary text-white shadow-md'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
         </div>
       </section>
 
       {/* Services Grid */}
       <section className="section-padding bg-gray-50">
         <div className="container-max">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayServices.map((s, i) => (
-              <motion.div
-                key={s.title}
-                initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ delay: i * 0.1, type: 'spring', stiffness: 100 }}
-                className="h-full"
-              >
-                <TiltCard className="h-full">
-                  <div className="card card-body card-hover group h-full bg-white/80">
-                    <div className={`w-14 h-14 rounded-2xl ${s.gradientStyle ? '' : `bg-gradient-to-br ${s.color}`} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform`} style={{ ...s.gradientStyle, transform: 'translateZ(40px)' }}>
-                      <s.icon size={24} className="text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold text-primary font-heading mb-2" style={{ transform: 'translateZ(30px)' }}>{s.title}</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed mb-4" style={{ transform: 'translateZ(20px)' }}>{s.desc}</p>
-                    <ul className="space-y-2 mb-5 flex-1" style={{ transform: 'translateZ(25px)' }}>
-                      {s.features.map(f => (
-                        <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                          <FiCheck className="text-accent flex-shrink-0" size={14} />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100" style={{ transform: 'translateZ(10px)' }}>
-                      <span className="text-secondary font-semibold text-sm">{s.price}</span>
-                      <Link to="/contact" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
-                        Get quote <FiArrowRight size={14} />
-                      </Link>
-                    </div>
-                  </div>
-                </TiltCard>
-              </motion.div>
-            ))}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeCategory}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {filtered.map((s, i) => {
+                const IconComp = s.icon
+                return (
+                  <motion.div
+                    key={s._id || s.title}
+                    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                    whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                    viewport={{ once: true, margin: '-50px' }}
+                    transition={{ delay: i * 0.07, type: 'spring', stiffness: 100 }}
+                    className="h-full"
+                  >
+                    <TiltCard className="h-full">
+                      <div className="card card-body group h-full bg-white/70 backdrop-blur-md flex flex-col border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.12)] transition-all duration-500 rounded-3xl relative overflow-hidden z-10">
+                        {/* Decorative background glow */}
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100/50 to-purple-100/50 blur-3xl rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-150 duration-700 pointer-events-none -z-10" />
+                        
+                        <div
+                          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 relative bg-primary z-20"
+                          style={{ backgroundImage: s.colorFrom ? `linear-gradient(135deg, ${s.colorFrom}, ${s.colorTo})` : undefined }}
+                        >
+                          <div className="absolute inset-0 rounded-2xl bg-white/20 blur-sm mix-blend-overlay"></div>
+                          {IconComp && <IconComp size={28} className="text-white drop-shadow-md relative z-10" />}
+                        </div>
+                        <div className="relative z-20 flex-1 flex flex-col">
+                          {s.category && (
+                            <span className="inline-block self-start badge bg-blue-50/80 text-blue-700 text-[10px] uppercase font-bold tracking-wider mb-3 border border-blue-200/50 shadow-sm">{s.category}</span>
+                          )}
+                          <h3 className="text-2xl font-bold text-primary font-heading mb-3 leading-tight group-hover:text-blue-600 transition-colors">{s.title}</h3>
+                          <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">{s.desc || s.description}</p>
+                          
+                          <div className="space-y-2 mb-6 bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
+                            {(s.features || []).slice(0,4).map(f => (
+                              <div key={f} className="flex items-start gap-2.5 text-sm text-slate-600">
+                                <div className="mt-0.5 bg-emerald-100 rounded-full p-0.5"><FiCheck className="text-emerald-600 flex-shrink-0" size={10} /></div> 
+                                <span className="leading-snug">{f}</span>
+                              </div>
+                            ))}
+                            {(s.features || []).length > 4 && (
+                              <p className="text-xs text-slate-400 pl-6 font-medium">+{s.features.length - 4} more features</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-auto relative z-20">
+                          <span className="text-secondary font-black text-lg tracking-tight">{s.price || s.priceText}</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setFeedbackService(s)}
+                              className="text-slate-400 hover:text-amber-500 text-xs font-medium flex items-center gap-1 transition-all hover:gap-1.5 px-2 py-1.5 rounded-lg hover:bg-amber-50"
+                            >
+                              <FiStar size={12} /> Feedback
+                            </button>
+                            <Link to="/contact" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
+                              Get quote <FiArrowRight size={14} />
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    </TiltCard>
+                  </motion.div>
+                )
+              })}
+            </motion.div>
+          </AnimatePresence>
+
+          {filtered.length === 0 && (
+            <div className="text-center py-20">
+              <FiLayers size={40} className="mx-auto text-slate-300 mb-3" />
+              <p className="text-slate-500">No services in this category yet.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -159,10 +326,10 @@ export default function Services() {
             <h2 className="text-4xl font-bold text-primary font-heading">Our Development Process</h2>
           </div>
           <div className="grid md:grid-cols-4 gap-6">
-            {process.map((p, i) => (
+            {process_steps.map((p, i) => (
               <motion.div key={p.step} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                 className="text-center relative">
-                {i < process.length - 1 && <div className="hidden md:block absolute top-8 left-1/2 w-full h-0.5 bg-gradient-to-r from-secondary/30 to-transparent" />}
+                {i < process_steps.length - 1 && <div className="hidden md:block absolute top-8 left-1/2 w-full h-0.5 bg-gradient-to-r from-secondary/30 to-transparent" />}
                 <div className="w-16 h-16 rounded-2xl bg-primary text-white flex items-center justify-center text-2xl font-bold font-heading mx-auto mb-4 relative z-10">
                   {p.step}
                 </div>
@@ -182,6 +349,12 @@ export default function Services() {
           <Link to="/contact" className="btn-primary btn-lg">Request a Free Quote <FiArrowRight /></Link>
         </div>
       </section>
+
+      <AnimatePresence>
+        {feedbackService && (
+          <FeedbackModal service={feedbackService} onClose={() => setFeedbackService(null)} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

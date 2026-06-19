@@ -129,7 +129,7 @@ export default function Portfolio() {
               <FiSearch size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search by project, tech stack..."
-                className="form-input pl-10 w-full bg-white" />
+                className="form-input !pl-10 w-full bg-white" />
             </div>
             <div className="flex gap-2 flex-wrap">
               {categories.map(c => (

@@ -132,7 +132,7 @@ export default function EmployeeFormModal({
           <div><label className="form-label">Primary phone</label><input {...register('primaryPhone')} className="form-input" placeholder="+94..." /></div>
           <div><label className="form-label">Secondary phone</label><input {...register('secondaryPhone')} className="form-input" /></div>
         </div>
-        <div><label className="form-label">Portfolio / LinkedIn</label><div className="relative"><FiLink size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input {...register('portfolioUrl')} className="form-input pl-9" placeholder="https://..." /></div></div>
+        <div><label className="form-label">Portfolio / LinkedIn</label><div className="relative"><FiLink size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input {...register('portfolioUrl')} className="form-input !pl-10" placeholder="https://..." /></div></div>
         <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-100">
           {profilePhotoPreview ? <img src={profilePhotoPreview} alt="" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md" /> : <div className="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center text-secondary"><FiUser size={28} /></div>}
           <div>

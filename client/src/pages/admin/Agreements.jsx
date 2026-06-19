@@ -410,7 +410,7 @@ export default function Agreements() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search agreements…"
-              className="form-input pl-9 bg-white w-full"
+              className="form-input !pl-10 bg-white w-full"
             />
           </div>
           <p className="text-xs text-slate-500 sm:ml-auto">Branding comes from Admin → Settings (logo, address, contact).</p>

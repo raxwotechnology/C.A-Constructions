@@ -235,25 +235,25 @@ export default function FinancialReports() {
 
       {/* Filters */}
       <div className="card card-body">
-        <div className="flex flex-wrap gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="form-label">From</label>
-            <input type="date" className="form-input" value={from} onChange={e => setFrom(e.target.value)}/>
+            <label className="form-label text-xs">From Date</label>
+            <input type="date" className="form-input text-sm" value={from} onChange={e => setFrom(e.target.value)}/>
           </div>
           <div>
-            <label className="form-label">To</label>
-            <input type="date" className="form-input" value={to} onChange={e => setTo(e.target.value)}/>
+            <label className="form-label text-xs">To Date</label>
+            <input type="date" className="form-input text-sm" value={to} onChange={e => setTo(e.target.value)}/>
           </div>
           <div>
-            <label className="form-label">Branch</label>
-            <select className="form-select" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
+            <label className="form-label text-xs">Branch</label>
+            <select className="form-select text-sm" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
               <option value="">All Branches</option>
               {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="form-label">Payment Method</label>
-            <select className="form-select" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+            <label className="form-label text-xs">Payment Method</label>
+            <select className="form-select text-sm" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
               <option value="">All Methods</option>
               {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
             </select>

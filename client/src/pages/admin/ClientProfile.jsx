@@ -68,26 +68,30 @@ export default function ClientProfile() {
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors mt-1"><FiArrowLeft size={20}/></button>
-        <div className="flex-1 flex justify-between items-start">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl font-bold font-heading shadow-sm border border-blue-200">
-              {(profile.companyName || client?.name || '?')[0].toUpperCase()}
+      <div className="flex flex-col sm:flex-row items-start gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><FiArrowLeft size={20}/></button>
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl font-bold font-heading shadow-sm border border-blue-200 shrink-0">
+            {(profile.companyName || client?.name || '?')[0].toUpperCase()}
+          </div>
+          <div className="sm:hidden flex-1 flex justify-end">
+            <button onClick={openEdit} className="btn-outline btn-sm"><FiEdit2 size={14}/> Edit</button>
+          </div>
+        </div>
+        
+        <div className="flex-1 flex flex-col sm:flex-row justify-between items-start w-full gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h1 className="text-2xl font-bold font-heading text-slate-800 truncate max-w-full">{profile.companyName || client?.name}</h1>
+              <span className={`badge ${statusColors[profile.status] || 'badge-gray'}`}>{profile.status}</span>
+              <span className="badge badge-navy">{profile.clientType}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-2xl font-bold font-heading text-slate-800">{profile.companyName || client?.name}</h1>
-                <span className={`badge ${statusColors[profile.status] || 'badge-gray'}`}>{profile.status}</span>
-                <span className="badge badge-navy">{profile.clientType}</span>
-              </div>
-              <p className="text-sm text-slate-500 flex items-center gap-3">
-                <span><FiMail className="inline mr-1"/> {client?.email}</span>
-                {profile.primaryPhone && <span><FiPhone className="inline mr-1"/> {profile.primaryPhone}</span>}
-              </p>
+            <div className="text-sm text-slate-500 flex flex-col sm:flex-row gap-1 sm:gap-3">
+              <span className="truncate"><FiMail className="inline mr-1"/> {client?.email}</span>
+              {profile.primaryPhone && <span><FiPhone className="inline mr-1"/> {profile.primaryPhone}</span>}
             </div>
           </div>
-          <button onClick={openEdit} className="btn-outline btn-sm"><FiEdit2 size={14}/> Edit Profile</button>
+          <button onClick={openEdit} className="btn-outline btn-sm hidden sm:flex shrink-0"><FiEdit2 size={14}/> Edit Profile</button>
         </div>
       </div>
 

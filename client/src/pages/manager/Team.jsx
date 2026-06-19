@@ -108,7 +108,7 @@ export default function ManagerTeam() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input className="form-input pl-9 w-full" placeholder="Search name, designation, department..."
+          <input className="form-input !pl-10 w-full" placeholder="Search name, designation, department..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <select className="form-select w-auto" value={dept} onChange={e => setDept(e.target.value)}>

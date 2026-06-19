@@ -664,21 +664,21 @@ export default function AdminAIAnalyzer() {
             </motion.div>
           ) : (
             <motion.div key="detail" initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-20}} className="space-y-5 relative">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                <button onClick={() => { setMktgPlatform(null); setMktgData(null) }} className="btn-outline btn-sm gap-1"><FiArrowLeft size={14}/> Back to Platforms</button>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={() => setShowAssignModal(true)} className="btn-outline btn-sm gap-1 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
-                    <FiUserPlus size={14}/> Assign Employee
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full">
+                <button onClick={() => { setMktgPlatform(null); setMktgData(null) }} className="btn-outline btn-sm gap-1 shrink-0"><FiArrowLeft size={14}/> Back to Platforms</button>
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto lg:justify-end">
+                  <button onClick={() => setShowAssignModal(true)} className="btn-outline btn-sm gap-1 text-indigo-600 border-indigo-200 hover:bg-indigo-50 flex-1 sm:flex-none justify-center">
+                    <FiUserPlus size={14}/> Assign
                   </button>
                   {(mktgPlatform === 'facebook' || mktgPlatform === 'instagram' || mktgPlatform === 'youtube' || mktgPlatform === 'tiktok' || mktgPlatform === 'linkedin') && (
-                    <button type="button" onClick={() => openApiSettings(mktgPlatform)} className="btn-outline btn-sm gap-1 text-slate-600">
+                    <button type="button" onClick={() => openApiSettings(mktgPlatform)} className="btn-outline btn-sm gap-1 text-slate-600 flex-1 sm:flex-none justify-center">
                       <FiSettings size={14}/> Add API
                     </button>
                   )}
                   <select 
                     value={mktgTimeframe} 
                     onChange={e => { setMktgTimeframe(e.target.value); runMarketingAnalysis(mktgPlatform); }}
-                    className="form-select bg-white border-slate-200 text-sm font-medium py-1.5 px-3 rounded-lg w-32"
+                    className="form-select bg-white border-slate-200 text-sm font-medium py-1.5 px-3 rounded-lg w-full sm:w-32 flex-1 sm:flex-none"
                   >
                     <option value="today">Today</option>
                     <option value="7d">Last 7 Days</option>
@@ -686,10 +686,10 @@ export default function AdminAIAnalyzer() {
                     <option value="90d">Last 90 Days</option>
                     <option value="ytd">Year to Date</option>
                   </select>
-                  <button onClick={exportExcel} className="btn-outline btn-sm gap-1 text-green-700 border-green-200 hover:bg-green-50">
+                  <button onClick={exportExcel} className="btn-outline btn-sm gap-1 text-green-700 border-green-200 hover:bg-green-50 flex-1 sm:flex-none justify-center">
                     <FiDownload size={14} /> Excel
                   </button>
-                  <button onClick={exportPDF} disabled={isExportingPDF} className="btn-outline btn-sm gap-1 text-red-600 border-red-200 hover:bg-red-50">
+                  <button onClick={exportPDF} disabled={isExportingPDF} className="btn-outline btn-sm gap-1 text-red-600 border-red-200 hover:bg-red-50 flex-1 sm:flex-none justify-center">
                     {isExportingPDF ? <span className="spinner w-3 h-3" /> : <FiFileText size={14} />} PDF
                   </button>
                 </div>

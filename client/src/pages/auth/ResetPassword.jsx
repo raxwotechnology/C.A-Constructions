@@ -67,7 +67,7 @@ export default function ResetPassword() {
               <input
                 {...register('email', { required: 'Email is required' })}
                 type="email"
-                className="form-input pl-10"
+                className="form-input !pl-10"
                 readOnly={Boolean(emailFromUrl)}
               />
             </div>
@@ -96,7 +96,7 @@ export default function ResetPassword() {
               <input
                 {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'At least 6 characters' } })}
                 type={showPass ? 'text' : 'password'}
-                className="form-input pl-10 pr-10"
+                className="form-input !pl-10 pr-10"
               />
               <button type="button" onClick={() => setShowPass(!showPass)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -116,7 +116,7 @@ export default function ResetPassword() {
                   validate: (v) => v === password || 'Passwords do not match',
                 })}
                 type={showConfirm ? 'text' : 'password'}
-                className="form-input pl-10 pr-10"
+                className="form-input !pl-10 pr-10"
               />
               <button type="button" onClick={() => setShowConfirm(!showConfirm)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">

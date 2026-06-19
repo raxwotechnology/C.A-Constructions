@@ -359,7 +359,7 @@ export default function AdminEmployees() {
             value={search} 
             onChange={e=>setSearch(e.target.value)} 
             placeholder="Search employees..." 
-            className="form-input pl-10"
+            className="form-input !pl-10"
             autoComplete="off"
             name="raxwo-emp-search-unique"
           />
