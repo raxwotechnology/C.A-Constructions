@@ -194,7 +194,7 @@ export default function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/my-projects" element={<ProtectedRoute roles={['client']}><ClientProjects /></ProtectedRoute>} />
         <Route path="/my-subscriptions" element={<ProtectedRoute roles={['client']}><ClientSubscriptions /></ProtectedRoute>} />
-        <Route path="/booking" element={<ProtectedRoute roles={['client']}><ClientBooking /></ProtectedRoute>} />
+        <Route path="/booking" element={<ClientBooking />} />
         <Route path="/payments" element={<ProtectedRoute roles={['client']}><ClientInvoices /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute roles={['client']}><ClientMessages /></ProtectedRoute>} />
         <Route path="/meetings" element={<ProtectedRoute roles={['client']}><Meetings /></ProtectedRoute>} />

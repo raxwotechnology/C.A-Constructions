@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
+import useAuthStore from '../../store/authStore'
 import { FiCalendar, FiDollarSign, FiFileText, FiCheck, FiArrowRight, FiCpu, FiSmartphone, FiCloud, FiShield, FiDatabase, FiLayers } from 'react-icons/fi'
 
 const SERVICE_ICONS = { FiCpu, FiSmartphone, FiCloud, FiShield, FiDatabase, FiLayers }
@@ -20,6 +21,7 @@ const STATIC_SERVICES = [
 const STEPS = ['Select Service', 'Project Details', 'Confirmation']
 
 export default function ClientBooking() {
+  const { isAuthenticated } = useAuthStore()
   const [step, setStep] = useState(0)
   const [selectedService, setSelectedService] = useState(null)
   const [submitted, setSubmitted] = useState(false)
@@ -151,6 +153,29 @@ export default function ClientBooking() {
               </div>
               <form onSubmit={handleSubmit(() => setStep(2))} className="card card-body space-y-5">
                 <h2 className="text-xl font-bold text-primary font-heading">Project Details</h2>
+                
+                {!isAuthenticated && (
+                  <div className="bg-slate-50 p-4 rounded-xl space-y-4 border border-slate-200">
+                    <p className="text-sm font-semibold text-slate-700">Contact Information</p>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="form-label">Name *</label>
+                        <input className="form-input" placeholder="Your name" {...register('guestName', { required: 'Name is required' })} />
+                        {errors.guestName && <p className="text-xs text-red-500 mt-1">{errors.guestName.message}</p>}
+                      </div>
+                      <div>
+                        <label className="form-label">Email *</label>
+                        <input type="email" className="form-input" placeholder="your@email.com" {...register('guestEmail', { required: 'Email is required' })} />
+                        {errors.guestEmail && <p className="text-xs text-red-500 mt-1">{errors.guestEmail.message}</p>}
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="form-label">Phone Number (optional)</label>
+                        <input className="form-input" placeholder="+1234567890" {...register('guestPhone')} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="form-label flex items-center gap-1.5"><FiCalendar size={12} /> Preferred Start Date *</label>

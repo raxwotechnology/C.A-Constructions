@@ -23,16 +23,28 @@ function mapBookingServiceToServiceType(service = '') {
 
 exports.createBooking = async (req, res, next) => {
   try {
-    const booking = await Booking.create({
+    const isGuest = !req.user;
+    const bookingPayload = {
       ...req.body,
-      client: req.user._id,
-    });
+      isGuest,
+    };
+
+    if (!isGuest) {
+      bookingPayload.client = req.user._id;
+    } else {
+      if (!req.body.guestName || !req.body.guestEmail) {
+        return res.status(400).json({ success: false, message: 'Name and email are required for guest bookings' });
+      }
+    }
+
+    const booking = await Booking.create(bookingPayload);
 
     const adminUsers = await User.find({ role: { $in: ['admin', 'manager'] }, isActive: true }).select('_id');
+    const bookerName = isGuest ? req.body.guestName : req.user.name;
     await Promise.all(adminUsers.map((u) => createNotification({
       recipient: u._id,
-      title: 'New Client Booking',
-      message: `${req.user.name} submitted a new booking for ${booking.service}.`,
+      title: isGuest ? 'New Guest Booking' : 'New Client Booking',
+      message: `${bookerName} submitted a new booking for ${booking.service}.`,
       type: 'booking',
       link: '/admin/bookings',
     })));
@@ -59,6 +71,9 @@ exports.updateBooking = async (req, res, next) => {
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
     const clientId = booking.client?._id || booking.client;
+    const isGuest = booking.isGuest;
+    const clientName = isGuest ? booking.guestName : (booking.client?.name || 'Client');
+
     const becomingConfirmed =
       req.body.status === 'confirmed' &&
       booking.status === 'confirmed' &&
@@ -70,9 +85,8 @@ exports.updateBooking = async (req, res, next) => {
       const preferred = booking.preferredDate ? new Date(booking.preferredDate) : undefined;
 
       const projectPayload = {
-        title: `${booking.service} — ${booking.client?.name || 'Client'}`,
+        title: `${booking.service} — ${clientName}`,
         description: booking.brief?.trim() || `${booking.service} — confirmed from booking.`,
-        client: clientId,
         serviceType,
         status: 'planning',
         priority: 'medium',
@@ -81,6 +95,7 @@ exports.updateBooking = async (req, res, next) => {
         assignedEmployees: [],
         salaryAllocations: [],
       };
+      if (clientId) projectPayload.client = clientId;
       if (booking.client?.branch) projectPayload.branch = booking.client.branch;
       if (preferred) projectPayload.startDate = preferred;
 
@@ -89,28 +104,32 @@ exports.updateBooking = async (req, res, next) => {
       booking.project = project._id;
       await booking.save();
 
+      if (clientId) {
+        await createNotification({
+          recipient: clientId,
+          title: 'New Project Created',
+          message: `Your project "${project.title}" has been created and is in ${project.status} stage.`,
+          type: 'project',
+          link: '/my-projects',
+        });
+      }
+    }
+
+    if (clientId) {
       await createNotification({
         recipient: clientId,
-        title: 'New Project Created',
-        message: `Your project "${project.title}" has been created and is in ${project.status} stage.`,
-        type: 'project',
+        title: 'Booking Updated',
+        message: `Your booking for ${booking.service} is now ${booking.status}.`,
+        type: 'booking',
         link: '/my-projects',
       });
     }
-
-    await createNotification({
-      recipient: clientId,
-      title: 'Booking Updated',
-      message: `Your booking for ${booking.service} is now ${booking.status}.`,
-      type: 'booking',
-      link: '/my-projects',
-    });
 
     const adminUsers = await User.find({ role: { $in: ['admin', 'manager'] }, isActive: true }).select('_id');
     await Promise.all(adminUsers.map((u) => createNotification({
       recipient: u._id,
       title: 'Booking Status Changed',
-      message: `${booking.client?.name || 'Client'} booking (${booking.service}) is now ${booking.status}.`,
+      message: `${clientName} booking (${booking.service}) is now ${booking.status}.`,
       type: 'booking',
       link: '/admin/bookings',
     })));

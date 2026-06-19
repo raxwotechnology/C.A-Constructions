@@ -86,7 +86,14 @@ export default function AdminBookings() {
               <tr><td colSpan={6} className="text-center py-12 text-slate-400">No bookings found</td></tr>
             ) : bookings.map((item) => (
               <tr key={item._id}>
-                <td className="font-medium text-slate-800">{item.client?.name || item.client?.email || 'Unknown Client'}</td>
+                <td>
+                  <div className="font-medium text-slate-800 flex items-center gap-2">
+                    {item.isGuest ? item.guestName : (item.client?.name || item.client?.email || 'Unknown')}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ${item.isGuest ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                      {item.isGuest ? 'Guest' : 'Client'}
+                    </span>
+                  </div>
+                </td>
                 <td className="text-slate-600 font-medium">{item.service}</td>
                 <td className="amount-cell text-slate-800 tabular-nums">
                   <div className="amount-cell-inner min-w-[7rem]">
@@ -131,7 +138,23 @@ export default function AdminBookings() {
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-xs text-slate-400 uppercase tracking-wide">Client</p><p className="font-semibold text-slate-800">{viewing.client?.name || viewing.client?.email || 'Unknown'}</p></div>
+                <div className="col-span-2">
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">Client Details</p>
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mt-1">
+                    <p className="font-semibold text-slate-800 flex items-center gap-2">
+                      {viewing.isGuest ? viewing.guestName : (viewing.client?.name || viewing.client?.email || 'Unknown')}
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase ${viewing.isGuest ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                        {viewing.isGuest ? 'Guest' : 'Registered'}
+                      </span>
+                    </p>
+                    {viewing.isGuest && (
+                      <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                        <p>Email: {viewing.guestEmail}</p>
+                        {viewing.guestPhone && <p>Phone: {viewing.guestPhone}</p>}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div><p className="text-xs text-slate-400 uppercase tracking-wide">Service</p><p className="font-semibold text-slate-800">{viewing.service}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase tracking-wide">Budget</p><p className="font-semibold text-emerald-600">LKR {(viewing.budget || viewing.amount || 0).toLocaleString()}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase tracking-wide">Preferred Date</p><p className="font-semibold text-slate-800">{viewing.preferredDate ? new Date(viewing.preferredDate).toLocaleDateString() : '—'}</p></div>
