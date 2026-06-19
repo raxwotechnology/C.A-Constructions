@@ -136,7 +136,7 @@ function FeedbackModal({ service, onClose }) {
 export default function Services() {
   const [feedbackService, setFeedbackService] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const currentTab = searchParams.get('tab') || 'service'
+  const currentTab = 'service' // Keep variable for any internal logic that might use it, but ignore for filtering
   const activeCategory = searchParams.get('category') || 'All'
 
   const { data } = useQuery({
@@ -145,7 +145,7 @@ export default function Services() {
   })
 
   const raw = data?.services || []
-  const allTabServices = raw.filter(s => s.type === currentTab || (!s.type && currentTab === 'service'))
+  const allTabServices = raw // Show both services and products!
 
   const displayServices = allTabServices.length > 0
     ? allTabServices.map((s) => ({
@@ -187,9 +187,9 @@ export default function Services() {
           >
             <span className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2">What We Offer</span>
             <h1 className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight">
-              Our {currentTab === 'service' ? 'Services' : 'Products'}
+              Our <span className="text-[#20b2f5]">Services & Software Products</span>
             </h1>
-            <p className="text-white/80 max-w-2xl mx-auto text-xl leading-relaxed">
+            <p className="text-white/80 max-w-2xl mx-auto text-xl md:text-2xl leading-relaxed font-normal">
               Premium software development services tailored for businesses in Sri Lanka and beyond.
             </p>
           </motion.div>
@@ -200,34 +200,24 @@ export default function Services() {
       <section className="bg-white py-6 border-b border-slate-100 sticky top-0 z-40 shadow-sm">
         <div className="container-max">
           <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
-            {/* Tab toggle */}
-            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 shrink-0 mr-4">
-              {[{ val: 'service', label: '🛠 Services' }, { val: 'product', label: '📦 Products' }].map(t => (
-                <button key={t.val} onClick={() => handleTabChange(t.val)}
-                  className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all ${currentTab === t.val ? 'bg-white text-primary shadow' : 'text-slate-500 hover:text-slate-800'}`}>
-                  {t.label}
+
+
+            <>
+              <FiFilter size={14} className="text-slate-400 shrink-0" />
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => handleCategoryChange(cat)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                    activeCategory === cat
+                      ? 'bg-[#20b2f5] text-white shadow-md'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {cat}
                 </button>
               ))}
-            </div>
-
-            {categories.length > 1 && (
-              <>
-                <FiFilter size={14} className="text-slate-400 shrink-0" />
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => handleCategoryChange(cat)}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-                      activeCategory === cat
-                        ? 'bg-primary text-white shadow-md'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </>
-            )}
+            </>
           </div>
         </div>
       </section>

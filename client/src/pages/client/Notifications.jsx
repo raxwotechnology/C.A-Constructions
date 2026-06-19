@@ -79,7 +79,7 @@ export default function ClientNotifications() {
       <section className="bg-gradient-hero pt-32 pb-10">
         <div className="container-max">
           <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-white mt-2">Notifications</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">Notifications</h1>
           <p className="text-white/70 mt-2">
             {unread > 0
               ? <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">{unread} unread message{unread !== 1 ? 's' : ''}</span>

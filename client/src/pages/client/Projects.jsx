@@ -16,7 +16,7 @@ export default function ClientProjects() {
       <section className="bg-gradient-hero pt-32 pb-10">
         <div className="container-max">
           <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-white mt-2">My Projects</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">My Projects</h1>
           <p className="text-white/75 mt-2">{projects.length} total projects</p>
         </div>
       </section>
@@ -83,6 +83,34 @@ export default function ClientProjects() {
                     {p.deadline && <span className="flex items-center gap-1"><FiCalendar size={11}/> Deadline: {new Date(p.deadline).toLocaleDateString('en-LK')}</span>}
                     {p.technologies?.length > 0 && <span>Tech: {p.technologies.join(', ')}</span>}
                   </div>
+                  
+                  {p.budget > 0 && p.paymentStatus !== 'paid' && p.paymentStatus !== 'none' && (
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                      <button 
+                        className="btn-primary btn-sm text-xs" 
+                        onClick={async () => {
+                          try {
+                            const { data } = await api.post('/payments/payhere/init', { itemId: p._id, itemType: 'project' });
+                            const pd = data.paymentData;
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = pd.sandbox ? 'https://sandbox.payhere.lk/pay/checkout' : 'https://www.payhere.lk/pay/checkout';
+                            Object.entries(pd).filter(([k]) => k !== 'sandbox' && k !== 'paymentId').forEach(([k, v]) => {
+                              const input = document.createElement('input');
+                              input.type = 'hidden'; input.name = k; input.value = v;
+                              form.appendChild(input);
+                            });
+                            document.body.appendChild(form);
+                            form.submit();
+                          } catch (err) {
+                            alert(err.response?.data?.message || 'Payment initiation failed');
+                          }
+                        }}
+                      >
+                        Pay LKR {p.budget?.toLocaleString()}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

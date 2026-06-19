@@ -38,9 +38,27 @@ export default function ClientSubscriptions() {
     setShowPaymentForm(true)
   }
 
-  // Simulate PayHere payment
-  const simulatePayHere = () => {
-    payMut.mutate({ amount: selectedSub.remainingBalance, method: 'payhere', reference: `PH-${Date.now()}` })
+  // Initialize PayHere checkout
+  const handlePayHereCheckout = async () => {
+    try {
+      const { data } = await api.post('/payments/payhere/init', { 
+        itemId: selectedSub._id, 
+        itemType: 'subscription' 
+      })
+      const pd = data.paymentData
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.action = pd.sandbox ? 'https://sandbox.payhere.lk/pay/checkout' : 'https://www.payhere.lk/pay/checkout'
+      Object.entries(pd).filter(([k]) => k !== 'sandbox' && k !== 'paymentId').forEach(([k, v]) => {
+        const input = document.createElement('input')
+        input.type = 'hidden'; input.name = k; input.value = v
+        form.appendChild(input)
+      })
+      document.body.appendChild(form)
+      form.submit()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Payment initiation failed')
+    }
   }
 
   return (
@@ -55,19 +73,19 @@ export default function ClientSubscriptions() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="kpi-card kpi-blue">
           <p className="text-xs uppercase text-slate-500">Active Subscriptions</p>
-          <p className="text-2xl font-bold text-primary">{summary.active || 0}</p>
+          <p className="text-xl font-bold text-primary">{summary.active || 0}</p>
         </div>
         <div className="kpi-card kpi-red">
           <p className="text-xs uppercase text-slate-500">Overdue Payments</p>
-          <p className="text-2xl font-bold text-red-600">{summary.overdue || 0}</p>
+          <p className="text-xl font-bold text-red-600">{summary.overdue || 0}</p>
         </div>
         <div className="kpi-card kpi-navy">
           <p className="text-xs uppercase text-slate-500">Total Due</p>
-          <p className="text-2xl font-bold text-primary">LKR {(summary.totalDue || 0).toLocaleString()}</p>
+          <p className="text-xl font-bold text-primary">LKR {(summary.totalDue || 0).toLocaleString()}</p>
         </div>
         <div className="kpi-card kpi-green">
           <p className="text-xs uppercase text-slate-500">Total Paid</p>
-          <p className="text-2xl font-bold text-green-600">LKR {(summary.totalPaid || 0).toLocaleString()}</p>
+          <p className="text-xl font-bold text-green-600">LKR {(summary.totalPaid || 0).toLocaleString()}</p>
         </div>
       </div>
 
@@ -77,7 +95,7 @@ export default function ClientSubscriptions() {
             <div className="p-5 flex-1">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800 font-heading">{sub.title}</h3>
+                  <h3 className="text-xl font-bold text-slate-800 font-heading">{sub.title}</h3>
                   <p className="text-xs font-semibold text-secondary uppercase tracking-wider mt-1">{sub.typeLabel}</p>
                   <p className="text-xs text-slate-400 mt-0.5">#{sub.subscriptionNo}</p>
                 </div>
@@ -175,7 +193,7 @@ export default function ClientSubscriptions() {
               <div className="p-6 space-y-6">
                 <div className="text-center">
                   <p className="text-sm text-slate-500 mb-1">Total amount due for {selectedSub.title}</p>
-                  <p className="text-4xl font-bold text-slate-800">LKR {selectedSub.remainingBalance?.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-slate-800">LKR {selectedSub.remainingBalance?.toLocaleString()}</p>
                 </div>
                 
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
@@ -184,8 +202,8 @@ export default function ClientSubscriptions() {
 
                 <div className="pt-4 flex gap-3">
                   <button className="btn-secondary flex-1" onClick={() => setShowPaymentForm(false)}>Cancel</button>
-                  <button className="btn-primary flex-1" onClick={simulatePayHere} disabled={payMut.isPending}>
-                    {payMut.isPending ? 'Processing...' : 'Pay with PayHere'}
+                  <button className="btn-primary flex-1" onClick={handlePayHereCheckout}>
+                    Pay with PayHere
                   </button>
                 </div>
               </div>

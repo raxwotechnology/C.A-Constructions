@@ -50,13 +50,13 @@ export default function Careers() {
               transition={{ delay: 0.4 }}
               className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl"
             >
-              Join Our Team
+              Join Our <span className="text-[#20b2f5]">Team</span>
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
-              className="text-white/80 max-w-2xl mx-auto text-xl leading-relaxed"
+              className="text-white/80 max-w-2xl mx-auto text-xl md:text-2xl leading-relaxed font-normal"
             >
               Build your career at Raxwo. Work on exciting projects with brilliant minds in a collaborative, growth-focused environment.
             </motion.p>

@@ -39,7 +39,7 @@ export default function ClientRewards() {
       <section className="bg-gradient-hero pt-32 pb-10">
         <div className="container-max">
           <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-white mt-2">Rewards Dashboard</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">Rewards Dashboard</h1>
           <p className="text-white/75 mt-2">Loyalty points, vouchers, referrals, and premium benefits.</p>
         </div>
       </section>
@@ -48,10 +48,10 @@ export default function ClientRewards() {
           {isLoading ? <div className="text-center py-10">Loading rewards...</div> : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="kpi-card kpi-blue"><p className="text-xs uppercase text-slate-500">Points Balance</p><p className="text-2xl font-bold text-primary">{reward?.totalPoints || 0}</p></div>
-                <div className="kpi-card kpi-navy"><p className="text-xs uppercase text-slate-500">Loyalty Tier</p><p className="text-2xl font-bold text-primary">{tier}</p></div>
-                <div className="kpi-card kpi-green"><p className="text-xs uppercase text-slate-500">Vouchers</p><p className="text-2xl font-bold text-primary">{vouchers.length}</p></div>
-                <div className="kpi-card kpi-purple"><p className="text-xs uppercase text-slate-500">Referrals</p><p className="text-2xl font-bold text-primary">{(data?.referrals || []).length}</p></div>
+                <div className="kpi-card kpi-blue"><p className="text-xs uppercase text-slate-500">Points Balance</p><p className="text-xl font-bold text-primary">{reward?.totalPoints || 0}</p></div>
+                <div className="kpi-card kpi-navy"><p className="text-xs uppercase text-slate-500">Loyalty Tier</p><p className="text-xl font-bold text-primary">{tier}</p></div>
+                <div className="kpi-card kpi-green"><p className="text-xs uppercase text-slate-500">Vouchers</p><p className="text-xl font-bold text-primary">{vouchers.length}</p></div>
+                <div className="kpi-card kpi-purple"><p className="text-xs uppercase text-slate-500">Referrals</p><p className="text-xl font-bold text-primary">{(data?.referrals || []).length}</p></div>
               </div>
 
               <div className="card card-body">

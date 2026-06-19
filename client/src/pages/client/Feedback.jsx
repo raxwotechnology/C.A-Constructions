@@ -54,7 +54,7 @@ export default function ClientFeedback() {
       <section className="bg-gradient-hero pt-32 pb-10">
         <div className="container-max">
           <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-white mt-2">Feedback</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">Feedback</h1>
           <p className="text-white/75 mt-2">Share your project experience with our team.</p>
         </div>
       </section>

@@ -1,16 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  * { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
+  html { scroll-behavior: smooth; font-size: 13px !important; }
   body {
-    @apply font-sans bg-surface text-slate-900 antialiased;
-    background-image: radial-gradient(circle at top right, rgba(30, 64, 175, 0.08), transparent 38%);
+    font-family: 'Poppins', sans-serif !important;
+    @apply bg-surface text-slate-900 antialiased;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+    background-image: radial-gradient(circle at top right, rgba(12, 2, 39, 0.08), transparent 38%);
   }
-  h1, h2, h3, h4, h5, h6 { @apply font-heading; }
+  
+  h1, h2, h3, h4, h5, h6 { 
+    font-family: 'Poppins', sans-serif !important;
+    color: #0C0227;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  
+  /* ── Typography Base Hierarchy ──────────────────────────────────────── */
+  h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; }
+  h2 { font-size: clamp(1.75rem, 3.5vw, 2.5rem); font-weight: 700; }
+  h3 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 600; }
+  h4 { font-size: clamp(1.25rem, 2.5vw, 1.5rem); font-weight: 600; }
+
+  /* Body / paragraph defaults */
+  p, span, a, li, td, th, label, input, textarea, select, button {
+    font-family: 'Poppins', sans-serif !important;
+  }
+}
+
+/* ── Force #0C0227 background-color on hero/gradient sections ─────── */
+@layer utilities {
+  .bg-gradient-hero,
+  .bg-gradient-navy,
+  .bg-gradient-blue {
+    background-color: #0C0227 !important;
+    background-image: none !important;
+  }
 }
 
 @layer components {
@@ -19,31 +51,31 @@
     @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-blue text-white text-sm font-medium rounded-lg
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-blue text-white text-[15px] font-semibold rounded-lg
     hover:brightness-110 active:scale-95 transition-all duration-200 shadow-blue disabled:opacity-60 disabled:cursor-not-allowed;
   }
   .btn-navy {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-medium rounded-xl
+    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-[15px] font-semibold rounded-xl
     hover:bg-navy-800 active:scale-95 transition-all duration-200 shadow-navy disabled:opacity-60;
   }
   .btn-outline {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 border-2 border-secondary text-secondary font-medium rounded-xl
+    @apply inline-flex items-center gap-2 px-5 py-2.5 border-2 border-secondary text-secondary text-[15px] font-semibold rounded-xl
     hover:bg-secondary hover:text-white active:scale-95 transition-all duration-200;
   }
   .btn-ghost {
-    @apply inline-flex items-center gap-2 px-4 py-2 text-slate-600 font-medium rounded-xl
+    @apply inline-flex items-center gap-2 px-4 py-2 text-slate-600 text-[15px] font-semibold rounded-xl
     hover:bg-slate-100 active:scale-95 transition-all duration-200;
   }
   .btn-danger {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-[15px] font-semibold rounded-lg
     hover:bg-red-700 active:scale-95 transition-all duration-200;
   }
   .btn-success {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm font-medium rounded-lg
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-[15px] font-semibold rounded-lg
     hover:bg-green-600 active:scale-95 transition-all duration-200;
   }
-  .btn-sm { @apply px-3 py-1.5 text-sm; }
-  .btn-lg { @apply px-7 py-3.5 text-base; }
+  .btn-sm { @apply px-3 py-1.5 text-sm font-medium; }
+  .btn-lg { @apply px-7 py-3.5 text-base font-semibold; }
 
   /* Cards */
   .card {
@@ -109,8 +141,8 @@
 
   /* Page header */
   .page-header { @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 rounded-2xl border border-slate-200/70 bg-white/80 shadow-card px-4 sm:px-5 py-3.5; }
-  .page-title { @apply text-xl md:text-2xl font-bold text-primary font-heading; }
-  .page-subtitle { @apply text-xs text-slate-500 mt-0.5; }
+  .page-title { @apply text-2xl md:text-3xl font-bold text-primary; font-family: 'Poppins', sans-serif !important; }
+  .page-subtitle { @apply text-[11px] text-slate-500 mt-0.5; }
 
   .topbar-glass {
     @apply bg-white/80 backdrop-blur-lg border border-white/70 shadow-soft;
@@ -401,8 +433,8 @@
     flex-direction: column; align-items: stretch !important; gap: 1rem; 
     padding: 1.25rem 1rem; border-radius: 1.25rem; margin-bottom: 1.25rem;
   }
-  .page-title { font-size: 1.5rem; line-height: 1.25; font-weight: 800; letter-spacing: -0.02em; }
-  .page-subtitle { font-size: 0.85rem; margin-top: 0.25rem; }
+  .page-title { font-size: 1.5rem; line-height: 1.25; font-weight: 800; letter-spacing: -0.02em; font-family: 'Poppins', sans-serif !important; }
+  .page-subtitle { font-size: 0.75rem; margin-top: 0.25rem; }
   
   /* Horizontal scroll for action buttons to prevent stacking and save vertical space */
   .page-header > div:last-child {

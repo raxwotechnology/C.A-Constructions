@@ -5,36 +5,64 @@ const Voucher = require('../models/Voucher');
 const { validateVoucherForClient, awardPoints } = require('../services/rewardService');
 const { createNotification } = require('../services/notificationService');
 
-// @desc  Initiate PayHere payment for an invoice
+// @desc  Initiate PayHere payment
 // @route POST /api/payments/payhere/init
 exports.initiatePayment = async (req, res, next) => {
   try {
-    const { invoiceId, voucherCode = '' } = req.body;
-    const invoice = await Invoice.findById(invoiceId).populate('client', 'name email phone');
-    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
-    if (invoice.status === 'paid') return res.status(400).json({ success: false, message: 'Invoice already paid' });
+    const { invoiceId, itemId, itemType = 'invoice', voucherCode = '' } = req.body;
+    const targetId = itemId || invoiceId;
+    if (!targetId) return res.status(400).json({ success: false, message: 'Item ID required' });
+
+    let targetItem, client, orderId, baseAmount;
+
+    if (itemType === 'invoice') {
+      targetItem = await Invoice.findById(targetId).populate('client', 'name email phone');
+      if (!targetItem) return res.status(404).json({ success: false, message: 'Invoice not found' });
+      if (targetItem.status === 'paid') return res.status(400).json({ success: false, message: 'Invoice already paid' });
+      client = targetItem.client;
+      orderId = targetItem.invoiceNo || targetItem._id.toString();
+      baseAmount = Number(targetItem.total || 0);
+    } else if (itemType === 'subscription') {
+      const Subscription = require('../models/Subscription');
+      targetItem = await Subscription.findById(targetId).populate('client', 'name email phone');
+      if (!targetItem) return res.status(404).json({ success: false, message: 'Subscription not found' });
+      client = targetItem.client;
+      orderId = targetItem.subscriptionNo || targetItem._id.toString();
+      baseAmount = Number(targetItem.remainingBalance || targetItem.amount || 0);
+      if (baseAmount <= 0) return res.status(400).json({ success: false, message: 'No pending balance' });
+    } else if (itemType === 'project') {
+      const Project = require('../models/Project');
+      targetItem = await Project.findById(targetId).populate('client', 'name email phone');
+      if (!targetItem) return res.status(404).json({ success: false, message: 'Project not found' });
+      client = targetItem.client;
+      orderId = `PRJ-${targetItem._id.toString().substring(18)}`;
+      baseAmount = Number(targetItem.budget || 0);
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid item type' });
+    }
 
     const merchantId  = process.env.PAYHERE_MERCHANT_ID;
     const merchantSecret = process.env.PAYHERE_SECRET;
-    const orderId    = invoice.invoiceNo;
+    
     let discountAmount = 0;
-    let finalAmountNum = Number(invoice.total || 0);
+    let finalAmountNum = baseAmount;
     let appliedVoucherCode = '';
-    if (voucherCode) {
+
+    if (voucherCode && itemType === 'invoice') {
       const voucherValidation = await validateVoucherForClient({
         code: voucherCode,
         clientId: req.user._id,
-        invoiceTotal: invoice.total,
+        invoiceTotal: baseAmount,
       });
       if (!voucherValidation.valid) return res.status(400).json({ success: false, message: voucherValidation.message });
       discountAmount = Number(voucherValidation.discount || 0);
-      finalAmountNum = Number(voucherValidation.finalAmount || invoice.total);
+      finalAmountNum = Number(voucherValidation.finalAmount || baseAmount);
       appliedVoucherCode = voucherValidation.voucher.code;
     }
 
     const amount     = finalAmountNum.toFixed(2);
     const currency   = 'LKR';
-    const sandbox    = process.env.NODE_ENV !== 'production';
+    const sandbox    = process.env.PAYHERE_SANDBOX === 'true';
 
     // MD5 hash: merchantId + orderId + amount + currency + MD5(merchantSecret).toUpperCase()
     const secretHash  = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
@@ -42,17 +70,22 @@ exports.initiatePayment = async (req, res, next) => {
     const hash        = crypto.createHash('md5').update(rawHash).digest('hex').toUpperCase();
 
     // Create pending payment record
-    const payment = await Payment.create({
-      invoice: invoice._id,
-      client:  invoice.client._id,
-      amount:  finalAmountNum,
-      originalAmount: Number(invoice.total || 0),
+    const paymentData = {
+      paymentType: itemType,
+      client: client._id,
+      amount: finalAmountNum,
+      originalAmount: baseAmount,
       discountAmount,
       voucherCode: appliedVoucherCode,
       currency,
       payhere_order_id: orderId,
-      status:  'pending',
-    });
+      status: 'pending',
+    };
+    if (itemType === 'invoice') paymentData.invoice = targetItem._id;
+    if (itemType === 'subscription') paymentData.subscription = targetItem._id;
+    if (itemType === 'project') paymentData.project = targetItem._id;
+
+    const payment = await Payment.create(paymentData);
 
     res.json({
       success: true,
@@ -64,20 +97,22 @@ exports.initiatePayment = async (req, res, next) => {
         cancel_url:     `${process.env.CLIENT_URL}/payments?payment=cancelled`,
         notify_url:     `${process.env.SERVER_URL || 'http://localhost:5000'}/api/payments/payhere/notify`,
         order_id:       orderId,
-        items:          `Invoice ${orderId}`,
+        items:          `${itemType.charAt(0).toUpperCase() + itemType.slice(1)} ${orderId}`,
         amount,
         currency,
-        first_name:     invoice.client.name.split(' ')[0] || invoice.client.name,
-        last_name:      invoice.client.name.split(' ').slice(1).join(' ') || '-',
-        email:          invoice.client.email,
-        phone:          invoice.client.phone || '0000000000',
+        first_name:     client.name ? client.name.split(' ')[0] : 'Client',
+        last_name:      client.name ? client.name.split(' ').slice(1).join(' ') || '-' : '-',
+        email:          client.email || 'no-email@raxwo.com',
+        phone:          client.phone || '0000000000',
         address:        'Colombo',
         city:           'Colombo',
         country:        'Sri Lanka',
         hash,
+        custom_1:       itemType,
+        custom_2:       targetItem._id.toString(),
       },
       discountPreview: {
-        originalAmount: Number(invoice.total || 0),
+        originalAmount: baseAmount,
         discountAmount,
         finalAmount: finalAmountNum,
         voucherCode: appliedVoucherCode || null,
@@ -90,7 +125,7 @@ exports.initiatePayment = async (req, res, next) => {
 // @route POST /api/payments/payhere/notify
 exports.payhereNotify = async (req, res, next) => {
   try {
-    const { merchant_id, order_id, payhere_amount, payhere_currency, status_code, md5sig } = req.body;
+    const { merchant_id, order_id, payhere_amount, payhere_currency, status_code, md5sig, custom_1, custom_2, payment_id } = req.body;
     const merchantSecret = process.env.PAYHERE_SECRET;
 
     // Verify signature
@@ -103,43 +138,85 @@ exports.payhereNotify = async (req, res, next) => {
     }
 
     if (status_code === '2') { // 2 = successful
-      const invoice = await Invoice.findOne({ invoiceNo: order_id });
-      if (invoice) {
-        invoice.status = 'paid';
-        invoice.paidAt = new Date();
-        await invoice.save();
+      const itemType = custom_1 || 'invoice';
+      const targetId = custom_2;
+      let clientId = null;
+      let title = '';
+      let msg = '';
 
-        const payment = await Payment.findOneAndUpdate(
-          { payhere_order_id: order_id },
-          { status: 'completed', paidAt: new Date(), payhere_payment_id: req.body.payment_id, payhere_status_code: status_code, md5sig },
-          { new: true }
-        );
-        if (payment?.voucherCode) {
-          await Voucher.findOneAndUpdate(
-            { code: payment.voucherCode },
-            { $inc: { usedCount: 1 }, ...(payment.discountAmount > 0 ? { isActive: false } : {}) },
-            { new: true }
-          );
-        }
-        await awardPoints({
-          userId: invoice.client,
-          action: 'complete_invoice_payment',
-          sourceKey: `invoice-paid:${invoice._id}`,
-          note: 'Points for completed invoice payment',
-        });
-        const hasPremium = (invoice.items || []).some((item) => /premium|membership|subscription/i.test(item.description || ''));
-        if (hasPremium) {
+      if (itemType === 'invoice') {
+        const invoice = await Invoice.findOne({ invoiceNo: order_id });
+        if (invoice) {
+          invoice.status = 'paid';
+          invoice.paidAt = new Date();
+          await invoice.save();
+          clientId = invoice.client;
+          title = 'Payment Completed';
+          msg = `Invoice ${invoice.invoiceNo} paid successfully.`;
+          
           await awardPoints({
-            userId: invoice.client,
-            action: 'buy_premium_service',
-            sourceKey: `premium-purchase:${invoice._id}`,
-            note: 'Premium service purchase reward',
+            userId: clientId,
+            action: 'complete_invoice_payment',
+            sourceKey: `invoice-paid:${invoice._id}`,
+            note: 'Points for completed invoice payment',
           });
         }
+      } else if (itemType === 'subscription') {
+        const Subscription = require('../models/Subscription');
+        const sub = await Subscription.findById(targetId);
+        if (sub) {
+          sub.totalPaid += Number(payhere_amount);
+          if (sub.totalPaid >= sub.totalBilled) {
+            sub.status = 'active';
+            sub.overdueDays = 0;
+            // Advance due date if they paid off balance
+            const moment = require('moment');
+            let nextDue = moment(sub.nextDueDate);
+            if (nextDue.isBefore(moment())) nextDue = moment(); // Or proper logic
+          }
+          sub.payments.push({
+            amount: Number(payhere_amount),
+            method: 'payhere',
+            reference: payment_id,
+            note: `PayHere automatic payment`,
+          });
+          await sub.save();
+          clientId = sub.client;
+          title = 'Subscription Payment Completed';
+          msg = `Payment of LKR ${payhere_amount} received for subscription ${sub.subscriptionNo}.`;
+        }
+      } else if (itemType === 'project') {
+        const Project = require('../models/Project');
+        const proj = await Project.findById(targetId);
+        if (proj) {
+          proj.paymentStatus = 'paid';
+          await proj.save();
+          clientId = proj.client;
+          title = 'Project Payment Completed';
+          msg = `Project ${proj.title} has been paid successfully.`;
+        }
+      }
+
+      // Update generic payment record
+      const payment = await Payment.findOneAndUpdate(
+        { payhere_order_id: order_id },
+        { status: 'completed', paidAt: new Date(), payhere_payment_id: payment_id, payhere_status_code: status_code, md5sig },
+        { new: true }
+      );
+
+      if (payment?.voucherCode) {
+        await Voucher.findOneAndUpdate(
+          { code: payment.voucherCode },
+          { $inc: { usedCount: 1 }, ...(payment.discountAmount > 0 ? { isActive: false } : {}) },
+          { new: true }
+        );
+      }
+
+      if (clientId) {
         await createNotification({
-          recipient: invoice.client,
-          title: 'Payment Completed',
-          message: `Invoice ${invoice.invoiceNo} paid successfully.${payment?.discountAmount ? ` Voucher discount applied: LKR ${Number(payment.discountAmount).toLocaleString()}.` : ''}`,
+          recipient: clientId,
+          title,
+          message: msg + (payment?.discountAmount ? ` Voucher discount applied: LKR ${Number(payment.discountAmount).toLocaleString()}.` : ''),
           type: 'payment',
           link: '/payments',
         });

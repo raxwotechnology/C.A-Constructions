@@ -64,7 +64,7 @@ export default function ClientInvoices() {
       <section className="bg-gradient-hero pt-32 pb-10">
         <div className="container-max">
           <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-white mt-2">Invoices & Payments</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">Invoices & Payments</h1>
           <p className="text-white/75 mt-2">{invoices.length} invoices total</p>
         </div>
       </section>
@@ -118,7 +118,7 @@ export default function ClientInvoices() {
                   {inv.notes && <p className="text-xs text-gray-400 mt-1">{inv.notes}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <p className="text-2xl font-bold text-primary font-heading">LKR {Number(previewMap[inv._id]?.finalAmount ?? inv.total)?.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-primary font-heading">LKR {Number(previewMap[inv._id]?.finalAmount ?? inv.total)?.toLocaleString()}</p>
                   {previewMap[inv._id]?.discount ? <p className="text-xs text-green-600">Discount: LKR {Number(previewMap[inv._id].discount).toLocaleString()}</p> : null}
                   <div className="flex gap-2">
                     {inv.status === 'sent' && (

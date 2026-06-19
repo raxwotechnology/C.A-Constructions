@@ -50,66 +50,54 @@ export default function About() {
   return (
     <div className="overflow-x-hidden">
       {/* Hero */}
-      <section className="relative bg-gradient-hero pt-32 pb-24 overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-secondary/20 rounded-full blur-3xl animate-pulse-slow" />
-          <div className="absolute -bottom-20 -left-40 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl" />
-        </div>
+      <section className="relative bg-[#0C0227] pt-32 pb-24 overflow-hidden">
         <div className="container-max relative z-10 text-center">
           <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.2, delayChildren: 0.1 } } }}>
-            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-sm mb-6 shadow-xl">
-              <FiAward size={14} className="text-accent" /> Trusted by 120+ businesses
-            </motion.div>
-            <motion.h1 variants={fadeUp} className="text-3xl lg:text-5xl font-bold text-white font-heading leading-tight mb-6 tracking-tight">
-              About <span className="bg-gradient-to-r from-blue-300 to-blue-100 bg-clip-text text-transparent drop-shadow-2xl">Raxwo</span>
+            <motion.h1 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-white font-heading leading-tight mb-4 tracking-tight">
+              Who We Are
             </motion.h1>
-            <motion.p variants={fadeUp} className="text-white/80 text-xl max-w-2xl mx-auto leading-relaxed">
-              We are a passionate team of engineers, designers, and strategists building the future of software — from Colombo, Sri Lanka, for the world.
-            </motion.p>
+            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 text-white/80 text-sm font-medium">
+              <Link to="/" className="flex items-center gap-1 hover:text-[#20b2f5] transition-colors"><FiGlobe className="text-[#20b2f5]" /> Home</Link>
+              <span className="text-white/40">|</span>
+              <span className="flex items-center gap-1"><FiUsers className="text-[#20b2f5]" /> Who We Are</span>
+            </motion.div>
           </motion.div>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 80L1440 80L1440 20C1200 80 960 0 720 40C480 80 240 0 0 20L0 80Z" fill="#F8FAFC" />
-          </svg>
         </div>
       </section>
 
-      {/* Mission */}
-      <section className="section-padding bg-gray-50">
+      {/* Mission / About Content */}
+      <section className="py-20 bg-white">
         <div className="container-max">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            
             <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <span className="badge badge-blue mb-4">Our Mission</span>
-              <h2 className="text-4xl font-bold text-primary font-heading mb-6">
-                Empowering Businesses Through Technology
-              </h2>
-              <p className="text-gray-600 leading-relaxed mb-6">
-                At Raxwo, we believe technology should be an enabler, not a barrier. Founded in 2020, we've grown from a small startup into a team of 35+ professionals delivering enterprise-grade software solutions to clients across Asia, the Middle East, and beyond.
-              </p>
-              <p className="text-gray-600 leading-relaxed mb-8">
-                Our strength lies in our ability to understand business challenges and translate them into elegant, scalable technical solutions — all while maintaining the warmth and personal touch of a boutique consultancy.
-              </p>
-              <div className="flex gap-4">
-                <Link to="/careers" className="btn-primary">Join Our Team <FiArrowRight /></Link>
-                <Link to="/contact" className="btn-outline">Get in Touch</Link>
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+                <img 
+                  src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" 
+                  alt="Team collaborating" 
+                  className="w-full h-auto object-cover rounded-2xl"
+                />
               </div>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
-              className="grid grid-cols-2 gap-4">
-              {[
-                { num: '120+', label: 'Happy Clients', color: 'bg-blue-500' },
-                { num: '50+', label: 'Projects Delivered', color: 'bg-green-500' },
-                { num: '35+', label: 'Team Members', color: 'bg-purple-500' },
-                { num: '15+', label: 'Countries Served', color: 'bg-orange-500' },
-              ].map(s => (
-                <div key={s.label} className="card card-body text-center">
-                  <p className={`text-4xl font-bold font-heading mb-1 bg-clip-text text-transparent bg-gradient-to-br ${s.color === 'bg-blue-500' ? 'from-blue-500 to-blue-700' : s.color === 'bg-green-500' ? 'from-green-500 to-green-700' : s.color === 'bg-purple-500' ? 'from-purple-500 to-purple-700' : 'from-orange-500 to-orange-700'}`}>{s.num}</p>
-                  <p className="text-gray-500 text-sm">{s.label}</p>
-                </div>
-              ))}
+            <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
+              <div className="inline-block px-4 py-1.5 bg-[#0C0227] text-white text-xs font-bold rounded-lg mb-6 tracking-wide">
+                Our Company
+              </div>
+              <h2 className="text-3xl lg:text-4xl font-bold text-[#0C0227] font-heading mb-2">
+                About Raxwo Pvt Ltd
+              </h2>
+              <h3 className="text-2xl lg:text-3xl font-bold text-[#20b2f5] font-heading leading-tight mb-6">
+                Your Trusted Software Development & Digital Solutions Partner
+              </h3>
+              <p className="text-gray-600 leading-relaxed mb-6 text-sm lg:text-base">
+                At <strong className="text-[#0C0227]">Raxwo Pvt Ltd</strong>, we are a forward-thinking <strong className="text-[#0C0227]">software development company based in Sri Lanka</strong>, delivering <strong className="text-[#0C0227]">custom software, product development, web design</strong>, and <strong className="text-[#0C0227]">digital marketing solutions</strong> for businesses worldwide. Our mission is simple — to transform business challenges into scalable, digital-first solutions that generate real results.
+              </p>
+              <div className="flex gap-4 mt-8">
+                <Link to="/contact" className="btn-primary bg-[#20b2f5] hover:bg-blue-400">Start Your Project <FiArrowRight /></Link>
+              </div>
             </motion.div>
+
           </div>
         </div>
       </section>

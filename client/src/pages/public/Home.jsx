@@ -5,7 +5,7 @@ import {
   FiArrowRight, FiCode, FiSmartphone, FiCloud, FiShield,
   FiTrendingUp, FiUsers, FiStar, FiChevronLeft, FiChevronRight,
   FiSearch, FiMessageSquare, FiSettings, FiCheckCircle,
-  FiBriefcase, FiExternalLink, FiMenu, FiX, FiHome, FiCalendar
+  FiBriefcase, FiExternalLink, FiMenu, FiX, FiHome, FiCalendar, FiLayers
 } from 'react-icons/fi'
 import TiltCard from '../../components/ui/TiltCard'
 import HomeSignInForm from '../../components/ui/HomeSignInForm'
@@ -71,32 +71,34 @@ function HomeNav() {
   return (
     <nav className="absolute top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
       {/* Logo */}
-      <SiteLogo to="/" variant="dark" className="flex-shrink-0" />
+      <SiteLogo to="/" variant="dark" className="flex-shrink-0 mt-4 md:mt-6" />
 
       {/* Desktop links */}
       <div className="hidden md:flex items-center gap-2">
         <a
           href="https://raxwo.net/"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition-all"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white/70 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
         >
           <FiHome size={14} /> raxwo.net
         </a>
+        <a
+          href="https://raxwo.net/lets-talk/"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white/70 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
+        >
+          <FiMessageSquare size={14} /> Let's Talk
+        </a>
         <Link
           to="/careers"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition-all"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white/70 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
         >
           <FiBriefcase size={14} /> Careers
         </Link>
 
-        {isClient ? (
+        {isClient && (
           <>
             <Link to="/my-projects" className="px-4 py-2 rounded-xl text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-all">Dashboard</Link>
             <button onClick={handleLogout} className="px-4 py-2 rounded-xl text-sm font-semibold text-red-300 hover:text-red-200 hover:bg-red-500/10 transition-all">Sign Out</button>
           </>
-        ) : (
-          <Link to="/login" className="ml-2 px-5 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold shadow hover:shadow-lg hover:scale-105 transition-all">
-            Sign In
-          </Link>
         )}
       </div>
 
@@ -118,16 +120,17 @@ function HomeNav() {
           <a href="https://raxwo.net/" className="flex items-center gap-2 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 text-sm font-medium transition-all">
             <FiHome size={15} /> raxwo.net
           </a>
+          <a href="https://raxwo.net/lets-talk/" className="flex items-center gap-2 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 text-sm font-medium transition-all">
+            <FiMessageSquare size={15} /> Let's Talk
+          </a>
           <Link to="/careers" className="flex items-center gap-2 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 text-sm font-medium transition-all" onClick={() => setMobileOpen(false)}>
             <FiBriefcase size={15} /> Careers
           </Link>
-          {isClient ? (
+          {isClient && (
             <>
               <Link to="/my-projects" className="flex items-center gap-2 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 text-sm font-medium" onClick={() => setMobileOpen(false)}>Dashboard</Link>
               <button onClick={handleLogout} className="text-left flex items-center gap-2 px-4 py-3 rounded-xl text-red-300 hover:bg-red-500/10 text-sm font-medium">Sign Out</button>
             </>
-          ) : (
-            <Link to="/login" className="px-4 py-3 rounded-xl bg-white text-primary text-sm font-bold text-center mt-1 shadow" onClick={() => setMobileOpen(false)}>Sign In</Link>
           )}
         </motion.div>
       )}
@@ -158,26 +161,24 @@ export default function Home() {
             {/* Left — headline */}
             <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.15 } } }}>
               <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-sm mb-6">
-                <span className="w-2 h-2 bg-green-400 rounded-full" />
-                🇱🇰 Based in Sri Lanka — Serving Globally
+                <span className="w-2 h-2 bg-[#20b2f5] rounded-full animate-pulse" />
+                <span className="text-[#20b2f5] font-semibold">Based in Sri Lanka</span> — Serving Globally
               </motion.div>
 
               <motion.h1 variants={fadeUp} className="text-5xl lg:text-6xl font-bold text-white font-heading leading-tight mb-6">
-                Innovative<br />
-                <span className="bg-gradient-to-r from-blue-200 via-white to-blue-300 bg-clip-text text-transparent">
-                  Software Solutions
-                </span><br />
+                <span className="text-[#20b2f5]">Innovative</span><br />
+                Software Solutions<br />
                 in Sri Lanka
               </motion.h1>
 
-              <motion.p variants={fadeUp} className="text-white/70 text-lg leading-relaxed mb-10 max-w-xl">
+              <motion.p variants={fadeUp} className="text-white/70 text-xl md:text-2xl leading-relaxed mb-10 max-w-xl font-normal">
                 We build powerful, scalable web & mobile applications that transform businesses. From startups to enterprise — we deliver results that matter.
               </motion.p>
 
               <motion.div variants={fadeUp} className="flex flex-wrap gap-4">
-                <Link to="/contact" className="btn-primary btn-lg">
+                <a href="https://raxwo.net/lets-talk/" className="btn-primary btn-lg">
                   Get a Free Quote <FiArrowRight />
-                </Link>
+                </a>
                 <Link to="/booking" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 flex items-center gap-2">
                   Book a Service
                 </Link>
@@ -290,25 +291,30 @@ export default function Home() {
 
 
 
-      {/* ── Careers CTA ──────────────────────────────────────── */}
-      <section className="section-padding bg-white">
+      {/* ── Start Your Business CTA ──────────────────────────────────────── */}
+      <section className="bg-slate-50 section-padding pb-24">
         <div className="container-max">
-          <div className="bg-gradient-hero rounded-3xl p-12 text-center relative overflow-hidden">
-            <div className="absolute inset-0 opacity-20 rounded-3xl" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 60%)' }} />
-            <div className="relative">
-              <span className="badge bg-white/10 text-white border border-white/20 mb-4"><FiBriefcase size={12} className="inline mr-1" /> Join Our Team</span>
-              <h2 className="text-4xl font-bold text-white font-heading mb-4">Build Your Career at Raxwo</h2>
-              <p className="text-white/70 max-w-xl mx-auto mb-8">
-                We're always looking for talented engineers, designers, and problem-solvers. Work on exciting projects with a passionate team.
-              </p>
-              <div className="flex flex-wrap gap-4 justify-center">
-                <Link to="/careers" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-white text-slate-900 font-bold hover:bg-slate-100 transition-all shadow-lg">
-                  View Open Positions <FiArrowRight />
-                </Link>
-                <a href="https://raxwo.net/" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10">
-                  <FiExternalLink size={16} /> Back to raxwo.net
-                </a>
-              </div>
+          <div className="bg-[#0C0227] rounded-3xl relative overflow-hidden py-24 px-8 shadow-2xl border border-slate-800">
+            <div className="relative z-10 text-center max-w-4xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ type: 'spring', stiffness: 100 }}
+              >
+                <h2 className="text-4xl lg:text-5xl font-bold text-white font-heading mb-4 leading-tight">
+                  Start your business with <br />
+                  <span className="text-[#20b2f5] mt-2 block">Raxwo</span>
+                </h2>
+                <p className="text-white/80 max-w-2xl mx-auto text-xl md:text-2xl leading-relaxed mt-6 font-normal">
+                  Raxwo Pvt Ltd delivers custom software, web development, and marketing solutions tailored to help businesses grow locally and globally.
+                </p>
+                <div className="mt-10">
+                  <a href="https://raxwo.net/lets-talk/" className="btn-primary btn-lg inline-flex items-center gap-2 px-8">
+                    Let's Talk <FiArrowRight />
+                  </a>
+                </div>
+              </motion.div>
             </div>
           </div>
         </div>

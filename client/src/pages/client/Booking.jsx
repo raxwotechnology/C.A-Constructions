@@ -57,7 +57,7 @@ export default function ClientBooking() {
               <FiCheck size={32} className="text-white" />
             </motion.div>
             <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="text-4xl font-bold text-white font-heading mb-4">Booking Submitted!</motion.h1>
+              className="text-xl font-bold text-white font-heading mb-4">Booking Submitted!</motion.h1>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
               className="text-white/70 text-lg max-w-xl mx-auto">
               Our team will review your request and contact you within 24 hours to confirm your consultation.
@@ -98,7 +98,7 @@ export default function ClientBooking() {
         </div>
         <div className="container-max relative">
           <p className="text-white/70 text-sm mb-2">Client Portal</p>
-          <h1 className="text-4xl md:text-5xl font-heading font-bold text-white mb-4">Book a Service</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-4">Book a Service</h1>
           <p className="text-white/70 text-lg max-w-xl">Tell us what you need — we'll put together a tailored proposal and connect you with the right team.</p>
         </div>
       </section>
@@ -124,7 +124,7 @@ export default function ClientBooking() {
           {/* Step 0: Service Selection */}
           {step === 0 && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-              <h2 className="text-2xl font-bold text-primary font-heading text-center mb-6">What do you need?</h2>
+              <h2 className="text-xl font-bold text-primary font-heading text-center mb-6">What do you need?</h2>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {services.map(s => {
                   const Icon = SERVICE_ICONS[s.icon] || FiCpu

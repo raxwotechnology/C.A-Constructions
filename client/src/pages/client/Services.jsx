@@ -118,7 +118,7 @@ function PackageCard({ pkg, delay = 0 }) {
           {pkg.discount > 0 && <p className="text-xs text-slate-400 line-through">{pkg.currency} {Number(pkg.price / (1 - pkg.discount / 100)).toLocaleString()}</p>}
           <div className="flex items-end gap-1">
             <span className="text-sm font-semibold text-slate-500">{pkg.currency}</span>
-            <span className="text-3xl font-black text-primary">{Number(pkg.price).toLocaleString()}</span>
+            <span className="text-2xl font-black text-primary">{Number(pkg.price).toLocaleString()}</span>
             <span className="text-sm text-slate-400 mb-1">{BILLING_LABEL[pkg.billingCycle] || ''}</span>
           </div>
           {pkg.discount > 0 && <span className="inline-block text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full mt-1">{pkg.discount}% off</span>}

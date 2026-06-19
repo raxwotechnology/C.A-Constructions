@@ -104,7 +104,7 @@ export default function ClientProfile() {
             </div>
             <div>
               <p className="text-white/70 text-sm font-medium tracking-wide uppercase mb-1">Premium Client Portal</p>
-              <h1 className="text-3xl md:text-5xl font-heading font-bold text-white drop-shadow-md">{user?.name}</h1>
+              <h1 className="text-2xl md:text-4xl font-heading font-bold text-white drop-shadow-md">{user?.name}</h1>
               <div className="flex items-center gap-3 mt-2">
                 <span className="badge bg-white/20 text-white border-white/10 px-3 py-1"><FiStar className="inline mr-1" /> Client</span>
                 <span className="text-white/80 text-sm">{user?.email}</span>
@@ -197,15 +197,15 @@ export default function ClientProfile() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="grid grid-cols-3 gap-4">
               <div className="card p-5 bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200 shadow-sm flex flex-col justify-center">
                 <p className="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Active Projects</p>
-                <h3 className="text-3xl font-black text-blue-900">{activeProjects.length}</h3>
+                <h3 className="text-2xl font-black text-blue-900">{activeProjects.length}</h3>
               </div>
               <div className="card p-5 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200 shadow-sm flex flex-col justify-center">
                 <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">Due Invoices</p>
-                <h3 className="text-3xl font-black text-emerald-900">{pendingInvoices.length}</h3>
+                <h3 className="text-2xl font-black text-emerald-900">{pendingInvoices.length}</h3>
               </div>
               <div className="card p-5 bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200 shadow-sm flex flex-col justify-center">
                 <p className="text-xs text-purple-600 font-bold uppercase tracking-wider mb-1">Quotations</p>
-                <h3 className="text-3xl font-black text-purple-900">{quotations.length}</h3>
+                <h3 className="text-2xl font-black text-purple-900">{quotations.length}</h3>
               </div>
             </motion.div>
 

@@ -1,7 +1,10 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
-  invoice: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice', required: true },
+  invoice: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
+  subscription: { type: mongoose.Schema.Types.ObjectId, ref: 'Subscription' },
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+  paymentType: { type: String, enum: ['invoice', 'subscription', 'project'], default: 'invoice' },
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   amount: { type: Number, required: true },
   originalAmount: { type: Number, default: 0 },

@@ -43,23 +43,20 @@ export default function SiteLogo({
           src={logoSrc}
           alt={siteName}
           onError={() => setLogoBroken(true)}
-          className={`object-contain flex-shrink-0 ${isDark ? 'h-10 w-auto max-w-[160px]' : 'h-10 w-auto max-w-[140px]'} ${imgClassName}`}
+          className={`object-contain flex-shrink-0 ${isDark ? 'h-12 w-auto max-w-[180px]' : 'h-12 w-auto max-w-[160px]'} ${imgClassName}`}
         />
       ) : (
-        <div
-          className={`flex-shrink-0 rounded-xl bg-gradient-blue flex items-center justify-center shadow-blue ${
-            isDark ? 'w-10 h-10' : 'w-9 h-9'
-          }`}
-        >
-          <span className={`text-white font-bold font-heading ${isDark ? 'text-lg' : ''}`}>R</span>
-        </div>
-      )}
-      {showName && (
-        <div className="min-w-0">
-          <span className={`font-heading font-bold leading-none block truncate ${nameCls} ${isDark ? 'text-xl' : 'text-lg'}`}>
-            {siteName}
+        <div className={`flex flex-col ${isDark ? 'items-start' : 'items-start'} justify-center`}>
+          <div className={`flex items-center font-bold font-heading ${isDark ? 'text-[36px]' : 'text-[32px]'} leading-none tracking-widest`}>
+            <span className={nameCls}>RAXW</span>
+            <div className="relative flex items-center justify-center">
+              <span className={nameCls}>O</span>
+              <div className="absolute w-[8px] h-[8px] rounded-full bg-[#20b2f5] left-0 translate-x-0.5" />
+            </div>
+          </div>
+          <span className="text-[#20b2f5] text-[10px] font-bold tracking-[0.4em] mt-1.5 ml-1 leading-none uppercase">
+            Next Level Tech
           </span>
-          {tagline && <p className={`text-xs leading-none mt-0.5 truncate ${tagCls}`}>{tagline}</p>}
         </div>
       )}
     </>
