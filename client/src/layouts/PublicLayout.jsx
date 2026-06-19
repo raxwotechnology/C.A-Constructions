@@ -145,14 +145,14 @@ export default function PublicLayout() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex flex-1 items-center gap-1 min-w-0 px-4">
-            <a href="https://raxwo.net/" className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-white/70 hover:text-white hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap">
+            <a href="https://raxwo.net/" className="px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 text-white/70 hover:text-white hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap">
               <FiHome size={14} /> Back
             </a>
             <span className="w-px h-4 bg-white/20 mx-1" />
-            <NavLink to="/" end className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Home</NavLink>
+            <NavLink to="/" end className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Home</NavLink>
             
-            <div className="relative group" ref={servicesRef}>
-              <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${servicesDropdownOpen || location.pathname === '/services' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+            <div className="group" ref={servicesRef}>
+              <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${servicesDropdownOpen || location.pathname === '/services' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
                 Services & Software Products <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
               </button>
               
@@ -228,8 +228,8 @@ export default function PublicLayout() {
               </div>
             </div>
 
-            <NavLink to="/careers" className={({ isActive }) => `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
-            <a href="https://raxwo.net/lets-talk/" className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap text-white/75 hover:text-white hover:bg-white/10">Let's Talk</a>
+            <NavLink to="/careers" className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
+            <a href="https://raxwo.net/lets-talk/" className="px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap text-white/75 hover:text-white hover:bg-white/10">Let's Talk</a>
           </nav>
 
           <div className="hidden md:flex items-center gap-3 flex-shrink-0">
