@@ -30,7 +30,10 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('raxwo-auth')
-      window.location.href = '/login'
+      const p = window.location.pathname
+      if (p !== '/login' && p !== '/' && !p.startsWith('/services') && !p.startsWith('/about')) {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

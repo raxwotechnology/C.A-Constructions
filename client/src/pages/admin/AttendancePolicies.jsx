@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -21,12 +21,17 @@ const EMPTY = {
   shortLeaveDurationHours:2, notes:'',
 }
 
-export default function AttendancePolicies() {
+export default function AttendancePolicies({ triggerNew }) {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const [deleteId, setDeleteId] = useState(null)
+
+  useEffect(() => {
+    if (triggerNew) openCreate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerNew])
 
   const { data, isLoading } = useQuery({ queryKey:['attendance-policies'], queryFn:()=>api.get('/attendance-policies').then(r=>r.data) })
   const { data: branchData } = useQuery({ queryKey:['branches-list'], queryFn:()=>api.get('/branches').then(r=>r.data) })
@@ -55,9 +60,6 @@ export default function AttendancePolicies() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button onClick={openCreate} className="btn-primary"><FiPlus size={14}/> New Policy</button>
-      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="w-7 h-7 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin"/></div>

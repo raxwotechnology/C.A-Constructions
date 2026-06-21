@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi'
 import { mediaUrl } from '../../lib/media'
 import { motion, AnimatePresence } from 'framer-motion'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 export default function ClientSubscriptions() {
   const qc = useQueryClient()
@@ -62,13 +63,13 @@ export default function ClientSubscriptions() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">My Subscriptions</h1>
-          <p className="page-subtitle">Manage your active subscriptions, billing, hosting, and agreements.</p>
-        </div>
-      </div>
+    <div className="animate-fade-in">
+      <ClientPageHeader 
+        title="My Subscriptions" 
+        subtitle="Manage your active subscriptions, billing, hosting, and agreements."
+      />
+      <section className="section-padding bg-slate-50 min-h-screen">
+        <div className="container-max space-y-6">
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="kpi-card kpi-blue">
@@ -212,6 +213,8 @@ export default function ClientSubscriptions() {
           document.body
         )}
       </AnimatePresence>
+        </div>
+      </section>
     </div>
   )
 }

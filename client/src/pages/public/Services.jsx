@@ -286,9 +286,9 @@ export default function Services() {
                             >
                               <FiStar size={12} /> Feedback
                             </button>
-                            <Link to="/contact" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
+                            <a href="https://raxwo.net/lets-talk/" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
                               Get quote <FiArrowRight size={14} />
-                            </Link>
+                            </a>
                           </div>
                         </div>
                       </div>
@@ -336,7 +336,7 @@ export default function Services() {
         <div className="container-max">
           <h2 className="text-4xl font-bold text-white font-heading mb-4">Ready to Start Your Project?</h2>
           <p className="text-white/70 mb-8 max-w-xl mx-auto">Get a free consultation and project estimate from our expert team.</p>
-          <Link to="/contact" className="btn-primary btn-lg">Request a Free Quote <FiArrowRight /></Link>
+          <a href="https://raxwo.net/lets-talk/" className="btn-primary btn-lg">Request a Free Quote <FiArrowRight /></a>
         </div>
       </section>
 

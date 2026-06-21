@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import {
   FiMenu,
@@ -45,10 +45,12 @@ export default function PublicLayout() {
   const [notifOpen, setNotifOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false)
+  const [productsDropdownOpen, setProductsDropdownOpen] = useState(false)
   const profileRef = useRef(null)
   const notifRef = useRef(null)
   const moreRef = useRef(null)
   const servicesRef = useRef(null)
+  const productsRef = useRef(null)
   const topbarRef = useRef(null)
   const [topbarH, setTopbarH] = useState(80)
   const { user, isAuthenticated, logout } = useAuthStore()
@@ -99,6 +101,7 @@ export default function PublicLayout() {
       if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false)
       if (moreRef.current && !moreRef.current.contains(t)) setMoreOpen(false)
       if (servicesRef.current && !servicesRef.current.contains(t)) setServicesDropdownOpen(false)
+      if (productsRef.current && !productsRef.current.contains(t)) setProductsDropdownOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('touchstart', onDown, { passive: true })
@@ -129,8 +132,8 @@ export default function PublicLayout() {
 
   const handleLogout = () => {
     logout()
-    toast.success('Signed out successfully')
-    navigate('/login')
+    toast.success('Logged out successfully')
+    window.location.href = '/'
   }
 
   return (
@@ -139,91 +142,96 @@ export default function PublicLayout() {
       <header ref={topbarRef} className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled ? 'bg-primary/95 backdrop-blur-md shadow-navy border-b border-white/15 py-3' : 'bg-primary/95 backdrop-blur-md border-b border-white/10 py-4 md:py-5'
       }`}>
-        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
+        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center relative">
           {/* Logo */}
           <SiteLogo to="/" variant="dark" className="flex-shrink-0 group" />
 
-          {/* Desktop nav */}
-          <nav className="hidden md:flex flex-1 items-center gap-1 min-w-0 px-4">
+          {/* Desktop nav — centered */}
+          <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
             <a href="https://raxwo.net/" className="px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 text-white/70 hover:text-white hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap">
               <FiHome size={14} /> Back
             </a>
             <span className="w-px h-4 bg-white/20 mx-1" />
             <NavLink to="/" end className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Home</NavLink>
             
+            {/* Services dropdown */}
             <div className="group" ref={servicesRef}>
               <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${servicesDropdownOpen || location.pathname === '/services' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                Services & Software Products <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+                Services <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
               </button>
-              
-              {/* Mega Menu Dropdown */}
               <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
-                <div className="w-[950px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
-                  
-                  <div className="grid grid-cols-2 gap-8 divide-x divide-slate-200">
-                    {/* Services */}
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Services</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <a href="https://raxwo.net/services/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80" alt="All Services" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">All Services</h4>
-                        </a>
-                        <a href="https://raxwo.net/development-hub/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&q=80" alt="Development Hub" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Development Hub</h4>
-                        </a>
-                        <a href="https://raxwo.net/creative-design-studio/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1561070791-2526d30994b5?w=200&q=80" alt="Creative & Design Studio" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Creative Studio</h4>
-                        </a>
-                        <a href="https://raxwo.net/marketing-lab/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=200&q=80" alt="Marketing Lab" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Marketing Lab</h4>
-                        </a>
+                <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Our Services</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <a href="https://raxwo.net/services/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80" alt="All Services" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
                       </div>
-                    </div>
-
-                    {/* Products */}
-                    <div className="pl-8">
-                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Software Products</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <a href="https://raxwo.net/mobile-shop-erp/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=80" alt="Mobile Shop ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Mobile Shop ERP 📱</h4>
-                        </a>
-                        <a href="https://raxwo.net/salon-management-erp/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=200&q=80" alt="Salon ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Salon ERP 💇</h4>
-                        </a>
-                        <a href="https://raxwo.net/restaurant-hotel-erp/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&q=80" alt="Restaurant ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Restaurant ERP 🍽️</h4>
-                        </a>
-                        <a href="https://raxwo.net/hardware-distribution-erp/" className="group/item flex flex-col items-center text-center">
-                          <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                            <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=200&q=80" alt="Hardware ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                          </div>
-                          <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Hardware ERP 🏗️</h4>
-                        </a>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">All Services</h4>
+                    </a>
+                    <a href="https://raxwo.net/development-hub/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&q=80" alt="Development Hub" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
                       </div>
-                    </div>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Development Hub</h4>
+                    </a>
+                    <a href="https://raxwo.net/creative-design-studio/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1561070791-2526d30994b5?w=200&q=80" alt="Creative Studio" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                      </div>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Creative Studio</h4>
+                    </a>
+                    <a href="https://raxwo.net/marketing-lab/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=200&q=80" alt="Marketing Lab" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                      </div>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Marketing Lab</h4>
+                    </a>
                   </div>
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <NavLink to="/services" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all services on this portal →</NavLink>
+                  </div>
+                </div>
+              </div>
+            </div>
 
+            {/* Software Products dropdown */}
+            <div className="group" ref={productsRef}>
+              <button onClick={() => setProductsDropdownOpen(!productsDropdownOpen)} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${productsDropdownOpen || location.pathname === '/software-products' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+                Software Products <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+              </button>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
+                <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Software Products</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <a href="https://raxwo.net/mobile-shop-erp/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=80" alt="Mobile Shop ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                      </div>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Mobile Shop ERP 📱</h4>
+                    </a>
+                    <a href="https://raxwo.net/salon-management-erp/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=200&q=80" alt="Salon ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                      </div>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Salon Management ERP 💇</h4>
+                    </a>
+                    <a href="https://raxwo.net/restaurant-hotel-erp/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&q=80" alt="Restaurant ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                      </div>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Restaurant & Hotel ERP 🍽️</h4>
+                    </a>
+                    <a href="https://raxwo.net/hardware-distribution-erp/" className="group/item flex flex-col items-center text-center">
+                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=200&q=80" alt="Hardware ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                      </div>
+                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Hardware & Distribution ERP 🏗️</h4>
+                    </a>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <NavLink to="/software-products" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all software products →</NavLink>
+                  </div>
                 </div>
               </div>
             </div>
@@ -232,8 +240,8 @@ export default function PublicLayout() {
             <a href="https://raxwo.net/lets-talk/" className="px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap text-white/75 hover:text-white hover:bg-white/10">Let's Talk</a>
           </nav>
 
-          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
-            {isClient ? (
+          <div className="hidden md:flex items-center gap-3 flex-shrink-0 ml-auto">
+            {isAuthenticated ? (
               <>
                 <div ref={notifRef} className="relative">
                   <button
@@ -295,9 +303,9 @@ export default function PublicLayout() {
                         exit={{ opacity: 0, y: 8, scale: 0.96 }}
                         className="absolute right-0 top-12 w-52 p-2 z-[120] rounded-2xl border border-slate-200 bg-white shadow-2xl"
                       >
-                        <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiHome size={14} /> Dashboard</NavLink>
+                        <NavLink to="/my-dashboard" className="btn-ghost w-full justify-start text-sm"><FiHome size={14} /> Dashboard</NavLink>
                         <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiFolder size={14} /> My Projects</NavLink>
-                        <NavLink to="/our-services" className="btn-ghost w-full justify-start text-sm"><FiLayers size={14} /> Our Services</NavLink>
+                        <NavLink to="/our-services" className="btn-ghost w-full justify-start text-sm"><FiLayers size={14} /> Services & Products</NavLink>
                         <NavLink to="/my-subscriptions" className="btn-ghost w-full justify-start text-sm"><FiServer size={14} /> Subscriptions</NavLink>
                         <NavLink to="/payments" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Payments</NavLink>
                         <NavLink to="/booking" className="btn-ghost w-full justify-start text-sm"><FiCalendar size={14} /> Booking</NavLink>
@@ -317,7 +325,7 @@ export default function PublicLayout() {
           </div>
 
           {/* Mobile menu toggle */}
-          <button className="md:hidden text-white p-2 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
+          <button className="md:hidden ml-auto text-white p-2 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
             {menuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
           </button>
         </div>
@@ -345,12 +353,19 @@ export default function PublicLayout() {
                   Home
                 </NavLink>
                 <div className="my-2 border-l-2 border-[#20b2f5] pl-4 flex flex-col gap-1">
-                  <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Services & Software Products</div>
+                  <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Services</div>
                   <a href="https://raxwo.net/services/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">All Services</a>
                   <a href="https://raxwo.net/development-hub/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Development Hub</a>
                   <a href="https://raxwo.net/creative-design-studio/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Creative & Design Studio</a>
                   <a href="https://raxwo.net/marketing-lab/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Marketing Lab</a>
-                  <a href="https://raxwo.net/services-products/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Services & Products</a>
+                  <NavLink to="/services" className="text-sm font-medium text-[#20b2f5] py-1">→ View All Services</NavLink>
+                </div>
+                <div className="my-2 border-l-2 border-emerald-400 pl-4 flex flex-col gap-1">
+                  <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Software Products</div>
+                  <a href="https://raxwo.net/mobile-shop-erp/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Mobile Shop ERP 📱</a>
+                  <a href="https://raxwo.net/salon-management-erp/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Salon ERP 💇</a>
+                  <a href="https://raxwo.net/restaurant-hotel-erp/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Restaurant ERP 🍽️</a>
+                  <NavLink to="/software-products" className="text-sm font-medium text-emerald-400 py-1">→ View All Products</NavLink>
                 </div>
                 <NavLink to="/careers" className={({ isActive }) => `px-4 py-3 rounded-lg text-sm font-medium transition-colors block ${isActive ? 'text-white bg-white/15' : 'text-white/85 hover:bg-white/10'}`}>
                   Careers
@@ -358,12 +373,13 @@ export default function PublicLayout() {
                 <a href="https://raxwo.net/lets-talk/" className="px-4 py-3 rounded-lg text-sm font-medium transition-colors block text-white/85 hover:bg-white/10">
                   Let's Talk
                 </a>
+
                 
-                {isClient && (
+                {isAuthenticated && (
                   <div className="mt-3 pt-3 border-t border-white/10 space-y-1">
-                    <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Dashboard</NavLink>
+                    <NavLink to="/my-dashboard" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Dashboard</NavLink>
                     <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">My Projects</NavLink>
-                    <NavLink to="/our-services" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Our Services</NavLink>
+                    <NavLink to="/our-services" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Services & Products</NavLink>
                     <NavLink to="/my-subscriptions" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Subscriptions</NavLink>
                     <NavLink to="/payments" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Payments</NavLink>
                     <NavLink to="/messages" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Messages</NavLink>
@@ -394,7 +410,7 @@ export default function PublicLayout() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#0C0227] text-white relative overflow-hidden border-t border-white/5">
+      <footer className="bg-black text-white relative overflow-hidden border-t border-white/5">
         {/* Subtle World Map / Abstract Pattern */}
         <div 
           className="absolute inset-0 opacity-[0.04] pointer-events-none"
@@ -418,13 +434,13 @@ export default function PublicLayout() {
               
               <div className="space-y-6">
                 <div>
-                  <h4 className="font-heading font-bold text-[#20b2f5] mb-2">Head Office:</h4>
-                  <p className="text-white text-sm">Weliweriya, Sri lanka</p>
+                  <h4 className="font-heading font-bold text-[#20b2f5] text-[15px] mb-2">Head Office:</h4>
+                  <p className="text-white text-[15px]">Weliweriya, Sri lanka</p>
                 </div>
                 
                 <div>
-                  <h4 className="font-heading font-bold text-[#20b2f5] mb-2">Contact:</h4>
-                  <p className="text-white text-sm">+94 74 357 3333</p>
+                  <h4 className="font-heading font-bold text-[#20b2f5] text-[15px] mb-2">Contact:</h4>
+                  <p className="text-white text-[15px]">+94 74 357 3333</p>
                 </div>
 
                 <div className="flex gap-3 pt-2">
@@ -456,7 +472,7 @@ export default function PublicLayout() {
                   { name: 'Careers', path: '/careers' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <NavLink to={link.path} className="text-white font-bold text-sm hover:text-[#20b2f5] transition-colors duration-200">
+                    <NavLink to={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
                       {link.name}
                     </NavLink>
                   </li>
@@ -476,7 +492,7 @@ export default function PublicLayout() {
                   { name: 'Services & Products', path: 'https://raxwo.net/services-products/' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <a href={link.path} className="text-white font-bold text-sm hover:text-[#20b2f5] transition-colors duration-200">
+                    <a href={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
                       {link.name}
                     </a>
                   </li>
@@ -492,11 +508,11 @@ export default function PublicLayout() {
                   { name: 'Software Products', path: 'https://raxwo.net/software-products/' },
                   { name: 'Mobile Shop ERP 📱', path: 'https://raxwo.net/mobile-shop-erp/' },
                   { name: 'Salon Management ERP 💇', path: 'https://raxwo.net/salon-management-erp/' },
-                  { name: 'Restaurant & Hotel ERP 🍽️', path: 'https://raxwo.net/salon-management-erp/' },
+                  { name: 'Restaurant & Hotel ERP 🍽️', path: 'https://raxwo.net/restaurant-hotel-erp/' },
                   { name: 'Hardware & Distribution ERP 🏗️', path: 'https://raxwo.net/hardware-distribution-erp/' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <a href={link.path} className="text-white font-bold text-sm hover:text-[#20b2f5] transition-colors duration-200">
+                    <a href={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
                       {link.name}
                     </a>
                   </li>
@@ -508,10 +524,10 @@ export default function PublicLayout() {
 
           {/* Bottom Bar */}
           <div className="border-t-[1px] border-dotted border-white/20 mt-16 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-white text-xs font-bold tracking-wide">
+            <p className="text-white text-sm font-bold tracking-wide">
               ©{new Date().getFullYear()} - Raxwo (Pvt) ltd. | All Rights Reserved
             </p>
-            <div className="flex items-center gap-4 text-xs font-bold tracking-wide">
+            <div className="flex items-center gap-4 text-sm font-bold tracking-wide">
               <a href="/privacy" className="text-white hover:text-[#20b2f5] transition-colors">Privacy Policy</a>
               <span className="text-white/30">|</span>
               <a href="/terms" className="text-white hover:text-[#20b2f5] transition-colors">Terms & Conditions</a>

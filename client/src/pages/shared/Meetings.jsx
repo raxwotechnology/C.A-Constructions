@@ -10,6 +10,7 @@ import SectionHeader from '../../components/ui/SectionHeader'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 export default function Meetings() {
   const { user } = useAuthStore()
@@ -151,28 +152,39 @@ export default function Meetings() {
   )
 
   return (
-    <div className="space-y-6 animate-fade-in w-full overflow-hidden">
-      <SectionHeader 
-        title="Virtual Meetings" 
-        subtitle="Manage internal and client meetings" 
-        action={isAdmin && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-            <button 
-              onClick={() => {
-                setShareMeeting({ isCustom: true, joinUrl: '' });
-                setShareMessage('🎥 Join my Meeting!\n\n📌 Topic: \n📅 Date: \n🕐 Time: \n\n🔗 Join Link: ');
-                setSelectedUsersToShare([]);
-              }} 
-              className="px-4 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 border-2 border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-500 hover:text-blue-600 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-            >
-              <FiShare2 size={18} /> Share External Link
-            </button>
-            <button onClick={() => { reset(); setShowCreate(true); }} className="btn-primary shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 transition-all duration-200 justify-center">
-              <FiVideo size={18} /> Create Meeting
-            </button>
-          </div>
-        )}
-      />
+    <div className="animate-fade-in w-full overflow-hidden bg-slate-50 min-h-screen">
+      {!isAdmin ? (
+        <ClientPageHeader 
+          title="Virtual Meetings" 
+          subtitle="Join scheduled meetings and consultations."
+        />
+      ) : (
+        <div className="px-6 pt-6">
+          <SectionHeader 
+            title="Virtual Meetings" 
+            subtitle="Manage internal and client meetings" 
+            action={isAdmin && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
+                <button 
+                  onClick={() => {
+                    setShareMeeting({ isCustom: true, joinUrl: '' });
+                    setShareMessage('🎥 Join my Meeting!\n\n📌 Topic: \n📅 Date: \n🕐 Time: \n\n🔗 Join Link: ');
+                    setSelectedUsersToShare([]);
+                  }} 
+                  className="px-4 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 border-2 border-slate-200 bg-white text-slate-700 shadow-sm hover:border-blue-500 hover:text-blue-600 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                >
+                  <FiShare2 size={18} /> Share External Link
+                </button>
+                <button onClick={() => { reset(); setShowCreate(true); }} className="btn-primary shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 transition-all duration-200 justify-center">
+                  <FiVideo size={18} /> Create Meeting
+                </button>
+              </div>
+            )}
+          />
+        </div>
+      )}
+
+      <div className={`${!isAdmin ? 'container-max section-padding' : 'px-6 pb-6'} space-y-6 mt-2`}>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar">
@@ -633,6 +645,7 @@ export default function Meetings() {
           await deleteMut.mutateAsync({ id: deleteMeetingId, password })
         }}
       />
+      </div>
     </div>
   )
 }

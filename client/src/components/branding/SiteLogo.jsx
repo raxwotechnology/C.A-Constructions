@@ -13,15 +13,16 @@ export default function SiteLogo({
   imgClassName = '',
   asLink = true,
 }) {
-  const { logoSrc, siteName, siteTagline, settings } = useSiteBranding()
+  const { siteName, siteTagline, settings } = useSiteBranding()
+  const logoSrc = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png'
   const [logoBroken, setLogoBroken] = useState(false)
   const isDark = variant === 'dark'
-  const showLogoImg = Boolean(logoSrc && settings?.logoUrl && !logoBroken)
+  const showLogoImg = Boolean(logoSrc && !logoBroken)
 
   // Reset broken state when the logo source changes
   useEffect(() => {
     setLogoBroken(false)
-  }, [logoSrc, settings?.logoUrl])
+  }, [logoSrc])
 
   // Auto-retry loading the logo when the user returns to the tab (fixes disappearing after inactivity)
   useEffect(() => {

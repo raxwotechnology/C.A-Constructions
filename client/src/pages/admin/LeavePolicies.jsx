@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
@@ -18,11 +18,16 @@ const LEAVE_TYPE_OPTIONS = [
   { value: 'paternity',   label: 'Paternity Leave',    icon: '👨‍👧' },
 ]
 
-export default function LeavePolicies() {
+export default function LeavePolicies({ triggerNew }) {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
+
+  useEffect(() => {
+    if (triggerNew) openCreate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerNew])
 
   const { data, isLoading } = useQuery({
     queryKey: ['leave-policies'],
@@ -149,9 +154,6 @@ export default function LeavePolicies() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex justify-end">
-        <button onClick={openCreate} className="btn-primary"><FiPlus size={14}/> New Policy</button>
-      </div>
 
       {isLoading ? (
         <div className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></div>

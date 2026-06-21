@@ -10,6 +10,7 @@ import { FiSave, FiUser, FiLock, FiFolder, FiCreditCard, FiFileText, FiArrowRigh
 import { useState } from 'react'
 import { validateStrongPassword, passwordStrengthHints } from '../../lib/passwordValidation'
 import { formatMoney } from '../../lib/currencies'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 export default function ClientProfile() {
   const [, setSearchParams] = useSearchParams()
@@ -85,15 +86,13 @@ export default function ClientProfile() {
   }
 
   return (
-    <div className="animate-fade-in pb-12">
-      <section className="bg-gradient-hero pt-32 pb-16 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-72 h-72 bg-white rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" />
-        </div>
-        <div className="container-max relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-4xl font-bold border border-white/30 shadow-xl relative overflow-hidden">
+    <div className="animate-fade-in pb-12 bg-slate-50 min-h-screen">
+      <ClientPageHeader 
+        title={user?.name} 
+        subtitle="Premium Client Portal"
+        rightContent={
+          <div className="flex items-center gap-5 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20">
+            <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center text-white text-2xl font-bold border border-white/30 overflow-hidden">
               {avatarFile ? (
                 <img src={URL.createObjectURL(avatarFile)} alt="" className="w-full h-full object-cover" />
               ) : user?.avatar ? (
@@ -102,17 +101,15 @@ export default function ClientProfile() {
                 user?.name?.charAt(0).toUpperCase()
               )}
             </div>
-            <div>
-              <p className="text-white/70 text-sm font-medium tracking-wide uppercase mb-1">Premium Client Portal</p>
-              <h1 className="text-2xl md:text-4xl font-heading font-bold text-white drop-shadow-md">{user?.name}</h1>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="badge bg-white/20 text-white border-white/10 px-3 py-1"><FiStar className="inline mr-1" /> Client</span>
-                <span className="text-white/80 text-sm">{user?.email}</span>
+            <div className="pr-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="badge bg-white/20 text-white border-white/10 px-2 py-0.5 text-[10px]"><FiStar className="inline mr-1" /> Client</span>
               </div>
+              <p className="text-white/80 text-xs">{user?.email}</p>
             </div>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       <section className="container-max mt-8">
         <div className="grid lg:grid-cols-12 gap-6">

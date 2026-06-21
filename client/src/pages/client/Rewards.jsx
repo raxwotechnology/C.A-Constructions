@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiGift, FiClock, FiCopy, FiTag } from 'react-icons/fi'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 export default function ClientRewards() {
   const qc = useQueryClient()
@@ -36,14 +37,11 @@ export default function ClientRewards() {
 
   return (
     <div className="animate-fade-in">
-      <section className="bg-gradient-hero pt-32 pb-10">
-        <div className="container-max">
-          <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">Rewards Dashboard</h1>
-          <p className="text-white/75 mt-2">Loyalty points, vouchers, referrals, and premium benefits.</p>
-        </div>
-      </section>
-      <section className="section-padding bg-slate-50">
+      <ClientPageHeader 
+        title="Rewards Dashboard" 
+        subtitle="Loyalty points, vouchers, referrals, and premium benefits."
+      />
+      <section className="section-padding bg-slate-50 min-h-screen">
         <div className="container-max space-y-6">
           {isLoading ? <div className="text-center py-10">Loading rewards...</div> : (
             <>

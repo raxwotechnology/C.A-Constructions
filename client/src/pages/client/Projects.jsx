@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { FiFolder, FiCalendar, FiTrendingUp } from 'react-icons/fi'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 export default function ClientProjects() {
   const { data, isLoading } = useQuery({
@@ -13,15 +14,12 @@ export default function ClientProjects() {
 
   return (
     <div className="animate-fade-in">
-      <section className="bg-gradient-hero pt-32 pb-10">
-        <div className="container-max">
-          <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">My Projects</h1>
-          <p className="text-white/75 mt-2">{projects.length} total projects</p>
-        </div>
-      </section>
+      <ClientPageHeader 
+        title="My Projects" 
+        subtitle={`${projects.length} total projects`}
+      />
 
-      <section className="section-padding bg-slate-50">
+      <section className="section-padding bg-slate-50 min-h-screen">
         <div className="container-max space-y-6">
 
       {isLoading ? (

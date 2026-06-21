@@ -5,13 +5,14 @@
 
 @layer base {
   * { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
-  html { scroll-behavior: smooth; font-size: 15px !important; }
+  /* Root: 14px — professional SaaS-dashboard baseline */
+  html { scroll-behavior: smooth; font-size: 14px !important; }
   body {
     font-family: 'Poppins', sans-serif !important;
     @apply bg-surface text-slate-900 antialiased;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 400;
-    line-height: 1.6;
+    line-height: 1.65;
     letter-spacing: -0.01em;
     background-image: radial-gradient(circle at top right, rgba(12, 2, 39, 0.08), transparent 38%);
   }
@@ -19,15 +20,21 @@
   h1, h2, h3, h4, h5, h6 { 
     font-family: 'Poppins', sans-serif !important;
     color: #0C0227;
-    line-height: 1.2;
+    line-height: 1.25;
     letter-spacing: -0.02em;
   }
   
-  /* ── Typography Base Hierarchy ──────────────────────────────────────── */
-  h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; }
-  h2 { font-size: clamp(1.75rem, 3.5vw, 2.5rem); font-weight: 700; }
-  h3 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 600; }
-  h4 { font-size: clamp(1.25rem, 2.5vw, 1.5rem); font-weight: 600; }
+  /* ── Professional Modern Typographic Hierarchy ── */
+  /* Root = 14px. rem values below are relative to root. */
+  h1 { font-size: 1.857rem; font-weight: 700; }   /* ~26px  — top-level page title       */
+  h2 { font-size: 1.428rem; font-weight: 700; }   /* ~20px  — section / panel heading    */
+  h3 { font-size: 1.214rem; font-weight: 600; }   /* ~17px  — card title / modal heading */
+  h4 { font-size: 1.071rem; font-weight: 600; }   /* ~15px  — sub-section heading        */
+  h5 { font-size: 0.928rem; font-weight: 600; }   /* ~13px  — minor heading / label      */
+  h6 { font-size: 0.857rem; font-weight: 500; }   /* ~12px  — caption / helper heading   */
+
+  /* Body text */
+  p { font-size: 0.928rem; line-height: 1.7; }    /* ~13px — comfortable body copy */
 
   /* Body / paragraph defaults */
   p, span, a, li, td, th, label, input, textarea, select, button {
@@ -51,31 +58,37 @@
     @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-blue text-white text-[15px] font-semibold rounded-lg
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-blue text-white font-semibold rounded-lg
     hover:brightness-110 active:scale-95 transition-all duration-200 shadow-blue disabled:opacity-60 disabled:cursor-not-allowed;
+    font-size: 13px;
   }
   .btn-navy {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-[15px] font-semibold rounded-xl
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-xl
     hover:bg-navy-800 active:scale-95 transition-all duration-200 shadow-navy disabled:opacity-60;
+    font-size: 13px;
   }
   .btn-outline {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 border-2 border-secondary text-secondary text-[15px] font-semibold rounded-xl
+    @apply inline-flex items-center gap-2 px-4 py-2 border-2 border-secondary text-secondary font-semibold rounded-xl
     hover:bg-secondary hover:text-white active:scale-95 transition-all duration-200;
+    font-size: 13px;
   }
   .btn-ghost {
-    @apply inline-flex items-center gap-2 px-4 py-2 text-slate-600 text-[15px] font-semibold rounded-xl
+    @apply inline-flex items-center gap-2 px-3.5 py-1.5 text-slate-600 font-semibold rounded-xl
     hover:bg-slate-100 active:scale-95 transition-all duration-200;
+    font-size: 13px;
   }
   .btn-danger {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-[15px] font-semibold rounded-lg
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg
     hover:bg-red-700 active:scale-95 transition-all duration-200;
+    font-size: 13px;
   }
   .btn-success {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-[15px] font-semibold rounded-lg
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white font-semibold rounded-lg
     hover:bg-green-600 active:scale-95 transition-all duration-200;
+    font-size: 13px;
   }
-  .btn-sm { @apply px-3 py-1.5 text-sm font-medium; }
-  .btn-lg { @apply px-7 py-3.5 text-base font-semibold; }
+  .btn-sm  { @apply px-3 py-1.5; font-size: 12px; font-weight: 500; }
+  .btn-lg  { @apply px-6 py-2.5; font-size: 14px; font-weight: 600; }
 
   /* Cards */
   .card {
@@ -91,21 +104,24 @@
 
   /* Form controls */
   .form-input {
-    @apply w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm
+    @apply w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg
     focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary
     placeholder:text-gray-400 transition-all duration-200;
+    font-size: 14px;
   }
-  .form-label { @apply block text-sm font-medium text-gray-700 mb-1.5; }
-  .form-error { @apply text-xs text-red-500 mt-1; }
+  .form-label { @apply block font-semibold text-gray-700 mb-1.5; font-size: 12.5px; }
+  .form-error { @apply text-red-500 mt-1; font-size: 12px; }
   .form-select {
-    @apply w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm
+    @apply w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg
     focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary
     transition-all duration-200 cursor-pointer;
+    font-size: 14px;
   }
 
   /* Badge */
   .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold;
+    font-size: 11px;
   }
   .badge-blue   { @apply bg-blue-100 text-blue-700; }
   .badge-green  { @apply bg-green-100 text-green-700; }
@@ -132,17 +148,18 @@
 
   /* Table */
   .table-container { @apply overflow-x-auto rounded-2xl border border-slate-200/80 shadow-card bg-white; }
-  .table { @apply w-full text-sm; }
+  .table { @apply w-full; }
   .table thead { @apply bg-gray-50 border-b border-gray-100; }
-  .table th { @apply px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap; }
+  .table th { @apply px-3 sm:px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap; font-size: 11.5px; }
   .table th.text-right { text-align: right; }
-  .table td { @apply px-3 sm:px-4 py-3 text-gray-700 border-b border-gray-50 align-middle; }
+  .table td { @apply px-3 sm:px-4 py-3 text-gray-700 border-b border-gray-50 align-middle; font-size: 14px; }
   .table tbody tr { @apply hover:bg-gray-50/50 transition-colors; }
 
   /* Page header */
-  .page-header { @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 rounded-2xl border border-slate-200/70 bg-white/80 shadow-card px-4 sm:px-5 py-3.5; }
-  .page-title { @apply text-2xl md:text-3xl font-bold text-primary; font-family: 'Poppins', sans-serif !important; }
-  .page-subtitle { @apply text-[11px] text-slate-500 mt-0.5; }
+  .page-header { @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 rounded-2xl border border-slate-200/70 bg-white/80 shadow-card px-5 sm:px-6 py-4; }
+  /* Page title: prominent but compact — 22px on 14px root */
+  .page-title { font-size: 1.571rem; font-weight: 700; @apply text-primary; font-family: 'Poppins', sans-serif !important; letter-spacing: -0.025em; }
+  .page-subtitle { font-size: 12px; @apply text-slate-500 mt-0.5; font-weight: 400; }
 
   .topbar-glass {
     @apply bg-white/80 backdrop-blur-lg border border-white/70 shadow-soft;
@@ -150,14 +167,16 @@
 
   /* Sidebar */
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-semibold
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium
     text-slate-600 hover:text-[#000080] hover:bg-blue-50 transition-all duration-200;
+    font-size: 13.5px;
   }
   .sidebar-link.active {
     @apply bg-[#000080] text-white shadow-sm;
   }
   .sidebar-group-label {
-    @apply text-xs font-semibold text-slate-400 uppercase tracking-widest px-3 mb-1;
+    @apply font-bold text-slate-400 uppercase tracking-widest px-3 mb-1;
+    font-size: 10.5px;
   }
 
   /* Status dots */
@@ -430,11 +449,11 @@
      2. Page Headers & Action Bars
      ======================================================================= */
   .page-header { 
-    flex-direction: column; align-items: stretch !important; gap: 1rem; 
-    padding: 1.25rem 1rem; border-radius: 1.25rem; margin-bottom: 1.25rem;
+    flex-direction: column; align-items: stretch !important; gap: 0.75rem; 
+    padding: 1rem 1.125rem; border-radius: 1.25rem; margin-bottom: 1rem;
   }
-  .page-title { font-size: 1.5rem; line-height: 1.25; font-weight: 800; letter-spacing: -0.02em; font-family: 'Poppins', sans-serif !important; }
-  .page-subtitle { font-size: 0.75rem; margin-top: 0.25rem; }
+  .page-title { font-size: 1.286rem; line-height: 1.25; font-weight: 700; letter-spacing: -0.025em; font-family: 'Poppins', sans-serif !important; } /* ~18px on mobile */
+  .page-subtitle { font-size: 11.5px; margin-top: 0.25rem; }
   
   /* Horizontal scroll for action buttons to prevent stacking and save vertical space */
   .page-header > div:last-child {
@@ -469,12 +488,12 @@
      ======================================================================= */
   /* Prevent iOS input zoom by forcing 16px font */
   .form-input, .form-select, textarea.form-input { 
-    font-size: 16px !important; min-height: 48px; padding: 0.75rem 1rem; border-radius: 0.75rem;
+    font-size: 16px !important; min-height: 46px; padding: 0.75rem 1rem; border-radius: 0.75rem;
   }
   .btn-primary, .btn-outline, .btn-ghost, .btn-danger, .btn-success, .btn-navy { 
-    min-height: 48px; justify-content: center; font-size: 0.95rem; font-weight: 600;
+    min-height: 46px; justify-content: center; font-size: 13px; font-weight: 600;
   }
-  .form-label { font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 600; }
+  .form-label { font-size: 12px; margin-bottom: 0.4rem; font-weight: 600; }
 
   /* Filters */
   .filter-toolbar, .card > .p-4.flex-col { 
@@ -493,9 +512,9 @@
   .table-container::-webkit-scrollbar { height: 4px; }
   .table-container::-webkit-scrollbar-track { background: transparent; }
   .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-  .table { min-width: 700px; font-size: 0.85rem; }
-  .table th { padding: 0.875rem 1rem; font-size: 0.75rem; }
-  .table td { padding: 1rem; }
+  .table { min-width: 700px; font-size: 14px; }
+  .table th { padding: 0.75rem 1rem; font-size: 11.5px; }
+  .table td { padding: 0.875rem 1rem; font-size: 14px; }
 
   /* Finance specific */
   .finance-tx-shell { min-height: auto; border-radius: 1rem; }

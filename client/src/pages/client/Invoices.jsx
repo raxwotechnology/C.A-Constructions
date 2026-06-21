@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiCreditCard, FiDownload } from 'react-icons/fi'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 export default function ClientInvoices() {
   const [searchParams] = useSearchParams()
@@ -61,15 +62,12 @@ export default function ClientInvoices() {
 
   return (
     <div className="animate-fade-in">
-      <section className="bg-gradient-hero pt-32 pb-10">
-        <div className="container-max">
-          <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">Invoices & Payments</h1>
-          <p className="text-white/75 mt-2">{invoices.length} invoices total</p>
-        </div>
-      </section>
+      <ClientPageHeader 
+        title="Invoices & Payments" 
+        subtitle={`${invoices.length} invoices total`}
+      />
 
-      <section className="section-padding bg-slate-50">
+      <section className="section-padding bg-slate-50 min-h-screen">
         <div className="container-max space-y-6">
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

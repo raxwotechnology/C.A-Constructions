@@ -39,7 +39,7 @@ export default function HomeSignInForm() {
           developer: '/developer',
           designer: '/designer',
           marketing: '/marketing',
-          client: '/my-projects',
+          client: '/my-dashboard',
         }
         const dest = redirect[user.role]
         if (!dest) {
@@ -56,7 +56,7 @@ export default function HomeSignInForm() {
           referralCode: data.referralCode || '',
         })
         toast.success('Account created! Welcome to Raxwo Portal')
-        navigate('/my-projects')
+        navigate('/my-dashboard')
       }
     } catch (err) {
       toast.error(err.response?.data?.message || (mode === 'signin' ? 'Login failed' : 'Registration failed'))

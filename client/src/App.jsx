@@ -15,6 +15,7 @@ import WhatsAppButton from './components/ui/WhatsAppButton'
 // Public pages
 import Home from './pages/public/Home'
 import Services from './pages/public/Services'
+import SoftwareProducts from './pages/public/SoftwareProducts'
 import About from './pages/public/About'
 import Portfolio from './pages/public/Portfolio'
 import Careers from './pages/public/Careers'
@@ -112,6 +113,7 @@ import ClientBooking from './pages/client/Booking'
 
 import ClientRewards from './pages/client/Rewards'
 import ClientServices from './pages/client/Services'
+import ClientDashboard from './pages/client/Dashboard'
 
 // Guard components
 const ProtectedRoute = ({ children, roles }) => {
@@ -130,7 +132,7 @@ const GuestRoute = ({ children }) => {
       developer: '/developer',
       designer: '/designer',
       marketing: '/marketing',
-      client: '/my-projects',
+      client: '/my-dashboard',
     }
     return <Navigate to={redirect[user?.role] || '/'} replace />
   }
@@ -186,12 +188,14 @@ export default function App() {
       {/* Public Website */}
       <Route element={<PublicLayout />}>
         <Route path="/services" element={<Services />} />
+        <Route path="/software-products" element={<SoftwareProducts />} />
         <Route path="/about" element={<About />} />
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/careers" element={<Careers />} />
         <Route path="/careers/:id" element={<JobDetail />} />
         <Route path="/careers/:id/apply" element={<Apply />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/my-dashboard" element={<ProtectedRoute roles={['client']}><ClientDashboard /></ProtectedRoute>} />
         <Route path="/my-projects" element={<ProtectedRoute roles={['client']}><ClientProjects /></ProtectedRoute>} />
         <Route path="/my-subscriptions" element={<ProtectedRoute roles={['client']}><ClientSubscriptions /></ProtectedRoute>} />
         <Route path="/booking" element={<ClientBooking />} />

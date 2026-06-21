@@ -24,12 +24,16 @@ export default function HomeLayout() {
       </motion.main>
 
       {/* Footer */}
-      <footer className="bg-[#0C0227] text-white relative overflow-hidden border-t border-white/5 mt-auto">
+      <footer className="bg-black text-white relative overflow-hidden border-t border-white/5 mt-auto">
         {/* Subtle World Map / Abstract Pattern */}
         <div 
-          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          className="absolute inset-0 opacity-[0.04] pointer-events-none"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundImage: `url("https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg")`,
+            backgroundSize: '80%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            filter: 'invert(1)'
           }}
         />
 
@@ -44,13 +48,13 @@ export default function HomeLayout() {
               
               <div className="space-y-6">
                 <div>
-                  <h4 className="font-heading font-bold text-[#20b2f5] mb-2">Head Office:</h4>
-                  <p className="text-white text-sm">Weliweriya, Sri lanka</p>
+                  <h4 className="font-heading font-bold text-[#20b2f5] text-[15px] mb-2">Head Office:</h4>
+                  <p className="text-white text-[15px]">Weliweriya, Sri lanka</p>
                 </div>
                 
                 <div>
-                  <h4 className="font-heading font-bold text-[#20b2f5] mb-2">Contact:</h4>
-                  <p className="text-white text-sm">+94 74 357 3333</p>
+                  <h4 className="font-heading font-bold text-[#20b2f5] text-[15px] mb-2">Contact:</h4>
+                  <p className="text-white text-[15px]">+94 74 357 3333</p>
                 </div>
 
                 <div className="flex gap-3 pt-2">
@@ -82,7 +86,7 @@ export default function HomeLayout() {
                   { name: 'Careers', path: '/careers' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <NavLink to={link.path} className="text-white font-bold text-sm hover:text-[#20b2f5] transition-colors duration-200">
+                    <NavLink to={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
                       {link.name}
                     </NavLink>
                   </li>
@@ -95,16 +99,16 @@ export default function HomeLayout() {
               <h4 className="font-heading font-bold text-[#20b2f5] text-lg mb-6">Services</h4>
               <ul className="space-y-4">
                 {[
-                  { name: 'All Services', path: '/services' },
-                  { name: 'Development Hub', path: '/services' },
-                  { name: 'Creative & Design Studio', path: '/services' },
-                  { name: 'Marketing Lab', path: '/services' },
-                  { name: 'Services & Products', path: '/services' }
+                  { name: 'All Services', path: 'https://raxwo.net/services/' },
+                  { name: 'Development Hub', path: 'https://raxwo.net/development-hub/' },
+                  { name: 'Creative & Design Studio', path: 'https://raxwo.net/creative-design-studio/' },
+                  { name: 'Marketing Lab', path: 'https://raxwo.net/marketing-lab/' },
+                  { name: 'Services & Products', path: 'https://raxwo.net/services-products/' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <NavLink to={link.path} className="text-white font-bold text-sm hover:text-[#20b2f5] transition-colors duration-200">
+                    <a href={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
                       {link.name}
-                    </NavLink>
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -115,16 +119,16 @@ export default function HomeLayout() {
               <h4 className="font-heading font-bold text-[#20b2f5] text-lg mb-6">Products</h4>
               <ul className="space-y-4">
                 {[
-                  { name: 'Software Products', path: '/products' },
-                  { name: 'Mobile Shop ERP 📱', path: '/products/mobile-shop' },
-                  { name: 'Salon Management ERP 💇', path: '/products/salon' },
-                  { name: 'Restaurant & Hotel ERP 🍽️', path: '/products/restaurant' },
-                  { name: 'Hardware & Distribution ERP 🏗️', path: '/products/hardware' }
+                  { name: 'Software Products', path: 'https://raxwo.net/software-products/' },
+                  { name: 'Mobile Shop ERP 📱', path: 'https://raxwo.net/mobile-shop-erp/' },
+                  { name: 'Salon Management ERP 💇', path: 'https://raxwo.net/salon-management-erp/' },
+                  { name: 'Restaurant & Hotel ERP 🍽️', path: 'https://raxwo.net/restaurant-hotel-erp/' },
+                  { name: 'Hardware & Distribution ERP 🏗️', path: 'https://raxwo.net/hardware-distribution-erp/' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <NavLink to={link.path} className="text-white font-bold text-sm hover:text-[#20b2f5] transition-colors duration-200">
+                    <a href={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
                       {link.name}
-                    </NavLink>
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -133,11 +137,11 @@ export default function HomeLayout() {
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-white/15 mt-16 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-white text-xs font-bold tracking-wide">
+          <div className="border-t-[1px] border-dotted border-white/20 mt-16 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-white text-sm font-bold tracking-wide">
               ©{new Date().getFullYear()} - Raxwo (Pvt) ltd. | All Rights Reserved
             </p>
-            <div className="flex items-center gap-4 text-xs font-bold tracking-wide">
+            <div className="flex items-center gap-4 text-sm font-bold tracking-wide">
               <a href="/privacy" className="text-white hover:text-[#20b2f5] transition-colors">Privacy Policy</a>
               <span className="text-white/30">|</span>
               <a href="/terms" className="text-white hover:text-[#20b2f5] transition-colors">Terms & Conditions</a>

@@ -6,6 +6,7 @@ import { FiBell, FiCheck, FiCheckSquare, FiFolder, FiCreditCard, FiClock, FiMess
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
 import { resolveNotificationLink } from '../../lib/notificationLink'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 const TYPE_CFG = {
   project:  { icon: FiFolder,      color: 'text-blue-600 bg-blue-50',    label: 'Project' },
@@ -75,20 +76,16 @@ export default function ClientNotifications() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero */}
-      <section className="bg-gradient-hero pt-32 pb-10">
-        <div className="container-max">
-          <p className="text-white/70 text-sm">Client Portal</p>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mt-2">Notifications</h1>
-          <p className="text-white/70 mt-2">
-            {unread > 0
-              ? <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">{unread} unread message{unread !== 1 ? 's' : ''}</span>
-              : 'You\'re all caught up!'}
-          </p>
-        </div>
-      </section>
+      <ClientPageHeader 
+        title="Notifications" 
+        subtitle={
+          unread > 0
+            ? <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold">{unread} unread message{unread !== 1 ? 's' : ''}</span>
+            : 'You\'re all caught up!'
+        }
+      />
 
-      <section className="section-padding bg-slate-50">
+      <section className="section-padding bg-slate-50 min-h-screen">
         <div className="container-max max-w-3xl space-y-5">
           {/* Filter + Mark all */}
           <div className="flex items-center justify-between gap-4 flex-wrap">

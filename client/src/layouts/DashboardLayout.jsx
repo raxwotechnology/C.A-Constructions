@@ -185,7 +185,7 @@ export default function DashboardLayout({ role }) {
   const handleLogout = () => {
     logout()
     toast.success('Logged out successfully')
-    navigate('/login')
+    window.location.href = '/'
   }
 
   const navGroups = navMap[user?.role] || navMap[role] || []

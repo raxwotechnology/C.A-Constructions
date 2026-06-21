@@ -25,7 +25,7 @@ export default function Login() {
         developer: '/developer',
         designer: '/designer',
         marketing: '/marketing',
-        client: '/my-projects',
+        client: '/my-dashboard',
       }
       const dest = redirect[user.role]
       if (!dest) {

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
 import { FiCalendar, FiDollarSign, FiFileText, FiCheck, FiArrowRight, FiCpu, FiSmartphone, FiCloud, FiShield, FiDatabase, FiLayers } from 'react-icons/fi'
+import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
 const SERVICE_ICONS = { FiCpu, FiSmartphone, FiCloud, FiShield, FiDatabase, FiLayers }
 
@@ -33,8 +34,8 @@ export default function ClientBooking() {
     queryFn: () => api.get('/content/services').then(r => r.data),
   })
 
-  const services = servicesData?.services?.length
-    ? servicesData.services.map(s => ({ label: s.title, icon: s.icon || 'FiCpu', color: `from-[${s.colorFrom || '#2563eb'}] to-[${s.colorTo || '#1d4ed8'}]` }))
+  const services = Array.isArray(servicesData?.services) && servicesData.services.length > 0
+    ? servicesData.services.map(s => ({ label: s.title || 'Service', icon: s.icon || 'FiCpu', color: `from-[${s.colorFrom || '#2563eb'}] to-[${s.colorTo || '#1d4ed8'}]` }))
     : STATIC_SERVICES
 
   const mutation = useMutation({
@@ -50,21 +51,11 @@ export default function ClientBooking() {
   if (submitted) {
     return (
       <div className="animate-fade-in">
-        <section className="bg-gradient-hero pt-32 pb-16">
-          <div className="container-max text-center">
-            <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 200 }}
-              className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FiCheck size={32} className="text-white" />
-            </motion.div>
-            <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="text-xl font-bold text-white font-heading mb-4">Booking Submitted!</motion.h1>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
-              className="text-white/70 text-lg max-w-xl mx-auto">
-              Our team will review your request and contact you within 24 hours to confirm your consultation.
-            </motion.p>
-          </div>
-        </section>
-        <section className="section-padding bg-slate-50">
+        <ClientPageHeader 
+          title="Booking Submitted!" 
+          subtitle="Our team will review your request and contact you within 24 hours to confirm your consultation."
+        />
+        <section className="section-padding bg-slate-50 min-h-screen">
           <div className="container-max max-w-md mx-auto text-center">
             <div className="card card-body">
               <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -91,19 +82,12 @@ export default function ClientBooking() {
   return (
     <div className="animate-fade-in">
       {/* Hero */}
-      <section className="bg-gradient-hero pt-32 pb-16 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-20 right-20 w-64 h-64 bg-secondary/15 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-10 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl" />
-        </div>
-        <div className="container-max relative">
-          <p className="text-white/70 text-sm mb-2">Client Portal</p>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-4">Book a Service</h1>
-          <p className="text-white/70 text-lg max-w-xl">Tell us what you need — we'll put together a tailored proposal and connect you with the right team.</p>
-        </div>
-      </section>
+      <ClientPageHeader 
+        title="Book a Service" 
+        subtitle="Tell us what you need — we'll put together a tailored proposal and connect you with the right team."
+      />
 
-      <section className="section-padding bg-slate-50">
+      <section className="section-padding bg-slate-50 min-h-screen">
         <div className="container-max max-w-4xl">
           {/* Step indicator */}
           <div className="flex items-center justify-center mb-10">
@@ -126,10 +110,10 @@ export default function ClientBooking() {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
               <h2 className="text-xl font-bold text-primary font-heading text-center mb-6">What do you need?</h2>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {services.map(s => {
+                {services.map((s, idx) => {
                   const Icon = SERVICE_ICONS[s.icon] || FiCpu
                   return (
-                    <motion.button key={s.label} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    <motion.button key={`${s.label}-${idx}`} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                       onClick={() => { setSelectedService(s.label); setStep(1) }}
                       className={`card p-5 text-left border-2 transition-all duration-200 group ${selectedService === s.label ? 'border-secondary shadow-md' : 'border-transparent hover:border-secondary/40 hover:shadow-sm'}`}>
                       <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-md`}>
