@@ -16,6 +16,8 @@ import {
   FiServer,
   FiLayers,
   FiVideo,
+  FiPackage,
+  FiBriefcase,
 } from 'react-icons/fi'
 import { FaFacebookF, FaInstagram, FaYoutube, FaLinkedinIn, FaTiktok } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -46,6 +48,8 @@ export default function PublicLayout() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false)
   const [productsDropdownOpen, setProductsDropdownOpen] = useState(false)
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false)
+  const [mobileProductsOpen, setMobileProductsOpen] = useState(false)
   const profileRef = useRef(null)
   const notifRef = useRef(null)
   const moreRef = useRef(null)
@@ -131,9 +135,11 @@ export default function PublicLayout() {
   }, [])
 
   const handleLogout = () => {
-    logout()
-    toast.success('Logged out successfully')
-    window.location.href = '/'
+    navigate('/')
+    setTimeout(() => {
+      logout()
+      toast.success('Logged out successfully')
+    }, 10)
   }
 
   return (
@@ -163,30 +169,14 @@ export default function PublicLayout() {
                 <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Our Services</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <a href="https://raxwo.net/services/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80" alt="All Services" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">All Services</h4>
-                    </a>
-                    <a href="https://raxwo.net/development-hub/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&q=80" alt="Development Hub" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Development Hub</h4>
-                    </a>
-                    <a href="https://raxwo.net/creative-design-studio/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1561070791-2526d30994b5?w=200&q=80" alt="Creative Studio" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Creative Studio</h4>
-                    </a>
-                    <a href="https://raxwo.net/marketing-lab/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=200&q=80" alt="Marketing Lab" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Marketing Lab</h4>
-                    </a>
+                    {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => (
+                      <Link key={s._id} to={`/services`} className="group/item flex flex-col items-center text-center">
+                        <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                          <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                        </div>
+                        <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
+                      </Link>
+                    ))}
                   </div>
                   <div className="mt-4 pt-4 border-t border-slate-200">
                     <NavLink to="/services" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all services on this portal →</NavLink>
@@ -204,30 +194,14 @@ export default function PublicLayout() {
                 <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Software Products</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <a href="https://raxwo.net/mobile-shop-erp/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=80" alt="Mobile Shop ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Mobile Shop ERP 📱</h4>
-                    </a>
-                    <a href="https://raxwo.net/salon-management-erp/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=200&q=80" alt="Salon ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Salon Management ERP 💇</h4>
-                    </a>
-                    <a href="https://raxwo.net/restaurant-hotel-erp/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=200&q=80" alt="Restaurant ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Restaurant & Hotel ERP 🍽️</h4>
-                    </a>
-                    <a href="https://raxwo.net/hardware-distribution-erp/" className="group/item flex flex-col items-center text-center">
-                      <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                        <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=200&q=80" alt="Hardware ERP" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                      </div>
-                      <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">Hardware & Distribution ERP 🏗️</h4>
-                    </a>
+                    {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
+                      <Link key={s._id} to={`/software-products`} className="group/item flex flex-col items-center text-center">
+                        <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                          <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                        </div>
+                        <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
+                      </Link>
+                    ))}
                   </div>
                   <div className="mt-4 pt-4 border-t border-slate-200">
                     <NavLink to="/software-products" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all software products →</NavLink>
@@ -263,7 +237,7 @@ export default function PublicLayout() {
                           <h4 className="font-semibold text-primary">Notifications</h4>
                           <NavLink to="/notifications" className="text-xs text-secondary hover:underline">See all</NavLink>
                         </div>
-                        <div className="max-h-80 overflow-y-auto">
+                        <div className="max-h-80 overflow-y-auto custom-scrollbar">
                           {notifications.length === 0 ? <p className="text-sm text-slate-400 p-5 text-center">No notifications yet</p> : notifications.slice(0, 6).map((n) => (
                             <button
                               key={n._id}
@@ -273,10 +247,17 @@ export default function PublicLayout() {
                                 setNotifOpen(false)
                                 navigate(n.link || `/notifications/${n._id}`)
                               }}
-                              className={`w-full text-left p-3 border-b border-slate-100/80 transition-colors ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-blue-50 hover:bg-blue-100/70'}`}
+                              className={`w-full text-left p-4 border-b border-slate-100/80 transition-all flex items-start gap-3 relative group ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-[#20b2f5]/5 hover:bg-[#20b2f5]/10'}`}
                             >
-                              <p className="text-sm font-medium text-slate-800">{n.title}</p>
-                              <p className="text-xs text-slate-500 mt-1">{n.message}</p>
+                              {!n.read && <div className="absolute top-1/2 -translate-y-1/2 left-0 w-1 h-0 group-hover:h-8 transition-all bg-[#20b2f5] rounded-r-md" />}
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${n.read ? 'bg-slate-100 text-slate-400' : 'bg-[#20b2f5]/20 text-[#20b2f5]'}`}>
+                                <FiBell size={16} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold truncate ${n.read ? 'text-slate-600' : 'text-slate-900'}`}>{n.title}</p>
+                                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
+                                {n.createdAt && <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{new Date(n.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>}
+                              </div>
                             </button>
                           ))}
                         </div>
@@ -334,61 +315,156 @@ export default function PublicLayout() {
         <AnimatePresence>
           {menuOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              className="md:hidden bg-primary/98 backdrop-blur-md border-t border-white/10 shadow-2xl"
+              initial={{ opacity: 0, x: '100%' }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: '100%' }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="md:hidden fixed inset-0 z-[100] bg-[#0A0F1C]/98 backdrop-blur-xl flex flex-col"
             >
-              <div className="w-full px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-1 max-h-[70vh] overflow-y-auto">
-                <a
-                  href="https://raxwo.net/"
-                  className="px-4 py-3 rounded-lg text-sm font-medium transition-colors text-white/85 hover:bg-white/10 flex items-center gap-2"
-                >
-                  <FiHome size={16} /> Back
-                </a>
-
-                <div className="my-1 border-t border-white/10" />
-
-                <NavLink to="/" end className={({ isActive }) => `px-4 py-3 rounded-lg text-sm font-medium transition-colors block ${isActive ? 'text-white bg-white/15' : 'text-white/85 hover:bg-white/10'}`}>
-                  Home
-                </NavLink>
-                <div className="my-2 border-l-2 border-[#20b2f5] pl-4 flex flex-col gap-1">
-                  <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Services</div>
-                  <a href="https://raxwo.net/services/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">All Services</a>
-                  <a href="https://raxwo.net/development-hub/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Development Hub</a>
-                  <a href="https://raxwo.net/creative-design-studio/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Creative & Design Studio</a>
-                  <a href="https://raxwo.net/marketing-lab/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Marketing Lab</a>
-                  <NavLink to="/services" className="text-sm font-medium text-[#20b2f5] py-1">→ View All Services</NavLink>
-                </div>
-                <div className="my-2 border-l-2 border-emerald-400 pl-4 flex flex-col gap-1">
-                  <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Software Products</div>
-                  <a href="https://raxwo.net/mobile-shop-erp/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Mobile Shop ERP 📱</a>
-                  <a href="https://raxwo.net/salon-management-erp/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Salon ERP 💇</a>
-                  <a href="https://raxwo.net/restaurant-hotel-erp/" className="text-sm font-medium text-white/85 py-1 hover:text-[#20b2f5]">Restaurant ERP 🍽️</a>
-                  <NavLink to="/software-products" className="text-sm font-medium text-emerald-400 py-1">→ View All Products</NavLink>
-                </div>
-                <NavLink to="/careers" className={({ isActive }) => `px-4 py-3 rounded-lg text-sm font-medium transition-colors block ${isActive ? 'text-white bg-white/15' : 'text-white/85 hover:bg-white/10'}`}>
-                  Careers
-                </NavLink>
-                <a href="https://raxwo.net/lets-talk/" className="px-4 py-3 rounded-lg text-sm font-medium transition-colors block text-white/85 hover:bg-white/10">
-                  Let's Talk
-                </a>
-
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+                <SiteLogo to="/" variant="dark" className="scale-90 origin-left" />
+                <button className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-all border border-white/10" onClick={() => setMenuOpen(false)}>
+                  <FiX size={20} />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto px-6 py-6 pb-24 custom-scrollbar space-y-8">
                 
-                {isAuthenticated && (
-                  <div className="mt-3 pt-3 border-t border-white/10 space-y-1">
-                    <NavLink to="/my-dashboard" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Dashboard</NavLink>
-                    <NavLink to="/my-projects" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">My Projects</NavLink>
-                    <NavLink to="/our-services" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Services & Products</NavLink>
-                    <NavLink to="/my-subscriptions" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Subscriptions</NavLink>
-                    <NavLink to="/payments" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Payments</NavLink>
-                    <NavLink to="/messages" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Messages</NavLink>
-                    <NavLink to="/meetings" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Meetings</NavLink>
-                    <NavLink to="/rewards" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Rewards</NavLink>
-                    <NavLink to="/booking" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Booking</NavLink>
-                    <NavLink to="/notifications" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Notifications</NavLink>
-                    <NavLink to="/my-account" className="px-4 py-3 rounded-lg text-sm font-medium text-white/90 hover:bg-white/10 transition-colors">Settings</NavLink>
-                    <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-red-500/10 transition-colors">Sign Out</button>
+                {/* Main Links */}
+                <div className="space-y-2.5">
+                  <a href="https://raxwo.net/" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-all bg-white/5 border border-white/5">
+                    <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/60"><FiHome size={18} /></div>
+                    Back to raxwo.net
+                  </a>
+                  <NavLink to="/" end className={({ isActive }) => `flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all ${isActive ? 'bg-[#20b2f5]/15 text-[#20b2f5] border border-[#20b2f5]/20' : 'bg-white/5 border border-white/5 text-white/80 hover:bg-white/10 hover:text-white'}`} onClick={() => setMenuOpen(false)}>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname === '/' ? 'bg-[#20b2f5]/20' : 'bg-white/5 text-white/60'}`}><FiHome size={18} /></div>
+                    Home
+                  </NavLink>
+                  {/* Services Accordion */}
+                  <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
+                    <button onClick={() => setMobileServicesOpen(!mobileServicesOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-white/80 hover:bg-white/5 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname.startsWith('/services') ? 'bg-[#20b2f5]/20 text-[#20b2f5]' : 'bg-white/5 text-white/60'}`}><FiLayers size={18} /></div>
+                        Services
+                      </div>
+                      <FiChevronDown size={18} className={`transition-transform duration-300 ${mobileServicesOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                      {mobileServicesOpen && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-[#20b2f5]/5">
+                          <div className="px-4 py-3 flex flex-col gap-2">
+                            {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => (
+                              <Link key={s._id} to={`/services`} onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-medium text-white/70 hover:text-[#20b2f5] transition-colors relative">
+                                <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
+                                {s.title}
+                              </Link>
+                            ))}
+                            <NavLink to="/services" onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-bold text-[#20b2f5] mt-1 hover:underline">
+                              → View All Services
+                            </NavLink>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Software Products Accordion */}
+                  <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
+                    <button onClick={() => setMobileProductsOpen(!mobileProductsOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-white/80 hover:bg-white/5 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname.startsWith('/software-products') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/60'}`}><FiPackage size={18} /></div>
+                        Software Products
+                      </div>
+                      <FiChevronDown size={18} className={`transition-transform duration-300 ${mobileProductsOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                      {mobileProductsOpen && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-emerald-500/5">
+                          <div className="px-4 py-3 flex flex-col gap-2">
+                            {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
+                              <Link key={s._id} to={`/software-products`} onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-medium text-white/70 hover:text-emerald-400 transition-colors relative">
+                                <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
+                                {s.title}
+                              </Link>
+                            ))}
+                            <NavLink to="/software-products" onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-bold text-emerald-400 mt-1 hover:underline">
+                              → View All Products
+                            </NavLink>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <NavLink to="/careers" className={({ isActive }) => `flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all ${isActive ? 'bg-purple-500/15 text-purple-400 border border-purple-500/20' : 'bg-white/5 border border-white/5 text-white/80 hover:bg-white/10 hover:text-white'}`} onClick={() => setMenuOpen(false)}>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname === '/careers' ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-white/60'}`}><FiBriefcase size={18} /></div>
+                    Careers
+                  </NavLink>
+                </div>
+
+                {/* Dashboard / Auth Links */}
+                {isAuthenticated ? (
+                  <div>
+                    <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em] px-2 mb-4">Portal Access</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <NavLink to="/my-dashboard" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-[#20b2f5]/20 text-[#20b2f5]"><FiHome size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Dashboard</span>
+                      </NavLink>
+                      <NavLink to="/my-projects" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-amber-400/20 text-amber-400"><FiFolder size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">My Projects</span>
+                      </NavLink>
+                      <NavLink to="/our-services" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-indigo-400/20 text-indigo-400"><FiLayers size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Services</span>
+                      </NavLink>
+                      <NavLink to="/my-subscriptions" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-emerald-400/20 text-emerald-400"><FiServer size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Subscriptions</span>
+                      </NavLink>
+                      <NavLink to="/payments" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-rose-400/20 text-rose-400"><FiCreditCard size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Payments</span>
+                      </NavLink>
+                      <NavLink to="/booking" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-cyan-400/20 text-cyan-400"><FiCalendar size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Booking</span>
+                      </NavLink>
+                      <NavLink to="/messages" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-blue-400/20 text-blue-400"><FiMessageSquare size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Messages</span>
+                      </NavLink>
+                      <NavLink to="/meetings" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-fuchsia-400/20 text-fuchsia-400"><FiVideo size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Meetings</span>
+                      </NavLink>
+                      <NavLink to="/rewards" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                        <div className="p-3 rounded-2xl bg-yellow-400/20 text-yellow-400"><FiGift size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Rewards</span>
+                      </NavLink>
+                      <NavLink to="/notifications" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg relative">
+                        {unreadCount > 0 && <span className="absolute top-4 right-4 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0A0F1C] animate-pulse" />}
+                        <div className="p-3 rounded-2xl bg-orange-400/20 text-orange-400"><FiBell size={22} /></div>
+                        <span className="text-[12px] font-extrabold tracking-wide">Notifications</span>
+                      </NavLink>
+                    </div>
+
+                    <div className="mt-6 space-y-3">
+                      <NavLink to="/my-account" onClick={() => setMenuOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-2xl bg-white/5 border border-white/10 text-[15px] font-bold text-white/90 hover:bg-white/10 transition-all">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-slate-300"><FiUsers size={18} /></div>
+                        Account Settings
+                      </NavLink>
+                      <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-[15px] font-bold text-red-400 hover:bg-red-500/20 transition-all">
+                        <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400"><FiLogOut size={18} /></div>
+                        Sign Out Completely
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-6 mt-4 border-t border-white/10">
+                    <a href="https://raxwo.net/lets-talk/" className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-[#20b2f5] text-white text-[16px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]">
+                      Let's Talk <FiMessageSquare size={18} />
+                    </a>
                   </div>
                 )}
               </div>
@@ -468,13 +544,19 @@ export default function PublicLayout() {
                   { name: 'Home', path: '/' },
                   { name: 'Who We Are', path: '/about' },
                   { name: 'Let\'s Talk', path: '/contact' },
-                  { name: 'FAQ\'s', path: '/faqs' },
+                  { name: 'FAQ\'s', path: 'https://raxwo.net/faqs/' },
                   { name: 'Careers', path: '/careers' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <NavLink to={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
-                      {link.name}
-                    </NavLink>
+                    {link.path.startsWith('http') ? (
+                      <a href={link.path} target="_blank" rel="noopener noreferrer" className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
+                        {link.name}
+                      </a>
+                    ) : (
+                      <NavLink to={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
+                        {link.name}
+                      </NavLink>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -528,9 +610,9 @@ export default function PublicLayout() {
               ©{new Date().getFullYear()} - Raxwo (Pvt) ltd. | All Rights Reserved
             </p>
             <div className="flex items-center gap-4 text-sm font-bold tracking-wide">
-              <a href="/privacy" className="text-white hover:text-[#20b2f5] transition-colors">Privacy Policy</a>
+              <a href="https://raxwo.net/privacy-policy/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#20b2f5] transition-colors">Privacy Policy</a>
               <span className="text-white/30">|</span>
-              <a href="/terms" className="text-white hover:text-[#20b2f5] transition-colors">Terms & Conditions</a>
+              <a href="https://raxwo.net/terms-conditions-tc/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#20b2f5] transition-colors">Terms & Conditions</a>
             </div>
           </div>
         </div>

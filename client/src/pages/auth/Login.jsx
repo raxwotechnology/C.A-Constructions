@@ -68,8 +68,8 @@ export default function Login() {
               { num: '5+', label: 'Years Experience' },
             ].map(s => (
               <div key={s.label} className="glass-card p-4">
-                <p className="text-3xl font-bold text-white font-heading">{s.num}</p>
-                <p className="text-white/50 text-sm mt-1">{s.label}</p>
+                <p className="text-3xl font-bold text-[#20b2f5] font-heading">{s.num}</p>
+                <p className="text-white/60 text-sm mt-1">{s.label}</p>
               </div>
             ))}
           </div>

@@ -74,36 +74,38 @@ export default function ManagerProfile() {
       </div>
 
       {/* Profile card */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden border-0 shadow-card">
         {/* Banner */}
-        <div className="h-24 bg-gradient-to-r from-primary to-secondary relative" />
+        <div className="h-40 bg-gradient-to-r from-slate-900 via-primary to-secondary relative">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+        </div>
 
         {/* Avatar + name */}
-        <div className="px-6 pb-6">
-          <div className="flex items-end gap-4 -mt-12 mb-5">
+        <div className="px-6 md:px-10 pb-8">
+          <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16 mb-8 relative">
             <div className="relative shrink-0">
-              <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg overflow-hidden bg-gradient-to-br from-secondary to-blue-600 flex items-center justify-center">
+              <div className="w-32 h-32 rounded-3xl border-[6px] border-white shadow-xl overflow-hidden bg-gradient-to-br from-secondary to-blue-600 flex items-center justify-center">
                 {avatarSrc
                   ? <img src={avatarSrc} alt={user?.name} className="w-full h-full object-cover" />
-                  : <span className="text-white font-bold text-2xl">{initials}</span>}
+                  : <span className="text-white font-bold text-4xl font-heading">{initials}</span>}
               </div>
-              <label className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-slate-200 rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-secondary hover:border-secondary hover:text-white transition-colors">
-                <FiCamera size={13} />
+              <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-white border border-slate-100 rounded-2xl flex items-center justify-center cursor-pointer shadow-lg hover:bg-secondary hover:text-white transition-all hover:scale-105">
+                <FiCamera size={16} />
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
               </label>
             </div>
-            <div className="pb-1">
-              <h2 className="text-xl font-bold text-primary font-heading">{user?.name}</h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="badge badge-navy capitalize">{user?.role}</span>
-                {emp?.department && <span className="badge bg-slate-100 text-slate-600">{emp.department}</span>}
-                {emp?.designation && <span className="text-xs text-slate-500">{emp.designation}</span>}
+            <div className="pb-2">
+              <h2 className="text-3xl font-extrabold text-slate-800 font-heading tracking-tight">{user?.name}</h2>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="badge badge-navy capitalize px-3 py-1 shadow-sm">{user?.role}</span>
+                {emp?.department && <span className="badge bg-slate-100 text-slate-600 px-3 py-1 font-medium shadow-sm">{emp.department}</span>}
+                {emp?.designation && <span className="text-sm font-semibold text-slate-500">{emp.designation}</span>}
               </div>
             </div>
           </div>
 
           {/* Info grid */}
-          <div className="grid sm:grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             {[
               { icon: FiMail,     label: 'Email',         val: user?.email },
               { icon: FiPhone,    label: 'Phone',         val: user?.phone || '—' },
@@ -112,13 +114,13 @@ export default function ManagerProfile() {
               { icon: FiCalendar, label: 'Joined',        val: emp?.joinedDate ? new Date(emp.joinedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long' }) : '—' },
               { icon: FiShield,   label: 'EPF Number',    val: emp?.epfNumber || '—' },
             ].map(f => (
-              <div key={f.label} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
-                  <f.icon size={14} className="text-secondary" />
+              <div key={f.label} className="flex items-center gap-4 p-4 bg-slate-50/80 rounded-2xl border border-slate-100/50 hover:bg-slate-50 transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-slate-100 flex items-center justify-center shrink-0">
+                  <f.icon size={16} className="text-secondary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-slate-400">{f.label}</p>
-                  <p className="text-sm font-medium text-slate-700 truncate">{f.val}</p>
+                  <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-0.5">{f.label}</p>
+                  <p className="text-[15px] font-bold text-slate-700 truncate">{f.val}</p>
                 </div>
               </div>
             ))}

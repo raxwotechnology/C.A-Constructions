@@ -145,17 +145,16 @@ export default function Services() {
   })
 
   const raw = data?.services || []
-  const allTabServices = raw // Show both services and products!
+  // Filter for services only (exclude products if needed, but previously it said 'Show both services and products!')
+  const allTabServices = raw.filter(s => s.type !== 'product')
 
-  const displayServices = allTabServices.length > 0
-    ? allTabServices.map((s) => ({
-        ...s,
-        icon: ICON_MAP[s.icon] || FiCode,
-        desc: s.description,
-        features: s.features || [],
-        price: s.priceText || '',
-      }))
-    : STATIC_SERVICES.map(s => ({ ...s, icon: ICON_MAP[s.icon] || FiCode, desc: s.description, price: s.priceText }))
+  const displayServices = allTabServices.map((s) => ({
+    ...s,
+    icon: ICON_MAP[s.icon] || FiCode,
+    desc: s.description,
+    features: s.features || [],
+    price: s.priceText || '',
+  }))
 
   const categories = ['All', ...Array.from(new Set(displayServices.map(s => s.category).filter(Boolean)))]
   const filtered = activeCategory === 'All' ? displayServices : displayServices.filter(s => s.category === activeCategory)

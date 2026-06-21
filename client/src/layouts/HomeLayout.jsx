@@ -82,13 +82,19 @@ export default function HomeLayout() {
                   { name: 'Home', path: '/' },
                   { name: 'Who We Are', path: '/about' },
                   { name: 'Let\'s Talk', path: '/contact' },
-                  { name: 'FAQ\'s', path: '/faqs' },
+                  { name: 'FAQ\'s', path: 'https://raxwo.net/faqs/' },
                   { name: 'Careers', path: '/careers' }
                 ].map((link, idx) => (
                   <li key={idx}>
-                    <NavLink to={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
-                      {link.name}
-                    </NavLink>
+                    {link.path.startsWith('http') ? (
+                      <a href={link.path} target="_blank" rel="noopener noreferrer" className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
+                        {link.name}
+                      </a>
+                    ) : (
+                      <NavLink to={link.path} className="text-white font-bold text-[15px] hover:text-[#20b2f5] transition-colors duration-200">
+                        {link.name}
+                      </NavLink>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -142,9 +148,9 @@ export default function HomeLayout() {
               ©{new Date().getFullYear()} - Raxwo (Pvt) ltd. | All Rights Reserved
             </p>
             <div className="flex items-center gap-4 text-sm font-bold tracking-wide">
-              <a href="/privacy" className="text-white hover:text-[#20b2f5] transition-colors">Privacy Policy</a>
+              <a href="https://raxwo.net/privacy-policy/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#20b2f5] transition-colors">Privacy Policy</a>
               <span className="text-white/30">|</span>
-              <a href="/terms" className="text-white hover:text-[#20b2f5] transition-colors">Terms & Conditions</a>
+              <a href="https://raxwo.net/terms-conditions-tc/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#20b2f5] transition-colors">Terms & Conditions</a>
             </div>
           </div>
         </div>

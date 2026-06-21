@@ -112,8 +112,8 @@ export default function Portfolio() {
                 transition={{ delay: 0.8 + (i * 0.1) }}
                 className="text-center flex-1 min-w-[140px]"
               >
-                <p className="text-4xl font-black text-white mb-2">{n}</p>
-                <p className="text-white/70 text-sm font-medium">{l}</p>
+                <p className="text-4xl font-black text-[#20b2f5] mb-2">{n}</p>
+                <p className="text-white/80 text-sm font-medium">{l}</p>
               </motion.div>
             ))}
           </motion.div>

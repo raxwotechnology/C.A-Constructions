@@ -27,9 +27,13 @@ export default function SoftwareProducts() {
   })
 
   const raw = (data?.services || []).filter(s => s.type === 'product')
-  const displayProducts = raw.length > 0
-    ? raw.map(s => ({ ...s, icon: ICON_MAP[s.icon] || FiPackage, desc: s.description, features: s.features || [], price: s.priceText || '' }))
-    : STATIC_PRODUCTS.map(s => ({ ...s, icon: ICON_MAP[s.icon] || FiPackage, desc: s.description, price: s.priceText }))
+  const displayProducts = raw.map(s => ({
+    ...s,
+    icon: ICON_MAP[s.icon] || FiPackage,
+    desc: s.description,
+    features: s.features || [],
+    price: s.priceText || ''
+  }))
 
   const categories = ['All', ...Array.from(new Set(displayProducts.map(s => s.category).filter(Boolean)))]
   const filtered = activeCategory === 'All' ? displayProducts : displayProducts.filter(s => s.category === activeCategory)

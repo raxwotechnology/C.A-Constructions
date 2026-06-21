@@ -13,18 +13,20 @@ export default function SiteLogo({
   imgClassName = '',
   asLink = true,
 }) {
-  const { siteName, siteTagline, settings } = useSiteBranding()
-  const logoSrc = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png'
-  const [logoBroken, setLogoBroken] = useState(false)
+  const { siteName, siteTagline } = useSiteBranding()
   const isDark = variant === 'dark'
-  const showLogoImg = Boolean(logoSrc && !logoBroken)
+  
+  // Use the old URL for dark variant (home page & footer), local curved badge for light variant (sidebar)
+  const logoSrc = isDark 
+    ? 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png' 
+    : '/raxwo-logo-final.png'
 
-  // Reset broken state when the logo source changes
+  const [logoBroken, setLogoBroken] = useState(false)
+
   useEffect(() => {
     setLogoBroken(false)
   }, [logoSrc])
 
-  // Auto-retry loading the logo when the user returns to the tab (fixes disappearing after inactivity)
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') setLogoBroken(false)
@@ -34,18 +36,31 @@ export default function SiteLogo({
   }, [])
 
   const nameCls = isDark ? 'text-white' : 'text-primary'
-  const tagCls = isDark ? 'text-white/50' : 'text-slate-400'
-  const tagline = (siteTagline && siteTagline.length <= 48) ? siteTagline : ''
 
   const inner = (
     <>
-      {showLogoImg ? (
-        <img
-          src={logoSrc}
-          alt={siteName}
-          onError={() => setLogoBroken(true)}
-          className={`object-contain flex-shrink-0 ${isDark ? 'h-12 w-auto max-w-[180px]' : 'h-12 w-auto max-w-[160px]'} ${imgClassName}`}
-        />
+      {!logoBroken ? (
+        isDark ? (
+          // Home page and Footer logo (plain image)
+          <img
+            src={logoSrc}
+            alt={siteName || "Raxwo"}
+            onError={() => setLogoBroken(true)}
+            className={`object-contain flex-shrink-0 h-14 w-auto max-w-[200px] ${imgClassName}`}
+          />
+        ) : (
+          // Sidebar logo (curved modern badge)
+          <div className="relative group perspective-1000">
+            <img
+              src={logoSrc}
+              alt={siteName || "Raxwo"}
+              onError={() => setLogoBroken(true)}
+              className={`object-cover flex-shrink-0 bg-black/90 rounded-2xl shadow-lg border border-white/10 group-hover:shadow-xl group-hover:scale-[1.02] transition-all duration-300 ease-out h-16 sm:h-20 w-auto ${imgClassName}`}
+              style={{ transformStyle: 'preserve-3d' }}
+            />
+            <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
+          </div>
+        )
       ) : (
         <div className={`flex flex-col ${isDark ? 'items-start' : 'items-start'} justify-center`}>
           <div className={`flex items-center font-bold font-heading ${isDark ? 'text-[36px]' : 'text-[32px]'} leading-none tracking-widest`}>

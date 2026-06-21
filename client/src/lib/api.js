@@ -29,9 +29,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Check if we are already logged out intentionally
+      const stored = localStorage.getItem('raxwo-auth')
+      let hasToken = false
+      if (stored) {
+        try { hasToken = !!JSON.parse(stored)?.state?.token } catch(e){}
+      }
+      
       localStorage.removeItem('raxwo-auth')
+      
       const p = window.location.pathname
-      if (p !== '/login' && p !== '/' && !p.startsWith('/services') && !p.startsWith('/about')) {
+      // Only redirect if we had a token (meaning the 401 was unexpected expiration, not a manual logout)
+      if (hasToken && p !== '/login' && p !== '/' && !p.startsWith('/services') && !p.startsWith('/about')) {
         window.location.href = '/login'
       }
     }
