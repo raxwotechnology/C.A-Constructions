@@ -389,7 +389,7 @@ exports.resetPassword = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Client forgot password — send OTP to email
+// @desc    Forgot password — send OTP to email (works for all roles)
 // @route   POST /api/auth/forgot-password/otp
 exports.sendForgotPasswordOtp = async (req, res, next) => {
   try {
@@ -397,9 +397,9 @@ exports.sendForgotPasswordOtp = async (req, res, next) => {
     if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
     const user = await User.findOne({ email }).select('+otpCode +otpExpire');
-    const genericMsg = 'If that email is registered as a client account, a verification code has been sent.';
+    const genericMsg = 'If that email is registered, a verification code has been sent.';
 
-    if (!user || user.role !== 'client' || !user.isActive) {
+    if (!user || !user.isActive) {
       return res.json({ success: true, message: genericMsg });
     }
 
@@ -408,16 +408,24 @@ exports.sendForgotPasswordOtp = async (req, res, next) => {
     user.otpExpire = Date.now() + 15 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
-    const mailResult = await sendMail({
-      to: user.email,
-      subject: 'Raxwo — Password reset verification code',
-      html: `<p>Hi ${user.name},</p><p>Your password reset code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in 15 minutes. If you did not request this, ignore this email.</p>`,
-      text: `Your Raxwo password reset code is ${otp}. It expires in 15 minutes.`,
-    });
+    let mailResult = { sent: false, reason: 'not attempted' };
+    try {
+      mailResult = await sendMail({
+        to: user.email,
+        subject: 'Raxwo — Password reset verification code',
+        html: `<p>Hi ${user.name},</p><p>Your password reset code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in 15 minutes. If you did not request this, ignore this email.</p>`,
+        text: `Your Raxwo password reset code is ${otp}. It expires in 15 minutes.`,
+      });
+    } catch (mailErr) {
+      console.error('[sendForgotPasswordOtp] SMTP error:', mailErr.message);
+      mailResult = { sent: false, reason: mailErr.message };
+    }
 
     const payload = { success: true, message: genericMsg };
-    if (!mailResult.sent && process.env.NODE_ENV !== 'production') {
-      payload.devOtp = otp;
+    if (!mailResult.sent) {
+      if (process.env.NODE_ENV !== 'production') {
+        payload.devOtp = otp;
+      }
       payload.mailNote = mailResult.reason;
     }
     res.json(payload);
@@ -437,7 +445,6 @@ exports.verifyForgotPasswordOtp = async (req, res, next) => {
     const hashed = crypto.createHash('sha256').update(otp).digest('hex');
     const user = await User.findOne({
       email,
-      role: 'client',
       otpCode: hashed,
       otpExpire: { $gt: Date.now() },
     }).select('+otpCode +otpExpire');
@@ -467,7 +474,6 @@ exports.resetPasswordWithOtp = async (req, res, next) => {
     const hashed = crypto.createHash('sha256').update(otp).digest('hex');
     const user = await User.findOne({
       email,
-      role: 'client',
       otpCode: hashed,
       otpExpire: { $gt: Date.now() },
     }).select('+password +otpCode +otpExpire');

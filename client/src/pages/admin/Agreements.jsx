@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiPlus, FiX, FiFileText, FiPrinter, FiEdit2, FiTrash2, FiSearch, FiDownload, FiClock, FiRotateCcw, FiRotateCw, FiMove } from 'react-icons/fi'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import { buildAgreementPrintOpts, buildCompanyFromSettings } from '../../lib/companyBranding'
@@ -200,6 +201,14 @@ export default function Agreements() {
       toast.success('Agreement deleted')
     },
   })
+
+  const { requestDelete: requestDeleteAgreement, DeletePasswordModal: agreementDeleteModal } = useDeleteWithPassword(
+    { mutateAsync: (id) => deleteMut.mutateAsync(id) },
+    {
+      title: 'Delete agreement',
+      message: 'Enter your admin password to permanently delete this agreement from the database.',
+    }
+  )
 
   const createTplMut = useMutation({
     mutationFn: (body) => {
@@ -537,9 +546,7 @@ export default function Agreements() {
                       <button
                         type="button"
                         title="Delete agreement"
-                        onClick={() => {
-                          if (window.confirm('Delete agreement?')) deleteMut.mutate(agr._id)
-                        }}
+                        onClick={() => requestDeleteAgreement(agr._id)}
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
                       >
                         <FiTrash2 size={12} /> Delete
@@ -1119,6 +1126,7 @@ export default function Agreements() {
         </div>,
         document.body
       )}
+      {agreementDeleteModal}
     </div>
   )
 }

@@ -348,37 +348,38 @@ exports.updateEmployee = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Soft delete employee (status = former, retains all data)
+// @desc    Hard delete employee — permanently removes Employee + linked User from DB
 // @route   DELETE /api/employees/:id
 exports.deleteEmployee = async (req, res, next) => {
   try {
-    const employee = await Employee.findByIdAndUpdate(
-      req.params.id,
-      {
-        status: 'former',
-        $push: {
-          historyLog: {
-            action: 'terminated',
-            note: req.body.reason || 'Employee removed',
-            performedBy: req.user._id,
-            date: new Date(),
-          },
-        },
-      },
-      { new: true }
-    ).populate('userId', 'name');
+    const employee = await Employee.findById(req.params.id).populate('userId', 'name email role');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    
+
     const empName = employee.userId?.name || employee.employeeNo;
+    const empNo = employee.employeeNo;
+    const linkedUser = employee.userId;
+    const linkedUserId = linkedUser?._id || employee.userId;
+
+    // Hard-delete the employee profile
+    await Employee.findByIdAndDelete(req.params.id);
+
+    // Only delete the linked user if they are NOT a client (safety guard)
+    if (linkedUserId && linkedUser?.role !== 'client') {
+      await User.findByIdAndDelete(linkedUserId);
+    } else if (linkedUser?.role === 'client') {
+      console.warn(`[deleteEmployee] Skipped deleting user ${linkedUser.email} — role is 'client', not an employee account.`);
+    }
+
     await createAuditLog({
       user: req.user, action: 'delete', module: 'employees', entityId: employee._id, entityName: empName,
-      description: `Marked employee ${empName} (${employee.employeeNo}) as former`,
-      changes: { after: employee.toObject() }
+      description: `Permanently deleted employee ${empName} (${empNo}) and their user account`,
+      changes: { before: employee.toObject() }
     });
 
-    res.json({ success: true, message: 'Employee marked as former. All data retained.' });
+    res.json({ success: true, message: `Employee ${empName} permanently deleted from the system.` });
   } catch (err) { next(err); }
 };
+
 
 // @desc    Convert intern to permanent employee
 // @route   PUT /api/employees/:id/convert-intern

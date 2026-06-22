@@ -71,9 +71,9 @@ export default function HomeSignInForm() {
     <motion.div
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
-      className="relative z-20 w-full max-w-md mx-auto lg:ml-auto bg-white rounded-2xl p-8 shadow-2xl border border-slate-100"
+      className="relative z-20 w-full max-w-md mx-auto lg:ml-auto bg-white rounded-2xl p-5 sm:p-8 shadow-2xl border border-slate-100"
     >
-      <div className="flex bg-slate-100 rounded-xl p-1 mb-7 gap-1">
+      <div className="flex bg-slate-100 rounded-xl p-1 mb-6 sm:mb-7 gap-1">
         {['signin', 'signup'].map((tab) => (
           <button
             key={tab}
@@ -100,13 +100,13 @@ export default function HomeSignInForm() {
         >
           {mode === 'signin' ? (
             <>
-              <h2 className="text-2xl font-bold text-primary font-heading mb-1">Welcome back</h2>
-              <p className="text-slate-500 mb-6 text-sm">Sign in to your portal</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-primary font-heading mb-1 mt-4">Welcome back</h2>
+              <p className="text-slate-500 mb-5 sm:mb-6 text-[13px] sm:text-sm">Sign in to your portal</p>
             </>
           ) : (
             <>
-              <h2 className="text-2xl font-bold text-primary font-heading mb-1">Create Account</h2>
-              <p className="text-slate-500 mb-6 text-sm">Register as a client to get started</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-primary font-heading mb-1 mt-4">Create Account</h2>
+              <p className="text-slate-500 mb-5 sm:mb-6 text-[13px] sm:text-sm">Register as a client to get started</p>
             </>
           )}
 

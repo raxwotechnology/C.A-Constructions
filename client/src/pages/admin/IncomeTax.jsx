@@ -5,6 +5,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
 import { FiPlus, FiTrash2, FiPlay, FiEye, FiEdit2, FiX, FiExternalLink } from 'react-icons/fi'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -150,6 +151,10 @@ export default function IncomeTax() {
     mutationFn: id => api.delete(`/income-tax/configs/${id}`),
     onSuccess: () => { toast.success('Deleted'); qc.invalidateQueries(['tax-configs']) },
   })
+  const { requestDelete: requestDeleteConfig, DeletePasswordModal: configDeleteModal } = useDeleteWithPassword(
+    { mutateAsync: (id) => deleteConfigMut.mutateAsync(id) },
+    { title: 'Delete tax config', message: 'Enter your admin password to permanently delete this tax configuration.' }
+  )
   const saveProfileMut = useMutation({
     mutationFn: () => {
       const { id, ...body } = profileForm
@@ -173,6 +178,10 @@ export default function IncomeTax() {
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
+  const { requestDelete: requestDeleteProfile, DeletePasswordModal: profileDeleteModal } = useDeleteWithPassword(
+    { mutateAsync: (id) => deleteProfileMut.mutateAsync(id) },
+    { title: 'Delete tax profile', message: 'Enter your admin password to permanently delete this tax profile.' }
+  )
   const generateMut = useMutation({
     mutationFn: () => api.post('/income-tax/generate', { fromDate, toDate }),
     onSuccess: (r) => {
@@ -272,6 +281,10 @@ export default function IncomeTax() {
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
+  const { requestDelete: requestDeleteRecord, DeletePasswordModal: recordDeleteModal } = useDeleteWithPassword(
+    { mutateAsync: (id) => deleteRecordMut.mutateAsync(id) },
+    { title: 'Delete tax record', message: 'Enter your admin password to permanently delete this tax record.' }
+  )
 
   const openRecordView = (r) => {
     setViewRecord(r)
@@ -289,8 +302,7 @@ export default function IncomeTax() {
       toast.error('Cannot delete remitted records (bank payment already posted)')
       return
     }
-    if (!window.confirm(`Delete tax record for ${r.employee?.userId?.name} (${formatRecordPeriod(r)})?`)) return
-    deleteRecordMut.mutate(r._id)
+    requestDeleteRecord(r._id)
   }
 
   const handleSaveRecord = () => {
@@ -299,6 +311,7 @@ export default function IncomeTax() {
   }
 
   return (
+    <>
     <div className="erp-module space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
@@ -417,7 +430,7 @@ export default function IncomeTax() {
                     <td className="px-4 py-2 text-center">{c.slabs?.length || 0}</td>
                     <td className="px-4 py-2 text-center">{c.isActive ? 'Yes' : '—'}</td>
                     <td className="px-4 py-2 text-right">
-                      <button type="button" className="text-red-500 p-1 hover:bg-red-50 rounded" onClick={() => deleteConfigMut.mutate(c._id)} title="Delete"><FiTrash2 /></button>
+                      <button type="button" className="text-red-500 p-1 hover:bg-red-50 rounded" onClick={() => requestDeleteConfig(c._id)} title="Delete"><FiTrash2 /></button>
                     </td>
                   </tr>
                 ))}
@@ -458,7 +471,7 @@ export default function IncomeTax() {
                     </div>
                   </div>
                   <div className="flex justify-end pt-1">
-                    <button type="button" className="text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-xs" onClick={() => deleteConfigMut.mutate(c._id)}>
+                    <button type="button" className="text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-xs" onClick={() => requestDeleteConfig(c._id)}>
                       <FiTrash2 size={13} /> Delete config
                     </button>
                   </div>
@@ -526,9 +539,7 @@ export default function IncomeTax() {
                           type="button"
                           className="p-2 rounded-lg hover:bg-red-50 text-red-500"
                           title="Delete"
-                          onClick={() => {
-                            if (window.confirm('Delete this tax profile?')) deleteProfileMut.mutate(p._id)
-                          }}
+                          onClick={() => requestDeleteProfile(p._id)}
                         >
                           <FiTrash2 />
                         </button>
@@ -601,9 +612,7 @@ export default function IncomeTax() {
                       type="button"
                       className="p-2 rounded-lg hover:bg-red-50 text-red-500"
                       title="Delete"
-                      onClick={() => {
-                        if (window.confirm('Delete this tax profile?')) deleteProfileMut.mutate(p._id)
-                      }}
+                      onClick={() => requestDeleteProfile(p._id)}
                     >
                       <FiTrash2 size={14} />
                     </button>
@@ -754,11 +763,7 @@ export default function IncomeTax() {
                   <button
                     type="button"
                     className="btn-ghost text-red-600 gap-1"
-                    onClick={() => {
-                      if (window.confirm('Delete this tax profile?')) {
-                        deleteProfileMut.mutate(viewProfile._id)
-                      }
-                    }}
+                    onClick={() => requestDeleteProfile(viewProfile._id)}
                   >
                     <FiTrash2 /> Delete
                   </button>
@@ -1009,5 +1014,9 @@ export default function IncomeTax() {
         </div>
       )}
     </div>
+    {configDeleteModal}
+    {profileDeleteModal}
+    {recordDeleteModal}
+    </>
   )
 }

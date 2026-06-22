@@ -90,17 +90,17 @@ export default function ClientBooking() {
       <section className="section-padding bg-slate-50 min-h-screen">
         <div className="container-max max-w-4xl">
           {/* Step indicator */}
-          <div className="flex items-center justify-center mb-10">
+          <div className="flex items-center justify-start sm:justify-center mb-8 sm:mb-10 overflow-x-auto pb-2 hide-scrollbar px-2">
             {STEPS.map((s, i) => (
-              <div key={s} className="flex items-center">
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+              <div key={s} className="flex items-center shrink-0">
+                <div className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-sm font-semibold transition-all ${
                   i === step ? 'bg-secondary text-white shadow-md' :
                   i < step ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'
                 }`}>
-                  {i < step ? <FiCheck size={13} /> : <span className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-[10px]">{i + 1}</span>}
+                  {i < step ? <FiCheck size={12} /> : <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-current flex items-center justify-center text-[9px] sm:text-[10px]">{i + 1}</span>}
                   {s}
                 </div>
-                {i < STEPS.length - 1 && <div className={`w-8 h-0.5 mx-1 ${i < step ? 'bg-emerald-300' : 'bg-slate-200'}`} />}
+                {i < STEPS.length - 1 && <div className={`w-3 sm:w-8 h-0.5 mx-1 sm:mx-1.5 ${i < step ? 'bg-emerald-300' : 'bg-slate-200'}`} />}
               </div>
             ))}
           </div>
@@ -115,12 +115,12 @@ export default function ClientBooking() {
                   return (
                     <motion.button key={`${s.label}-${idx}`} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                       onClick={() => { setSelectedService(s.label); setStep(1) }}
-                      className={`card p-5 text-left border-2 transition-all duration-200 group ${selectedService === s.label ? 'border-secondary shadow-md' : 'border-transparent hover:border-secondary/40 hover:shadow-sm'}`}>
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-md`}>
-                        <Icon size={20} className="text-white" />
+                      className={`card p-4 sm:p-5 text-left border-2 transition-all duration-200 group ${selectedService === s.label ? 'border-secondary shadow-md' : 'border-transparent hover:border-secondary/40 hover:shadow-sm'}`}>
+                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-md`}>
+                        <Icon size={18} className="text-white sm:w-5 sm:h-5" />
                       </div>
-                      <h3 className="font-bold text-primary font-heading text-sm">{s.label}</h3>
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">Select <FiArrowRight size={10} /></p>
+                      <h3 className="font-bold text-primary font-heading text-[13px] sm:text-sm">{s.label}</h3>
+                      <p className="text-[11px] sm:text-xs text-slate-500 mt-1 flex items-center gap-1">Select <FiArrowRight size={10} /></p>
                     </motion.button>
                   )
                 })}
@@ -135,7 +135,7 @@ export default function ClientBooking() {
                 <button onClick={() => setStep(0)} className="btn-ghost btn-sm">← Back</button>
                 <div className="badge badge-blue">{selectedService}</div>
               </div>
-              <form onSubmit={handleSubmit(() => setStep(2))} className="card card-body space-y-5">
+              <form onSubmit={handleSubmit(() => setStep(2))} className="card p-5 sm:p-8 space-y-5">
                 <h2 className="text-xl font-bold text-primary font-heading">Project Details</h2>
                 
                 {!isAuthenticated && (
@@ -198,7 +198,7 @@ export default function ClientBooking() {
               <div className="flex items-center gap-3 mb-6">
                 <button onClick={() => setStep(1)} className="btn-ghost btn-sm">← Back</button>
               </div>
-              <div className="card card-body space-y-5">
+              <div className="card p-5 sm:p-8 space-y-5">
                 <h2 className="text-xl font-bold text-primary font-heading">Confirm Your Booking</h2>
                 <div className="bg-slate-50 rounded-2xl p-5 space-y-3 border border-slate-200">
                   {[

@@ -693,11 +693,11 @@ export default function AdminEmployees() {
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiAlertCircle size={24} /></div>
-              <h3 className="font-bold text-lg text-slate-800">Confirm Action</h3>
+              <h3 className="font-bold text-lg text-slate-800">Permanently Delete Employee</h3>
               <p className="text-sm text-slate-500">
-                Enter your administrator password to mark{' '}
+                Enter your administrator password to <span className="text-red-600 font-bold">permanently delete</span>{' '}
                 <span className="font-semibold text-slate-800">{deletePendingEmp.userId?.name || 'this employee'}</span>
-                {' '}({deletePendingEmp.employeeNo}) as former.
+                {' '}({deletePendingEmp.employeeNo}) and their login account from the database. This cannot be undone.
               </p>
             </div>
             <div>
@@ -715,7 +715,7 @@ export default function AdminEmployees() {
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={closeDeleteModal} className="btn-ghost flex-1 justify-center">Cancel</button>
               <button type="button" onClick={confirmDelete} disabled={verifying || !deletePassword} className="btn-primary flex-1 justify-center bg-red-600 hover:bg-red-700 border-red-600">
-                {verifying || deleteMut.isPending ? <span className="spinner" /> : 'Confirm'}
+                {verifying || deleteMut.isPending ? <span className="spinner" /> : 'Delete Permanently'}
               </button>
             </div>
           </motion.div>

@@ -89,7 +89,7 @@ export default function ClientProfile() {
     <div className="animate-fade-in pb-12 bg-slate-50 min-h-screen">
       <ClientPageHeader 
         title={user?.name} 
-        subtitle="Premium Client Portal"
+        subtitle="Manage your profile settings"
         rightContent={
           <div className="flex items-center gap-5 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20">
             <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center text-white text-2xl font-bold border border-white/30 overflow-hidden">
