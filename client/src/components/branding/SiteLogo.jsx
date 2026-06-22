@@ -16,10 +16,8 @@ export default function SiteLogo({
   const { siteName, siteTagline } = useSiteBranding()
   const isDark = variant === 'dark'
   
-  // Use the old URL for dark variant (home page & footer), local curved badge for light variant (sidebar)
-  const logoSrc = isDark 
-    ? 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png' 
-    : '/raxwo-logo-final.png'
+  // Use the new URL for both variants
+  const logoSrc = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png'
 
   const [logoBroken, setLogoBroken] = useState(false)
 
@@ -49,16 +47,16 @@ export default function SiteLogo({
             className={`object-contain flex-shrink-0 h-14 w-auto max-w-[200px] ${imgClassName}`}
           />
         ) : (
-          // Sidebar logo (curved modern badge)
+          // Sidebar logo (curved modern pill)
           <div className="relative group perspective-1000">
-            <img
-              src={logoSrc}
-              alt={siteName || "Raxwo"}
-              onError={() => setLogoBroken(true)}
-              className={`object-cover flex-shrink-0 bg-black/90 rounded-2xl shadow-lg border border-white/10 group-hover:shadow-xl group-hover:scale-[1.02] transition-all duration-300 ease-out h-16 sm:h-20 w-auto ${imgClassName}`}
-              style={{ transformStyle: 'preserve-3d' }}
-            />
-            <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
+            <div className="bg-[#0A0F1C] rounded-full shadow-lg border border-slate-200 group-hover:shadow-xl group-hover:scale-[1.02] transition-all duration-300 ease-out px-4 py-2 flex items-center justify-center">
+              <img
+                src={logoSrc}
+                alt={siteName || "Raxwo"}
+                onError={() => setLogoBroken(true)}
+                className={`object-contain flex-shrink-0 h-8 sm:h-10 w-auto ${imgClassName}`}
+              />
+            </div>
           </div>
         )
       ) : (
