@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import {
   FiArrowRight, FiCode, FiSmartphone, FiCloud, FiShield,
   FiTrendingUp, FiUsers, FiStar, FiMessageSquare,
   FiMenu, FiX, FiHome, FiLayers, FiPackage, FiBriefcase, FiCheck,
-  FiFolder, FiCalendar, FiCreditCard, FiServer, FiGift, FiVideo, FiBell, FiLogOut
+  FiFolder, FiCalendar, FiCreditCard, FiServer, FiGift, FiVideo, FiBell, FiLogOut, FiChevronDown
 } from 'react-icons/fi'
 import {
   SiReact, SiNodedotjs, SiMongodb, SiNextdotjs, SiDocker,
@@ -20,6 +20,7 @@ import SiteLogo from '../../components/branding/SiteLogo'
 import useAuthStore from '../../store/authStore'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
+import { mediaUrl } from '../../lib/media'
 
 const ICON_MAP = { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiLayers, FiPackage }
 
@@ -89,9 +90,36 @@ const fadeUp = { hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }
 /* ── Embedded Home Navbar ─────────────────────────────────────── */
 function HomeNav() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false)
+  const [productsDropdownOpen, setProductsDropdownOpen] = useState(false)
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false)
+  const [mobileProductsOpen, setMobileProductsOpen] = useState(false)
+  const servicesRef = useRef(null)
+  const productsRef = useRef(null)
   const { user, isAuthenticated, logout } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const isClient = isAuthenticated && user?.role === 'client'
+
+  const { data: servicesData } = useQuery({
+    queryKey: ['public-services'],
+    queryFn: () => api.get('/content/services').then(r => r.data),
+  })
+  const allServices = servicesData?.services || []
+
+  useEffect(() => {
+    const onDown = (e) => {
+      const t = e.target
+      if (servicesRef.current && !servicesRef.current.contains(t)) setServicesDropdownOpen(false)
+      if (productsRef.current && !productsRef.current.contains(t)) setProductsDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('raxwo-auth')
@@ -111,6 +139,57 @@ function HomeNav() {
         >
           <FiHome size={16} /> raxwo.net
         </a>
+        
+        {/* Services dropdown */}
+        <div className="group" ref={servicesRef}>
+          <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${servicesDropdownOpen ? 'text-white bg-white/15' : 'text-white/80 hover:text-[#20b2f5] hover:bg-white/10'}`}>
+            <FiLayers size={16} /> Services <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+          </button>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
+            <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Our Services</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => (
+                  <Link key={s._id} to={`/services`} className="group/item flex flex-col items-center text-center">
+                    <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                      <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                    </div>
+                    <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <Link to="/services" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all services on this portal →</Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Software Products dropdown */}
+        <div className="group" ref={productsRef}>
+          <button onClick={() => setProductsDropdownOpen(!productsDropdownOpen)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${productsDropdownOpen ? 'text-white bg-white/15' : 'text-white/80 hover:text-[#20b2f5] hover:bg-white/10'}`}>
+            <FiPackage size={16} /> Software Products <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+          </button>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
+            <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Software Products</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
+                  <Link key={s._id} to={`/software-products`} className="group/item flex flex-col items-center text-center">
+                    <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
+                      <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
+                    </div>
+                    <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <Link to="/software-products" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all software products →</Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <a
           href="https://raxwo.net/lets-talk/"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
@@ -165,14 +244,61 @@ function HomeNav() {
                   <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/60"><FiHome size={18} /></div>
                   Back to raxwo.net
                 </a>
-                <Link to="/services" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-all bg-white/5 border border-white/5" onClick={() => setMobileOpen(false)}>
-                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/60"><FiLayers size={18} /></div>
-                  Services
-                </Link>
-                <Link to="/software-products" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-all bg-white/5 border border-white/5" onClick={() => setMobileOpen(false)}>
-                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/60"><FiPackage size={18} /></div>
-                  Software Products
-                </Link>
+                {/* Services Accordion */}
+                <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
+                  <button onClick={() => setMobileServicesOpen(!mobileServicesOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-white/80 hover:bg-white/5 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname.startsWith('/services') ? 'bg-[#20b2f5]/20 text-[#20b2f5]' : 'bg-white/5 text-white/60'}`}><FiLayers size={18} /></div>
+                      Services
+                    </div>
+                    <FiChevronDown size={18} className={`transition-transform duration-300 ${mobileServicesOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence>
+                    {mobileServicesOpen && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-[#20b2f5]/5">
+                        <div className="px-4 py-3 flex flex-col gap-2">
+                          {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => (
+                            <Link key={s._id} to={`/services`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-medium text-white/70 hover:text-[#20b2f5] transition-colors relative">
+                              <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
+                              {s.title}
+                            </Link>
+                          ))}
+                          <Link to="/services" onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-[#20b2f5] mt-1 hover:underline">
+                            → View All Services
+                          </Link>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Software Products Accordion */}
+                <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
+                  <button onClick={() => setMobileProductsOpen(!mobileProductsOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-white/80 hover:bg-white/5 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname.startsWith('/software-products') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/60'}`}><FiPackage size={18} /></div>
+                      Software Products
+                    </div>
+                    <FiChevronDown size={18} className={`transition-transform duration-300 ${mobileProductsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence>
+                    {mobileProductsOpen && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-emerald-500/5">
+                        <div className="px-4 py-3 flex flex-col gap-2">
+                          {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
+                            <Link key={s._id} to={`/software-products`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-medium text-white/70 hover:text-emerald-400 transition-colors relative">
+                              <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
+                              {s.title}
+                            </Link>
+                          ))}
+                          <Link to="/software-products" onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-emerald-400 mt-1 hover:underline">
+                            → View All Products
+                          </Link>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <Link to="/careers" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-all bg-white/5 border border-white/5" onClick={() => setMobileOpen(false)}>
                   <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/60"><FiBriefcase size={18} /></div>
                   Careers
