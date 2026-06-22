@@ -27,14 +27,8 @@ export default function HomeLayout() {
       <footer className="bg-black text-white relative overflow-hidden border-t border-white/5 mt-auto">
         {/* Subtle World Map / Abstract Pattern */}
         <div 
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{
-            backgroundImage: `url("https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg")`,
-            backgroundSize: '80%',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            filter: 'invert(1)'
-          }}
+          className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-no-repeat bg-center bg-cover md:bg-[length:80%_auto]"
+          style={{ filter: 'invert(1)' }}
         />
 
         <div className="container-max py-16 relative z-10">

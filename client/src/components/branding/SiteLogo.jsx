@@ -44,7 +44,7 @@ export default function SiteLogo({
             src={logoSrc}
             alt={siteName || "Raxwo"}
             onError={() => setLogoBroken(true)}
-            className={`object-contain flex-shrink-0 h-14 w-auto max-w-[200px] ${imgClassName}`}
+            className={`object-contain flex-shrink-0 h-10 md:h-14 w-auto max-w-[200px] ${imgClassName}`}
           />
         ) : (
           // Premium Admin Sidebar Logo (Advanced Pill)
@@ -63,7 +63,7 @@ export default function SiteLogo({
                   src={logoSrc}
                   alt={siteName || "Raxwo"}
                   onError={() => setLogoBroken(true)}
-                  className={`object-contain flex-shrink-0 h-7 sm:h-8 w-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] group-hover:scale-105 transition-transform duration-500 relative z-20 ${imgClassName}`}
+                  className={`object-contain h-8 md:h-12 w-auto max-w-[180px] drop-shadow-md relative z-10 group-hover:drop-shadow-[0_0_8px_rgba(32,178,245,0.4)] transition-all duration-300 ${imgClassName}`}
                 />
               </div>
             </div>

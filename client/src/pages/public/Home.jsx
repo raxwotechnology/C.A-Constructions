@@ -61,7 +61,7 @@ const SERVICES = [
 
 const STATS = [
   { value: 50,  suffix: '+', label: 'Projects Delivered' },
-  { value: 120, suffix: '+', label: 'Happy Clients' },
+  { value: 250, suffix: '+', label: 'Happy Clients' },
   { value: 35,  suffix: '+', label: 'Team Members' },
   { value: 5,   suffix: '+', label: 'Years in Business' },
 ]
@@ -81,7 +81,7 @@ function Counter({ target, suffix }) {
     }, 25)
     return () => clearInterval(timer)
   }, [inView, target])
-  return <span ref={ref}>{count}{suffix}</span>
+  return <span ref={ref}>{count}<span className="text-red-500">{suffix}</span></span>
 }
 
 const fadeUp = { hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }
@@ -305,14 +305,14 @@ export default function Home() {
                 We build powerful, scalable web & mobile applications that transform businesses. From startups to enterprise — we deliver results that matter.
               </motion.p>
 
-              <motion.div variants={fadeUp} className="flex flex-wrap gap-4">
-                <a href="https://raxwo.net/lets-talk/" className="btn-primary btn-lg">
-                  Get a Free Quote <FiArrowRight />
-                </a>
-                <Link to="/booking" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 flex items-center gap-2 !rounded-full">
-                  Book a Service
+              <motion.div variants={fadeUp} className="flex flex-col sm:flex-row flex-wrap gap-4">
+                <Link to="/booking" className="btn-primary btn-lg !rounded-xl w-full sm:w-auto justify-center">
+                  Book a Service <FiArrowRight />
                 </Link>
-                <Link to="/services" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10 hover:text-white">
+                <a href="https://raxwo.net/lets-talk/" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 !rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto transition-all">
+                  Get a Free Quote
+                </a>
+                <Link to="/services" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10 hover:text-white !rounded-xl flex items-center justify-center w-full sm:w-auto">
                   View Our Services
                 </Link>
               </motion.div>
@@ -335,19 +335,19 @@ export default function Home() {
       {/* ── Stats ─────────────────────────────────────────────── */}
       <section className="bg-gray-50 py-16">
         <div className="container-max">
-          <div className="flex overflow-x-auto gap-4 pb-2 snap-x snap-mandatory hide-scrollbar md:grid md:grid-cols-4 md:gap-6 md:pb-0 md:overflow-visible">
+          <div className="grid grid-cols-2 gap-y-10 gap-x-4 md:grid-cols-4 md:gap-6">
             {STATS.map(s => (
               <motion.div
                 key={s.label}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center min-w-[130px] snap-center shrink-0"
+                className="text-center"
               >
-                <p className="text-3xl md:text-4xl font-bold text-[#20b2f5] font-heading">
+                <p className="text-3xl md:text-4xl font-bold text-[#20b2f5] font-heading mb-1">
                   <Counter target={s.value} suffix={s.suffix} />
                 </p>
-                <p className="text-gray-500 mt-1 text-xs md:text-sm font-medium">{s.label}</p>
+                <p className="text-gray-500 mt-1 text-[11px] sm:text-xs font-semibold uppercase tracking-wider">{s.label}</p>
               </motion.div>
             ))}
           </div>
@@ -384,21 +384,21 @@ export default function Home() {
             <p className="text-gray-500 max-w-2xl mx-auto">End-to-end software solutions tailored for Sri Lankan businesses and global clients.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-12 lg:gap-14">
             {displayServices.map((s, i) => {
               const IconComp = ICON_MAP[s.icon] || FiCode
               return (
                 <motion.div key={s._id || s.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="group cursor-pointer h-full">
                   <TiltCard className="h-full">
-                    <div className="p-6 sm:p-8 h-full flex flex-col items-start bg-white/60">
-                      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${s.color || 'bg-blue-50 text-blue-600'} flex items-center justify-center mb-5 sm:mb-6 shadow-sm`} style={{ transform: 'translateZ(40px)' }}>
+                    <div className="p-8 sm:p-10 h-full flex flex-col items-start bg-white/60">
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${s.color || 'bg-blue-50 text-blue-600'} flex items-center justify-center mb-5 sm:mb-6 shadow-sm`}>
                         {s.imageUrl
                           ? <img src={s.imageUrl} alt={s.title} className="w-8 h-8 object-contain" />
                           : <IconComp size={26} />}
                       </div>
-                      <h3 className="font-bold text-xl text-primary font-heading mb-3" style={{ transform: 'translateZ(30px)' }}>{s.title}</h3>
-                      <p className="text-slate-600 text-sm leading-relaxed mb-6 flex-1" style={{ transform: 'translateZ(20px)' }}>{s.desc || s.description}</p>
-                      <Link to="/services" className="mt-auto text-secondary font-medium text-sm flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity" style={{ transform: 'translateZ(30px)' }}>
+                      <h3 className="font-bold text-xl text-primary font-heading mb-3">{s.title}</h3>
+                      <p className="text-slate-600 text-sm leading-relaxed mb-6 flex-1">{s.desc || s.description}</p>
+                      <Link to="/services" className="mt-auto text-secondary font-medium text-sm flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                         Learn more <FiArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                       </Link>
                     </div>
@@ -422,7 +422,7 @@ export default function Home() {
             <h2 className="text-4xl font-bold text-primary font-heading mb-4">Ready-Made Business Systems</h2>
             <p className="text-gray-500 max-w-2xl mx-auto">Our off-the-shelf ERP and management systems — customizable for your business needs.</p>
           </motion.div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 lg:gap-14">
             {displayProducts.map((s, i) => {
               return (
                 <motion.div key={s._id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="group cursor-pointer h-full">
@@ -432,7 +432,7 @@ export default function Home() {
                         <img src={s.img} alt={s.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
                       </div>
-                      <div className="p-6 flex flex-col flex-1">
+                      <div className="p-8 flex flex-col flex-1">
                         <h3 className="font-bold text-lg text-primary font-heading mb-2">{s.title}</h3>
                         <p className="text-slate-600 text-sm leading-relaxed mb-6 flex-1">{s.desc}</p>
                         <Link to="/software-products" className="mt-auto text-secondary font-medium text-sm flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">

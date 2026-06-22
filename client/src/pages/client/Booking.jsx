@@ -135,7 +135,7 @@ export default function ClientBooking() {
                 <button onClick={() => setStep(0)} className="btn-ghost btn-sm">← Back</button>
                 <div className="badge badge-blue">{selectedService}</div>
               </div>
-              <form onSubmit={handleSubmit(() => setStep(2))} className="card p-5 sm:p-8 space-y-5">
+              <form onSubmit={e => { e.preventDefault(); setStep(2); }} className="card p-5 sm:p-8 flex flex-col gap-6">
                 <h2 className="text-xl font-bold text-primary font-heading">Project Details</h2>
                 
                 {!isAuthenticated && (
@@ -160,7 +160,7 @@ export default function ClientBooking() {
                   </div>
                 )}
 
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="form-label flex items-center gap-1.5"><FiCalendar size={12} /> Preferred Start Date *</label>
                     <input type="date" className="form-input" {...register('preferredDate', { required: true })}
@@ -174,7 +174,7 @@ export default function ClientBooking() {
                 </div>
                 <div>
                   <label className="form-label flex items-center gap-1.5"><FiFileText size={12} /> Project Brief *</label>
-                  <textarea className="form-input min-h-36 resize-none"
+                  <textarea className="form-input resize-none" rows="5" style={{ height: 'auto', minHeight: '140px' }}
                     placeholder="Describe your project requirements, goals, target audience, and any specific features you need..."
                     {...register('brief', { required: true, minLength: { value: 50, message: 'Please provide at least 50 characters' } })} />
                   {errors.brief && <p className="text-xs text-red-500 mt-1">{errors.brief.message}</p>}

@@ -39,7 +39,6 @@ export default function TiltCard({ children, className = '' }) {
       style={{
         rotateX,
         rotateY,
-        transformStyle: 'preserve-3d',
         perspective: 1000
       }}
       className={`relative ${className}`}
@@ -47,10 +46,7 @@ export default function TiltCard({ children, className = '' }) {
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
       {/* Glow effect on hover based on mouse position could be added here, but preserving 3D is key */}
-      <div 
-        style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }} 
-        className="w-full h-full relative z-10 bg-white/80 backdrop-blur-xl border border-white/50 rounded-2xl shadow-xl transition-shadow hover:shadow-2xl overflow-hidden"
-      >
+      <div className="w-full h-full relative z-10 bg-white/80 backdrop-blur-xl border border-white/50 rounded-2xl shadow-xl transition-shadow hover:shadow-2xl overflow-hidden">
         {children}
       </div>
     </motion.div>
