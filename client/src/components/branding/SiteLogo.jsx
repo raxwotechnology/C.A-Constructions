@@ -50,10 +50,10 @@ export default function SiteLogo({
           // Premium Admin Sidebar Logo (Advanced Pill)
           <div className="relative group perspective-1000 inline-block">
             {/* Outer wrapper for gradient border effect */}
-            <div className="relative bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.1)] border border-slate-700/50 p-[1px] group-hover:shadow-[0_8px_25px_rgba(32,178,245,0.25)] group-hover:border-[#20b2f5]/30 transition-all duration-500 ease-out">
+            <div className="relative bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.1)] border border-slate-700/50 p-[1px] group-hover:shadow-[0_8px_25px_rgba(32,178,245,0.25)] group-hover:border-[#20b2f5]/30 transition-all duration-500 ease-out">
               
               {/* Inner container */}
-              <div className="bg-gradient-to-b from-[#0A0F1C] to-[#0d1326] rounded-full px-6 py-2.5 flex items-center justify-center relative overflow-hidden z-10">
+              <div className="bg-gradient-to-b from-[#0A0F1C] to-[#0d1326] rounded-xl px-4 py-2 flex items-center justify-center relative overflow-hidden z-10">
                 {/* Shine effect on hover */}
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-transparent via-[#20b2f5]/20 to-transparent -skew-x-12 -translate-x-[150%] group-hover:translate-x-[300%] transition-transform duration-1000 ease-in-out" />
@@ -63,7 +63,7 @@ export default function SiteLogo({
                   src={logoSrc}
                   alt={siteName || "Raxwo"}
                   onError={() => setLogoBroken(true)}
-                  className={`object-contain h-8 md:h-12 w-auto max-w-[180px] drop-shadow-md relative z-10 group-hover:drop-shadow-[0_0_8px_rgba(32,178,245,0.4)] transition-all duration-300 ${imgClassName}`}
+                  className={`object-contain h-7 md:h-10 w-auto max-w-[160px] drop-shadow-md relative z-10 group-hover:drop-shadow-[0_0_8px_rgba(32,178,245,0.4)] transition-all duration-300 ${imgClassName}`}
                 />
               </div>
             </div>
