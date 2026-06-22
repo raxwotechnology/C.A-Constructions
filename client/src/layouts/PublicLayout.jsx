@@ -135,11 +135,8 @@ export default function PublicLayout() {
   }, [])
 
   const handleLogout = () => {
-    navigate('/')
-    setTimeout(() => {
-      logout()
-      toast.success('Logged out successfully')
-    }, 10)
+    localStorage.removeItem('raxwo-auth')
+    window.location.href = '/'
   }
 
   return (

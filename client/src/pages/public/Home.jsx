@@ -94,11 +94,8 @@ function HomeNav() {
   const isClient = isAuthenticated && user?.role === 'client'
 
   const handleLogout = () => {
-    navigate('/')
-    setTimeout(() => {
-      logout()
-      toast.success('Signed out')
-    }, 10)
+    localStorage.removeItem('raxwo-auth')
+    window.location.href = '/'
   }
 
   return (

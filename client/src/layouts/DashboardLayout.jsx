@@ -183,11 +183,8 @@ export default function DashboardLayout({ role }) {
   }
 
   const handleLogout = () => {
-    navigate('/')
-    setTimeout(() => {
-      logout()
-      toast.success('Logged out successfully')
-    }, 10)
+    localStorage.removeItem('raxwo-auth')
+    window.location.href = '/'
   }
 
   const navGroups = navMap[user?.role] || navMap[role] || []
