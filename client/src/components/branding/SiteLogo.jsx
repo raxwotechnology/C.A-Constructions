@@ -47,15 +47,25 @@ export default function SiteLogo({
             className={`object-contain flex-shrink-0 h-14 w-auto max-w-[200px] ${imgClassName}`}
           />
         ) : (
-          // Sidebar logo (curved modern pill)
-          <div className="relative group perspective-1000">
-            <div className="bg-[#0A0F1C] rounded-full shadow-lg border border-slate-200 group-hover:shadow-xl group-hover:scale-[1.02] transition-all duration-300 ease-out px-4 py-2 flex items-center justify-center">
-              <img
-                src={logoSrc}
-                alt={siteName || "Raxwo"}
-                onError={() => setLogoBroken(true)}
-                className={`object-contain flex-shrink-0 h-8 sm:h-10 w-auto ${imgClassName}`}
-              />
+          // Premium Admin Sidebar Logo (Advanced Pill)
+          <div className="relative group perspective-1000 inline-block">
+            {/* Outer wrapper for gradient border effect */}
+            <div className="relative bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.1)] border border-slate-700/50 p-[1px] group-hover:shadow-[0_8px_25px_rgba(32,178,245,0.25)] group-hover:border-[#20b2f5]/30 transition-all duration-500 ease-out">
+              
+              {/* Inner container */}
+              <div className="bg-gradient-to-b from-[#0A0F1C] to-[#0d1326] rounded-full px-6 py-2.5 flex items-center justify-center relative overflow-hidden z-10">
+                {/* Shine effect on hover */}
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-transparent via-[#20b2f5]/20 to-transparent -skew-x-12 -translate-x-[150%] group-hover:translate-x-[300%] transition-transform duration-1000 ease-in-out" />
+                </div>
+                
+                <img
+                  src={logoSrc}
+                  alt={siteName || "Raxwo"}
+                  onError={() => setLogoBroken(true)}
+                  className={`object-contain flex-shrink-0 h-7 sm:h-8 w-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] group-hover:scale-105 transition-transform duration-500 relative z-20 ${imgClassName}`}
+                />
+              </div>
             </div>
           </div>
         )
