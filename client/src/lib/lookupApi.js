@@ -58,7 +58,7 @@ async function loadClientOptions({ search = '', page = 1 } = {}) {
 export const lookupLoaders = {
   employees: (extra = {}) => createLookupLoader('employees', { assignable: '1', ...extra }),
   employeesAll: (extra = {}) => createLookupLoader('employees', extra),
-  clients: () => loadClientOptions,
+  clients: (extra = {}) => createLookupLoader('clients', extra),
   banks: (extra = {}) => createLookupLoader('banks', extra),
   projects: (extra = {}) => createLookupLoader('projects', extra),
   invoices: () => createLookupLoader('invoices'),

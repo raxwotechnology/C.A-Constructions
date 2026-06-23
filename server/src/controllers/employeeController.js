@@ -357,17 +357,30 @@ exports.deleteEmployee = async (req, res, next) => {
 
     const empName = employee.userId?.name || employee.employeeNo;
     const empNo = employee.employeeNo;
-    const linkedUser = employee.userId;
-    const linkedUserId = linkedUser?._id || employee.userId;
+    
+    // Resolve user ID robustly whether populated or not
+    let linkedUserId = null;
+    let linkedUserRole = '';
+    
+    if (employee.userId) {
+      if (employee.userId._id) {
+        linkedUserId = employee.userId._id;
+        linkedUserRole = employee.userId.role;
+      } else {
+        linkedUserId = employee.userId;
+      }
+    }
 
-    // Hard-delete the employee profile
-    await Employee.findByIdAndDelete(req.params.id);
+    // 1. Hard-delete the employee profile
+    await Employee.deleteOne({ _id: req.params.id });
 
-    // Only delete the linked user if they are NOT a client (safety guard)
-    if (linkedUserId && linkedUser?.role !== 'client') {
-      await User.findByIdAndDelete(linkedUserId);
-    } else if (linkedUser?.role === 'client') {
-      console.warn(`[deleteEmployee] Skipped deleting user ${linkedUser.email} — role is 'client', not an employee account.`);
+    // 2. Hard-delete the linked user account (unless they are a client)
+    if (linkedUserId) {
+      if (linkedUserRole === 'client') {
+        console.warn(`[deleteEmployee] Skipped deleting user ${linkedUserId} — role is 'client'.`);
+      } else {
+        await User.deleteOne({ _id: linkedUserId });
+      }
     }
 
     await createAuditLog({

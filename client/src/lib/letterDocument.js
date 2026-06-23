@@ -37,20 +37,21 @@ export function buildLetterheadHtml(company, { forPrint = true, siteSettings } =
   const logoHtml = companyLogoHtml(company, { forPrint, maxHeight: LOGO_MAX_HEIGHT })
 
   const tagline = company.tagline || 'Next Level Tech'
-  const taglineHtml = `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>`
+  const taglineHtml = `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#0284c7;letter-spacing:0.01em;">${esc(tagline)}</p>`
 
   const contactHtml = contactBlockHtml(company)
 
   return `
-    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:16px;min-width:0">
+    <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:24px;border-bottom:2px solid #e2e8f0;margin-bottom:32px;position:relative;">
+      <div style="position:absolute;bottom:-2px;left:0;width:33%;height:2px;background:linear-gradient(90deg, #0284c7, #38bdf8);"></div>
+      <div style="display:flex;align-items:center;gap:20px;min-width:0">
         <div style="flex-shrink:0">${logoHtml}</div>
         <div>
-          <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em">${esc(company.name || 'Company')}</h1>
+          <h1 style="margin:0;font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-0.03em">${esc(company.name || 'Company')}</h1>
           ${taglineHtml}
         </div>
       </div>
-      <div style="text-align:right;min-width:200px;flex:1">${contactHtml}</div>
+      <div style="text-align:right;min-width:200px;flex:1;color:#475569;font-size:9.5pt;line-height:1.5;">${contactHtml}</div>
     </header>`
 }
 
@@ -62,21 +63,23 @@ export function buildRefDateHtml(letterRef, issuedDate) {
       : issuedDate || ''
 
   return `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding:10px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:10pt">
-      <div>
-        <span style="color:#64748b;margin-right:6px;font-size:9pt;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Ref:</span>
-        <strong style="color:#0f172a">${esc(letterRef || '—')}</strong>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;font-size:10pt;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="color:#64748b;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Ref</span>
+        <div style="height:14px;width:2px;background:#e2e8f0;border-radius:2px;"></div>
+        <strong style="color:#0f172a;font-family:monospace;font-size:11pt;letter-spacing:0.02em;">${esc(letterRef || '—')}</strong>
       </div>
-      <div>
-        <span style="color:#64748b;margin-right:6px;font-size:9pt;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Date:</span>
-        <strong style="color:#0f172a">${esc(dateStr)}</strong>
+      <div style="display:flex;align-items:center;gap:10px;text-align:right;">
+        <span style="color:#64748b;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Date</span>
+        <div style="height:14px;width:2px;background:#e2e8f0;border-radius:2px;"></div>
+        <strong style="color:#0f172a;font-size:10.5pt;letter-spacing:0.01em;">${esc(dateStr)}</strong>
       </div>
     </div>`
 }
 
 export function buildTitleHtml(letterTitle) {
   return letterTitle
-    ? `<h2 style="margin:0 0 20px;font-size:15pt;font-weight:800;color:#0f172a;letter-spacing:-0.01em;border-left:4px solid #0ea5e9;padding-left:12px">${esc(letterTitle)}</h2>`
+    ? `<h2 style="margin:0 0 24px;font-size:16pt;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1.3;">${esc(letterTitle)}</h2>`
     : ''
 }
 
@@ -108,8 +111,8 @@ export function buildSigsHtml(signatures, opts = {}) {
     : ''
 
   return `
-    <div style="margin-top:36px;padding-top:20px;border-top:1px solid #e2e8f0;page-break-inside:avoid">
-      <div style="margin-left:auto;max-width:200px;text-align:right">
+    <div style="margin-top:48px;padding-top:24px;border-top:1px solid #e2e8f0;page-break-inside:avoid">
+      <div style="margin-left:auto;max-width:240px;text-align:right">
         ${sigBlock}
         ${sealBlock}
       </div>
@@ -117,10 +120,7 @@ export function buildSigsHtml(signatures, opts = {}) {
 }
 
 export function buildFooterHtml(company) {
-  return `
-    <footer style="margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;text-align:center;font-size:9pt;color:#64748b">
-      <p style="margin:5px 0 0;font-size:8pt;color:#94a3b8">This document was generated electronically and is valid with authorised signatures where applied.</p>
-    </footer>`
+  return ''
 }
 
 export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issuedDate, bodyHtml, signatures, siteSettings, isFullHtml }) {
@@ -155,19 +155,19 @@ export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issu
 }
 
 export const LETTER_COMPACT_CSS = `
-  .letter-compact { font-size: 10.5pt !important; line-height: 1.48 !important; }
-  .letter-compact header { margin-bottom: 16px !important; padding-bottom: 12px !important; }
-  .letter-compact .letter-body p, .letter-compact .letter-body .letter-p { margin: 0 0 7px !important; }
-  .letter-compact .letter-body .letter-h1 { font-size: 14pt !important; margin: 0 0 8px !important; padding-bottom: 6px !important; }
-  .letter-compact .letter-body .letter-h2 { margin: 10px 0 5px !important; }
-  .letter-compact .letter-body .letter-close { margin-top: 16px !important; }
-  .letter-compact .letter-body .letter-sig-space { height: 20px !important; }
-  .letter-compact .letter-body .letter-info-table { margin: 6px 0 10px !important; }
+  .letter-compact { font-size: 11.5pt !important; line-height: 1.6 !important; }
+  .letter-compact header { margin-bottom: 20px !important; padding-bottom: 16px !important; }
+  .letter-compact .letter-body p, .letter-compact .letter-body .letter-p { margin: 0 0 10px !important; font-size: 11.5pt !important; }
+  .letter-compact .letter-body .letter-h1 { font-size: 16pt !important; margin: 0 0 12px !important; padding-bottom: 8px !important; }
+  .letter-compact .letter-body .letter-h2 { margin: 16px 0 8px !important; font-size: 12pt !important; }
+  .letter-compact .letter-body .letter-close { margin-top: 24px !important; }
+  .letter-compact .letter-body .letter-sig-space { height: 32px !important; }
+  .letter-compact .letter-body .letter-info-table { margin: 12px 0 16px !important; font-size: 11pt !important; }
   .letter-compact .letter-body .letter-info-table th,
-  .letter-compact .letter-body .letter-info-table td { padding: 6px 8px !important; }
-  .letter-compact-more { font-size: 10pt !important; line-height: 1.42 !important; }
-  .letter-compact-more header { margin-bottom: 12px !important; }
-  .letter-compact-more .letter-body .letter-p, .letter-compact-more .letter-body p { margin-bottom: 5px !important; }
+  .letter-compact .letter-body .letter-info-table td { padding: 8px 12px !important; }
+  .letter-compact-more { font-size: 11pt !important; line-height: 1.5 !important; }
+  .letter-compact-more header { margin-bottom: 16px !important; }
+  .letter-compact-more .letter-body .letter-p, .letter-compact-more .letter-body p { margin-bottom: 8px !important; font-size: 11pt !important; }
 `
 
 export const LETTER_PAGE_WIDTH = 794
@@ -183,22 +183,24 @@ const PRINT_STYLES = `
   body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; }
   ${LETTER_COMPACT_CSS}
   /* Letter body prose styles */
-  .letter-body p, .letter-body .letter-p { margin: 0 0 10px; }
-  .letter-body .letter-h1 { font-size: 15pt; font-weight: 800; color: #0f172a; margin: 0 0 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-  .letter-body .letter-h2 { font-size: 11pt; font-weight: 700; color: #1e3a8a; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .letter-body .letter-salutation { margin: 12px 0 14px; font-size: 11pt; }
-  .letter-body .letter-ref-line { font-size: 10pt; color: #64748b; margin: 0 0 8px; }
-  .letter-body .letter-info-table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 10pt; }
-  .letter-body .letter-info-table th { text-align: left; width: 38%; padding: 8px 10px; background: #f1f5f9; border: 1px solid #e2e8f0; font-weight: 600; color: #334155; }
-  .letter-body .letter-info-table td { padding: 8px 10px; border: 1px solid #e2e8f0; color: #0f172a; }
-  .letter-body .letter-ol { margin: 8px 0 12px 1.2em; padding: 0; }
-  .letter-body .letter-ol li { margin-bottom: 6px; }
-  .letter-body .letter-small { font-size: 10pt; color: #475569; }
-  .letter-body .letter-upper { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10pt; }
-  .letter-body .letter-close { margin-top: 28px; margin-bottom: 0; }
-  .letter-body .letter-sig-space { height: 36px; }
-  .letter-body .letter-sig-name { font-weight: 700; margin: 0; }
-  .letter-body .letter-sig-title { font-size: 10pt; color: #64748b; margin: 4px 0 0; }
+  .letter-body p, .letter-body .letter-p { margin: 0 0 16px; font-size: 12.5pt; line-height: 1.7; color: #1e293b; }
+  .letter-body strong, .letter-body b { color: #0f172a; font-weight: 700; }
+  .letter-body .letter-h1 { font-size: 20pt; font-weight: 800; color: #0f172a; margin: 0 0 28px; letter-spacing: -0.02em; line-height: 1.3; }
+  .letter-body .letter-h2 { font-size: 14pt; font-weight: 700; color: #0f172a; margin: 28px 0 14px; letter-spacing: -0.01em; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+  .letter-body .letter-salutation { margin: 16px 0 28px; font-size: 12.5pt; color: #0f172a; font-weight: 600; }
+  .letter-body .letter-ref-line { font-size: 11.5pt; color: #475569; margin: 0 0 10px; }
+  .letter-body .letter-info-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 24px 0 32px; font-size: 12pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .letter-body .letter-info-table th { text-align: left; width: 35%; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 600; color: #334155; }
+  .letter-body .letter-info-table td { padding: 12px 16px; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
+  .letter-body .letter-info-table tr:last-child th, .letter-body .letter-info-table tr:last-child td { border-bottom: none; }
+  .letter-body .letter-ol { margin: 16px 0 20px 1.5em; padding: 0; color: #1e293b; font-size: 12.5pt; }
+  .letter-body .letter-ol li { margin-bottom: 10px; line-height: 1.7; }
+  .letter-body .letter-small { font-size: 10.5pt; color: #64748b; }
+  .letter-body .letter-upper { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11pt; font-weight: 700; }
+  .letter-body .letter-close { margin-top: 40px; margin-bottom: 0; color: #1e293b; font-size: 12.5pt; }
+  .letter-body .letter-sig-space { height: 56px; }
+  .letter-body .letter-sig-name { font-weight: 700; margin: 0; color: #0f172a; font-size: 12.5pt; }
+  .letter-body .letter-sig-title { font-size: 11pt; color: #64748b; margin: 4px 0 0; }
   /* Quill rich-text */
   .letter-body .ql-font-serif { font-family: Georgia,'Times New Roman',serif; }
   .letter-body .ql-font-monospace { font-family: Consolas,Monaco,'Courier New',monospace; }
@@ -209,24 +211,28 @@ const PRINT_STYLES = `
   .letter-body .ql-align-right { text-align: right; }
   .letter-body .ql-align-justify { text-align: justify; }
   /* legacy class names */
-  .letter-pdf-prose .letter-h1 { font-size: 15pt; font-weight: 800; color: #0f172a; margin: 0 0 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-  .letter-pdf-prose .letter-h2 { font-size: 11pt; font-weight: 700; color: #1e3a8a; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .letter-pdf-prose .letter-p { margin: 0 0 10px; }
-  .letter-pdf-prose .letter-salutation { margin: 12px 0 14px; }
-  .letter-pdf-prose .letter-info-table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 10pt; }
-  .letter-pdf-prose .letter-info-table th { text-align: left; width: 38%; padding: 8px 10px; background: #f1f5f9; border: 1px solid #e2e8f0; font-weight: 600; color: #334155; }
-  .letter-pdf-prose .letter-info-table td { padding: 8px 10px; border: 1px solid #e2e8f0; color: #0f172a; }
-  .letter-pdf-prose .letter-ol { margin: 8px 0 12px 1.2em; padding: 0; }
-  .letter-pdf-prose .letter-ol li { margin-bottom: 6px; }
+  .letter-pdf-prose .letter-h1 { font-size: 20pt; font-weight: 800; color: #0f172a; margin: 0 0 28px; letter-spacing: -0.02em; line-height: 1.3; }
+  .letter-pdf-prose .letter-h2 { font-size: 14pt; font-weight: 700; color: #0f172a; margin: 28px 0 14px; letter-spacing: -0.01em; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+  .letter-pdf-prose .letter-p { margin: 0 0 16px; font-size: 12.5pt; line-height: 1.7; color: #1e293b; }
+  .letter-pdf-prose .letter-salutation { margin: 16px 0 28px; font-size: 12.5pt; color: #0f172a; font-weight: 600; }
+  .letter-pdf-prose .letter-info-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 24px 0 32px; font-size: 12pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .letter-pdf-prose .letter-info-table th { text-align: left; width: 35%; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 600; color: #334155; }
+  .letter-pdf-prose .letter-info-table td { padding: 12px 16px; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
+  .letter-pdf-prose .letter-info-table tr:last-child th, .letter-pdf-prose .letter-info-table tr:last-child td { border-bottom: none; }
+  .letter-pdf-prose .letter-ol { margin: 16px 0 20px 1.5em; padding: 0; color: #1e293b; font-size: 12.5pt; }
+  .letter-pdf-prose .letter-ol li { margin-bottom: 10px; line-height: 1.7; }
   .letter-pdf-prose .ql-align-center { text-align: center; }
   .letter-pdf-prose .ql-align-right { text-align: right; }
   .letter-pdf-prose .ql-align-justify { text-align: justify; }
   /* Enterprise letter styles (custom builder) */
-  .enterprise-letter-body { font-size: 11pt; line-height: 1.55; }
-  .enterprise-letter-body p { margin-bottom: 12px; }
-  .enterprise-letter-body table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-  .enterprise-letter-body td, .enterprise-letter-body th { border: 1px solid #e2e8f0; padding: 8px; }
-  .enterprise-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
+  .enterprise-letter-body { font-size: 12.5pt; line-height: 1.7; color: #1e293b; }
+  .enterprise-letter-body p { margin-bottom: 18px; }
+  .enterprise-letter-body table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 24px 0 32px; font-size: 12pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .enterprise-letter-body td, .enterprise-letter-body th { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 12px 16px; }
+  .enterprise-letter-body th { background: #f8fafc; font-weight: 600; color: #334155; }
+  .enterprise-letter-body tr:last-child th, .enterprise-letter-body tr:last-child td { border-bottom: none; }
+  .enterprise-letter-body th:last-child, .enterprise-letter-body td:last-child { border-right: none; }
+  .enterprise-footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; letter-spacing: 0.02em; }
   @media print {
     body { margin: 0; padding: 0; }
     .letter-page-wrap { width: 100%; max-width: none; }
@@ -382,11 +388,11 @@ export async function downloadLetterPdf(opts, filenameBase = 'letter') {
   const inlinedInnerHtml = await inlineImagesToDataUrls(innerHtml)
 
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(buildOpts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}
-    .letter-pdf-page { width:794px;min-height:1123px;padding:56px 64px;background:#fff;box-sizing:border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .letter-pdf-page { width:794px;min-height:1123px;padding:64px 72px;background:#fff;box-sizing:border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     .letter-pdf-page .letter-page-wrap { max-width:100%;margin:0; }
-    .letter-pdf-page .letter-body { font-size:11pt;line-height:1.58;color:#0f172a; font-family: 'Segoe UI', system-ui, sans-serif; }
-    .letter-pdf-page .letter-body p { margin:0 0 10px; }
-    .letter-pdf-page header { margin-bottom:22px;padding-bottom:16px; }
+    .letter-pdf-page .letter-body { font-size:12.5pt;line-height:1.7;color:#1e293b; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .letter-pdf-page .letter-body p { margin:0 0 16px; }
+    .letter-pdf-page header { margin-bottom:32px;padding-bottom:24px; }
   </style></head><body style="margin:0;padding:0;background:#fff">
     <div class="letter-pdf-page">${inlinedInnerHtml}</div>
   </body></html>`

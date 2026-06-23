@@ -106,7 +106,7 @@ export default function LetterPaginatedPreview({
           className="relative"
           style={{ zIndex: 1, width: scaledW }}
         >
-          <div style={{ zoom: finalZoom, transformOrigin: 'top left' }}>
+          <div style={{ transform: `scale(${finalZoom})`, transformOrigin: 'top left', width: LETTER_PAGE_WIDTH }}>
             <div
               ref={contentRef}
               className={`letter-pdf-prose letter-page-content ${compactClass}`}
@@ -139,7 +139,7 @@ export default function LetterPaginatedPreview({
               <div className="absolute inset-x-3 border-t-2 border-dashed border-sky-400/70" />
               <span
                 className="relative shrink-0 rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700"
-                style={{ zoom: 1 / baseZoom }}
+                style={{ transform: `scale(${1 / baseZoom})`, transformOrigin: 'center' }}
               >
                 Page {i + 2} starts here
               </span>

@@ -28,6 +28,11 @@ const leavePolicySchema = new mongoose.Schema({
   // Global salary deduction for ALL excess leaves (overridden by per-type settings)
   salaryDeductionEnabled: { type: Boolean, default: false },
   deductionPerExtraLeaveDay: { type: Number, default: 0 }, // LKR per extra day (global fallback)
+  
+  // Unused Leave Allowance (Encashment)
+  encashmentEnabled: { type: Boolean, default: false },
+  encashmentAllowancePerDay: { type: Number, default: 0 }, // LKR per unused leave day
+  
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 

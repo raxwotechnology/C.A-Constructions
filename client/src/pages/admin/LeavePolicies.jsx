@@ -56,6 +56,8 @@ export default function LeavePolicies({ triggerNew }) {
       isDefault: false,
       salaryDeductionEnabled: false,
       deductionPerExtraLeaveDay: 0,
+      encashmentEnabled: false,
+      encashmentAllowancePerDay: 0,
       quotas: LEAVE_TYPE_OPTIONS.map(t => ({
         leaveType: t.value,
         quota: t.value === 'annual' ? 14 : t.value === 'medical' ? 7 : t.value === 'casual' ? 7 : t.value === 'half_day' ? 6 : t.value === 'short_leave' ? 12 : t.value === 'maternity' ? 84 : 3,
@@ -105,6 +107,8 @@ export default function LeavePolicies({ triggerNew }) {
       isDefault: false,
       salaryDeductionEnabled: false,
       deductionPerExtraLeaveDay: 0,
+      encashmentEnabled: false,
+      encashmentAllowancePerDay: 0,
       quotas: LEAVE_TYPE_OPTIONS.map(t => ({
         leaveType: t.value,
         quota: t.value === 'annual' ? 14 : t.value === 'medical' ? 7 : t.value === 'casual' ? 7 : t.value === 'half_day' ? 6 : t.value === 'short_leave' ? 12 : t.value === 'maternity' ? 84 : 3,
@@ -131,6 +135,8 @@ export default function LeavePolicies({ triggerNew }) {
       isDefault: policy.isDefault,
       salaryDeductionEnabled: policy.salaryDeductionEnabled || false,
       deductionPerExtraLeaveDay: policy.deductionPerExtraLeaveDay || 0,
+      encashmentEnabled: policy.encashmentEnabled || false,
+      encashmentAllowancePerDay: policy.encashmentAllowancePerDay || 0,
       quotas: LEAVE_TYPE_OPTIONS.map(t => ({
         leaveType: t.value,
         quota: quotaMap[t.value]?.quota ?? 0,
@@ -203,6 +209,11 @@ export default function LeavePolicies({ triggerNew }) {
               {p.salaryDeductionEnabled && (
                 <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-orange-600 flex items-center gap-1">
                   ⚠️ Global deduction: LKR {p.deductionPerExtraLeaveDay}/extra day
+                </div>
+              )}
+              {p.encashmentEnabled && (
+                <div className="mt-1 text-xs text-emerald-600 flex items-center gap-1">
+                  💰 Encashment: LKR {p.encashmentAllowancePerDay}/unused day
                 </div>
               )}
               <div className="flex gap-2 mt-4">
@@ -327,6 +338,24 @@ export default function LeavePolicies({ triggerNew }) {
                   <div>
                     <label className="form-label text-xs">Deduction Amount per Extra Day (LKR)</label>
                     <input {...register('deductionPerExtraLeaveDay', { valueAsNumber: true })} type="number" min="0" className="form-input w-40" placeholder="e.g. 1500" />
+                  </div>
+                </div>
+
+                {/* Leave Encashment / Allowance */}
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-emerald-800">💰 Unused Leave Encashment (Allowance)</p>
+                      <p className="text-xs text-emerald-600 mt-0.5">Provide extra income (allowance) for unused leaves at the end of cycle</p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" {...register('encashmentEnabled')} className="w-4 h-4 accent-emerald-500" />
+                      <span className="text-sm font-medium text-emerald-700">Enable</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label className="form-label text-xs">Allowance Amount per Unused Day (LKR)</label>
+                    <input {...register('encashmentAllowancePerDay', { valueAsNumber: true })} type="number" min="0" className="form-input w-40" placeholder="e.g. 2000" />
                   </div>
                 </div>
               </form>

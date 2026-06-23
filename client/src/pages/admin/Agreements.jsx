@@ -599,7 +599,7 @@ export default function Agreements() {
       {showModal && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4 z-[99999]">
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-            className="doc-editor-modal bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200"
+            className={`doc-editor-modal bg-white sm:rounded-2xl shadow-2xl w-full ${step === 1 ? 'sm:max-w-2xl' : 'sm:max-w-[95vw] 2xl:max-w-[1600px]'} h-full ${step === 1 ? 'sm:h-auto sm:max-h-[90vh]' : 'sm:h-[96vh]'} overflow-hidden flex flex-col border-0 sm:border border-slate-200 transition-all duration-300`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 sm:p-4 md:p-5 border-b shrink-0 bg-white z-10">
@@ -615,7 +615,7 @@ export default function Agreements() {
             <div className="flex-1 overflow-y-auto p-6">
               <form id="agr-form" onSubmit={handleSubmit(step === 1 && !editing ? handleGenerateClick : handleSave)} className="space-y-6">
                 {step === 1 && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-2xl">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 w-full">
                     <div>
                       <label className="form-label">Agreement type</label>
                       <select {...register('agreementType')} className="form-select">

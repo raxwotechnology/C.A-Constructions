@@ -11,6 +11,7 @@ import api from '../../lib/api'
 import TiltCard from '../../components/ui/TiltCard'
 import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
+import { mediaUrl } from '../../lib/media'
 
 /* ─── Static fallback services ─────────────────────────────────── */
 const STATIC_SERVICES = [
@@ -249,19 +250,25 @@ export default function Services() {
                         {/* Decorative background glow */}
                         <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100/50 to-purple-100/50 blur-3xl rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-150 duration-700 pointer-events-none -z-10" />
                         
-                        <div
-                          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 relative bg-primary z-20"
-                          style={{ backgroundImage: s.colorFrom ? `linear-gradient(135deg, ${s.colorFrom}, ${s.colorTo})` : undefined }}
-                        >
-                          <div className="absolute inset-0 rounded-2xl bg-white/20 blur-sm mix-blend-overlay"></div>
-                          {IconComp && <IconComp size={28} className="text-white drop-shadow-md relative z-10" />}
-                        </div>
+                        {s.imageUrl ? (
+                          <div className="w-16 h-16 rounded-2xl mb-6 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 relative z-20 overflow-hidden border border-slate-100 bg-white">
+                            <img src={mediaUrl(s.imageUrl)} alt={s.title} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 relative bg-primary z-20"
+                            style={{ backgroundImage: s.colorFrom ? `linear-gradient(135deg, ${s.colorFrom}, ${s.colorTo})` : undefined }}
+                          >
+                            <div className="absolute inset-0 rounded-2xl bg-white/20 blur-sm mix-blend-overlay"></div>
+                            {IconComp && <IconComp size={28} className="text-white drop-shadow-md relative z-10" />}
+                          </div>
+                        )}
                         <div className="relative z-20 flex-1 flex flex-col">
                           {s.category && (
                             <span className="inline-block self-start badge bg-blue-50/80 text-blue-700 text-[10px] uppercase font-bold tracking-wider mb-3 border border-blue-200/50 shadow-sm">{s.category}</span>
                           )}
                           <h3 className="text-2xl font-bold text-primary font-heading mb-3 leading-tight group-hover:text-blue-600 transition-colors">{s.title}</h3>
-                          <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">{s.desc || s.description}</p>
+                          <div className="text-slate-500 text-sm leading-relaxed mb-6 flex-1 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4" dangerouslySetInnerHTML={{ __html: s.desc || s.description }} />
                           
                           <div className="space-y-2 mb-6 bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
                             {(s.features || []).slice(0,4).map(f => (

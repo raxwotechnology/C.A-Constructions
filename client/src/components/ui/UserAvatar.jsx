@@ -8,7 +8,10 @@ export default function UserAvatar({ user, className = '', imgClassName = 'w-ful
   // Reset broken state whenever the avatar URL changes (e.g. after re-fetch or user change)
   useEffect(() => { setBroken(false) }, [avatarPath])
 
-  const src = avatarPath && !broken ? mediaUrl(normalizeUploadPath(avatarPath) || avatarPath) : ''
+  const src = avatarPath && !broken 
+    ? mediaUrl(normalizeUploadPath(avatarPath) || avatarPath) 
+    : (user?.email && !broken ? `https://unavatar.io/${user.email}?fallback=false` : '')
+    
   const initial = user?.name?.charAt(0)?.toUpperCase() || '?'
 
   if (!src) {

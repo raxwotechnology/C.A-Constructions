@@ -6,10 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown, FiArchive, FiCheck, FiLayers, FiTag, FiFilter, FiMessageSquare, FiStar, FiClock, FiCheckCircle, FiXCircle } from 'react-icons/fi'
 import FeatureTagInput from '../../components/ui/FeatureTagInput'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
+import ReactQuill from 'react-quill'
+import 'react-quill/dist/quill.snow.css'
+import { mediaUrl } from '../../lib/media'
 
-const EMPTY_SERVICE = { title: '', description: '', features: [], priceText: '', imageUrl: '', active: true, order: 0, type: 'service', category: '' }
+const EMPTY_SERVICE = { title: '', description: '', features: [], priceText: '', priceType: 'one-time', imageUrl: '', active: true, order: 0, type: 'service', category: '' }
 const EMPTY_PKG = { name: '', price: '', currency: 'LKR', billingCycle: 'one-time', features: '', duration: '', discount: '', promotionLabel: '', isPopular: false }
-const BILLING = ['one-time', 'monthly', 'quarterly', 'yearly']
+const BILLING = ['one-time', 'monthly', 'quarterly', 'yearly', 'lifetime']
+const PRICE_TYPES = ['one-time', 'monthly', 'yearly', 'lifetime']
 
 export default function AdminServices() {
   const qc = useQueryClient()
@@ -63,10 +67,6 @@ export default function AdminServices() {
     title: 'Delete service',
     message: 'Enter your admin password to delete this service.',
   })
-  const archiveMut = useMutation({
-    mutationFn: (id) => api.put(`/content/services/${id}/archive`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Archived') },
-  })
   const updateFbStatusMut = useMutation({
     mutationFn: ({ id, status }) => api.put(`/feedback/${id}/status`, { status }).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-feedbacks'] }); toast.success('Feedback status updated') },
@@ -95,7 +95,7 @@ export default function AdminServices() {
 
   const openEdit = (s) => {
     setEditing(s)
-    setForm({ title: s.title, description: s.description, features: Array.isArray(s.features) ? s.features : [], priceText: s.priceText, imageUrl: s.imageUrl, active: s.active, order: s.order || 0, type: s.type || 'service', category: s.category || '' })
+    setForm({ title: s.title, description: s.description, features: Array.isArray(s.features) ? s.features : [], priceText: s.priceText || '', priceType: s.priceType || 'one-time', imageUrl: s.imageUrl, active: s.active, order: s.order || 0, type: s.type || 'service', category: s.category || '' })
     setImageFile(null)
     setShowModal(true)
   }
@@ -177,7 +177,7 @@ export default function AdminServices() {
               {/* Service Header */}
               <div className="p-4 flex items-start gap-4">
                 {s.imageUrl && (
-                  <img src={s.imageUrl} alt={s.title} className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-200" />
+                  <img src={mediaUrl(s.imageUrl)} alt={s.title} className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-200 bg-slate-50" />
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -186,8 +186,12 @@ export default function AdminServices() {
                     <span className={`badge ${s.active ? 'badge-green' : 'badge-gray'} text-[10px]`}>{s.active ? 'Active' : 'Inactive'}</span>
                     {s.packages?.length > 0 && <span className="badge badge-blue text-[10px]">{s.packages.length} packages</span>}
                   </div>
-                  <p className="text-sm text-slate-500 line-clamp-2">{s.description}</p>
-                  {s.priceText && <p className="text-xs font-semibold text-secondary mt-1">{s.priceText}</p>}
+                  <div className="text-sm text-slate-500 line-clamp-2 mb-1" dangerouslySetInnerHTML={{ __html: s.description }} />
+                  {(s.priceText || s.priceType !== 'one-time') && (
+                    <p className="text-xs font-semibold text-secondary mt-1">
+                      {s.priceText} {s.priceType && s.priceType !== 'one-time' ? <span className="opacity-75 font-normal ml-1 capitalize">/ {s.priceType.replace('-', ' ')}</span> : ''}
+                    </p>
+                  )}
                   {s.features?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {s.features.slice(0, 4).map((f, i) => (
@@ -200,7 +204,6 @@ export default function AdminServices() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => openEdit(s)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500"><FiEdit2 size={14} /></button>
                   <button onClick={() => { setShowPkgModal(s._id); setPkgForm(EMPTY_PKG); setEditingPkg(null) }} className="p-2 hover:bg-blue-50 rounded-xl text-blue-500" title="Manage Packages"><FiPackage size={14} /></button>
-                  <button onClick={() => archiveMut.mutate(s._id)} className="p-2 hover:bg-amber-50 rounded-xl text-amber-500"><FiArchive size={14} /></button>
                   <button type="button" onClick={() => requestDeleteService(s._id)} className="p-2 hover:bg-red-50 rounded-xl text-red-500"><FiTrash2 size={14} /></button>
                   <button onClick={() => setExpandedService(expandedService === s._id ? null : s._id)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
                     <FiChevronDown size={14} className={`transition-transform ${expandedService === s._id ? 'rotate-180' : ''}`} />
@@ -308,20 +311,33 @@ export default function AdminServices() {
                 </div>
                 <div>
                   <label className="form-label">Description</label>
-                  <textarea className="form-input" rows="3" value={form.description} onChange={e => setForm(s => ({ ...s, description: e.target.value }))} />
+                  <ReactQuill theme="snow" value={form.description} onChange={val => setForm(s => ({ ...s, description: val }))} className="bg-white rounded-xl" />
                 </div>
                 <div>
-                  <label className="form-label">Service features</label>
-                  <FeatureTagInput
-                    value={form.features}
-                    onChange={(tags) => setForm(s => ({ ...s, features: tags }))}
-                    placeholder="Type a feature and press Enter"
-                  />
+                  <label className="form-label mb-2 flex items-center justify-between">
+                    <span>Service features</span>
+                    <button type="button" onClick={() => setForm(s => ({ ...s, features: [...s.features, ''] }))} className="text-xs text-secondary hover:underline flex items-center gap-1"><FiPlus/> Add feature line</button>
+                  </label>
+                  <div className="space-y-2">
+                    {form.features.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 group">
+                        <div className="bg-emerald-50 p-2 rounded-lg text-emerald-500 shrink-0"><FiCheck size={14}/></div>
+                        <input className="form-input flex-1" value={f} onChange={e => { const nf = [...form.features]; nf[i] = e.target.value; setForm(s => ({ ...s, features: nf })) }} placeholder="Enter feature text..." />
+                        <button type="button" onClick={() => setForm(s => ({ ...s, features: s.features.filter((_, idx) => idx !== i) }))} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><FiTrash2 size={16}/></button>
+                      </div>
+                    ))}
+                    {form.features.length === 0 && <p className="text-sm text-slate-400 italic text-center py-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl">No features added. Click "Add feature line" to add one.</p>}
+                  </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-3">
                   <div>
                     <label className="form-label">Price Text</label>
-                    <input className="form-input" placeholder="From LKR 100,000" value={form.priceText} onChange={e => setForm(s => ({ ...s, priceText: e.target.value }))} />
+                    <div className="flex gap-2">
+                      <input className="form-input flex-1" placeholder="e.g. From LKR 100,000" value={form.priceText} onChange={e => setForm(s => ({ ...s, priceText: e.target.value }))} />
+                      <select className="form-select w-32" value={form.priceType} onChange={e => setForm(s => ({ ...s, priceType: e.target.value }))}>
+                        {PRICE_TYPES.map(pt => <option key={pt} value={pt} className="capitalize">{pt.replace('-', ' ')}</option>)}
+                      </select>
+                    </div>
                   </div>
                   <div>
                     <label className="form-label">Order</label>
@@ -331,7 +347,7 @@ export default function AdminServices() {
                 <div>
                   <label className="form-label">Image</label>
                   <input type="file" accept="image/*" className="form-input" onChange={e => setImageFile(e.target.files?.[0] || null)} />
-                  {form.imageUrl && !imageFile && <img src={form.imageUrl} className="mt-2 w-24 h-24 object-cover rounded-xl border border-slate-200" alt="" />}
+                  {form.imageUrl && !imageFile && <img src={mediaUrl(form.imageUrl)} className="mt-2 w-24 h-24 object-cover rounded-xl border border-slate-200" alt="" />}
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="active-chk" className="w-4 h-4" checked={form.active} onChange={e => setForm(s => ({ ...s, active: e.target.checked }))} />

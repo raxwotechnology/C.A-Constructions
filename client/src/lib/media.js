@@ -8,7 +8,7 @@ export function normalizeUploadPath(url) {
   try {
     if (/^https?:\/\//i.test(s)) {
       const u = new URL(s)
-      if (u.pathname.startsWith('/uploads/')) return u.pathname
+      if (u.pathname.startsWith('/uploads/')) return u.pathname + u.search
       return s
     }
   } catch {

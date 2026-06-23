@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   employeeId: '', date: new Date().toISOString().split('T')[0],
   status: 'present', checkIn: '', checkOut: '',
   breakStart: '', breakEnd: '',
+  lateDeductionAmount: 0, hourlyDeductionAmount: 0,
   isHalfDay: false, isFullDay: true, notes: '',
 }
 
@@ -128,6 +129,8 @@ export default function AdminAttendance() {
       checkOut: rec.checkOut ? new Date(rec.checkOut).toTimeString().slice(0, 5) : '',
       breakStart: lastBreak?.breakIn ? new Date(lastBreak.breakIn).toTimeString().slice(0, 5) : '',
       breakEnd: lastBreak?.breakOut ? new Date(lastBreak.breakOut).toTimeString().slice(0, 5) : '',
+      lateDeductionAmount: rec.lateDeductionAmount || 0,
+      hourlyDeductionAmount: rec.hourlyDeductionAmount || 0,
       isHalfDay: rec.isHalfDay || false,
       isFullDay: rec.isFullDay !== false,
       notes: rec.notes || '',
@@ -140,6 +143,8 @@ export default function AdminAttendance() {
       employeeId: form.employeeId,
       date: form.date,
       status: form.status,
+      lateDeductionAmount: Number(form.lateDeductionAmount) || 0,
+      hourlyDeductionAmount: Number(form.hourlyDeductionAmount) || 0,
       isHalfDay: form.isHalfDay,
       isFullDay: form.isFullDay,
       notes: form.notes,
@@ -449,6 +454,14 @@ export default function AdminAttendance() {
                   <label className="form-label">Break end</label>
                   <input type="time" className="form-input" value={form.breakEnd} onChange={e => setForm(s => ({ ...s, breakEnd: e.target.value }))} />
                 </div>
+                <div>
+                  <label className="form-label text-orange-600">Late Deduction (LKR)</label>
+                  <input type="number" min="0" className="form-input" value={form.lateDeductionAmount} onChange={e => setForm(s => ({ ...s, lateDeductionAmount: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label text-orange-600">Hourly Deduction (LKR)</label>
+                  <input type="number" min="0" className="form-input" value={form.hourlyDeductionAmount} onChange={e => setForm(s => ({ ...s, hourlyDeductionAmount: e.target.value }))} />
+                </div>
               </div>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -495,6 +508,8 @@ export default function AdminAttendance() {
               ['Break Hours', viewRecord.breakHours ? `${viewRecord.breakHours} hours` : '—'],
               ['Overtime', viewRecord.otHours ? `${viewRecord.otHours} hours` : '—'],
               ['Non-worked', viewRecord.nonWorkedHours ? `${viewRecord.nonWorkedHours} hours` : '—'],
+              ['Late Deduction', viewRecord.lateDeductionAmount ? `LKR ${viewRecord.lateDeductionAmount}` : '—'],
+              ['Hourly Deduction', viewRecord.hourlyDeductionAmount ? `LKR ${viewRecord.hourlyDeductionAmount}` : '—'],
               ['Notes', viewRecord.notes || '—'],
             ].map(([label, value]) => (
               <div key={label} className="flex justify-between py-2 border-b border-gray-50 text-sm">

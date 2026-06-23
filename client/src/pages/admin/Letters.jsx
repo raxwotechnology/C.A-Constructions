@@ -127,8 +127,14 @@ export default function AdminLetters() {
   const [letterScale, setLetterScale] = useState(100)
 
   const [showBuilder, setShowBuilder] = useState(false)
-  const [builderEmployee, setBuilderEmployee] = useState(null)
   const [builderInitialData, setBuilderInitialData] = useState(null)
+  const [builderEmployee, setBuilderEmployee] = useState(null)
+
+  // Filters for Issued Letters
+  const [filterSearch, setFilterSearch] = useState('')
+  const [filterType, setFilterType] = useState('all')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
 
   const { register, handleSubmit, reset, watch, setValue } = useForm()
   const selectedType = watch('type')
@@ -379,6 +385,34 @@ export default function AdminLetters() {
   const letters = data?.letters || []
   const templates = tplData?.templates || []
 
+  const filteredLetters = useMemo(() => {
+    return letters.filter((l) => {
+      // type filter
+      if (filterType === 'employee' && !l.employee) return false
+      if (filterType === 'client' && !l.client) return false
+      
+      // date range
+      if (filterDateFrom && new Date(l.issuedDate) < new Date(filterDateFrom)) return false
+      if (filterDateTo && new Date(l.issuedDate) > new Date(filterDateTo)) return false
+
+      // search filter
+      if (filterSearch) {
+        const q = filterSearch.toLowerCase()
+        const empName = `${l.employee?.profile?.firstName || ''} ${l.employee?.profile?.lastName || ''}`.trim() || l.employee?.name || ''
+        const cliName = l.client?.profile?.companyName || l.client?.name || ''
+        const ref = l.letterRef || ''
+        
+        if (!empName.toLowerCase().includes(q) && 
+            !cliName.toLowerCase().includes(q) && 
+            !ref.toLowerCase().includes(q) &&
+            !l.title?.toLowerCase().includes(q)) {
+          return false
+        }
+      }
+      return true
+    })
+  }, [letters, filterSearch, filterType, filterDateFrom, filterDateTo])
+
   useEffect(() => {
     if (!showModal || selectedType !== 'internship' || !watchedEmployeeId || watchedEmployeeId === 'custom') return
     let cancelled = false
@@ -518,7 +552,42 @@ export default function AdminLetters() {
       <section className="card card-body border-slate-200/90">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Issued letters</h2>
-          <span className="text-xs text-slate-500">{letters.length} on file</span>
+          <span className="text-xs text-slate-500">{filteredLetters.length} on file</span>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+          <div className="relative flex-1 min-w-[200px]">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <input 
+              value={filterSearch} 
+              onChange={e => setFilterSearch(e.target.value)} 
+              placeholder="Search by name, reference..." 
+              className="form-input !pl-9" 
+            />
+          </div>
+          <select className="form-select w-auto" value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="all">All Recipients</option>
+            <option value="employee">Employees Only</option>
+            <option value="client">Customers Only</option>
+          </select>
+          <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              className="form-input w-auto text-sm" 
+              value={filterDateFrom} 
+              onChange={e => setFilterDateFrom(e.target.value)} 
+              title="From Date"
+            />
+            <span className="text-slate-400">-</span>
+            <input 
+              type="date" 
+              className="form-input w-auto text-sm" 
+              value={filterDateTo} 
+              onChange={e => setFilterDateTo(e.target.value)} 
+              title="To Date"
+            />
+          </div>
         </div>
 
         {/* Scrollable Table */}
@@ -541,20 +610,26 @@ export default function AdminLetters() {
                     <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" />
                   </td>
                 </tr>
-              ) : letters.length === 0 ? (
+              ) : filteredLetters.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-14 text-slate-400">
                     <FiFileText size={40} className="mx-auto mb-2 opacity-25" />
-                    No letters yet. Generate one from the templates above.
+                    {letters.length === 0 ? 'No letters yet. Generate one from the templates above.' : 'No letters match your filters.'}
                   </td>
                 </tr>
               ) : (
-                letters.map((l) => (
+                filteredLetters.map((l) => (
                   <tr key={l._id}>
                     <td className="font-mono text-xs text-slate-600">{l.letterRef || '—'}</td>
                     <td>
-                      <div className="font-medium text-slate-800">{l.recipientType === 'client' ? l.client?.name : l.employee?.userId?.name}</div>
-                      <div className="text-xs text-slate-400">{l.recipientType === 'client' ? 'Customer' : l.employee?.employeeNo}</div>
+                      <div className="font-medium text-slate-800">
+                        {l.recipientType === 'client' 
+                          ? l.client?.name || l.structuredData?.recipientName || 'Unknown Customer' 
+                          : l.employee?.userId?.name || l.structuredData?.recipientName || 'Unknown Employee'}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {l.recipientType === 'client' ? 'Customer' : l.employee?.employeeNo || 'Employee'}
+                      </div>
                     </td>
                     <td>
                       <span className="badge badge-navy capitalize">{TYPE_MAP[l.type]?.label || l.type}</span>

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import ExportBar from '../../components/ui/ExportBar'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
+import UserAvatar from '../../components/ui/UserAvatar'
 
 export default function AdminClients() {
   const qc = useQueryClient()
@@ -164,8 +165,11 @@ export default function AdminClients() {
             return (
               <div key={client._id} className="card card-body card-hover">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary font-bold text-lg cursor-pointer hover:bg-secondary/20" onClick={() => navigate(`/admin/clients/${client._id}`)}>
-                    {(client.profile?.companyName || client.name)?.charAt(0).toUpperCase()}
+                  <div onClick={() => navigate(`/admin/clients/${client._id}`)} className="cursor-pointer">
+                    <UserAvatar 
+                      user={{ ...client, name: client.profile?.companyName || client.name, avatar: client.profileImage || client.avatar }}
+                      className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary font-bold text-lg hover:bg-secondary/20 transition-colors" 
+                    />
                   </div>
                   <div>
                     <h3 className="font-bold text-primary font-heading cursor-pointer hover:text-secondary" onClick={() => navigate(`/admin/clients/${client._id}`)}>

@@ -30,6 +30,7 @@ exports.markAttendance = async (req, res, next) => {
     const {
       employeeId, date, status = 'present', checkIn, checkOut, breakTimes = [],
       isHalfDay = false, isFullDay = true, otHours = 0, otAmount = 0, notes = '',
+      lateDeductionAmount = 0, hourlyDeductionAmount = 0,
     } = req.body;
     const targetDate = date ? new Date(date) : new Date();
     targetDate.setHours(0, 0, 0, 0);
@@ -61,6 +62,8 @@ exports.markAttendance = async (req, res, next) => {
       isFullDay: Boolean(isFullDay),
       otHours: hours.overtimeHours || Number(otHours),
       otAmount: Number(otAmount),
+      lateDeductionAmount: Number(lateDeductionAmount) || 0,
+      hourlyDeductionAmount: Number(hourlyDeductionAmount) || 0,
       notes,
       markedBy: req.user._id,
       totalWorkedHours: hours.totalWorkedHours,

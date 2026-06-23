@@ -583,11 +583,7 @@ export function generateLetterParts(data, company, sections) {
   }
 
   if (sections.footer) {
-    after += `
-      <footer style="margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;text-align:center;font-size:9pt;color:#64748b">
-        <p style="margin:0">${cName}${company.address ? ` · ${company.address}` : ''}</p>
-        <p style="margin:5px 0 0;font-size:8pt;color:#94a3b8">This document was generated electronically and is valid with authorised signatures where applied.</p>
-      </footer>`
+    after += ``
   }
 
   return { before, body, after, full: before + body + after }

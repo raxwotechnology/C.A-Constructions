@@ -42,14 +42,17 @@ export default function AdminProjects() {
     queryFn: () => api.get(`/invoices?client=${watchedClient}`).then((r) => r.data),
     enabled: showModal && Boolean(watchedClient),
   })
-  const clientInvoices = clientInvData?.invoices || []
+  const clientInvoices = useMemo(() => clientInvData?.invoices || [], [clientInvData?.invoices])
 
   useEffect(() => {
     if (!watchedClient) {
-      setLinkedInvoices([])
+      setLinkedInvoices((prev) => prev.length === 0 ? prev : [])
       return
     }
-    setLinkedInvoices((prev) => prev.filter((id) => clientInvoices.some((i) => String(i._id) === String(id))))
+    setLinkedInvoices((prev) => {
+      const next = prev.filter((id) => clientInvoices.some((i) => String(i._id) === String(id)))
+      return next.length === prev.length ? prev : next
+    })
   }, [watchedClient, clientInvoices])
 
   useEffect(() => {
