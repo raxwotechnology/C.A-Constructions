@@ -106,7 +106,7 @@ export default function AdminProjects() {
     setEditing(p)
     setValue('title', p.title || '')
     setValue('description', p.description || '')
-    setValue('client', p.client?._id || '')
+    setValue('client', p.client?._id || p.client || '')
     setClientSelectLabel(
       p.client?.name ? `${p.client.name}${p.client.email ? ` (${p.client.email})` : ''}` : ''
     )
@@ -117,8 +117,8 @@ export default function AdminProjects() {
     setValue('startDate', p.startDate ? new Date(p.startDate).toISOString().slice(0,10) : '')
     setValue('deadline', p.deadline ? new Date(p.deadline).toISOString().slice(0,10) : '')
     setValue('progress', p.progress ?? 0)
-    setValue('projectManager', p.projectManager?._id || '')
-    setValue('branch', p.branch?._id || '')
+    setValue('projectManager', p.projectManager?._id || p.projectManager || '')
+    setValue('branch', p.branch?._id || p.branch || '')
     const invIds = [
       ...(p.linkedInvoices || []).map((i) => i._id || i),
       ...(p.invoice ? [p.invoice._id || p.invoice] : []),
@@ -251,7 +251,7 @@ export default function AdminProjects() {
         </div>
         <select className="form-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>
-          {['planning','active','on_hold','completed','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+          {['planning','active','on_hold','completed','completed_payment_pending','paid_completed','overdue','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</option>)}
         </select>
         <select className="form-select" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
           <option value="">All Branches</option>
@@ -411,7 +411,7 @@ export default function AdminProjects() {
                       </select></div>
                     <div><label className="form-label">Status</label>
                       <select {...register('status')} className="form-select">
-                        {['planning','active','on_hold','completed','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+                        {['planning','active','on_hold','completed','completed_payment_pending','paid_completed','overdue','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</option>)}
                       </select></div>
                     <div><label className="form-label">Priority</label>
                       <select {...register('priority')} className="form-select">

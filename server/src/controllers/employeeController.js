@@ -18,9 +18,6 @@ function syncEmploymentTypeFromStatus(body) {
   const status = body.status;
   if (status === 'internship') body.employmentType = 'intern';
   else if (status === 'contract') body.employmentType = 'contract';
-  else if (status === 'active' && body.employmentType === 'intern') {
-    body.status = 'internship';
-  }
 }
 
 function isValidObjectId(v) {
@@ -279,7 +276,7 @@ exports.createEmployee = async (req, res, next) => {
       if (primaryPhone) {
         await sendSms(
           primaryPhone,
-          `Welcome to Raxwo ERP, ${name}! Your employee account is ready. Login at ${loginUrl} using your email. Employee No: ${employeeNo}.`,
+          `Welcome to Raxwo ERP, ${name}!\nYour employee account is ready.\n\nLogin: ${loginUrl}\nEmail: ${email}\nPassword: ${loginPassword}\nEmp No: ${employeeNo}\n\nPlease change your password upon login.`,
           name,
           'hr'
         );
@@ -372,22 +369,28 @@ exports.deleteEmployee = async (req, res, next) => {
     }
 
     // 1. Hard-delete the employee profile
-    await Employee.deleteOne({ _id: req.params.id });
+    await Employee.findByIdAndDelete(req.params.id);
 
-    // 2. Hard-delete the linked user account (unless they are a client)
+    // 2. Hard-delete the linked user account (unless they are an admin or client)
     if (linkedUserId) {
-      if (linkedUserRole === 'client') {
+      if (linkedUserRole === 'admin') {
+        console.warn(`[deleteEmployee] Skipped deleting user ${linkedUserId} — cannot delete admin users.`);
+      } else if (linkedUserRole === 'client') {
         console.warn(`[deleteEmployee] Skipped deleting user ${linkedUserId} — role is 'client'.`);
       } else {
-        await User.deleteOne({ _id: linkedUserId });
+        await User.findByIdAndDelete(linkedUserId);
       }
     }
 
-    await createAuditLog({
-      user: req.user, action: 'delete', module: 'employees', entityId: employee._id, entityName: empName,
-      description: `Permanently deleted employee ${empName} (${empNo}) and their user account`,
-      changes: { before: employee.toObject() }
-    });
+    try {
+      await createAuditLog({
+        user: req.user, action: 'delete', module: 'employees', entityId: employee._id, entityName: empName,
+        description: `Permanently deleted employee ${empName} (${empNo}) and their user account`,
+        changes: { before: employee.toObject() }
+      });
+    } catch (auditErr) {
+      console.warn('Audit log creation failed, continuing with delete success response', auditErr);
+    }
 
     res.json({ success: true, message: `Employee ${empName} permanently deleted from the system.` });
   } catch (err) { next(err); }

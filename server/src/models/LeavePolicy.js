@@ -22,6 +22,7 @@ const leavePolicySchema = new mongoose.Schema({
   department: { type: String, default: '' },
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+  duration: { type: String, enum: ['3_months', '6_months', 'yearly', 'annual'], default: 'yearly' },
   leaveYear: { type: String, default: 'jan-dec' }, // or 'apr-mar' etc
   quotas: [leaveTypeQuotaSchema],
   isDefault: { type: Boolean, default: false },

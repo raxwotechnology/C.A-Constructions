@@ -213,7 +213,7 @@ exports.updateProject = async (req, res, next) => {
     if (project.client && oldProject?.status !== project.status) {
       const { createNotification } = require('../services/notificationService');
       await createNotification({
-        recipient: project.client,
+        recipient: project.client._id || project.client,
         title: 'Project Status Updated',
         message: `Your project "${project.title}" status has been updated to "${project.status.replace(/_/g, ' ')}".`,
         type: 'project',
@@ -240,8 +240,8 @@ exports.updateProject = async (req, res, next) => {
 
     // ── Notify newly assigned employees ─────────────────────────────
     if (project.assignedEmployees?.length > 0) {
-      const oldAssigned = oldProject?.assignedEmployees?.map(e => String(e)) || [];
-      const newAssigned = project.assignedEmployees.map(e => String(e));
+      const oldAssigned = oldProject?.assignedEmployees?.map(e => String(e._id || e)) || [];
+      const newAssigned = project.assignedEmployees.map(e => String(e._id || e));
       const newlyAssigned = newAssigned.filter(e => !oldAssigned.includes(e));
 
       if (newlyAssigned.length > 0) {
@@ -266,7 +266,8 @@ exports.updateProject = async (req, res, next) => {
     }
 
     if (wasNotCompleted && isNowCompleted && project.assignedEmployees?.length) {
-      for (const userId of project.assignedEmployees) {
+      for (const userObj of project.assignedEmployees) {
+        const userId = userObj._id || userObj;
         // Find the Employee record for this user
         const emp = await Employee.findOne({ userId }).select('_id basicSalary');
         if (!emp) continue;
@@ -336,7 +337,7 @@ exports.updateProject = async (req, res, next) => {
     }
 
     if (project.client) {
-      await createNotification({ recipient: project.client, title: 'Project Updated', message: `Project "${project.title}" has been updated.`, type: 'project', link: '/my-projects' });
+      await createNotification({ recipient: project.client._id || project.client, title: 'Project Updated', message: `Project "${project.title}" has been updated.`, type: 'project', link: '/my-projects' });
     }
 
     const period = monthYearFromDate();

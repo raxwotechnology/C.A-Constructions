@@ -171,7 +171,7 @@ export default function PublicLayout() {
                         <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
                           <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
                         </div>
-                        <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
+                        <h4 className="text-sm font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
                       </Link>
                     ))}
                   </div>
@@ -196,7 +196,7 @@ export default function PublicLayout() {
                         <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
                           <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
                         </div>
-                        <h4 className="text-xs font-extrabold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
+                        <h4 className="text-sm font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
                       </Link>
                     ))}
                   </div>
@@ -352,7 +352,7 @@ export default function PublicLayout() {
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-[#20b2f5]/5">
                         <div className="px-4 py-3 flex flex-col gap-2">
                           {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => (
-                            <Link key={s._id} to={`/services`} onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-medium text-white/70 hover:text-[#20b2f5] transition-colors relative">
+                            <Link key={s._id} to={`/services`} onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-bold text-white/70 hover:text-[#20b2f5] transition-colors relative">
                               <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
                               {s.title}
                             </Link>
@@ -380,7 +380,7 @@ export default function PublicLayout() {
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-emerald-500/5">
                         <div className="px-4 py-3 flex flex-col gap-2">
                           {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
-                            <Link key={s._id} to={`/software-products`} onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-medium text-white/70 hover:text-emerald-400 transition-colors relative">
+                            <Link key={s._id} to={`/software-products`} onClick={() => setMenuOpen(false)} className="pl-14 py-2 text-sm font-bold text-white/70 hover:text-emerald-400 transition-colors relative">
                               <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
                               {s.title}
                             </Link>

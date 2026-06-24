@@ -53,6 +53,7 @@ export default function LeavePolicies({ triggerNew }) {
       department: '',
       branch: '',
       employee: '',
+      duration: 'yearly',
       isDefault: false,
       salaryDeductionEnabled: false,
       deductionPerExtraLeaveDay: 0,
@@ -71,7 +72,16 @@ export default function LeavePolicies({ triggerNew }) {
     }
   })
 
-  const { fields } = useFieldArray({ control, name: 'quotas' })
+  const { fields, replace } = useFieldArray({ control, name: 'quotas' })
+  const watchedDuration = control._formValues.duration || 'yearly'
+
+  // This function calculates base quota for a given leave type and duration
+  const getBaseQuota = (type, dur) => {
+    let base = type === 'annual' ? 14 : type === 'medical' ? 7 : type === 'casual' ? 7 : type === 'half_day' ? 6 : type === 'short_leave' ? 12 : type === 'maternity' ? 84 : 3;
+    if (dur === '3_months') return Math.ceil(base / 4);
+    if (dur === '6_months') return Math.ceil(base / 2);
+    return base;
+  }
 
   const createMut = useMutation({
     mutationFn: d => api.post('/leaves/policies', d),
@@ -104,6 +114,7 @@ export default function LeavePolicies({ triggerNew }) {
       department: '',
       branch: '',
       employee: '',
+      duration: 'yearly',
       isDefault: false,
       salaryDeductionEnabled: false,
       deductionPerExtraLeaveDay: 0,
@@ -132,6 +143,7 @@ export default function LeavePolicies({ triggerNew }) {
       department: policy.department || '',
       branch: policy.branch?._id || policy.branch || '',
       employee: policy.employee?._id || policy.employee || '',
+      duration: policy.duration || 'yearly',
       isDefault: policy.isDefault,
       salaryDeductionEnabled: policy.salaryDeductionEnabled || false,
       deductionPerExtraLeaveDay: policy.deductionPerExtraLeaveDay || 0,
@@ -188,6 +200,7 @@ export default function LeavePolicies({ triggerNew }) {
                   <p className="text-xs text-slate-500">
                     {p.employee ? `Employee: ${p.employee.userId?.name}` : [p.department, p.employmentType !== 'all' ? p.employmentType : null, p.branch?.name || 'All branches'].filter(Boolean).join(' · ')}
                   </p>
+                  <span className="badge badge-gray text-[10px] mt-1 uppercase tracking-wider">{p.duration?.replace('_', ' ') || 'yearly'}</span>
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -268,6 +281,32 @@ export default function LeavePolicies({ triggerNew }) {
                     <select {...register('branch')} className="form-select">
                       <option value="">All Branches</option>
                       {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Duration</label>
+                    <select 
+                      {...register('duration')} 
+                      className="form-select"
+                      onChange={(e) => {
+                        const dur = e.target.value;
+                        if (!editing) {
+                          // Only auto-adjust when creating new policy
+                          replace(LEAVE_TYPE_OPTIONS.map(t => ({
+                            leaveType: t.value,
+                            quota: getBaseQuota(t.value, dur),
+                            carryForward: false, carryForwardCap: 0,
+                            requireDocument: t.value === 'medical',
+                            requireReason: t.value === 'medical',
+                            deductSalaryOnExcess: false, deductionPerExtraDay: 0,
+                          })))
+                        }
+                      }}
+                    >
+                      <option value="3_months">3 Months</option>
+                      <option value="6_months">6 Months</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="annual">Annual</option>
                     </select>
                   </div>
                   <div>

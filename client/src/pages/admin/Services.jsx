@@ -12,8 +12,8 @@ import { mediaUrl } from '../../lib/media'
 
 const EMPTY_SERVICE = { title: '', description: '', features: [], priceText: '', priceType: 'one-time', imageUrl: '', active: true, order: 0, type: 'service', category: '' }
 const EMPTY_PKG = { name: '', price: '', currency: 'LKR', billingCycle: 'one-time', features: '', duration: '', discount: '', promotionLabel: '', isPopular: false }
-const BILLING = ['one-time', 'monthly', 'quarterly', 'yearly', 'lifetime']
-const PRICE_TYPES = ['one-time', 'monthly', 'yearly', 'lifetime']
+const BILLING = ['one-time', 'monthly', 'quarterly', 'yearly', 'lifetime', 'startup', 'custom']
+const PRICE_TYPES = ['one-time', 'monthly', 'yearly', 'lifetime', 'startup', 'custom']
 
 export default function AdminServices() {
   const qc = useQueryClient()

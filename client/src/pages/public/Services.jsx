@@ -155,6 +155,7 @@ export default function Services() {
     desc: s.description,
     features: s.features || [],
     price: s.priceText || '',
+    priceType: s.priceType,
   }))
 
   const categories = ['All', ...Array.from(new Set(displayServices.map(s => s.category).filter(Boolean)))]
@@ -284,7 +285,10 @@ export default function Services() {
                         </div>
 
                         <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-auto relative z-20">
-                          <span className="text-secondary font-black text-lg tracking-tight">{s.price || s.priceText}</span>
+                          <div className="flex flex-col">
+                            <span className="text-secondary font-black text-lg tracking-tight">{s.price || s.priceText}</span>
+                            {s.priceType && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{s.priceType} (Added by Admin)</span>}
+                          </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setFeedbackService(s)}
