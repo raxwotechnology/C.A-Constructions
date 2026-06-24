@@ -21,13 +21,13 @@ function serializeUser(user) {
 // @route   POST /api/auth/register
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, role, referralCode } = req.body;
+    const { name, email, password, role, referralCode, phone } = req.body;
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
 
     // Only admin can create admin/manager accounts
     const allowedRole = ['admin', 'manager'].includes(role) ? (req.user?.role === 'admin' ? role : 'developer') : (role || 'developer');
-    const user = await User.create({ name, email, password, role: allowedRole });
+    const user = await User.create({ name, email, password, role: allowedRole, phone: phone || '' });
     if (allowedRole === 'client') {
       await getOrCreateReward(user._id);
       await awardPoints({
@@ -40,8 +40,13 @@ exports.register = async (req, res, next) => {
       try {
         const mailResult = await sendClientWelcomeEmail(user);
         if (!mailResult.sent) console.warn('[register] welcome email skipped:', mailResult.reason);
+        
+        if (user.phone) {
+          const { sendClientWelcomeSms } = require('../services/smsService');
+          await sendClientWelcomeSms(user.phone, user.name, user.email, password || 'User@2026');
+        }
       } catch (mailErr) {
-        console.warn('[register] welcome email failed:', mailErr.message);
+        console.warn('[register] welcome email/sms failed:', mailErr.message);
       }
     }
     const token = generateToken(user._id);
