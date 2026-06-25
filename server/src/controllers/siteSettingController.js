@@ -1,6 +1,19 @@
 const SiteSetting = require('../models/SiteSetting');
 const { toRelativeUploadUrl } = require('../utils/uploadsPath');
 
+exports.downloadDatabase = async (req, res, next) => {
+  try {
+    const mongoose = require('mongoose');
+    const dbDump = {};
+    for (const modelName of Object.keys(mongoose.models)) {
+      dbDump[modelName] = await mongoose.models[modelName].find({});
+    }
+    res.setHeader('Content-disposition', 'attachment; filename=raxwo_db_backup.json');
+    res.setHeader('Content-type', 'application/json');
+    res.send(JSON.stringify(dbDump, null, 2));
+  } catch (err) { next(err); }
+};
+
 exports.getSiteSettings = async (req, res, next) => {
   try {
     let settings = await SiteSetting.findOne();

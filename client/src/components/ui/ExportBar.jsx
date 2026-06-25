@@ -130,7 +130,7 @@ const ExportBar = forwardRef(({
   return (
     <>
       {!customTrigger && (
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
           <button
             type="button"
             onClick={() => setModal('pdf')}

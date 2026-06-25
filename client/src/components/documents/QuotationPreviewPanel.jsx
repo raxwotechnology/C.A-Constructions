@@ -7,6 +7,10 @@ import {
   layoutToStyle,
   quotationLayoutFromSettings,
 } from '../../lib/quotationPrintLayout'
+import { useRef, useState, useEffect } from 'react'
+
+const DOC_WIDTH_PX = 794
+
 
 export default function QuotationPreviewPanel({
   quotation,
@@ -25,6 +29,38 @@ export default function QuotationPreviewPanel({
   const mergedQuotation = q
 
   const resolvedShowSeal = showSeal !== undefined ? showSeal : (mergedQuotation.showSeal ?? true)
+
+  const scrollRef = useRef(null)
+  const docRef = useRef(null)
+  const [fitScale, setFitScale] = useState(1)
+  const [docHeight, setDocHeight] = useState(0)
+
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      const container = entries[0]
+      if (!container) return
+      const cw = container.contentRect.width
+      if (cw > 0 && cw < DOC_WIDTH_PX) {
+        setFitScale(cw / DOC_WIDTH_PX)
+      } else {
+        setFitScale(1)
+      }
+    })
+    ro.observe(scrollRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!docRef.current) return
+    const ro = new ResizeObserver(() => {
+      if (docRef.current) {
+        setDocHeight(docRef.current.clientHeight)
+      }
+    })
+    ro.observe(docRef.current)
+    return () => ro.disconnect()
+  }, [layout, mergedQuotation])
 
   const handlePrint = () => {
     const root = document.getElementById(printRootId)
@@ -63,12 +99,20 @@ export default function QuotationPreviewPanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100/80">
-        <div
-          id={printRootId}
-          className={`quotation-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
-          style={layoutToStyle(layout)}
-        >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-0 md:p-8 bg-slate-100/80">
+        <div style={{ width: DOC_WIDTH_PX * fitScale, height: docHeight > 0 ? docHeight * fitScale : 'auto', margin: '0 auto' }}>
+          <div
+            id={printRootId}
+            ref={docRef}
+            className={`quotation-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
+            style={{
+              ...layoutToStyle(layout),
+              width: DOC_WIDTH_PX,
+              boxSizing: 'border-box',
+              transform: `scale(${fitScale})`,
+              transformOrigin: 'top center',
+            }}
+          >
           <QuotationPrintBody
             quotation={mergedQuotation}
             siteSettings={siteSettings}
@@ -78,6 +122,7 @@ export default function QuotationPreviewPanel({
             showRefOnDocument={layout.showRefOnDocument}
             showSeal={resolvedShowSeal}
           />
+        </div>
         </div>
       </div>
     </div>

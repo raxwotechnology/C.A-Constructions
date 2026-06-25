@@ -61,10 +61,10 @@ const SERVICES = [
 
 
 const STATS = [
-  { value: 50,  suffix: '+', label: 'Projects Delivered' },
+  { value: 150, suffix: '+', label: 'Projects Delivered' },
   { value: 250, suffix: '+', label: 'Happy Clients' },
   { value: 35,  suffix: '+', label: 'Team Members' },
-  { value: 5,   suffix: '+', label: 'Years in Business' },
+  { value: 7,   suffix: '+', label: 'Years in Business' },
 ]
 
 function Counter({ target, suffix }) {

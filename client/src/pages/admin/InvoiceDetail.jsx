@@ -158,36 +158,39 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
         className="w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
         
         {/* Header */}
-        <div className={`p-6 border-b text-white flex-shrink-0 flex items-center justify-between ${isOverdue ? 'bg-gradient-to-r from-red-900 to-red-700' : 'bg-gradient-to-r from-slate-900 to-slate-800'}`}>
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-2xl font-bold font-heading">{inv?.invoiceNo}</h2>
-              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-white/20`}>{inv?.status}</span>
+        <div className={`relative p-4 sm:p-6 border-b text-white flex-shrink-0 ${isOverdue ? 'bg-gradient-to-r from-red-900 to-red-700' : 'bg-gradient-to-r from-slate-900 to-slate-800'}`}>
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg text-white transition-colors z-10"><FiX size={20}/></button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pr-8">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h2 className="text-xl sm:text-2xl font-bold font-heading text-white">{inv?.invoiceNo}</h2>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-white/20 shrink-0`}>{inv?.status}</span>
+              </div>
+              <p className="text-sm text-slate-300 flex items-start sm:items-center gap-1.5 line-clamp-2 sm:line-clamp-1">
+                <FiFileText className="shrink-0 mt-0.5 sm:mt-0"/> <span>{inv?.client?.name} {inv?.project ? `— ${inv.project.title}` : ''}</span>
+              </p>
             </div>
-            <p className="text-slate-300 flex items-center gap-2">
-              <FiFileText/> {inv?.client?.name} {inv?.project ? `— ${inv.project.title}` : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {inv?.status !== 'cancelled' && (
-              <button
-                type="button"
-                onClick={() => { if (window.confirm('Cancel this invoice? It will be excluded from revenue and reports.')) cancelMut.mutate() }}
-                disabled={cancelMut.isPending}
-                className="btn-outline border-amber-300/50 text-amber-100 hover:bg-amber-500/20 btn-sm"
-              >
-                Cancel
-              </button>
-            )}
-            <button type="button" onClick={() => { setActiveTab('Overview'); setTimeout(handlePrint, 100) }} className="btn-outline border-white/30 text-white hover:bg-white/10 btn-sm"><FiPrinter size={14}/> Print / PDF</button>
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors"><FiX size={20}/></button>
+            <div className="flex items-center gap-2 flex-wrap shrink-0 w-full sm:w-auto pt-2 sm:pt-0">
+              {inv?.status !== 'cancelled' && (
+                <button
+                  type="button"
+                  onClick={() => { if (window.confirm('Cancel this invoice? It will be excluded from revenue and reports.')) cancelMut.mutate() }}
+                  disabled={cancelMut.isPending}
+                  className="btn-outline border-amber-300/50 text-amber-100 hover:bg-amber-500/20 btn-sm shrink-0 whitespace-nowrap"
+                >
+                  Cancel
+                </button>
+              )}
+              <button type="button" onClick={() => downloadInvoicePdf(inv._id, inv.invoiceNo)} className="btn-primary btn-sm shrink-0 whitespace-nowrap"><FiDownload size={14}/> PDF</button>
+              <button type="button" onClick={() => { setActiveTab('Overview'); setTimeout(handlePrint, 100) }} className="btn-outline border-white/30 text-white hover:bg-white/10 btn-sm shrink-0 whitespace-nowrap"><FiPrinter size={14}/> Print</button>
+            </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex px-6 border-b bg-slate-50 overflow-x-auto hide-scrollbar flex-shrink-0">
+        <div className="flex px-4 sm:px-6 border-b bg-slate-50 overflow-x-auto hide-scrollbar flex-shrink-0">
           {['Overview', 'Line Items', 'Payments & Advances', 'Document Preview'].map(t => (
-            <button key={t} onClick={() => setActiveTab(t)} className={`px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${activeTab === t ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+            <button key={t} onClick={() => setActiveTab(t)} className={`px-4 sm:px-5 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors shrink-0 ${activeTab === t ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
               {t}
             </button>
           ))}
@@ -199,18 +202,18 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
           {activeTab === 'Overview' && (
             <div className="space-y-6">
               {/* Financial Summary */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-2xl border shadow-sm">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
-                  <p className="text-2xl font-bold text-slate-800">{inv?.currency} {(inv?.total || 0).toLocaleString()}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border shadow-sm flex sm:block justify-between items-center">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider sm:mb-1">Total Amount</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-800">{inv?.currency} {(inv?.total || 0).toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border shadow-sm">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Paid (Inc. Advances)</p>
-                  <p className="text-2xl font-bold text-green-600">{inv?.currency} {(inv?.totalPaid || 0).toLocaleString()}</p>
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border shadow-sm flex sm:block justify-between items-center">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider sm:mb-1">Total Paid</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">{inv?.currency} {(inv?.totalPaid || 0).toLocaleString()}</p>
                 </div>
-                <div className={`p-5 rounded-2xl border shadow-sm ${inv?.remainingBalance > 0 ? (isOverdue ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200') : 'bg-green-50 border-green-200'}`}>
-                  <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${inv?.remainingBalance > 0 ? (isOverdue ? 'text-red-500' : 'text-orange-500') : 'text-green-600'}`}>Balance Due</p>
-                  <p className={`text-2xl font-bold ${inv?.remainingBalance > 0 ? (isOverdue ? 'text-red-700' : 'text-orange-700') : 'text-green-700'}`}>{inv?.currency} {(inv?.remainingBalance || 0).toLocaleString()}</p>
+                <div className={`p-4 sm:p-5 rounded-2xl border shadow-sm flex sm:block justify-between items-center ${inv?.remainingBalance > 0 ? (isOverdue ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200') : 'bg-green-50 border-green-200'}`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wider sm:mb-1 ${inv?.remainingBalance > 0 ? (isOverdue ? 'text-red-500' : 'text-orange-500') : 'text-green-600'}`}>Balance Due</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${inv?.remainingBalance > 0 ? (isOverdue ? 'text-red-700' : 'text-orange-700') : 'text-green-700'}`}>{inv?.currency} {(inv?.remainingBalance || 0).toLocaleString()}</p>
                 </div>
               </div>
 
@@ -250,32 +253,34 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
           {activeTab === 'Line Items' && (
             <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b text-slate-600">
-                  <tr>
-                    <th className="p-4 font-semibold">Description</th>
-                    <th className="p-4 font-semibold text-center">Qty</th>
-                    <th className="p-4 font-semibold text-right">Unit Price</th>
-                    <th className="p-4 font-semibold text-right">Disc %</th>
-                    <th className="p-4 font-semibold text-right">Tax %</th>
-                    <th className="p-4 font-semibold text-right">Total ({inv?.currency})</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {inv?.items?.map((item, i) => (
-                    <tr key={i}>
-                      <td className="p-4 font-medium text-slate-800">{item.description}</td>
-                      <td className="p-4 text-center text-slate-600">{item.quantity}</td>
-                      <td className="p-4 text-right text-slate-600">{item.unitPrice?.toLocaleString()}</td>
-                      <td className="p-4 text-right text-slate-600">{item.discount || 0}%</td>
-                      <td className="p-4 text-right text-slate-600">{item.tax || 0}%</td>
-                      <td className="p-4 text-right font-medium text-slate-800">{item.total?.toLocaleString()}</td>
+              <div className="overflow-x-auto hide-scrollbar">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b text-slate-600">
+                    <tr>
+                      <th className="p-4 font-semibold min-w-[200px]">Description</th>
+                      <th className="p-4 font-semibold text-center">Qty</th>
+                      <th className="p-4 font-semibold text-right">Unit Price</th>
+                      <th className="p-4 font-semibold text-right">Disc %</th>
+                      <th className="p-4 font-semibold text-right">Tax %</th>
+                      <th className="p-4 font-semibold text-right">Total ({inv?.currency})</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="bg-slate-50 p-6 border-t flex justify-end">
-                <div className="w-64 space-y-2 text-sm">
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {inv?.items?.map((item, i) => (
+                      <tr key={i}>
+                        <td className="p-4 font-medium text-slate-800">{item.description}</td>
+                        <td className="p-4 text-center text-slate-600">{item.quantity}</td>
+                        <td className="p-4 text-right text-slate-600">{item.unitPrice?.toLocaleString()}</td>
+                        <td className="p-4 text-right text-slate-600">{item.discount || 0}%</td>
+                        <td className="p-4 text-right text-slate-600">{item.tax || 0}%</td>
+                        <td className="p-4 text-right font-medium text-slate-800">{item.total?.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 border-t flex justify-end">
+                <div className="w-full sm:w-64 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-600"><span>Subtotal:</span><span>{(inv?.subtotal || 0).toLocaleString()}</span></div>
                   {inv?.discountTotal > 0 && <div className="flex justify-between text-slate-600"><span>Discount:</span><span>-{(inv?.discountTotal || 0).toLocaleString()}</span></div>}
                   {inv?.tax > 0 && <div className="flex justify-between text-slate-600"><span>Tax ({inv?.taxRate}% global):</span><span>+{(inv?.tax || 0).toLocaleString()}</span></div>}
@@ -287,46 +292,48 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
           {activeTab === 'Payments & Advances' && (
             <div className="space-y-6">
-              <div className="flex gap-3 justify-end">
-                <button onClick={() => { setShowAdvanceModal(true); reset() }} className="btn-outline btn-sm"><FiDollarSign size={14}/> Record Advance</button>
-                <button onClick={() => { setShowPaymentModal(true); reset() }} disabled={inv?.remainingBalance === 0} className="btn-primary btn-sm"><FiCreditCard size={14}/> Record Payment</button>
-                <button type="button" onClick={handlePrint} className="btn-outline btn-sm"><FiPrinter size={14}/> Print History</button>
-                <button type="button" onClick={handlePdfPaymentHistory} className="btn-outline btn-sm"><FiDownload size={14}/> PDF History</button>
+              <div className="flex gap-2 sm:justify-end overflow-x-auto hide-scrollbar pb-2">
+                <button onClick={() => { setShowAdvanceModal(true); reset() }} className="btn-outline btn-sm shrink-0 whitespace-nowrap"><FiDollarSign size={14}/> Record Advance</button>
+                <button onClick={() => { setShowPaymentModal(true); reset() }} disabled={inv?.remainingBalance === 0} className="btn-primary btn-sm shrink-0 whitespace-nowrap"><FiCreditCard size={14}/> Record Payment</button>
+                <button type="button" onClick={handlePrint} className="btn-outline btn-sm shrink-0 whitespace-nowrap"><FiPrinter size={14}/> Print History</button>
+                <button type="button" onClick={handlePdfPaymentHistory} className="btn-outline btn-sm shrink-0 whitespace-nowrap"><FiDownload size={14}/> PDF History</button>
               </div>
 
               {/* Payments Table */}
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
                 <div className="p-4 border-b bg-slate-50 font-semibold text-slate-700">Payment & Advance History</div>
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b text-slate-500">
-                    <tr>
-                      <th className="p-3 font-semibold">Date</th>
-                      <th className="p-3 font-semibold">Type</th>
-                      <th className="p-3 font-semibold">Method</th>
-                      <th className="p-3 font-semibold">Reference</th>
-                      <th className="p-3 font-semibold">Recorded By</th>
-                      <th className="p-3 font-semibold text-right">Amount ({inv?.currency})</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {inv?.payments?.length === 0 ? (
-                      <tr><td colSpan={6} className="p-8 text-center text-slate-400">No payments recorded yet.</td></tr>
-                    ) : inv?.payments?.map((p, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 text-slate-600">{new Date(p.date).toLocaleDateString('en-LK')}</td>
-                        <td className="p-3">{p.isAdvance ? <span className="badge badge-purple">Advance</span> : <span className="badge badge-blue">Payment</span>}</td>
-                        <td className="p-3 capitalize text-slate-600">{p.method.replace('_', ' ')}</td>
-                        <td className="p-3 text-slate-500 text-xs font-mono">{p.reference || '-'}</td>
-                        <td className="p-3 text-slate-600">{p.recordedBy?.name || 'System'}</td>
-                        <td className="p-3 text-right font-bold text-slate-800">{p.amount?.toLocaleString()}</td>
+                <div className="overflow-x-auto hide-scrollbar">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="border-b text-slate-500">
+                      <tr>
+                        <th className="p-3 font-semibold">Date</th>
+                        <th className="p-3 font-semibold">Type</th>
+                        <th className="p-3 font-semibold">Method</th>
+                        <th className="p-3 font-semibold">Reference</th>
+                        <th className="p-3 font-semibold">Recorded By</th>
+                        <th className="p-3 font-semibold text-right">Amount ({inv?.currency})</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="p-4 bg-slate-50 border-t flex justify-end gap-8 text-sm">
-                  <div className="text-right"><p className="text-slate-500">Total Advances:</p><p className="font-bold text-slate-800">{cur} {(inv?.totalAdvances || 0).toLocaleString()}</p></div>
-                  <div className="text-right"><p className="text-slate-500">Total Paid (All):</p><p className="font-bold text-green-600">{cur} {(inv?.totalPaid || 0).toLocaleString()}</p></div>
-                  <div className="text-right"><p className="text-slate-500">Remaining Balance:</p><p className="font-bold text-red-600">{cur} {(inv?.remainingBalance || 0).toLocaleString()}</p></div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {inv?.payments?.length === 0 ? (
+                        <tr><td colSpan={6} className="p-8 text-center text-slate-400">No payments recorded yet.</td></tr>
+                      ) : inv?.payments?.map((p, i) => (
+                        <tr key={i} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 text-slate-600">{new Date(p.date).toLocaleDateString('en-LK')}</td>
+                          <td className="p-3">{p.isAdvance ? <span className="badge badge-purple">Advance</span> : <span className="badge badge-blue">Payment</span>}</td>
+                          <td className="p-3 capitalize text-slate-600">{p.method.replace('_', ' ')}</td>
+                          <td className="p-3 text-slate-500 text-xs font-mono">{p.reference || '-'}</td>
+                          <td className="p-3 text-slate-600">{p.recordedBy?.name || 'System'}</td>
+                          <td className="p-3 text-right font-bold text-slate-800">{p.amount?.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-8 text-sm">
+                  <div className="flex justify-between sm:block text-right"><p className="text-slate-500 text-left sm:text-right">Total Advances:</p><p className="font-bold text-slate-800">{cur} {(inv?.totalAdvances || 0).toLocaleString()}</p></div>
+                  <div className="flex justify-between sm:block text-right"><p className="text-slate-500 text-left sm:text-right">Total Paid (All):</p><p className="font-bold text-green-600">{cur} {(inv?.totalPaid || 0).toLocaleString()}</p></div>
+                  <div className="flex justify-between sm:block text-right"><p className="text-slate-500 text-left sm:text-right">Remaining Balance:</p><p className="font-bold text-red-600">{cur} {(inv?.remainingBalance || 0).toLocaleString()}</p></div>
                 </div>
               </div>
             </div>

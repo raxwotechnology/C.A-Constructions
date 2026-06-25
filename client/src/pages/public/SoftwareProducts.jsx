@@ -33,7 +33,8 @@ export default function SoftwareProducts() {
     icon: ICON_MAP[s.icon] || FiPackage,
     desc: s.description,
     features: s.features || [],
-    price: s.priceText || ''
+    price: s.priceText || '',
+    priceType: s.priceType
   }))
 
   const categories = ['All', ...Array.from(new Set(displayProducts.map(s => s.category).filter(Boolean)))]
@@ -133,7 +134,10 @@ export default function SoftwareProducts() {
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-auto relative z-20">
-                          <span className="text-secondary font-black text-lg tracking-tight">{s.price || s.priceText}</span>
+                          <div className="flex flex-col">
+                            <span className="text-secondary font-black text-lg tracking-tight">{s.price || s.priceText}</span>
+                            {s.priceType && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{s.priceType.replace('-', ' ')}</span>}
+                          </div>
                           <a href="https://raxwo.net/lets-talk/" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
                             Get quote <FiArrowRight size={14} />
                           </a>

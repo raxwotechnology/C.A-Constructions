@@ -38,18 +38,13 @@ export default function AdminSettings() {
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
-  const uploadImage = async (file) => {
-    if (!file) return ''
-    try {
-      const fd = new FormData()
-      fd.append('image', file)
-      const { data } = await api.post('/uploads/image', fd)
-      return data.imageUrl
-    } catch (err) {
-      console.error('Image upload failed:', err)
-      throw new Error(err.response?.data?.message || 'Image upload failed')
-    }
-  }
+  const uploadImage = (file) => new Promise((resolve, reject) => {
+    if (!file) return resolve('')
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = (e) => reject(new Error('Image conversion failed'))
+  })
   const passMut = useMutation({
     mutationFn: d => api.put('/auth/change-password', d),
     onSuccess: () => { reset2(); toast.success('Password changed') },
@@ -216,6 +211,39 @@ export default function AdminSettings() {
             {profileMut.isPending || isSubmittingProfile ? <span className="spinner"/> : <><FiSave size={15}/> Save Profile</>}
           </button>
         </form>
+      </div>
+
+      <div className="card card-body">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+            <FiSave className="text-blue-500" size={18}/>
+          </div>
+          <div>
+            <h3 className="font-bold text-primary font-heading">Database Backup</h3>
+            <p className="text-xs text-gray-400">Download a full JSON backup of your entire system database</p>
+          </div>
+        </div>
+        <button 
+          type="button"
+          onClick={async () => {
+            try {
+              const res = await api.get('/site-settings/download-db', { responseType: 'blob' });
+              const url = window.URL.createObjectURL(new Blob([res.data]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', 'raxwo_db_backup.json');
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              toast.success('Database backup downloaded successfully');
+            } catch (err) {
+              toast.error('Failed to download database backup');
+            }
+          }} 
+          className="btn-primary"
+        >
+          Download Database JSON
+        </button>
       </div>
 
       {/* Change Password */}

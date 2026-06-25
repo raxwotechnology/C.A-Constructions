@@ -29,6 +29,34 @@ export default function InvoicePreviewPanel({
   const [fitScale, setFitScale] = useState(1)
   const [docHeight, setDocHeight] = useState(0)
 
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      const container = entries[0]
+      if (!container) return
+      const cw = container.contentRect.width
+      // 32px for padding if we want
+      if (cw > 0 && cw < DOC_WIDTH_PX) {
+        setFitScale(cw / DOC_WIDTH_PX)
+      } else {
+        setFitScale(1)
+      }
+    })
+    ro.observe(scrollRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!docRef.current) return
+    const ro = new ResizeObserver(() => {
+      if (docRef.current) {
+        setDocHeight(docRef.current.clientHeight)
+      }
+    })
+    ro.observe(docRef.current)
+    return () => ro.disconnect()
+  }, [layout, merged])
+
   const [draft, setDraft] = useState({
     notes: inv.notes || '',
     paymentTerms: resolveDocumentTerms(inv),
@@ -101,24 +129,28 @@ export default function InvoicePreviewPanel({
 
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-auto p-4 md:p-8 bg-slate-100/80"
+        className="flex-1 min-h-0 overflow-auto p-0 md:p-8 bg-slate-100/80"
       >
-        <div
-          id={printRootId}
-          ref={docRef}
-          className={`invoice-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
-          style={{
-            ...layoutToStyle(layout),
-            width: DOC_WIDTH_PX,
-            boxSizing: 'border-box',
-          }}
-        >
-          <InvoicePrintBody
-            invoice={merged}
-            siteSettings={siteSettings}
-            showRefOnDocument={draft.showRefOnDocument}
-            forPrint={false}
-          />
+        <div style={{ width: DOC_WIDTH_PX * fitScale, height: docHeight > 0 ? docHeight * fitScale : 'auto', margin: '0 auto' }}>
+          <div
+            id={printRootId}
+            ref={docRef}
+            className={`invoice-doc doc-print-frame mx-auto bg-white shadow-lg ${layout.showDocumentFrame ? 'border border-slate-200' : ''}`}
+            style={{
+              ...layoutToStyle(layout),
+              width: DOC_WIDTH_PX,
+              boxSizing: 'border-box',
+              transform: `scale(${fitScale})`,
+              transformOrigin: 'top center',
+            }}
+          >
+            <InvoicePrintBody
+              invoice={merged}
+              siteSettings={siteSettings}
+              showRefOnDocument={draft.showRefOnDocument}
+              forPrint={false}
+            />
+          </div>
         </div>
       </div>
     </div>

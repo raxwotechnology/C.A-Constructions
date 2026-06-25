@@ -45,10 +45,12 @@ const useAuthStore = create(
             set({ user: data.user, isAuthenticated: true })
             return data.user
           }
-        } catch {
-          set({ user: null, token: null, isAuthenticated: false })
-          delete api.defaults.headers.common['Authorization']
-          localStorage.removeItem('raxwo-auth')
+        } catch (error) {
+          if (error.response?.status === 401) {
+            set({ user: null, token: null, isAuthenticated: false })
+            delete api.defaults.headers.common['Authorization']
+            localStorage.removeItem('raxwo-auth')
+          }
         }
         return null
       },

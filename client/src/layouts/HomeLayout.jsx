@@ -53,13 +53,13 @@ export default function HomeLayout() {
 
                 <div className="flex gap-3 pt-2">
                   {[
-                    { Icon: FaFacebookF, link: '#' },
-                    { Icon: FaInstagram, link: '#' },
-                    { Icon: FaYoutube, link: '#' },
-                    { Icon: FaLinkedinIn, link: '#' },
-                    { Icon: FaTiktok, link: '#' }
+                    { Icon: FaFacebookF, link: 'https://web.facebook.com/Raxwo' },
+                    { Icon: FaInstagram, link: 'https://www.instagram.com/raxwo/' },
+                    { Icon: FaYoutube, link: 'https://www.youtube.com/@RaxwoTechnology' },
+                    { Icon: FaLinkedinIn, link: 'https://www.linkedin.com/company/raxwo/' },
+                    { Icon: FaTiktok, link: 'https://www.tiktok.com/@raxwotech' }
                   ].map((social, idx) => (
-                    <a key={idx} href={social.link} 
+                    <a key={idx} href={social.link} target="_blank" rel="noopener noreferrer"
                       className="w-8 h-8 rounded-full bg-[#20b2f5] hover:bg-white hover:text-[#20b2f5] text-white transition-colors duration-300 flex items-center justify-center text-sm shadow-lg">
                       <social.Icon />
                     </a>

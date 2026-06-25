@@ -287,7 +287,7 @@ export default function Services() {
                         <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-auto relative z-20">
                           <div className="flex flex-col">
                             <span className="text-secondary font-black text-lg tracking-tight">{s.price || s.priceText}</span>
-                            {s.priceType && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{s.priceType} (Added by Admin)</span>}
+                            {s.priceType && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{s.priceType.replace('-', ' ')}</span>}
                           </div>
                           <div className="flex items-center gap-2">
                             <button

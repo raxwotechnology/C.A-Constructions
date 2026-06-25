@@ -272,13 +272,13 @@ export default function AdminEmployees() {
     return data?.fileUrl || data?.url || null
   }
 
-  const uploadImage = async (file) => {
-    if (!file) return null
-    const fd = new FormData()
-    fd.append('image', file)
-    const { data } = await api.post('/uploads/image', fd)
-    return data?.imageUrl || null
-  }
+  const uploadImage = (file) => new Promise((resolve, reject) => {
+    if (!file) return resolve(null)
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = (e) => reject(new Error('Image conversion failed'))
+  })
 
   const onInvalid = () => toast.error('Please complete all required fields (department, designation, join date, etc.)')
 
@@ -538,13 +538,14 @@ export default function AdminEmployees() {
       </div>
 
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
             <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b">
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90dvh] flex flex-col overflow-hidden relative">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b shrink-0 bg-white">
                 <h3 className="text-lg font-bold text-primary font-heading">{editing?'Edit Employee':'Add Employee'}</h3>
                 <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
               </div>
+              <div className="overflow-y-auto p-0 flex-1 relative">
               <EmployeeFormModal
                 editing={editing}
                 branches={branches}
@@ -583,20 +584,21 @@ export default function AdminEmployees() {
                 handleSubmit={handleSubmit}
                 onInvalid={onInvalid}
               />
+              </div>
             </motion.div>
         </div>,
         document.body
       )}
 
       {activityEmp && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
             <motion.div
               initial={{opacity:0, y: 10, scale: 0.98}}
               animate={{opacity:1, y: 0, scale: 1}}
               exit={{opacity:0, y: 10, scale: 0.98}}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90dvh] flex flex-col overflow-hidden relative"
             >
-              <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b shrink-0 bg-white">
                 <div>
                   <h3 className="text-lg font-bold text-primary font-heading">Employee Activity</h3>
                   <p className="text-sm text-slate-500">{activityEmp.userId?.name} • {activityEmp.userId?.email}</p>
@@ -604,7 +606,7 @@ export default function AdminEmployees() {
                 <button onClick={() => setActivityEmp(null)} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
               </div>
 
-              <div className="p-6 space-y-5">
+              <div className="overflow-y-auto p-4 sm:p-6 space-y-5 flex-1 relative">
                 {activityLoading ? (
                   <div className="py-12 text-center">
                     <div className="w-10 h-10 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
