@@ -380,6 +380,22 @@ exports.deleteEmployee = async (req, res, next) => {
       } else {
         await User.findByIdAndDelete(linkedUserId);
       }
+      
+      try {
+        // Clean up references to the deleted user
+        await mongoose.model('Project').updateMany(
+          { assignedEmployees: linkedUserId },
+          { $pull: { assignedEmployees: linkedUserId } }
+        );
+        // Also remove from task assignments within projects if any
+        await mongoose.model('Project').updateMany(
+          { 'tasks.assignedTo': linkedUserId },
+          { $set: { 'tasks.$[elem].assignedTo': null } },
+          { arrayFilters: [{ 'elem.assignedTo': linkedUserId }] }
+        );
+      } catch (cleanupErr) {
+        console.warn('[deleteEmployee] Cleanup of projects failed:', cleanupErr.message);
+      }
     }
 
     try {

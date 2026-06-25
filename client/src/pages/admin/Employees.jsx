@@ -233,6 +233,7 @@ export default function AdminEmployees() {
       'bank', 'bankBranch', 'accountNumber', 'accountHolder', 'accountType'
     ].forEach(k => setValue(k, full[k]))
     setValue('dob', full.dob ? full.dob.split('T')[0] : '')
+    setValue('joinedDate', full.joinedDate ? full.joinedDate.split('T')[0] : '')
     setValue('resignationDate', full.resignationDate ? full.resignationDate.split('T')[0] : '')
     setValue('epfEtfEnrolled', full.epfEtfEnrolled || false)
     setValue('emergencyContactName', full?.emergencyContact?.name || '')

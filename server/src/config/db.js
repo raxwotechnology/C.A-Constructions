@@ -18,7 +18,7 @@ const connectDB = async () => {
       attempt += 1;
       const conn = await mongoose.connect(uri);
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-      if (process.env.ENSURE_STAFF_LOGINS !== 'false') {
+      if (process.env.ENSURE_STAFF_LOGINS === 'true') {
         const { ensureStaffLogins } = require('../services/ensureStaffLogins');
         ensureStaffLogins({ resetPassword: false }).catch((err) => {
           console.error('[staff-logins] Could not ensure demo staff users:', err.message);
