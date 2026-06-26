@@ -81,23 +81,29 @@ function buildLetterhead(settings) {
   if (email) lines.push({ label: 'Email', text: email });
   if (settings.websiteUrl) lines.push({ label: 'Web', text: settings.websiteUrl });
 
-  const contactHtml = lines
-    .map(
-      (l) =>
-        `<div style="margin:3px 0;font-size:9.5pt;color:#475569"><span style="color:#38bdf8;font-weight:600;min-width:42px;display:inline-block">${esc(l.label)}</span> ${esc(l.text)}</div>`,
-    )
-    .join('');
+  const contactHtml = lines.length ? `
+    <table style="margin:0 0 0 auto;font-size:9.5pt;color:#475569;line-height:1.5;border-collapse:collapse;text-align:left">
+      <tbody>
+        ${lines.map((l) => `
+          <tr>
+            <td style="padding:2px 8px 2px 0;color:#38bdf8;font-weight:600;text-align:right;vertical-align:top;white-space:nowrap">${esc(l.label)}</td>
+            <td style="padding:2px 0;vertical-align:top;white-space:pre-wrap;color:#475569">${esc(l.text)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : '';
 
   return `
-    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:16px">
-        <div>${logoHtml}</div>
+    <header style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="flex-shrink:0">${logoHtml}</div>
         <div>
-          <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a">${esc(name)}</h1>
+          <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;line-height:1.2;word-break:break-word">${esc(name)}</h1>
           ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>` : ''}
         </div>
       </div>
-      <div style="text-align:right;min-width:200px">${contactHtml}</div>
+      <div style="text-align:right;flex-shrink:0;padding-top:4px;">${contactHtml}</div>
     </header>`;
 }
 
@@ -312,7 +318,7 @@ async function buildQuotationDocumentHtml(quotation, { bankLabel } = {}) {
       tr { page-break-inside: avoid; page-break-after: auto; }
       thead { display: table-header-group; }
     </style>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>${pageCss}</head><body style="margin:0;padding:14mm;background:#fff">${body}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>${pageCss}</head><body style="margin:0;background:#fff"><div style="padding:14mm">${body}</div></body></html>`;
 }
 
 async function buildInvoiceDocumentHtml(invoice) {
@@ -399,7 +405,7 @@ async function buildInvoiceDocumentHtml(invoice) {
       tr { page-break-inside: avoid; }
       thead { display: table-header-group; }
     </style>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>${pageCss}</head><body style="margin:0;padding:0;background:#fff">${body}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>${pageCss}</head><body style="margin:0;background:#fff"><div style="padding:14mm">${body}</div></body></html>`;
 }
 
 function bankLabelFromAccount(bank) {
@@ -431,12 +437,12 @@ async function buildTabularExportHtml(title, headers, rows, metaLine = '') {
     table{width:100%;border-collapse:collapse}
     th,td{border:1px solid #e2e8f0;padding:8px 10px;font-size:10pt;text-align:left}
     th{background:#f1f5f9;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.05em;color:#475569}
-  </style></head><body>
+  </style></head><body style="margin:0;background:#fff"><div style="padding:14mm">
   ${buildLetterhead(settings)}
   <h2>${esc(title)}</h2>
   ${metaLine ? `<p class="meta">${esc(metaLine)}</p>` : ''}
   <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-  </body></html>`;
+  </div></body></html>`;
 }
 
 module.exports = {

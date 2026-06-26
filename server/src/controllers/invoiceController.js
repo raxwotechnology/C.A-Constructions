@@ -11,7 +11,7 @@ const { verifyActionPassword } = require('../utils/actionPassword');
 const { createAuditLog } = require('./auditController');
 const { allocateInvoiceNoFromQuotationNo, generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
 const { syncProjectsForInvoice } = require('../utils/projectInvoiceSync');
-const { logInvoicePaymentIncome } = require('../utils/financeInvoiceIncome');
+const { logInvoicePaymentIncome, deleteInvoiceFinanceEntries } = require('../utils/financeInvoiceIncome');
 
 const POPULATE_INVOICE = [
   { path: 'client',       select: 'name email phone' },
@@ -38,7 +38,7 @@ function calcItems(items = [], taxRate = 0, globalDiscountValue = 0, globalDisco
   
   let globalDiscAmt = 0;
   if (globalDiscountType === 'percentage') {
-    globalDiscAmt = subtotal * (Number(globalDiscountValue || 0) / 100);
+    globalDiscAmt = Math.max(0, subtotal - lineDiscounts) * (Number(globalDiscountValue || 0) / 100);
   } else {
     globalDiscAmt = Number(globalDiscountValue || 0);
   }
@@ -480,6 +480,8 @@ exports.deleteInvoice = async (req, res, next) => {
         });
       }
     }
+
+    await deleteInvoiceFinanceEntries(invoice.invoiceNo);
 
     await Payment.deleteMany({ invoice: invoice._id });
     await Project.updateMany(

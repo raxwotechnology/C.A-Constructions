@@ -289,8 +289,8 @@ export default function AdminInvoices() {
       status: 'draft',
       invoiceDate: new Date().toISOString().split('T')[0],
       items: [{ description: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 }],
-      paymentTerms: localStorage.getItem('defaultInvoiceTerms') || '',
-      terms: localStorage.getItem('defaultInvoiceTerms') || '',
+      paymentTerms: (() => { try { return localStorage.getItem('defaultInvoiceTerms') || '' } catch { return '' } })(),
+      terms: (() => { try { return localStorage.getItem('defaultInvoiceTerms') || '' } catch { return '' } })(),
     })
     setSignatures({
       authorizer: { data: '', name: '', title: 'Authorized Signatory' },
@@ -863,8 +863,12 @@ export default function AdminInvoices() {
                         <button
                           type="button"
                           onClick={() => {
-                            localStorage.setItem('defaultInvoiceTerms', watch('paymentTerms') || '')
-                            toast.success('Default terms saved')
+                            try {
+                              localStorage.setItem('defaultInvoiceTerms', watch('paymentTerms') || '')
+                              toast.success('Default terms saved')
+                            } catch {
+                              toast.error('Could not save default terms')
+                            }
                           }}
                           className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
                         >

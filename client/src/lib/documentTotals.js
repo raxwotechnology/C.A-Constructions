@@ -28,7 +28,7 @@ export function calcDocumentTotals(items = [], {
 
   const globalDiscAmt =
     globalDiscountType === 'percentage'
-      ? grossSubtotal * (Number(globalDiscountValue || 0) / 100)
+      ? Math.max(0, grossSubtotal - lineDiscounts) * (Number(globalDiscountValue || 0) / 100)
       : Number(globalDiscountValue || 0)
 
   const discountTotal = lineDiscounts + globalDiscAmt

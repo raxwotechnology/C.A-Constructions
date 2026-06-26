@@ -16,25 +16,27 @@ function esc(s) {
 /** Letterhead: logo + name + tagline left; contact right */
 export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTagline } = {}) {
   const company = buildCompanyFromSettings(settings)
+  
   const tagline =
     showTagline !== undefined
       ? showTagline
       : settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Next Level Tech'
-  // Always use absolute URLs for logo to ensure cross-origin compatibility (hosted frontend ≠ backend)
-  const logo = companyLogoHtml(company, { forPrint: true, maxHeight: 64 })
+  
+  // Use absolute URLs for logo to ensure cross-origin compatibility on print/PDF
+  const logo = companyLogoHtml(company, { forPrint, maxHeight: 64 })
   const contactHtml = contactBlockHtml(company)
 
   return `
-    <header class="doc-letterhead" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:16px;min-width:0;flex:1;min-width:260px">
+    <header class="doc-letterhead" style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:16px;">
         <div style="flex-shrink:0">${logo}</div>
         <div>
           <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;line-height:1.2;word-break:break-word">${esc(company.name)}</h1>
           ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>` : ''}
         </div>
       </div>
-      <div style="text-align:right;flex:1;min-width:260px;display:flex;flex-direction:column;align-items:flex-end">
-        <div style="text-align:right;max-width:100%">${contactHtml}</div>
+      <div style="text-align:right;flex-shrink:0;">
+        ${contactHtml}
       </div>
     </header>`
 }

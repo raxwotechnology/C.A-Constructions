@@ -39,7 +39,7 @@ export function buildInvoiceDraft(form, { clients = [], editing = null, projects
     transportCharge: totals.transportCharge,
     total: totals.total,
     totalPaid: editing?.totalPaid || 0,
-    remainingBalance: editing?.remainingBalance ?? totals.total,
+    remainingBalance: totals.total - (editing?.totalPaid || 0),
     currency: form?.currency || 'LKR',
     notes: form?.notes || '',
     paymentTerms: form?.paymentTerms || form?.terms || '',

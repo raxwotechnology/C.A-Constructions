@@ -321,7 +321,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                         <tr key={i} className="hover:bg-slate-50 transition-colors">
                           <td className="p-3 text-slate-600">{new Date(p.date).toLocaleDateString('en-LK')}</td>
                           <td className="p-3">{p.isAdvance ? <span className="badge badge-purple">Advance</span> : <span className="badge badge-blue">Payment</span>}</td>
-                          <td className="p-3 capitalize text-slate-600">{p.method.replace('_', ' ')}</td>
+                          <td className="p-3 capitalize text-slate-600">{(p.method || '').replace('_', ' ')}</td>
                           <td className="p-3 text-slate-500 text-xs font-mono">{p.reference || '-'}</td>
                           <td className="p-3 text-slate-600">{p.recordedBy?.name || 'System'}</td>
                           <td className="p-3 text-right font-bold text-slate-800">{p.amount?.toLocaleString()}</td>

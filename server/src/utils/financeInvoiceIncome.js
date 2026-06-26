@@ -184,6 +184,15 @@ async function backfillInvoiceFinanceEntries(createdBy) {
   return { created, skipped, invoicesScanned: invoices.length };
 }
 
+async function deleteInvoiceFinanceEntries(invoiceNo) {
+  if (!invoiceNo) return;
+  await FinanceEntry.deleteMany({
+    type: 'income',
+    category: 'Invoices',
+    title: { $in: [`Invoice Payment: ${invoiceNo}`, `Invoice Advance: ${invoiceNo}`] }
+  });
+}
+
 module.exports = {
   isInvoiceIncomeEntry,
   mapInvoicePaymentMethod,
@@ -191,4 +200,5 @@ module.exports = {
   resolveInvoicePaymentIncome,
   logInvoicePaymentIncome,
   backfillInvoiceFinanceEntries,
+  deleteInvoiceFinanceEntries,
 };

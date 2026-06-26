@@ -5,9 +5,12 @@ import { mediaUrl } from '../lib/media'
 export const SITE_SETTINGS_QUERY_KEY = ['site-settings']
 
 export function siteLogoSrc(settings) {
-  if (!settings?.logoUrl?.trim()) return ''
+  const defaultLogo = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png';
+  if (!settings?.logoUrl?.trim()) return defaultLogo;
   const v = settings.updatedAt ? new Date(settings.updatedAt).getTime() : ''
-  return `${mediaUrl(settings.logoUrl.trim())}${v ? `?v=${v}` : ''}`
+  const url = mediaUrl(settings.logoUrl.trim());
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return `${url}${v ? `?v=${v}` : ''}`
 }
 
 export function useSiteBranding() {
