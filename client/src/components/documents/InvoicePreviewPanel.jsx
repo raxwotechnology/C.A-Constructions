@@ -55,7 +55,7 @@ export default function InvoicePreviewPanel({
     })
     ro.observe(docRef.current)
     return () => ro.disconnect()
-  }, [layout, merged])
+  }, [layout])
 
   const [draft, setDraft] = useState({
     notes: inv.notes || '',

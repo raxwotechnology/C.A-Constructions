@@ -15,9 +15,12 @@ export function applySiteFavicon(logoUrl, cacheKey) {
   link.rel = 'icon'
 
   if (logo) {
-    const href = `${mediaUrl(logo)}?v=${v}`
+    let href = mediaUrl(logo)
+    if (!href.startsWith('data:')) {
+      href = `${href}?v=${v}`
+    }
     link.href = href
-    link.type = /\.(png|jpe?g|webp|gif|ico)(\?|$)/i.test(href) ? 'image/png' : 'image/svg+xml'
+    link.type = href.startsWith('data:') ? 'image/png' : (/\.(png|jpe?g|webp|gif|ico)(\?|$)/i.test(href) ? 'image/png' : 'image/svg+xml')
   } else {
     const origin = window.location.origin
     link.href = `${origin}/favicon.svg?v=${v}`

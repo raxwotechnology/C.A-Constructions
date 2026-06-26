@@ -71,8 +71,6 @@ export default function PasswordConfirmModal({
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              readOnly
-              onFocus={(e) => e.target.removeAttribute('readonly')}
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

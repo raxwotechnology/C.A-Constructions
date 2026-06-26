@@ -971,7 +971,7 @@ export default function AdminInvoices() {
                     data: { notes: draft.notes, paymentTerms: draft.paymentTerms },
                   }) : undefined}
                   saving={previewSaveMut.isPending}
-                  onDownloadPdf={editing?._id ? (id) => downloadInvoicePdf(id, editing.invoiceNo) : undefined}
+                  onDownloadPdf={editing?._id ? (id) => downloadPdf(id, editing.invoiceNo) : undefined}
                 />
               </div>
             </div>
@@ -1010,7 +1010,7 @@ export default function AdminInvoices() {
                   data: { notes: draft.notes, paymentTerms: draft.paymentTerms },
                 }, { onSuccess: () => { setSendTarget(viewingInv); setSendMethods({ email: true, sms: false, link: true, pdf: true }) } })
               }}
-              onDownloadPdf={(id) => downloadInvoicePdf(id, viewingInv.invoiceNo)}
+              onDownloadPdf={(id) => downloadPdf(id, viewingInv.invoiceNo)}
             />
           </motion.div>
         </div>,

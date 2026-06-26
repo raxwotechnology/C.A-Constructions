@@ -40,6 +40,7 @@ function toRelativeUploadUrl(urlOrPath) {
 }
 
 function relativeUploadPath(subdir, filename) {
+  if (filename && filename.startsWith('data:')) return filename;
   return `/uploads/${subdir}/${filename}`;
 }
 

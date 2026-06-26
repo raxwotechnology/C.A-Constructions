@@ -7,20 +7,28 @@ function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-// Local storage for CVs
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = uploadSubdir('cvs');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `cv-${unique}${path.extname(file.originalname)}`);
-  }
-});
+// Unified Base64 storage for all uploads (replaces ephemeral disk storage)
+function Base64Storage() {}
+Base64Storage.prototype._handleFile = function _handleFile(req, file, cb) {
+  const chunks = [];
+  file.stream.on('data', chunk => chunks.push(chunk));
+  file.stream.on('end', () => {
+    const buffer = Buffer.concat(chunks);
+    const b64 = buffer.toString('base64');
+    const filename = `data:${file.mimetype};base64,${b64}`;
+    cb(null, {
+      filename: filename,
+      buffer: buffer,
+      size: buffer.length
+    });
+  });
+  file.stream.on('error', cb);
+};
+Base64Storage.prototype._removeFile = function _removeFile(req, file, cb) { cb(null); };
 
-const fileFilter = (req, file, cb) => {
+const unifiedStorage = new Base64Storage();
+
+const cvFilter = (req, file, cb) => {
   const allowed = ['.pdf', '.doc', '.docx'];
   const ext = path.extname(file.originalname).toLowerCase();
   if (allowed.includes(ext)) cb(null, true);
@@ -28,146 +36,76 @@ const fileFilter = (req, file, cb) => {
 };
 
 exports.uploadCV = multer({
-  storage,
-  fileFilter,
+  storage: unifiedStorage,
+  fileFilter: cvFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 }).single('cv');
 
-// Avatar upload (memory for Cloudinary)
-const memStorage = multer.memoryStorage();
+const imageFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) cb(null, true);
+  else cb(new Error('Only image files allowed'), false);
+};
+
 exports.uploadImage = multer({
-  storage: memStorage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files allowed'), false);
-  },
+  storage: unifiedStorage,
+  fileFilter: imageFilter,
   limits: { fileSize: 2 * 1024 * 1024 }
 }).single('avatar');
 
-// Local image upload for profile/site/portfolio/services
-const imageDiskStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = uploadSubdir('images');
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `img-${unique}${path.extname(file.originalname)}`);
-  }
-});
-
 exports.uploadImageLocal = multer({
-  storage: memStorage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files allowed'), false);
-  },
+  storage: unifiedStorage,
+  fileFilter: imageFilter,
   limits: { fileSize: 4 * 1024 * 1024 }
 }).single('image');
 
-// ── Agreement upload (PDF, DOC, DOCX, images) ──────────
-const agreementStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = uploadSubdir('agreements');
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `agreement-${unique}${path.extname(file.originalname)}`);
-  }
-});
+const agreementFilter = (req, file, cb) => {
+  const allowed = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowed.includes(ext)) cb(null, true);
+  else cb(new Error('Only PDF, DOC, DOCX, JPG, PNG files are allowed'), false);
+};
 
 exports.uploadAgreement = multer({
-  storage: agreementStorage,
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) cb(null, true);
-    else cb(new Error('Only PDF, DOC, DOCX, JPG, PNG files are allowed'), false);
-  },
+  storage: unifiedStorage,
+  fileFilter: agreementFilter,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 }).single('agreement');
 
-// ── Bill / Receipt upload (PDF, images) ─────────────────
-const billStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = uploadSubdir('bills');
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `bill-${unique}${path.extname(file.originalname)}`);
-  }
-});
+const billFilter = (req, file, cb) => {
+  const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowed.includes(ext)) cb(null, true);
+  else cb(new Error('Only PDF, JPG, PNG, WEBP files are allowed'), false);
+};
 
 exports.uploadBill = multer({
-  storage: billStorage,
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) cb(null, true);
-    else cb(new Error('Only PDF, JPG, PNG, WEBP files are allowed'), false);
-  },
+  storage: unifiedStorage,
+  fileFilter: billFilter,
   limits: { fileSize: 8 * 1024 * 1024 } // 8MB
 }).single('bill');
-// ── Generic document upload (PDF + images, 5MB) ─────────
-const docStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = uploadSubdir('documents');
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `doc-${unique}${path.extname(file.originalname)}`);
-  }
-});
+
+const docFilter = (req, file, cb) => {
+  const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowed.includes(ext)) cb(null, true);
+  else cb(new Error('Unsupported file type'), false);
+};
 
 exports.uploadFile = multer({
-  storage: docStorage,
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) cb(null, true);
-    else cb(new Error('Unsupported file type'), false);
-  },
+  storage: unifiedStorage,
+  fileFilter: docFilter,
   limits: { fileSize: 5 * 1024 * 1024 }
 }).single('file');
 
-// ── Medical / Leave document upload ─────────────────────
 exports.uploadDocument = multer({
-  storage: docStorage,
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) cb(null, true);
-    else cb(new Error('Only PDF, JPG, PNG files are allowed'), false);
-  },
+  storage: unifiedStorage,
+  fileFilter: billFilter,
   limits: { fileSize: 5 * 1024 * 1024 }
 }).single('document');
 
-// ── Leader photo upload ──────────────────────────────────
-const leaderStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = uploadSubdir('leaders');
-    ensureDir(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `leader-${unique}${path.extname(file.originalname)}`);
-  }
-});
-
 exports.uploadLeaderPhoto = multer({
-  storage: leaderStorage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files allowed'), false);
-  },
+  storage: unifiedStorage,
+  fileFilter: imageFilter,
   limits: { fileSize: 3 * 1024 * 1024 } // 3MB
 }).single('image');
 
