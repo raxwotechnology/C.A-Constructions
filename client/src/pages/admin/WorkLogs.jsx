@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FiPlus, FiX, FiCheck, FiMessageSquare, FiFlag, FiUpload, FiLink, FiImage, FiFilter, FiCheckCircle, FiAlertCircle, FiClock } from 'react-icons/fi'
 import useAuthStore from '../../store/authStore'
+import ExportBar from '../../components/ui/ExportBar'
 
 const ROLES = ['all', 'developer', 'designer', 'marketing', 'manager']
 
@@ -158,12 +159,41 @@ export default function WorkLogs() {
                   </button>
                 ))}
               </div>
+              <ExportBar 
+                data={logs}
+                columns={[
+                  { header: 'Date', accessor: l => new Date(l.date).toLocaleDateString() },
+                  { header: 'Employee', accessor: l => l.employee?.userId?.name || 'Unknown' },
+                  { header: 'Role', accessor: 'employeeRole' },
+                  { header: 'Total Hours', accessor: 'totalHours' },
+                  { header: 'Status', accessor: 'status' },
+                  { header: 'Approval', accessor: 'approvalStatus' },
+                  { header: 'Blockers', accessor: 'blockers' },
+                  { header: 'Notes', accessor: 'notes' }
+                ]}
+                title="Work Logs Report"
+                filters={{ Date: dateFilter, Branch: branchFilter, Role: roleFilter }}
+              />
             </>
           )}
           {!isAdmin && (
-            <button onClick={() => setShowSubmit(true)} className="btn-primary gap-2 w-full sm:w-auto justify-center">
-              <FiPlus size={14} /> Submit Log
-            </button>
+            <>
+              <ExportBar 
+                data={logs}
+                columns={[
+                  { header: 'Date', accessor: l => new Date(l.date).toLocaleDateString() },
+                  { header: 'Total Hours', accessor: 'totalHours' },
+                  { header: 'Status', accessor: 'status' },
+                  { header: 'Approval', accessor: 'approvalStatus' },
+                  { header: 'Tasks', accessor: l => l.tasks?.map(t => t.taskName).join(', ') || '' },
+                  { header: 'Blockers', accessor: 'blockers' }
+                ]}
+                title="My Work Logs Report"
+              />
+              <button onClick={() => setShowSubmit(true)} className="btn-primary gap-2 w-full sm:w-auto justify-center">
+                <FiPlus size={14} /> Submit Log
+              </button>
+            </>
           )}
         </div>
       </div>

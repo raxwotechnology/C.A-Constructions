@@ -33,7 +33,6 @@ const adminNav = [
     { to: '/admin/advances', label: 'Advances', icon: FiCreditCard },
     { to: '/admin/loans', label: 'Loans', icon: FiCreditCard },
     { to: '/admin/letters', label: 'Letters', icon: FiFileText },
-    { to: '/admin/work-logs', label: 'Work Logs', icon: FiCheckSquare },
     { to: '/admin/performance', label: 'Performance', icon: FiTrendingUp },
   ]},
   { group: 'Recruitment', items: [
@@ -65,9 +64,7 @@ const adminNav = [
   ]},
   { group: 'System', items: [
     { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
-    { to: '/admin/audit-logs', label: 'Audit Logs', icon: FiShield },
-    { to: '/admin/email-logs', label: 'Email Logs', icon: FiMail },
-    { to: '/admin/sms-logs', label: 'SMS Logs', icon: FiMessageSquare },
+    { to: '/admin/log-centre', label: 'Log Centre', icon: FiShield },
     { to: '/admin/messages', label: 'Messages', icon: FiMessageSquare },
     { to: '/admin/meetings', label: 'Meetings', icon: FiVideo },
     { to: '/admin/requests', label: 'Requests', icon: FiClipboard },

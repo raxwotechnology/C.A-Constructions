@@ -5,6 +5,7 @@ import { FiMessageSquare, FiSearch, FiRefreshCw, FiCheckCircle, FiXCircle, FiSen
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import ExportBar from '../../components/ui/ExportBar'
 
 export default function SmsLogs() {
   const qc = useQueryClient()
@@ -66,14 +67,29 @@ export default function SmsLogs() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="page-header flex justify-between items-start">
+      <div className="page-header flex justify-between items-start flex-wrap gap-3">
         <div>
           <h1 className="page-title">SMS Logs</h1>
           <p className="page-subtitle">View and manage SMS notifications sent via SMSLenz</p>
         </div>
-        <button onClick={() => setShowCompose(true)} className="btn-primary">
-          <FiMessageSquare /> Compose Custom SMS
-        </button>
+        <div className="flex items-center gap-3">
+          <ExportBar 
+            data={logs}
+            columns={[
+              { header: 'Recipient', accessor: 'recipientName' },
+              { header: 'Phone', accessor: 'recipientPhone' },
+              { header: 'Message', accessor: 'message' },
+              { header: 'Module', accessor: 'module' },
+              { header: 'Status', accessor: 'status' },
+              { header: 'Sent At', accessor: l => new Date(l.sentAt).toLocaleString() }
+            ]}
+            title="SMS Logs Report"
+            filters={{ Module: moduleFilter, Status: statusFilter, Search: search }}
+          />
+          <button onClick={() => setShowCompose(true)} className="btn-primary">
+            <FiMessageSquare /> Compose Custom SMS
+          </button>
+        </div>
       </div>
 
       <div className="card card-body flex flex-wrap gap-4 items-center">

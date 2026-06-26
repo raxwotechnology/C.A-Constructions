@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { FiShield, FiSearch, FiFilter, FiTrash2, FiEdit2, FiEye, FiUserCheck, FiAlertTriangle, FiInfo, FiX, FiDollarSign } from 'react-icons/fi'
+import ExportBar from '../../components/ui/ExportBar'
 
 const ACTION_COLORS = {
   create: 'badge-green', update: 'badge-blue', delete: 'badge-red',
@@ -55,12 +56,28 @@ export default function AdminAuditLogs() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="page-header">
+      <div className="page-header flex justify-between items-start flex-wrap gap-3">
         <div>
           <h1 className="page-title">Audit Logs</h1>
           <p className="page-subtitle">Track every action — who did what and when</p>
         </div>
-        <span className="badge badge-navy"><FiShield size={12}/> Admin Only</span>
+        <div className="flex items-center gap-3">
+          <span className="badge badge-navy"><FiShield size={12}/> Admin Only</span>
+          <ExportBar 
+            data={logs}
+            columns={[
+              { header: 'Time', accessor: l => new Date(l.createdAt).toLocaleString() },
+              { header: 'User', accessor: l => l.userName || 'System' },
+              { header: 'Role', accessor: 'userRole' },
+              { header: 'Action', accessor: 'action' },
+              { header: 'Module', accessor: 'module' },
+              { header: 'Description', accessor: 'description' },
+              { header: 'Severity', accessor: 'severity' }
+            ]}
+            title="Audit Logs Report"
+            filters={{ Module: module, Action: action, Severity: severity, Search: search }}
+          />
+        </div>
       </div>
 
       {/* Filters */}

@@ -61,7 +61,6 @@ import AdminRewards from './pages/admin/Rewards'
 import AdminAIAnalyzer from './pages/admin/AIAnalyzer'
 import AdminBranches from './pages/admin/Branches'
 import Meetings from './pages/shared/Meetings'
-import AdminAuditLogs from './pages/admin/AuditLogs'
 import AdminQuotations from './pages/admin/Quotations'
 import AdminPettyCash from './pages/admin/PettyCash'
 import AdminAdvances from './pages/admin/Advances'
@@ -75,8 +74,7 @@ import AdminCheques from './pages/admin/Cheques'
 import IncomeTax from './pages/admin/IncomeTax'
 import AdminRequests from './pages/admin/Requests'
 import ToolAssignments from './pages/admin/ToolAssignments'
-import AdminSmsLogs from './pages/admin/SmsLogs'
-import AdminEmailLogs from './pages/admin/EmailLogs'
+import LogCentre from './pages/admin/LogCentre'
 import AdminLeaders from './pages/admin/AdminLeaders'
 import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerProjects from './pages/manager/Projects'
@@ -249,9 +247,7 @@ export default function App() {
         <Route path="rewards" element={<AdminRewards />} />
         <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
         <Route path="branches" element={<AdminBranches />} />
-        <Route path="audit-logs" element={<AdminAuditLogs />} />
-        <Route path="sms-logs" element={<AdminSmsLogs />} />
-        <Route path="email-logs" element={<AdminEmailLogs />} />
+        <Route path="log-centre" element={<LogCentre />} />
         <Route path="leaders" element={<AdminLeaders />} />
         <Route path="quotations" element={<AdminQuotations />} />
         <Route path="agreements" element={<Agreements />} />
@@ -300,9 +296,7 @@ export default function App() {
         <Route path="portfolio" element={<AdminPortfolio />} />
         <Route path="rewards" element={<AdminRewards />} />
         <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
-        <Route path="audit-logs" element={<AdminAuditLogs />} />
-        <Route path="sms-logs" element={<AdminSmsLogs />} />
-        <Route path="email-logs" element={<AdminEmailLogs />} />
+        <Route path="log-centre" element={<LogCentre />} />
         <Route path="leaders" element={<AdminLeaders />} />
         <Route path="quotations" element={<AdminQuotations />} />
         <Route path="agreements" element={<Agreements />} />
