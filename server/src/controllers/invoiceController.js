@@ -364,6 +364,7 @@ exports.recordPayment = async (req, res, next) => {
         date: date || new Date(),
         reference: reference || '',
         recordedBy: req.user._id,
+        moduleSource: 'invoices',
       });
     }
 
@@ -428,6 +429,7 @@ exports.recordAdvance = async (req, res, next) => {
         date: date || new Date(),
         reference: reference || '',
         recordedBy: req.user._id,
+        moduleSource: 'invoices',
       });
     }
 
@@ -472,7 +474,7 @@ exports.deleteInvoice = async (req, res, next) => {
           description: `Reversal: deleted invoice ${invoice.invoiceNo}`,
           date: new Date(),
           reference: `del-inv-${invoice._id}`,
-          moduleSource: 'invoice',
+          moduleSource: 'invoices',
           sourceType: 'invoice_delete',
           sourceId: invoice._id,
           recordedBy: req.user._id,

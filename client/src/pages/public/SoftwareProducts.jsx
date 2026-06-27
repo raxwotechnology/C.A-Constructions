@@ -28,7 +28,8 @@ export default function SoftwareProducts() {
   })
 
   const raw = (data?.services || []).filter(s => s.type === 'product')
-  const displayProducts = raw.map(s => ({
+  const baseProducts = raw.length > 0 ? raw : STATIC_PRODUCTS
+  const displayProducts = baseProducts.map(s => ({
     ...s,
     icon: ICON_MAP[s.icon] || FiPackage,
     desc: s.description,

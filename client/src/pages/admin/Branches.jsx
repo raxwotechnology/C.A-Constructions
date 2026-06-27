@@ -75,7 +75,7 @@ export default function AdminBranches() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {branches.map((b, i) => (
             <motion.div key={b._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-              className={`bg-white rounded-2xl p-5 border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${b.isHeadOffice ? 'border-secondary/50 shadow-md ring-2 ring-secondary/10' : 'border-slate-200 shadow-sm hover:border-secondary/30'}`}>
+              className={`group bg-white rounded-2xl p-5 border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${b.isHeadOffice ? 'border-secondary/50 shadow-md ring-2 ring-secondary/10' : 'border-slate-200 shadow-sm hover:border-secondary/30'}`}>
               
               {/* Decorative background element */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-secondary/5 to-primary/5 rounded-bl-[100px] -z-10 transition-transform group-hover:scale-110" />

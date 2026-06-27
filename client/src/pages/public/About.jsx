@@ -4,12 +4,7 @@ import { FiArrowRight, FiAward, FiUsers, FiTarget, FiGlobe, FiHeart, FiZap, FiSh
 import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
-const resolveImg = (url) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `${SERVER_URL}${url}`
-}
+import { mediaUrl } from '../../lib/media'
 
 const values = [
   { icon: FiZap, title: 'Innovation First', desc: 'We embrace new technologies and creative approaches to solve complex problems.', color: 'bg-yellow-50 text-yellow-600' },
@@ -188,7 +183,7 @@ export default function About() {
               >
                 {member.imageUrl ? (
                   <img
-                    src={resolveImg(member.imageUrl)}
+                    src={mediaUrl(member.imageUrl)}
                     alt={member.name}
                     className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 shadow-lg group-hover:scale-105 transition-transform"
                   />

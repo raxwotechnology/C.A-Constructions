@@ -146,8 +146,8 @@ export default function Services() {
   })
 
   const raw = data?.services || []
-  // Filter for services only (exclude products if needed, but previously it said 'Show both services and products!')
-  const allTabServices = raw.filter(s => s.type !== 'product')
+  const fetchedTabServices = raw.filter(s => s.type !== 'product')
+  const allTabServices = fetchedTabServices.length > 0 ? fetchedTabServices : STATIC_SERVICES
 
   const displayServices = allTabServices.map((s) => ({
     ...s,

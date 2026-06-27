@@ -66,8 +66,6 @@ export default function PasswordConfirmModal({
             <label className="form-label text-xs">Password</label>
             <input
               type="password"
-              inputMode="numeric"
-              pattern="[0-9]*"
               name="action-confirm-password"
               autoComplete="new-password"
               autoCorrect="off"

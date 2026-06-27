@@ -15,13 +15,7 @@ const COLOR_OPTIONS = [
   { value: 'bg-indigo-500', hex: '#6366f1' },
 ]
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
-
-function resolveImg(url) {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `${SERVER_URL}${url}`
-}
+import { mediaUrl } from '../../lib/media'
 
 export default function AdminLeaders() {
   const queryClient = useQueryClient()
@@ -46,19 +40,19 @@ export default function AdminLeaders() {
 
   const createMutation = useMutation({
     mutationFn: () => api.post('/leaders', buildFormData(), { headers: { 'Content-Type': 'multipart/form-data' } }),
-    onSuccess: () => { queryClient.invalidateQueries(['admin-leaders']); toast.success('Leader added'); closeModal() },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-leaders'] }); queryClient.invalidateQueries({ queryKey: ['public-leaders'] }); toast.success('Leader added'); closeModal() },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to add'),
   })
 
   const updateMutation = useMutation({
     mutationFn: () => api.put(`/leaders/${editingId}`, buildFormData(), { headers: { 'Content-Type': 'multipart/form-data' } }),
-    onSuccess: () => { queryClient.invalidateQueries(['admin-leaders']); toast.success('Leader updated'); closeModal() },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-leaders'] }); queryClient.invalidateQueries({ queryKey: ['public-leaders'] }); toast.success('Leader updated'); closeModal() },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to update'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/leaders/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries(['admin-leaders']); toast.success('Leader removed') },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-leaders'] }); queryClient.invalidateQueries({ queryKey: ['public-leaders'] }); toast.success('Leader removed') },
   })
 
   const closeModal = () => {
@@ -72,7 +66,7 @@ export default function AdminLeaders() {
   const handleEdit = (l) => {
     setEditingId(l._id)
     setFormData({ name: l.name, role: l.role, dept: l.dept, initials: l.initials, color: l.color, order: l.order })
-    setImagePreview(l.imageUrl ? resolveImg(l.imageUrl) : '')
+    setImagePreview(l.imageUrl ? mediaUrl(l.imageUrl) : '')
     setImageFile(null)
     setIsModalOpen(true)
   }
@@ -143,7 +137,7 @@ export default function AdminLeaders() {
 
                   <div className="col-span-1">
                     {l.imageUrl ? (
-                      <img src={resolveImg(l.imageUrl)} alt={l.name} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                      <img src={mediaUrl(l.imageUrl)} alt={l.name} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                     ) : (
                       <div className={`w-10 h-10 ${l.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm`}>
                         {l.initials}
@@ -206,7 +200,7 @@ export default function AdminLeaders() {
                 <div className="flex items-center gap-3">
                   <div className="shrink-0">
                     {l.imageUrl ? (
-                      <img src={resolveImg(l.imageUrl)} alt={l.name} className="w-12 h-12 rounded-xl object-cover shadow-sm" />
+                      <img src={mediaUrl(l.imageUrl)} alt={l.name} className="w-12 h-12 rounded-xl object-cover shadow-sm" />
                     ) : (
                       <div className={`w-12 h-12 ${l.color} rounded-xl flex items-center justify-center text-white font-bold text-base shadow-sm`}>
                         {l.initials}

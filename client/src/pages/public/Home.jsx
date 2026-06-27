@@ -388,7 +388,13 @@ export default function Home() {
     { _id:'s5', icon:'FiTrendingUp',  title:'Digital Transformation', color:'bg-orange-50 text-orange-600',desc:'End-to-end digital transformation strategy, legacy modernisation, and enterprise system integration.' },
     { _id:'s6', icon:'FiUsers',       title:'IT Consulting',          color:'bg-indigo-50 text-indigo-600',desc:'Strategic technology consulting, architecture reviews, and dedicated development team augmentation.' },
   ]
-  const displayServices = HOME_SERVICES
+  const { data: homeServicesData } = useQuery({
+    queryKey: ['public-services-home'],
+    queryFn: () => api.get('/content/services').then(r => r.data),
+  })
+  const allHomeServices = homeServicesData?.services || []
+  const fetchedHomeServices = allHomeServices.filter(s => s.type !== 'product')
+  const displayServices = fetchedHomeServices.length > 0 ? fetchedHomeServices.map(s => ({ ...s, desc: s.description })) : HOME_SERVICES
 
   const HOME_PRODUCTS = [
     { _id:'p1', title:'Mobile Shop ERP 📱', desc:'Complete ERP system for mobile phone shops — inventory, sales, repairs, and billing.', img: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600&q=80' },
@@ -396,7 +402,8 @@ export default function Home() {
     { _id:'p3', title:'Restaurant & Hotel ERP 🍽️', desc:'Restaurant and hotel management with table orders, kitchen display, and billing.', img: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80' },
     { _id:'p4', title:'Hardware & Distribution ERP 🏗️', desc:'Hardware store management with stock control, orders, and supplier management.', img: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&q=80' },
   ]
-  const displayProducts = HOME_PRODUCTS
+  const fetchedHomeProducts = allHomeServices.filter(s => s.type === 'product')
+  const displayProducts = fetchedHomeProducts.length > 0 ? fetchedHomeProducts.map(s => ({ ...s, desc: s.description, img: s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600&q=80" })) : HOME_PRODUCTS
 
   return (
     <div className="overflow-x-hidden">
