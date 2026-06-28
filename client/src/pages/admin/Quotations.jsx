@@ -19,7 +19,7 @@ import {
   suggestedExchangeToLKR,
 } from '../../lib/currencies'
 import ConfirmModal from '../../components/ui/ConfirmModal'
-import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
+import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
 
@@ -50,6 +50,7 @@ const DIRECTOR_ROLE_OPTIONS = [
 export default function AdminQuotations() {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
+  const [deletePending, setDeletePending] = useState(null)
   const [editing, setEditing] = useState(null)
   const [mobileTab, setMobileTab] = useState('form')
   const [viewing, setViewing] = useState(null)
@@ -259,15 +260,10 @@ export default function AdminQuotations() {
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
   const deleteMut = useMutation({
-    mutationFn: id => api.delete(`/quotations/${id}`),
+    mutationFn: ({ id, password }) => api.delete(`/quotations/${id}`, { data: { password } }),
     onSuccess: () => { qc.invalidateQueries(['quotations']); toast.success('Deleted') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
-  const { requestDelete: requestDeleteQuotation, DeletePasswordModal: quotationDeleteModal } = useDeleteWithPassword(deleteMut, {
-    title: 'Delete quotation',
-    message: 'Enter your admin password to permanently delete this quotation.',
-  })
-
   const clients = (clientData?.clients || clientData?.users || []).filter(u => !u.role || u.role === 'client')
   const formSnapshot = watch()
   const livePreviewQuotation = useMemo(
@@ -495,7 +491,7 @@ export default function AdminQuotations() {
               {!['converted', 'rejected', 'expired'].includes(q.status) && (
                 <button onClick={() => setConvertTarget(q)} className="flex-1 btn-ghost btn-sm justify-center text-xs"><FiArrowRight size={13}/> Invoice</button>
               )}
-              <button type="button" onClick={() => requestDeleteQuotation(q._id)} className="flex-1 btn-ghost btn-sm justify-center text-xs text-red-500 hover:bg-red-50"><FiTrash2 size={13}/> Delete</button>
+              <button type="button" onClick={() => setDeletePending(q)} className="flex-1 btn-ghost btn-sm justify-center text-xs text-red-500 hover:bg-red-50"><FiTrash2 size={13}/> Delete</button>
             </div>
           </div>
         ))}
@@ -552,7 +548,7 @@ export default function AdminQuotations() {
                     {['draft','sent'].includes(q.status) && (
                       <button onClick={() => openEdit(q)} title="Edit" className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
                     )}
-                    <button type="button" onClick={() => requestDeleteQuotation(q._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
+                    <button type="button" onClick={() => setDeletePending(q)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
                   </div>
                 </td>
               </tr>
@@ -1157,7 +1153,23 @@ export default function AdminQuotations() {
         onConfirm={() => convertTarget && convertMut.mutate(convertTarget._id)}
         onCancel={() => !convertMut.isPending && setConvertTarget(null)}
       />
-      {quotationDeleteModal}
+      <PasswordConfirmModal
+        open={Boolean(deletePending)}
+        onClose={() => setDeletePending(null)}
+        title="Delete quotation?"
+        message={
+          deletePending
+            ? `This permanently removes ${deletePending.quotationNo}. Enter your admin password to confirm.`
+            : ''
+        }
+        confirmLabel="Delete quotation"
+        isSubmitting={deleteMut.isPending}
+        onConfirm={async (password) => {
+          if (!deletePending) return
+          await deleteMut.mutateAsync({ id: deletePending._id, password })
+          setDeletePending(null)
+        }}
+      />
     </div>
   )
 }

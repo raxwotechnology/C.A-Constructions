@@ -4,6 +4,7 @@ const SiteSetting = require('../models/SiteSetting');
 const { createAuditLog } = require('./auditController');
 const { createNotification } = require('../services/notificationService');
 const { generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
+const { verifyActionPassword } = require('../utils/actionPassword');
 const { calcItems } = require('./invoiceController');
 
 function calcQuotationTotals(validItems, taxRate = 0, transportCharge = 0, globalDiscountValue = 0, globalDiscountType = 'fixed') {
@@ -475,6 +476,9 @@ exports.downloadQuotationPdf = async (req, res, next) => {
 // @route   DELETE /api/quotations/:id
 exports.deleteQuotation = async (req, res, next) => {
   try {
+    const pwCheck = await verifyActionPassword(req.user._id, req.body?.password);
+    if (!pwCheck.ok) return res.status(pwCheck.status).json({ success: false, message: pwCheck.message });
+
     const quotation = await Quotation.findByIdAndDelete(req.params.id);
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
     await createAuditLog({

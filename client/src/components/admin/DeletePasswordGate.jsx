@@ -7,7 +7,7 @@ import { usePasswordProtectedDelete } from '../../hooks/usePasswordProtectedDele
  */
 export function useDeleteWithPassword(deleteMutation, { title, message } = {}) {
   const gate = usePasswordProtectedDelete({
-    mutateFn: (id) => deleteMutation.mutateAsync(id),
+    mutateFn: (id, password, extra) => deleteMutation.mutateAsync(id, password, extra),
   })
 
   const modal = (

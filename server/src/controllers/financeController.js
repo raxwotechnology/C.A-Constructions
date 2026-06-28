@@ -159,7 +159,7 @@ exports.addEntry = async (req, res, next) => {
       branch: branch || null,
     };
     if (req.file) {
-      data.billFile = `/uploads/bills/${req.file.filename}`;
+      data.billFile = req.file.filename.startsWith('data:') ? req.file.filename : `/uploads/bills/${req.file.filename}`;
       data.billFileName = req.file.originalname;
     }
     const entry = await FinanceEntry.create(data);
@@ -172,6 +172,7 @@ exports.addEntry = async (req, res, next) => {
         description: `Finance Entry: ${title} (${category})`,
         date: data.date,
         recordedBy: req.user._id,
+        moduleSource: 'finance',
       });
     }
 
@@ -206,6 +207,7 @@ exports.updateEntry = async (req, res, next) => {
         description: `Finance Reversal (Edit): ${entry.title}`,
         date: new Date(),
         recordedBy: req.user._id,
+        moduleSource: 'finance',
       });
     }
 
@@ -221,7 +223,7 @@ exports.updateEntry = async (req, res, next) => {
     entry.bankAccount = bankAccount || null;
 
     if (req.file) {
-      entry.billFile = `/uploads/bills/${req.file.filename}`;
+      entry.billFile = req.file.filename.startsWith('data:') ? req.file.filename : `/uploads/bills/${req.file.filename}`;
       entry.billFileName = req.file.originalname;
     }
 
@@ -235,6 +237,7 @@ exports.updateEntry = async (req, res, next) => {
         description: `Finance Entry (Edited): ${entry.title}`,
         date: entry.date,
         recordedBy: req.user._id,
+        moduleSource: 'finance',
       });
     }
 
@@ -274,6 +277,7 @@ exports.deleteEntry = async (req, res, next) => {
         description: `Finance Reversal (Deleted): ${entry.title}`,
         date: new Date(),
         recordedBy: req.user._id,
+        moduleSource: 'finance',
       });
     }
 

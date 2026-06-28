@@ -79,23 +79,23 @@ export default function Login() {
       </div>
 
       {/* Right panel - form */}
-      <div className="flex-1 lg:max-w-xl flex items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
+      <div className="flex-1 lg:max-w-xl flex items-center justify-center p-6 bg-slate-50/50 relative overflow-hidden">
         {/* Subtle background decoration */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
 
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="w-full max-w-[340px] bg-white/80 backdrop-blur-xl border border-white/50 rounded-2xl p-6 sm:p-8 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.1)] relative z-10"
+          className="w-full max-w-[380px] bg-white rounded-3xl p-8 sm:p-10 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)] relative z-10"
         >
           <div className="lg:hidden mb-8 flex justify-center">
             <SiteLogo to="/" variant="light" />
           </div>
 
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-primary font-heading mb-1.5 tracking-tight">Welcome back</h2>
-            <p className="text-slate-500 text-[13px]">Sign in to your portal to continue</p>
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2 tracking-tight">Welcome back</h2>
+            <p className="text-slate-500 text-sm">Sign in to your portal to continue</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -108,8 +108,8 @@ export default function Login() {
                 <input
                   {...register('email', { required: 'Email is required' })}
                   type="email"
-                  placeholder="you@raxwo.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                  placeholder="management@raxwo.net"
+                  className="w-full pl-10 pr-4 py-3 bg-[#EEF2FC] border-none rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:bg-[#E5EAFC] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
               {errors.email && <p className="text-red-500 text-xs font-medium mt-1.5">{errors.email.message}</p>}
@@ -129,8 +129,8 @@ export default function Login() {
                 <input
                   {...register('password', { required: 'Password is required' })}
                   type={showPass ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                  placeholder="••••••••••"
+                  className="w-full pl-10 pr-10 py-3 bg-[#EEF2FC] border-none rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:bg-[#E5EAFC] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)}
                   className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors">
@@ -140,8 +140,8 @@ export default function Login() {
               {errors.password && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.password.message}</p>}
             </div>
 
-            <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-xl shadow-md shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all duration-200 mt-2">
-              {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Sign In <FiArrowRight size={16} /></>}
+            <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#0B0A26] hover:bg-[#15143A] text-white text-[13px] font-semibold rounded-xl shadow-lg shadow-black/10 active:scale-[0.98] transition-all duration-200 mt-4">
+              {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Sign In <FiArrowRight size={16} className="ml-1 opacity-70" /></>}
             </button>
           </form>
 

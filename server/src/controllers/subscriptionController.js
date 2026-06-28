@@ -196,20 +196,7 @@ exports.createSubscription = async (req, res, next) => {
 
     const sub = await Subscription.create(payload);
 
-    const setupAmount = Number(sub.amount || 0);
-    if (setupAmount > 0) {
-      const incomeDate = sub.startDate ? new Date(sub.startDate) : new Date();
-      await logSubscriptionIncome({
-        sub,
-        amount: setupAmount,
-        date: incomeDate,
-        createdBy: req.user._id,
-        kind: 'created',
-        method: 'manual',
-        note: `Subscription setup income | ${SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType}`,
-        syncPayment: true,
-      });
-    }
+
 
     await createNotification({
       recipient: sub.client,
@@ -377,6 +364,7 @@ exports.recordPayment = async (req, res, next) => {
         date: paymentDate,
         reference: reference || '',
         recordedBy: req.user._id,
+        moduleSource: 'subscriptions',
       });
     }
 

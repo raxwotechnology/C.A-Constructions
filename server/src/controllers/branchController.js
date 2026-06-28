@@ -1,5 +1,6 @@
 const Branch = require('../models/Branch');
 const { createAuditLog } = require('./auditController');
+const { verifyActionPassword } = require('../utils/actionPassword');
 
 // @desc    Get all branches
 // @route   GET /api/branches
@@ -37,6 +38,12 @@ exports.updateBranch = async (req, res, next) => {
 // @route   DELETE /api/branches/:id
 exports.deleteBranch = async (req, res, next) => {
   try {
+    // Enforce admin password verification before deletion
+    const verify = await verifyActionPassword(req.user._id, req.body.password);
+    if (!verify.ok) {
+      return res.status(verify.status).json({ success: false, message: verify.message });
+    }
+
     const branch = await Branch.findByIdAndDelete(req.params.id);
     if (!branch) return res.status(404).json({ success: false, message: 'Branch not found' });
     await createAuditLog({ user: req.user, action: 'delete', module: 'branches', entityId: branch._id, entityName: branch.name, description: `Branch "${branch.name}" deleted`, severity: 'warning' });
