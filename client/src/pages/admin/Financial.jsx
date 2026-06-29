@@ -137,11 +137,12 @@ export default function AdminFinancial() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="kpi-card kpi-blue"><p className="text-xs text-slate-500 uppercase">Revenue</p><p className="text-xl font-bold text-primary">LKR {(summary.revenue || 0).toLocaleString()}</p></div>
         <div className="kpi-card kpi-green"><p className="text-xs text-slate-500 uppercase">Total Income</p><p className="text-xl font-bold text-primary">LKR {(summary.totalIncome || 0).toLocaleString()}</p></div>
         <div className="kpi-card kpi-purple"><p className="text-xs text-slate-500 uppercase">Total Expense</p><p className="text-xl font-bold text-primary">LKR {(summary.totalExpense || 0).toLocaleString()}</p></div>
         <div className="kpi-card kpi-navy"><p className="text-xs text-slate-500 uppercase">Profit</p><p className="text-xl font-bold text-primary">LKR {(summary.profit || 0).toLocaleString()}</p></div>
+        <div className="kpi-card kpi-green"><p className="text-xs text-slate-500 uppercase">Cash In Hand</p><p className="text-xl font-bold text-emerald-700">LKR {(summary.cashInHand || 0).toLocaleString()}</p></div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

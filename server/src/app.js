@@ -144,6 +144,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/site-settings', siteSettingRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/exports', exportRoutes);

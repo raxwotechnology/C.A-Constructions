@@ -196,7 +196,30 @@ exports.createSubscription = async (req, res, next) => {
 
     const sub = await Subscription.create(payload);
 
+    if (payload.paymentMethod && payload.amount > 0) {
+      await logSubscriptionIncome({
+        sub,
+        amount: payload.amount,
+        date: new Date(),
+        createdBy: req.user._id,
+        kind: 'created',
+        method: payload.paymentMethod,
+        note: `Sub No: ${sub.subscriptionNo || ''} | Initial setup`,
+        bankAccount: payload.bankAccount || null,
+        syncPayment: true,
+      });
 
+      if (payload.bankAccount && isLedgerBankMethod(payload.paymentMethod)) {
+        await appendBankTransaction(payload.bankAccount, {
+          type: 'deposit',
+          amount: payload.amount,
+          description: `Subscription Setup: ${sub.subscriptionNo || sub.title}`,
+          date: new Date(),
+          recordedBy: req.user._id,
+          moduleSource: 'subscriptions',
+        });
+      }
+    }
 
     await createNotification({
       recipient: sub.client,

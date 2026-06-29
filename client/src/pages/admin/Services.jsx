@@ -34,6 +34,7 @@ export default function AdminServices() {
   })
   const allTabServices = (data?.services || []).filter(s => s.type === tab || (!s.type && tab === 'service'))
   const categories = ['All', ...Array.from(new Set(allTabServices.map(s => s.category).filter(Boolean)))]
+  const allCategories = Array.from(new Set((data?.services || []).map(s => s.category).filter(Boolean)))
   const services = filterCategory === 'All' ? allTabServices : allTabServices.filter(s => s.category === filterCategory)
 
   const { data: fbData } = useQuery({
@@ -306,7 +307,10 @@ export default function AdminServices() {
                   </div>
                   <div>
                     <label className="form-label">Category</label>
-                    <input className="form-input" placeholder="e.g. Web, Mobile..." value={form.category} onChange={e => setForm(s => ({ ...s, category: e.target.value }))} />
+                    <input list="category-options" className="form-input" placeholder="e.g. Web, Mobile..." value={form.category} onChange={e => setForm(s => ({ ...s, category: e.target.value }))} />
+                    <datalist id="category-options">
+                      {allCategories.map(c => <option key={c} value={c} />)}
+                    </datalist>
                   </div>
                 </div>
                 <div>

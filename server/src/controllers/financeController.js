@@ -316,7 +316,7 @@ exports.getEntries = async (req, res, next) => {
     if (branch) pcQ.branch = branch;
     if (dateFilter) pcQ.date = dateFilter;
 
-    const [rawEntries, pettyCash, subIncome, invIncome, chequeTx, advanceExp, loanTx, bankLedger] = await Promise.all([
+    const [rawEntries, pettyCash, subIncome, invIncome, chequeTx, advanceExp, loanTx] = await Promise.all([
       FinanceEntry.find(q)
         .sort({ date: -1, createdAt: -1 })
         .populate('createdBy', 'name email')
@@ -328,7 +328,6 @@ exports.getEntries = async (req, res, next) => {
       resolveChequeTransactions(branch, dateFilter, paymentMethod),
       resolveAdvanceExpenses(branch, dateFilter, paymentMethod),
       resolveLoanTransactions(branch, dateFilter, paymentMethod),
-      resolveBankLedgerTransactions(branch, dateFilter),
     ]);
 
     const entries = rawEntries
@@ -343,13 +342,23 @@ exports.getEntries = async (req, res, next) => {
     const advanceEntries = type === 'income' ? [] : advanceExp.entries;
     const loanDisbursements = type === 'income' ? [] : loanTx.expenseEntries;
     const loanRepayments = type === 'expense' ? [] : loanTx.incomeEntries;
-    const bankEntries = (bankLedger.entries || []).filter((e) => !type || e.type === type);
 
-    let allEntries = [
+    let allEntriesRaw = [
       ...entries, ...pcEntries, ...subEntries, ...invEntries,
       ...chequeIncome, ...chequeExpense,
-      ...advanceEntries, ...loanDisbursements, ...loanRepayments, ...bankEntries,
+      ...advanceEntries, ...loanDisbursements, ...loanRepayments,
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    let allEntries = [];
+    const seenAll = new Set();
+    for (const e of allEntriesRaw) {
+      const key = `${e.type}-${e.amount}-${e.title}`;
+      if (!seenAll.has(key)) {
+        seenAll.add(key);
+        allEntries.push(e);
+      }
+    }
+
     if (category) {
       allEntries = allEntries.filter((e) => e.category === category);
     }
@@ -391,7 +400,7 @@ exports.getOverview = async (req, res, next) => {
     const empIds = await getEmpIds(branch);
     const empMatch = empIds ? { employee: { $in: empIds } } : {};
 
-    const [paidInvoices, paidPayrolls, rawEntries, revenueByMonth, paymentRevenueAgg, incomeExpenseByCategory, pettyCashEntries, subIncome, invIncome, chequeTx, advanceExp, loanTx, bankLedger] = await Promise.all([
+    const [paidInvoices, paidPayrolls, rawEntries, revenueByMonth, paymentRevenueAgg, incomeExpenseByCategory, pettyCashEntries, subIncome, invIncome, chequeTx, advanceExp, loanTx, bankLedger, cashAgg] = await Promise.all([
       Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
       Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year'),
       FinanceEntry.find({ ...branchMatch, date: range })
@@ -412,6 +421,10 @@ exports.getOverview = async (req, res, next) => {
       resolveAdvanceExpenses(branch, range),
       resolveLoanTransactions(branch, range),
       resolveBankLedgerTransactions(branch, range),
+      FinanceEntry.aggregate([
+        { $match: { ...branchMatch, paymentMethod: 'cash', date: { $lte: range.$lte || new Date() } } },
+        { $group: { _id: '$type', total: { $sum: '$amount' } } }
+      ])
     ]);
 
     const entries = rawEntries.filter((e) => !isSubscriptionIncomeEntry(e) && !isInvoiceIncomeEntry(e));
@@ -428,12 +441,16 @@ exports.getOverview = async (req, res, next) => {
     const bankManualIncome = bankLedger.incomeTotal;
     const bankManualExpense = bankLedger.expenseTotal;
 
+    const cashIncome = cashAgg.find(c => c._id === 'income')?.total || 0;
+    const cashExpense = cashAgg.find(c => c._id === 'expense')?.total || 0;
+    const cashInHand = cashIncome - cashExpense;
+
     const revenue = invoiceRevenue;
     const salaryPayout = paidPayrolls.reduce((s, p) => s + Number(p.netSalary || 0), 0);
     const incomeEntries = entries.filter((e) => e.type === 'income').reduce((s, e) => s + Number(e.amount || 0), 0);
     const expenseEntries = entries.filter((e) => e.type === 'expense').reduce((s, e) => s + Number(e.amount || 0), 0);
-    const totalIncome = invoiceRevenue + incomeEntries + pettyCashIn + subscriptionRevenue + chequeIn + loanRepayment + bankManualIncome;
-    const totalExpense = salaryPayout + expenseEntries + pettyCashOut + chequeOut + advanceExpense + loanDisbursement + bankManualExpense;
+    const totalIncome = invoiceRevenue + incomeEntries + pettyCashIn + subscriptionRevenue + chequeIn + loanRepayment;
+    const totalExpense = salaryPayout + expenseEntries + pettyCashOut + chequeOut + advanceExpense + loanDisbursement;
     const profit = totalIncome - totalExpense;
 
     const monthlyMap = new Map((revenueByMonth || []).map((r) => [r._id, r]));
@@ -501,7 +518,7 @@ exports.getOverview = async (req, res, next) => {
         branchName: '',
       });
     });
-    [...invIncome.entries, ...subIncome.entries, ...chequeTx.incomeEntries, ...chequeTx.expenseEntries, ...advanceExp.entries, ...loanTx.expenseEntries, ...loanTx.incomeEntries, ...(bankLedger.entries || []).slice(0, 4)].slice(0, 6).forEach((p) => {
+    [...invIncome.entries, ...subIncome.entries, ...chequeTx.incomeEntries, ...chequeTx.expenseEntries, ...advanceExp.entries, ...loanTx.expenseEntries, ...loanTx.incomeEntries].slice(0, 6).forEach((p) => {
       recentFinance.push({
         type: p.type,
         category: p.category,
@@ -515,6 +532,16 @@ exports.getOverview = async (req, res, next) => {
       });
     });
     recentFinance.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const uniqueRecent = [];
+    const seenRecent = new Set();
+    for (const e of recentFinance) {
+      const key = `${e.type}-${e.amount}-${e.title}`;
+      if (!seenRecent.has(key)) {
+        seenRecent.add(key);
+        uniqueRecent.push(e);
+      }
+    }
 
     const chartCategoryRows = (incomeExpenseByCategory || [])
       .filter((r) => !(r._id.type === 'income' && r._id.category === 'Subscriptions'))
@@ -546,6 +573,7 @@ exports.getOverview = async (req, res, next) => {
         subscriptionRevenue, invoiceRevenue, chequeIn, chequeOut,
         advanceExpense, loanDisbursement, loanRepayment,
         bankDeposits: bankLedger.deposits, bankWithdrawals: bankLedger.withdrawals, bankNetFlow: bankLedger.netFlow,
+        cashInHand,
         totalIncome, totalExpense, profit,
       },
       details: {
@@ -559,7 +587,7 @@ exports.getOverview = async (req, res, next) => {
         incomeBreakdown: Object.entries(incomeBreakdown).map(([cat, amount]) => ({ category: cat, amount })).sort((a, b) => b.amount - a.amount),
         expenseBreakdown: Object.entries(expenseBreakdown).map(([cat, amount]) => ({ category: cat, amount })).sort((a, b) => b.amount - a.amount),
         topRevenueInvoices,
-        recentEntries: recentFinance.slice(0, 15),
+        recentEntries: uniqueRecent.slice(0, 15),
       },
       charts,
     });
@@ -843,7 +871,6 @@ exports.exportData = async (req, res, next) => {
         ...invIncomeResolved.entries.map((e) => ({ ...e, source: 'Invoice' })),
         ...chequeTx.incomeEntries.map((e) => ({ ...e, source: 'Cheque' })),
         ...loanTx.incomeEntries.map((e) => ({ ...e, source: 'Loan' })),
-        ...bankIncome.map((e) => ({ ...e, source: 'Bank' })),
       ];
       const allExpense = [
         ...expenseEntries.map((e) => ({ ...e.toObject(), source: 'Finance Entry' })),
@@ -851,7 +878,6 @@ exports.exportData = async (req, res, next) => {
         ...chequeTx.expenseEntries.map((e) => ({ ...e, source: 'Cheque' })),
         ...advanceExp.entries.map((e) => ({ ...e, source: 'Advance' })),
         ...loanTx.expenseEntries.map((e) => ({ ...e, source: 'Loan' })),
-        ...bankExpense.map((e) => ({ ...e, source: 'Bank' })),
       ];
 
       const financeOnlyIncome = incomeEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -883,7 +909,7 @@ exports.exportData = async (req, res, next) => {
           Number(p.netSalary || 0), p.paymentMethod || 'Cash', '',
         ],
       }));
-      [...allIncome, ...allExpense].forEach((e) => ledger.push({
+      [...allIncome, ...allExpense, ...bankIncome.map((e) => ({ ...e, source: 'Bank' })), ...bankExpense.map((e) => ({ ...e, source: 'Bank' }))].forEach((e) => ledger.push({
         rawDate: e.date ? new Date(e.date) : new Date(0),
         row: [
           e.date ? new Date(e.date).toLocaleDateString() : '—',
@@ -1002,12 +1028,12 @@ exports.getProfitLoss = async (req, res, next) => {
     const allIncomeEntries = [
       ...incomeEntries.map((e) => e.toObject ? e.toObject() : e),
       ...pcIncome, ...subIncome, ...invIncome, ...chequeTx.incomeEntries,
-      ...loanTx.incomeEntries, ...bankIncome,
+      ...loanTx.incomeEntries,
     ];
     const allExpenseEntries = [
       ...expenseEntries.map((e) => e.toObject ? e.toObject() : e),
       ...pcExpense, ...chequeTx.expenseEntries,
-      ...advanceExp.entries, ...loanTx.expenseEntries, ...bankExpense,
+      ...advanceExp.entries, ...loanTx.expenseEntries,
     ];
 
     const financeOnlyIncome = incomeEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -1066,12 +1092,13 @@ exports.getProfitLoss = async (req, res, next) => {
         advanceExpense,
         loanDisbursement,
         loanRepayment,
-        bankDeposits: bankLedger.deposits,
-        bankWithdrawals: bankLedger.withdrawals,
-        bankNetFlow: bankLedger.netFlow,
+        bankDeposits: bankManualIncome,
+        bankWithdrawals: bankManualExpense,
+        cashInHand,
       },
       incomeEntries: allIncomeEntries,
       expenseEntries: allExpenseEntries,
+      bankEntries: [...bankIncome, ...bankExpense],
       invoicePayments,
       payrollRuns,
       byMethod: Object.entries(byMethod).map(([method, vals]) => ({ method, ...vals })),

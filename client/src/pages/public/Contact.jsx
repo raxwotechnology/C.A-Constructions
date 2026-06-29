@@ -4,8 +4,6 @@ import { useForm } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { FiMapPin, FiPhone, FiMail, FiClock, FiSend } from 'react-icons/fi'
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
 import api from '../../lib/api'
 
 export default function Contact() {
@@ -16,17 +14,25 @@ export default function Contact() {
     queryFn: () => api.get('/site-settings').then((r) => r.data),
   })
   const settings = siteData?.settings || {}
-  const mapLat = Number(settings.mapLat ?? 7.0289)
-  const mapLng = Number(settings.mapLng ?? 80.0153)
-  const mapZoom = Number(settings.mapZoom ?? 13)
-  const contactAddress = settings.contactAddress || 'Weliweriya, Sri Lanka'
 
   const onSubmit = async (data) => {
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1500))
-    toast.success('Message sent! We\'ll get back to you within 24 hours.')
-    reset()
-    setLoading(false)
+    try {
+      const fd = new FormData();
+      Object.entries(data).forEach(([key, val]) => {
+        if (key !== 'cv' && val) fd.append(key, val);
+      });
+      if (data.cv && data.cv.length > 0) {
+        fd.append('cv', data.cv[0]);
+      }
+      await api.post('/contact/apply', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      toast.success('Application sent! We\'ll get back to you soon.')
+      reset()
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to send application.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -81,10 +87,9 @@ export default function Contact() {
               </div>
               {/* Info Items */}
               {[
-                { icon: FiMapPin, label: 'Address', value: contactAddress },
+                { icon: FiMapPin, label: 'Company', value: settings.siteName || 'Raxwo Technology' },
                 { icon: FiPhone, label: 'Phone', value: settings.contactPhone || '+94 11 234 5678' },
                 { icon: FiMail, label: 'Email', value: settings.contactEmail || 'hello@raxwo.com' },
-                { icon: FiClock, label: 'Hours', value: 'Mon – Fri: 8AM – 6PM\nSat: 9AM – 1PM (IST)' },
               ].map((info, i) => (
                 <motion.div 
                   key={info.label} 
@@ -104,23 +109,7 @@ export default function Contact() {
                 </motion.div>
               ))}
 
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.4 }}
-                className="rounded-2xl overflow-hidden h-64 border border-slate-200 shadow-card"
-              >
-                <MapContainer center={[mapLat, mapLng]} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <CircleMarker center={[mapLat, mapLng]} radius={10} pathOptions={{ color: '#2563EB', fillColor: '#2563EB', fillOpacity: 0.7 }}>
-                    <Popup>{contactAddress}</Popup>
-                  </CircleMarker>
-                </MapContainer>
-              </motion.div>
+
             </div>
 
             {/* Form */}
@@ -145,36 +134,29 @@ export default function Contact() {
                     <input {...register('phone')} placeholder="+94 77 xxx xxxx" className="form-input" />
                   </div>
                   <div>
-                    <label className="form-label">Company</label>
-                    <input {...register('company')} placeholder="Your company name" className="form-input" />
+                    <label className="form-label">Position Applied For *</label>
+                    <input {...register('position', { required: 'Required' })} placeholder="e.g. Frontend Developer" className="form-input" />
+                    {errors.position && <p className="form-error">{errors.position.message}</p>}
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Resume / Portfolio Link</label>
+                    <input {...register('resumeLink')} placeholder="https://linkedin.com/in/..." className="form-input" />
+                  </div>
+                  <div>
+                    <label className="form-label">Upload Resume (PDF)</label>
+                    <input {...register('cv')} type="file" accept=".pdf,.doc,.docx" className="form-input py-2" />
                   </div>
                 </div>
                 <div>
-                  <label className="form-label">Service Interested In</label>
-                  <select {...register('service')} className="form-select">
-                    <option value="">Select a service...</option>
-                    {['Web Development', 'Mobile App Development', 'Cloud & DevOps', 'Enterprise Systems', 'Database & Backend', 'Cybersecurity', 'IT Consulting', 'Other'].map(s => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Project Budget (LKR)</label>
-                  <select {...register('budget')} className="form-select">
-                    <option value="">Select budget range...</option>
-                    {['Under 100,000', '100,000 – 300,000', '300,000 – 500,000', '500,000 – 1,000,000', 'Over 1,000,000'].map(b => (
-                      <option key={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Message *</label>
+                  <label className="form-label">Cover Letter / Message *</label>
                   <textarea {...register('message', { required: 'Required', minLength: { value: 20, message: 'Min 20 characters' } })}
-                    rows={5} placeholder="Describe your project requirements, timeline, and any specific needs..." className="form-input resize-none" />
+                    rows={5} placeholder="Tell us why you are a great fit for this position..." className="form-input resize-none" />
                   {errors.message && <p className="form-error">{errors.message.message}</p>}
                 </div>
                 <button type="submit" disabled={loading} className="btn-primary btn-lg w-full justify-center">
-                  {loading ? <span className="spinner" /> : <><FiSend size={16} /> Send Message</>}
+                  {loading ? <span className="spinner" /> : <><FiSend size={16} /> Submit Application</>}
                 </button>
               </form>
             </div>

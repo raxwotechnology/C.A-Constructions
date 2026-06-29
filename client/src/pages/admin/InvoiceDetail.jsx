@@ -140,7 +140,7 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
   const downloadInvoicePdf = async (id, invoiceNo) => {
     try {
       const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator')
-      const res = await api.get(`/invoices/${id}/pdf?html=true`, { responseType: 'text' })
+      const res = await api.get(`/invoices/${id}/pdf?html=true&t=${Date.now()}`, { responseType: 'text' })
       const htmlStr = typeof res.data === 'string' ? res.data : await res.data.text()
       const fname = `Invoice_${invoiceNo}.pdf`
       toast.loading('Generating PDF...', { id: 'pdf-toast' })

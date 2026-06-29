@@ -175,7 +175,7 @@ export default function AdminInvoices() {
   const downloadPdf = async (id, invoiceNo) => {
     try {
       const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator')
-      const res = await api.get(`/invoices/${id}/pdf?html=true`, { responseType: 'text' })
+      const res = await api.get(`/invoices/${id}/pdf?html=true&t=${Date.now()}`, { responseType: 'text' })
       const htmlStr = typeof res.data === 'string' ? res.data : await res.data.text()
       const fname = `${invoiceNo || 'invoice'}.pdf`
       toast.loading('Generating PDF...', { id: 'pdf-toast' })

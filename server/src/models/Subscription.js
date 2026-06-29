@@ -108,6 +108,10 @@ const subscriptionSchema = new mongoose.Schema({
   // Agreements
   agreements: [agreementSchema],
 
+  // Initial Payment Method (Default)
+  paymentMethod: { type: String, default: 'cash' },
+  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount', default: null },
+
   // Notes
   adminNotes: { type: String, default: '' },
 

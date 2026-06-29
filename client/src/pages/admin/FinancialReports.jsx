@@ -69,6 +69,7 @@ export default function FinancialReports() {
   const payrollRuns = data?.payrollRuns || []
   const incomeEntries = data?.incomeEntries || []
   const expenseEntries = data?.expenseEntries || []
+  const bankEntries = data?.bankEntries || []
   const allEntries = [...incomeEntries, ...expenseEntries].sort((a, b) => new Date(b.date) - new Date(a.date))
   const maxIncome = Math.max(...incomeCat.map(c => c.amount), 1)
   const maxExpense = Math.max(...expenseCat.map(c => c.amount), 1)
@@ -297,14 +298,14 @@ export default function FinancialReports() {
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Subscription Payments</span><span className="font-semibold">{fmt(summary.subscriptionRevenue)}</span></div>
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Cheques (In)</span><span className="font-semibold">{fmt(summary.chequeIn)}</span></div>
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Petty Cash (In)</span><span className="font-semibold">{fmt(summary.pettyCashIn)}</span></div>
-                  <div className="flex justify-between py-2.5 text-emerald-700"><span>Bank Deposits</span><span className="font-semibold">{fmt(summary.bankDeposits)}</span></div>
+
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Loan Repayments</span><span className="font-semibold">{fmt(summary.loanRepayment)}</span></div>
                   <div className="flex justify-between py-2.5 text-emerald-700"><span>Other Income Entries</span><span className="font-semibold">{fmt(summary.otherIncomeEntries ?? summary.totalIncomeEntries)}</span></div>
                   <div className="flex justify-between py-2.5 border-t border-slate-200 font-bold text-emerald-800 text-base"><span>TOTAL INCOME</span><span>{fmt(summary.totalIncome)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700 mt-2"><span>Salary / Payroll Expense</span><span className="font-semibold">{fmt(summary.totalSalaryExpense)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700"><span>Petty Cash (Out)</span><span className="font-semibold">{fmt(summary.pettyCashOut)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700"><span>Cheques (Out)</span><span className="font-semibold">{fmt(summary.chequeOut)}</span></div>
-                  <div className="flex justify-between py-2.5 text-red-700"><span>Bank Withdrawals</span><span className="font-semibold">{fmt(summary.bankWithdrawals)}</span></div>
+
                   <div className="flex justify-between py-2.5 text-red-700"><span>Salary Advances</span><span className="font-semibold">{fmt(summary.advanceExpense)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700"><span>Loan Disbursements</span><span className="font-semibold">{fmt(summary.loanDisbursement)}</span></div>
                   <div className="flex justify-between py-2.5 text-red-700"><span>Other Expense Entries</span><span className="font-semibold">{fmt(summary.otherExpenseEntries ?? summary.totalExpenseEntries)}</span></div>
@@ -496,7 +497,7 @@ export default function FinancialReports() {
                   <table className="table">
                     <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Method</th><th>Amount</th></tr></thead>
                     <tbody>
-                      {allEntries.filter(e => e.category?.includes('Bank') || e.paymentMethod?.toLowerCase().includes('bank')).map((e, i) => (
+                      {bankEntries.sort((a, b) => new Date(b.date) - new Date(a.date)).map((e, i) => (
                         <tr key={e._id || i}>
                           <td className="text-slate-500 text-sm">{new Date(e.date).toLocaleDateString()}</td>
                           <td><span className={`badge ${e.type === 'income' ? 'badge-green' : 'badge-red'}`}>{e.type}</span></td>
@@ -506,7 +507,7 @@ export default function FinancialReports() {
                           <td className={e.type === 'income' ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>{fmt(e.amount)}</td>
                         </tr>
                       ))}
-                      {allEntries.filter(e => e.category?.includes('Bank') || e.paymentMethod?.toLowerCase().includes('bank')).length === 0 && <tr><td colSpan={6} className="text-center py-4 text-slate-400">No bank transactions.</td></tr>}
+                      {bankEntries.length === 0 && <tr><td colSpan={6} className="text-center py-4 text-slate-400">No bank transactions.</td></tr>}
                     </tbody>
                   </table>
                 </div>

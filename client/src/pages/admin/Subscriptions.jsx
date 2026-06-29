@@ -75,7 +75,8 @@ export default function AdminSubscriptions() {
     client: '', project: '', branch: '', title: '', description: '', subscriptionType: 'custom',
     amount: '', billingFrequency: 'monthly', billingDay: 1,
     reminderDaysBefore: '5',
-    status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active'
+    status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active',
+    paymentMethod: 'cash', bankAccount: ''
   }
   const [form, setForm] = useState(emptyForm)
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }))
@@ -274,6 +275,10 @@ export default function AdminSubscriptions() {
       domainName: form.domainName, provider: form.provider,
       hostingUrl: form.hostingUrl, expiryDate: form.expiryDate || null,
       renewalStatus: form.renewalStatus
+    }
+    if (selectedSub) {
+      delete payload.paymentMethod
+      delete payload.bankAccount
     }
     saveMut.mutate(payload)
   }
@@ -684,6 +689,37 @@ export default function AdminSubscriptions() {
                   </select>
                 </div>
               </div>
+              
+              {/* Payment Info for New Subscription */}
+              {!selectedSub && (
+                <div className="grid sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+                  <div>
+                    <label className="form-label">Initial Payment Method</label>
+                    <select className="form-select" value={form.paymentMethod} onChange={e => f('paymentMethod')(e.target.value)}>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="bank_transfer">Bank transfer</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="online_transfer">Online transfer</option>
+                      <option value="payhere">PayHere</option>
+                      <option value="manual">Other / manual</option>
+                    </select>
+                    <p className="text-[11px] text-slate-500 mt-1">This will record the first payment automatically.</p>
+                  </div>
+                  {['bank_transfer', 'payhere', 'card', 'online_transfer'].includes(form.paymentMethod) && (
+                    <div>
+                      <label className="form-label">Bank account (money received to)</label>
+                      <select className="form-select" value={form.bankAccount} onChange={(e) => f('bankAccount')(e.target.value)}>
+                        <option value="">Select bank account…</option>
+                        {bankAccounts.map((b) => (
+                          <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-slate-500 mt-1">Updates account balance automatically.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Hosting (conditional) */}

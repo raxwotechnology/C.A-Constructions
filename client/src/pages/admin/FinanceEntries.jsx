@@ -67,6 +67,40 @@ export default function FinanceEntries() {
   const activeCategories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
   const finalCategory = form.category === 'Other' ? customCategory : form.category
 
+  const handleViewReceipt = (e, fileUrl) => {
+    e.preventDefault()
+    if (!fileUrl) return
+    const url = mediaUrl(fileUrl)
+    if (url.startsWith('data:')) {
+      try {
+        const arr = url.split(',')
+        const mime = arr[0].match(/:(.*?);/)[1]
+        const bstr = atob(arr[1])
+        let n = bstr.length
+        const u8arr = new Uint8Array(n)
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n)
+        }
+        const blob = new Blob([u8arr], { type: mime })
+        const blobUrl = URL.createObjectURL(blob)
+        const newWin = window.open('', '_blank')
+        if (newWin) {
+          if (mime.startsWith('image/')) {
+            newWin.document.write('<html><body style="margin:0;display:flex;justify-content:center;align-items:center;background:#0f172a;min-height:100vh;"><img src="' + blobUrl + '" style="max-width:100%;max-height:100vh;object-fit:contain;"/></body></html>')
+          } else {
+            newWin.document.write('<html><body style="margin:0;"><iframe src="' + blobUrl + '" style="width:100vw;height:100vh;border:none;"></iframe></body></html>')
+          }
+          newWin.document.close()
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+      } catch (err) {
+        toast.error('Failed to view receipt')
+      }
+    } else {
+      window.open(url, '_blank')
+    }
+  }
+
   const addMut = useMutation({
     mutationFn: payload => {
       const fd = new FormData()
@@ -471,7 +505,7 @@ export default function FinanceEntries() {
               {viewingEntry.note && <div><p className="text-slate-400 text-xs mb-1">Notes</p><p className="text-slate-600 bg-slate-50 p-3 rounded-lg text-xs leading-relaxed">{viewingEntry.note}</p></div>}
               {viewingEntry.billFile && (
                 <div className="pt-2">
-                  <a href={mediaUrl(viewingEntry.billFile)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium text-sm">
+                  <a href="#" onClick={(e) => handleViewReceipt(e, viewingEntry.billFile)} className="flex items-center justify-center gap-2 w-full py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium text-sm">
                     <FiPaperclip size={14}/> View Attached Receipt
                   </a>
                 </div>

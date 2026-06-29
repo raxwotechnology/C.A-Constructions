@@ -20,6 +20,7 @@ const POPULATE_INVOICE = [
   { path: 'branch',       select: 'name' },
   { path: 'createdBy',    select: 'name' },
   { path: 'payments.recordedBy', select: 'name' },
+  { path: 'bankAccount',  select: 'bankName accountNumber branchName' },
 ];
 
 // ─── Helper: recalc line totals ───────────────────────────────────────────────
@@ -85,6 +86,7 @@ exports.getInvoices = async (req, res, next) => {
       .populate('project', 'title')
       .populate('branch', 'name')
       .populate('quotationRef', 'quotationNo')
+      .populate('bankAccount', 'bankName accountNumber branchName')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, count: invoices.length, invoices });
@@ -529,7 +531,8 @@ exports.sendInvoice = async (req, res, next) => {
     const invoice = await Invoice.findById(req.params.id)
       .populate('client', 'name email phone')
       .populate('project', 'title')
-      .populate('quotationRef', 'quotationNo');
+      .populate('quotationRef', 'quotationNo')
+      .populate('bankAccount', 'bankName accountNumber branchName');
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
 
     const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
