@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -21,6 +22,8 @@ const statusBadge = (s, approval) => {
 export default function WorkLogs() {
   const { user } = useAuthStore()
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const employeeFilter = searchParams.get('employee') || ''
   const [showSubmit, setShowSubmit] = useState(false)
   const [tasks, setTasks] = useState([{ taskName: '', hours: '', project: '', notes: '' }])
   const [blockers, setBlockers] = useState('')
@@ -54,12 +57,13 @@ export default function WorkLogs() {
 
   const endpoint = isAdmin ? '/work-logs' : '/work-logs/my'
   const { data, isLoading } = useQuery({
-    queryKey: ['work-logs', isAdmin, branchFilter, dateFilter, roleFilter],
+    queryKey: ['work-logs', isAdmin, branchFilter, dateFilter, roleFilter, employeeFilter],
     queryFn: () => {
       const params = new URLSearchParams()
       if (branchFilter) params.set('branch', branchFilter)
       if (dateFilter) params.set('date', dateFilter)
       if (roleFilter && roleFilter !== 'all') params.set('role', roleFilter)
+      if (employeeFilter) params.set('employee', employeeFilter)
       return api.get(`${endpoint}?${params.toString()}`).then(r => r.data)
     }
   })

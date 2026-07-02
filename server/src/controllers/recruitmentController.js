@@ -173,12 +173,41 @@ exports.getApplication = async (req, res, next) => {
 exports.updateApplicationStatus = async (req, res, next) => {
   try {
     const { status, notes, interviewDate, interviewNotes } = req.body;
+    
+    const oldApp = await Application.findById(req.params.id);
+    if (!oldApp) return res.status(404).json({ success: false, message: 'Application not found' });
+    
     const app = await Application.findByIdAndUpdate(
       req.params.id,
       { status, notes, interviewDate, interviewNotes, reviewedBy: req.user._id },
       { new: true }
     ).populate('job', 'title');
-    if (!app) return res.status(404).json({ success: false, message: 'Application not found' });
+    
+    if (status && status !== oldApp.status) {
+      const { sendMail } = require('../utils/mailer');
+      const html = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #2563eb; margin-bottom: 20px;">Application Update</h2>
+          <p>Dear ${app.name},</p>
+          <p>Your application for the position of <strong>${app.job?.title || 'the role'}</strong> has been updated.</p>
+          <p><strong>New Status:</strong> <span style="text-transform: capitalize; font-weight: bold; color: #1e293b;">${status.replace('_', ' ')}</span></p>
+          ${interviewDate && (status === 'interview' || status === 'shortlisted') ? `<p><strong>Interview Date:</strong> ${new Date(interviewDate).toLocaleString()}</p>` : ''}
+          <p style="margin-top: 30px;">Thank you for your interest,</p>
+          <p><strong>Raxwo Recruitment Team</strong></p>
+        </div>
+      `;
+      try {
+        await sendMail({
+          to: app.email,
+          subject: `Update on your application for ${app.job?.title || 'Raxwo'}`,
+          html,
+          text: `Your application status for ${app.job?.title || 'Raxwo'} has been updated to: ${status.replace('_', ' ')}.`
+        });
+      } catch (err) {
+        console.error('Failed to send application status email:', err);
+      }
+    }
+    
     res.json({ success: true, application: app });
   } catch (err) { next(err); }
 };

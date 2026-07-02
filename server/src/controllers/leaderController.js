@@ -3,8 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const { uploadSubdir } = require('../utils/uploadsPath');
 
-const getImageUrl = (req, filename) =>
-  filename ? `${req.protocol}://${req.get('host')}/uploads/leaders/${filename}` : '';
+const getImageUrl = (req, filename) => {
+  if (!filename) return '';
+  if (filename.startsWith('data:')) return filename;
+  return `${req.protocol}://${req.get('host')}/uploads/leaders/${filename}`;
+};
 
 exports.getLeaders = async (req, res, next) => {
   try {

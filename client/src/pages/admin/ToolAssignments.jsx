@@ -136,7 +136,14 @@ export default function ToolAssignments() {
                       <p className="font-bold text-primary">{a.toolName}</p>
                       <p className="text-xs text-slate-400 mb-2 capitalize">{ti.label}</p>
                       {a.accountEmail && <p className="text-xs text-slate-500 mb-1">📧 {a.accountEmail}</p>}
-                      {a.accessUrl && <a href={a.accessUrl} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline">🔗 Open Tool</a>}
+                      {a.accountPassword && (
+                        <p className="text-xs text-slate-500 mb-1 flex items-center gap-1 cursor-pointer hover:text-slate-700" onClick={() => { navigator.clipboard.writeText(a.accountPassword); toast.success('Password copied') }} title="Click to copy password">
+                          🔑 <span className="truncate">{a.accountPassword}</span>
+                        </p>
+                      )}
+                      {a.licenseKey && <p className="text-xs text-slate-500 mb-1">🏷️ {a.licenseKey}</p>}
+                      {a.notes && <p className="text-xs text-slate-500 mb-1 line-clamp-2" title={a.notes}>📝 {a.notes}</p>}
+                      {a.accessUrl && <a href={a.accessUrl} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline inline-block mb-1">🔗 Open Tool</a>}
                       {a.expiresAt && <p className="text-xs text-amber-600 mt-1">⏰ Expires {new Date(a.expiresAt).toLocaleDateString()}</p>}
                       <div className="flex gap-1 mt-3 pt-3 border-t border-slate-100">
                         {a.status === 'active' && (

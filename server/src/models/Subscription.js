@@ -31,6 +31,15 @@ const hostingDetailSchema = new mongoose.Schema({
   notes: { type: String, default: '' },
 });
 
+const socialMediaLinksSchema = new mongoose.Schema({
+  facebook: { type: String, default: '' },
+  instagram: { type: String, default: '' },
+  tiktok: { type: String, default: '' },
+  youtube: { type: String, default: '' },
+  linkedin: { type: String, default: '' },
+  twitter: { type: String, default: '' },
+}, { _id: false });
+
 const agreementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   type: { type: String, enum: ['hosting', 'maintenance', 'service', 'social_media', 'other'], default: 'service' },
@@ -66,10 +75,12 @@ const subscriptionSchema = new mongoose.Schema({
       'technical_support',
       'bug_fixing',
       'seo_marketing',
+      'social_media_management',
       'custom',
     ],
     required: true,
   },
+  customServiceType: { type: String, default: '' },
 
   // Billing
   amount: { type: Number, required: true }, // Custom per-client monthly amount
@@ -104,6 +115,9 @@ const subscriptionSchema = new mongoose.Schema({
 
   // Hosting & Domain
   hostingDetails: hostingDetailSchema,
+
+  // Social Media Links
+  socialMediaLinks: { type: socialMediaLinksSchema, default: () => ({}) },
 
   // Agreements
   agreements: [agreementSchema],

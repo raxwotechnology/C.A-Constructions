@@ -58,14 +58,14 @@ export default function EmployeeDashboard() {
   ].slice(0, 6)
 
   const quickLinks = [
-    { label: 'My Projects', to: '/developer/projects', icon: FiTrendingUp, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
-    { label: 'Request Leave', to: '/developer/leaves', icon: FiCalendar, color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
-    { label: 'View Payslips', to: '/developer/payslips', icon: FiDollarSign, color: 'bg-green-50 text-green-600 hover:bg-green-100' },
-    { label: 'My Tasks', to: '/developer/tasks', icon: FiCheckSquare, color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
-    { label: 'My Tools', to: '/developer/tools', icon: FiKey, color: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' },
-    { label: 'My Requests', to: '/developer/requests', icon: FiFileText, color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
-    { label: 'Performance', to: '/developer/performance', icon: FiTarget, color: 'bg-rose-50 text-rose-600 hover:bg-rose-100' },
-    { label: 'Work Logs', to: '/developer/work-logs', icon: FiClock, color: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100' },
+    { label: 'My Projects', to: `/${user?.role || 'developer'}/projects`, icon: FiTrendingUp, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
+    { label: 'Request Leave', to: `/${user?.role || 'developer'}/leaves`, icon: FiCalendar, color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
+    { label: 'View Payslips', to: `/${user?.role || 'developer'}/payslips`, icon: FiDollarSign, color: 'bg-green-50 text-green-600 hover:bg-green-100' },
+    { label: 'My Tasks', to: `/${user?.role || 'developer'}/tasks`, icon: FiCheckSquare, color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
+    { label: 'My Tools', to: `/${user?.role || 'developer'}/tools`, icon: FiKey, color: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' },
+    { label: 'My Requests', to: `/${user?.role || 'developer'}/requests`, icon: FiFileText, color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
+    { label: 'Performance', to: `/${user?.role || 'developer'}/performance`, icon: FiTarget, color: 'bg-rose-50 text-rose-600 hover:bg-rose-100' },
+    { label: 'Work Logs', to: `/${user?.role || 'developer'}/work-logs`, icon: FiClock, color: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100' },
   ]
 
   return (
@@ -177,7 +177,7 @@ export default function EmployeeDashboard() {
         <div className="card card-body">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-primary font-heading">Recent Leave Requests</h3>
-            <Link to="/developer/leaves" className="text-secondary text-xs hover:underline">View all</Link>
+            <Link to={`/${user?.role || 'developer'}/leaves`} className="text-secondary text-xs hover:underline">View all</Link>
           </div>
           <div className="space-y-2">
             {leaves.slice(0, 4).map(l => (
@@ -197,7 +197,7 @@ export default function EmployeeDashboard() {
         <div className="card card-body">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-primary font-heading">Latest Payslip</h3>
-            <Link to="/developer/payslips" className="text-secondary text-xs hover:underline">All payslips</Link>
+            <Link to={`/${user?.role || 'developer'}/payslips`} className="text-secondary text-xs hover:underline">All payslips</Link>
           </div>
           {latestPayroll ? (
             <div className="space-y-3">

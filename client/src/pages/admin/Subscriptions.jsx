@@ -61,6 +61,7 @@ export default function AdminSubscriptions() {
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [showAgreementForm, setShowAgreementForm] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
   const [selectedSub, setSelectedSub] = useState(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -72,11 +73,12 @@ export default function AdminSubscriptions() {
   const branches = branchData?.branches || []
 
   const emptyForm = {
-    client: '', project: '', branch: '', title: '', description: '', subscriptionType: 'custom',
+    client: '', project: '', branch: '', title: '', description: '', subscriptionType: 'custom', customServiceType: '',
     amount: '', billingFrequency: 'monthly', billingDay: 1,
     reminderDaysBefore: '5',
     status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active',
-    paymentMethod: 'cash', bankAccount: ''
+    paymentMethod: 'cash', bankAccount: '',
+    socialMediaLinks: { facebook: '', instagram: '', tiktok: '', youtube: '', linkedin: '', twitter: '' }
   }
   const [form, setForm] = useState(emptyForm)
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }))
@@ -218,9 +220,11 @@ export default function AdminSubscriptions() {
   const openEdit = (sub) => {
     setSelectedSub(sub)
     setForm({
-      client: sub.client?._id || '', project: sub.project?._id || '', branch: sub.branch?._id || '',
+      client: sub.client?._id || sub.client || '', 
+      project: sub.project?._id || sub.project || '', 
+      branch: sub.branch?._id || sub.branch || '',
       title: sub.title, description: sub.description || '',
-      subscriptionType: sub.subscriptionType, amount: sub.amount,
+      subscriptionType: sub.subscriptionType, customServiceType: sub.customServiceType || '', amount: sub.amount,
       billingFrequency: sub.billingFrequency, billingDay: sub.billingDay,
       reminderDaysBefore: sub.reminderDaysBefore != null ? String(sub.reminderDaysBefore) : '',
       status: sub.status,
@@ -228,7 +232,15 @@ export default function AdminSubscriptions() {
       domainName: sub.hostingDetails?.domainName || '',
       provider: sub.hostingDetails?.provider || '',
       expiryDate: sub.hostingDetails?.expiryDate ? new Date(sub.hostingDetails.expiryDate).toISOString().split('T')[0] : '',
-      renewalStatus: sub.hostingDetails?.renewalStatus || 'active'
+      renewalStatus: sub.hostingDetails?.renewalStatus || 'active',
+      socialMediaLinks: {
+        facebook: sub.socialMediaLinks?.facebook || '',
+        instagram: sub.socialMediaLinks?.instagram || '',
+        tiktok: sub.socialMediaLinks?.tiktok || '',
+        youtube: sub.socialMediaLinks?.youtube || '',
+        linkedin: sub.socialMediaLinks?.linkedin || '',
+        twitter: sub.socialMediaLinks?.twitter || '',
+      }
     })
     setShowForm(true)
   }
@@ -264,6 +276,10 @@ export default function AdminSubscriptions() {
     const payload = { ...form }
     if (!payload.project) payload.project = null
     if (!payload.branch) payload.branch = null
+    if (payload.subscriptionType !== 'custom') payload.customServiceType = ''
+    if (!payload.subscriptionType.startsWith('social_media')) {
+      delete payload.socialMediaLinks
+    }
     
     payload.amount = Number(payload.amount) || 0
     payload.billingDay = Number(payload.billingDay) || 1
@@ -284,6 +300,7 @@ export default function AdminSubscriptions() {
   }
 
   const showHosting = ['hosting_domain', 'website_maintenance', 'custom'].includes(form.subscriptionType)
+  const showSocialMedia = form.subscriptionType.startsWith('social_media')
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -300,7 +317,7 @@ export default function AdminSubscriptions() {
               { header: 'Subscription No', accessor: 'subscriptionNo' },
               { header: 'Title', accessor: 'title' },
               { header: 'Client', accessor: (s) => s.client?.name || 'Unknown' },
-              { header: 'Type', accessor: (s) => s.subscriptionType?.replace(/_/g, ' ').toUpperCase() },
+              { header: 'Type', accessor: (s) => s.typeLabel?.toUpperCase() },
               { header: 'Status', accessor: (s) => s.status?.toUpperCase() },
               { header: 'Billing', accessor: (s) => `${s.billingFrequency} (LKR ${s.amount?.toLocaleString()})` },
               { header: 'Next Due Date', accessor: (s) => s.nextDueDate ? new Date(s.nextDueDate).toLocaleDateString() : 'N/A' },
@@ -580,6 +597,7 @@ export default function AdminSubscriptions() {
                   </td>
                   <td>
                     <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100" title="View"><FiEye size={14} /></button>
                       <button onClick={() => openPayment(s)} className="p-1.5 rounded-lg text-green-500 hover:bg-green-50" title="Record Payment"><FiDollarSign size={14} /></button>
                       <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50" title="Payment History"><FiList size={14} /></button>
                       <button onClick={() => openAgreement(s)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50" title="Add Agreement"><FiFileText size={14} /></button>
@@ -617,6 +635,7 @@ export default function AdminSubscriptions() {
                   onChange={(v) => f('client')(v)}
                   loadOptions={lookupLoaders.clients()}
                   placeholder="Search client…"
+                  initialLabel={selectedSub?.client?.name || ''}
                 />
                 {clients.length === 0 && <p className="text-xs text-amber-500 mt-1">No client accounts found. Create a client first.</p>}
               </div>
@@ -636,6 +655,7 @@ export default function AdminSubscriptions() {
                   <option value="social_media_facebook">Facebook Management</option>
                   <option value="social_media_instagram">Instagram Management</option>
                   <option value="social_media_tiktok">TikTok Marketing</option>
+                  <option value="social_media_management">Social Media Management</option>
                   <option value="content_management">Content Management</option>
                   <option value="technical_support">Technical Support</option>
                   <option value="bug_fixing">Bug Fixing</option>
@@ -643,6 +663,12 @@ export default function AdminSubscriptions() {
                   <option value="custom">Custom Service</option>
                 </select>
               </div>
+              {form.subscriptionType === 'custom' && (
+                <div>
+                  <label className="form-label">Custom Service Type *</label>
+                  <input type="text" className="form-input" value={form.customServiceType} onChange={e => f('customServiceType')(e.target.value)} placeholder="e.g. Graphic Design" />
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <label className="form-label">Subscription Title *</label>
                 <input type="text" className="form-input" value={form.title} onChange={e => f('title')(e.target.value)} placeholder="e.g. Monthly Website Maintenance – Raxwo Client" />
@@ -742,6 +768,39 @@ export default function AdminSubscriptions() {
                   <div>
                     <label className="form-label">Expiry Date</label>
                     <input type="date" className="form-input" value={form.expiryDate} onChange={e => f('expiryDate')(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Social Media Links (conditional) */}
+            {showSocialMedia && (
+              <div className="bg-pink-50/60 border border-pink-100 rounded-xl p-4 space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-pink-700 flex items-center gap-2">Social Media Links</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Facebook URL</label>
+                    <input type="url" className="form-input" value={form.socialMediaLinks.facebook} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, facebook: e.target.value } }))} placeholder="https://facebook.com/..." />
+                  </div>
+                  <div>
+                    <label className="form-label">Instagram URL</label>
+                    <input type="url" className="form-input" value={form.socialMediaLinks.instagram} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, instagram: e.target.value } }))} placeholder="https://instagram.com/..." />
+                  </div>
+                  <div>
+                    <label className="form-label">TikTok URL</label>
+                    <input type="url" className="form-input" value={form.socialMediaLinks.tiktok} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, tiktok: e.target.value } }))} placeholder="https://tiktok.com/@..." />
+                  </div>
+                  <div>
+                    <label className="form-label">YouTube URL</label>
+                    <input type="url" className="form-input" value={form.socialMediaLinks.youtube} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, youtube: e.target.value } }))} placeholder="https://youtube.com/..." />
+                  </div>
+                  <div>
+                    <label className="form-label">LinkedIn URL</label>
+                    <input type="url" className="form-input" value={form.socialMediaLinks.linkedin} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, linkedin: e.target.value } }))} placeholder="https://linkedin.com/in/..." />
+                  </div>
+                  <div>
+                    <label className="form-label">Twitter/X URL</label>
+                    <input type="url" className="form-input" value={form.socialMediaLinks.twitter} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, twitter: e.target.value } }))} placeholder="https://x.com/..." />
                   </div>
                 </div>
               </div>
@@ -997,12 +1056,17 @@ export default function AdminSubscriptions() {
                                 onClick={async () => {
                                   try {
                                     const res = await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/invoice`);
-                                    toast.success(res.data?.message || 'Invoice created');
-                                    // Optional: Redirect to invoices page or open invoice?
+                                    toast.success('Invoice created, downloading...');
+                                    const invoiceId = res.data?.invoice?._id;
+                                    if (invoiceId) {
+                                      const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator');
+                                      const htmlRes = await api.get(`/invoices/${invoiceId}/pdf?html=true&t=${Date.now()}`, { responseType: 'text' });
+                                      await htmlStringToPdfDownload(htmlRes.data, `Invoice_${invoiceId}.pdf`);
+                                    }
                                   } catch (e) { toast.error(e.response?.data?.message || 'Failed to create invoice'); }
                                 }}
                                 className="btn-outline btn-xs gap-1 border-slate-200 hover:border-slate-300 text-slate-600"
-                                title="Create Invoice"
+                                title="Create & Download Invoice"
                               >
                                 Invoice
                               </button>
@@ -1037,6 +1101,103 @@ export default function AdminSubscriptions() {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+          )}
+        </Modal>
+      </AnimatePresence>
+
+      {/* ── View Subscription Modal ── */}
+      <AnimatePresence>
+        <Modal open={showViewModal} onClose={() => setShowViewModal(false)} title="Subscription Details" maxWidth="max-w-2xl">
+          {selectedSub && (
+            <div className="space-y-6 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Client</p>
+                  <p className="font-semibold text-slate-800">{selectedSub.client?.name || 'Unknown'}</p>
+                  <p className="text-slate-500">{selectedSub.client?.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Subscription Title</p>
+                  <p className="font-semibold text-slate-800">{selectedSub.title}</p>
+                  <p className="text-slate-500">{selectedSub.subscriptionNo}</p>
+                </div>
+              </div>
+              <hr className="border-slate-100" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Status</p>
+                  <span className={`badge ${selectedSub.status === 'active' ? 'badge-green' : selectedSub.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{selectedSub.status}</span>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Type</p>
+                  <p className="font-semibold text-slate-800">{selectedSub.typeLabel || selectedSub.subscriptionType}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Amount</p>
+                  <p className="font-semibold text-slate-800">LKR {selectedSub.amount?.toLocaleString()}</p>
+                  <p className="text-slate-500 text-[11px] capitalize">{selectedSub.billingFrequency}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Next Due Date</p>
+                  <p className="font-semibold text-slate-800">{selectedSub.nextDueDate ? new Date(selectedSub.nextDueDate).toLocaleDateString() : 'N/A'}</p>
+                </div>
+              </div>
+              
+              {selectedSub.description && (
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Description</p>
+                  <p className="text-slate-700 bg-slate-50 p-3 rounded-xl">{selectedSub.description}</p>
+                </div>
+              )}
+              
+              {['hosting_domain', 'website_maintenance', 'custom'].includes(selectedSub.subscriptionType) && selectedSub.hostingDetails && selectedSub.hostingDetails.domainName && (
+                <>
+                  <hr className="border-slate-100" />
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-blue-700 mb-2 flex items-center gap-2"><FiServer size={12}/> Hosting & Domain</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-slate-400">Domain Name</p>
+                        <p className="font-medium text-slate-800">{selectedSub.hostingDetails.domainName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Provider</p>
+                        <p className="font-medium text-slate-800">{selectedSub.hostingDetails.provider || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">cPanel URL</p>
+                        {selectedSub.hostingDetails.hostingUrl ? (
+                          <a href={selectedSub.hostingDetails.hostingUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline break-all">{selectedSub.hostingDetails.hostingUrl}</a>
+                        ) : '—'}
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Expiry Date</p>
+                        <p className="font-medium text-slate-800">{selectedSub.hostingDetails.expiryDate ? new Date(selectedSub.hostingDetails.expiryDate).toLocaleDateString() : '—'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {selectedSub.subscriptionType.startsWith('social_media') && selectedSub.socialMediaLinks && (
+                <>
+                  <hr className="border-slate-100" />
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-pink-700 mb-2">Social Media Links</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {Object.entries(selectedSub.socialMediaLinks).map(([platform, url]) => (
+                        <div key={platform}>
+                          <p className="text-xs text-slate-400 capitalize">{platform}</p>
+                          {url ? (
+                            <a href={url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline break-all truncate block">{url}</a>
+                          ) : <p className="text-slate-300">—</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}

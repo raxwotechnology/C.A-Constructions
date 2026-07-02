@@ -13,6 +13,7 @@ const SUBSCRIPTION_TYPE_LABELS = {
   social_media_facebook: 'Facebook Management',
   social_media_instagram: 'Instagram Management',
   social_media_tiktok: 'TikTok Marketing',
+  social_media_management: 'Social Media Management',
   content_management: 'Content Management',
   technical_support: 'Technical Support',
   bug_fixing: 'Bug Fixing',
@@ -127,7 +128,9 @@ exports.getSubscriptions = async (req, res, next) => {
          tempNext = advanceDueDate(tempNext, s.billingFrequency);
       }
       obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
-      obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
+      obj.typeLabel = s.subscriptionType === 'custom' && s.customServiceType
+        ? s.customServiceType
+        : SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
       return obj;
     });
 
@@ -165,7 +168,9 @@ exports.getSubscription = async (req, res, next) => {
     }
     obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
     
-    obj.typeLabel = SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType;
+    obj.typeLabel = sub.subscriptionType === 'custom' && sub.customServiceType
+      ? sub.customServiceType
+      : SUBSCRIPTION_TYPE_LABELS[sub.subscriptionType] || sub.subscriptionType;
     res.json({ success: true, subscription: obj });
   } catch (err) { next(err); }
 };
@@ -608,7 +613,9 @@ exports.getBillingOverview = async (req, res, next) => {
         _id: s._id,
         title: s.title,
         type: s.subscriptionType,
-        typeLabel: SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType,
+        typeLabel: s.subscriptionType === 'custom' && s.customServiceType
+          ? s.customServiceType
+          : SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType,
         amount: s.amount,
         status: overdue > 0 ? 'overdue' : s.status,
         overdueDays: overdue,
@@ -654,7 +661,9 @@ exports.getBillingOverview = async (req, res, next) => {
     // Subscription type distribution
     const typeDist = {};
     subs.forEach((s) => {
-      const label = SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
+      const label = s.subscriptionType === 'custom' && s.customServiceType
+        ? s.customServiceType
+        : SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
       typeDist[label] = (typeDist[label] || 0) + 1;
     });
 

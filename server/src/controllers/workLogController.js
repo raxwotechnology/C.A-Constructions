@@ -119,10 +119,11 @@ exports.getMyWorkLogs = async (req, res, next) => {
 
 exports.getAllWorkLogs = async (req, res, next) => {
   try {
-    const { branch, date, role } = req.query;
+    const { branch, date, role, employee } = req.query;
     const query = {};
     if (branch) query.branch = branch;
     if (role && role !== 'all') query.employeeRole = role;
+    if (employee) query.employee = employee;
     if (date) {
       const d = new Date(date);
       d.setHours(0,0,0,0);

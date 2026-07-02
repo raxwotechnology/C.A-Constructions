@@ -1069,6 +1069,9 @@ exports.getProfitLoss = async (req, res, next) => {
     allIncomeEntries.forEach(e => { incomeCategoryMap[e.category] = (incomeCategoryMap[e.category] || 0) + e.amount; });
     const expenseCategoryMap = {};
     allExpenseEntries.forEach(e => { expenseCategoryMap[e.category] = (expenseCategoryMap[e.category] || 0) + e.amount; });
+    const bankManualIncome = bankLedger.incomeTotal || 0;
+    const bankManualExpense = bankLedger.expenseTotal || 0;
+    const cashInHand = 0; // Or calculate if needed
 
     res.json({
       success: true,
@@ -1095,6 +1098,7 @@ exports.getProfitLoss = async (req, res, next) => {
         bankDeposits: bankManualIncome,
         bankWithdrawals: bankManualExpense,
         cashInHand,
+        bankNetFlow: bankLedger.netFlow || 0,
       },
       incomeEntries: allIncomeEntries,
       expenseEntries: allExpenseEntries,

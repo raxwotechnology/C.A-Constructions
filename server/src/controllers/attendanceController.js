@@ -304,7 +304,52 @@ exports.getAttendance = async (req, res, next) => {
     const records = await Attendance.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
       .sort({ date: -1 });
-    res.json({ success: true, count: records.length, records });
+
+    const activeEmps = await Employee.find({ status: 'active', ...(branch ? { branch } : {}) }).populate('userId', 'name email');
+    
+    let dStart, dEnd;
+    if (startDate && endDate) {
+      dStart = new Date(startDate); dStart.setHours(0,0,0,0);
+      dEnd = new Date(endDate); dEnd.setHours(23,59,59,999);
+    } else if (month && year) {
+      dStart = new Date(Number(year), Number(month) - 1, 1);
+      dEnd = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
+    } else {
+      dStart = new Date(); dStart.setHours(0,0,0,0);
+      dEnd = new Date(); dEnd.setHours(23,59,59,999);
+    }
+    const today = new Date();
+    if (dEnd > today) dEnd = today;
+
+    const recordMap = new Set(records.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
+    const dummyRecords = [];
+    
+    if (!status || status === 'absent') {
+      const days = [];
+      for (let d = new Date(dStart); d <= dEnd; d.setDate(d.getDate() + 1)) {
+        days.push(new Date(d).toISOString().split('T')[0]);
+      }
+      const empFilterSet = employeeId ? new Set([String(employeeId)]) : new Set(activeEmps.map(e => String(e._id)));
+      
+      for (const emp of activeEmps) {
+        if (!empFilterSet.has(String(emp._id))) continue;
+        for (const dayStr of days) {
+          const key = `${emp._id}_${dayStr}`;
+          if (!recordMap.has(key)) {
+            dummyRecords.push({
+              _id: `dummy_${key}`,
+              employee: emp,
+              date: new Date(dayStr),
+              status: 'absent',
+              isDummy: true
+            });
+          }
+        }
+      }
+    }
+    const allRecords = [...records.map(r => r.toObject ? r.toObject() : r), ...dummyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({ success: true, count: allRecords.length, records: allRecords });
   } catch (err) { next(err); }
 };
 
@@ -375,11 +420,22 @@ exports.updateAttendance = async (req, res, next) => {
 exports.getAttendanceAnalytics = async (req, res, next) => {
   try {
     const now = new Date();
-    const month = Number(req.query.month || now.getMonth() + 1);
-    const year = Number(req.query.year || now.getFullYear());
-    const { branch } = req.query;
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    const { branch, startDate, endDate } = req.query;
+    
+    let start, end, month, year;
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      month = start.getMonth() + 1;
+      year = start.getFullYear();
+    } else {
+      month = Number(req.query.month || now.getMonth() + 1);
+      year = Number(req.query.year || now.getFullYear());
+      start = new Date(year, month - 1, 1);
+      end = new Date(year, month, 0, 23, 59, 59, 999);
+    }
 
     const query = { date: { $gte: start, $lte: end } };
     if (branch) {
@@ -390,13 +446,40 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
     const records = await Attendance.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email role' } });
 
-    const byStatus = records.reduce((acc, row) => {
+    const activeEmps = await Employee.find({ status: 'active', ...(branch ? { branch } : {}) }).populate('userId', 'name employeeNo');
+    const today = new Date();
+    let dEnd = end > today ? today : end;
+    
+    const recordMap = new Set(records.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
+    const days = [];
+    for (let d = new Date(start); d <= dEnd; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d).toISOString().split('T')[0]);
+    }
+    
+    const dummyRecords = [];
+    for (const emp of activeEmps) {
+      for (const dayStr of days) {
+        const key = `${emp._id}_${dayStr}`;
+        if (!recordMap.has(key)) {
+          dummyRecords.push({
+            employee: emp,
+            date: new Date(dayStr),
+            status: 'absent',
+            isHalfDay: false
+          });
+        }
+      }
+    }
+    
+    const allRecords = [...records, ...dummyRecords];
+
+    const byStatus = allRecords.reduce((acc, row) => {
       const key = row.isHalfDay ? 'half_day' : row.status;
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
 
-    const byEmployee = records.reduce((acc, row) => {
+    const byEmployee = allRecords.reduce((acc, row) => {
       const empId = String(row.employee?._id || row.employee);
       const name = row.employee?.userId?.name || 'Unknown';
       if (!acc[empId]) acc[empId] = { employeeId: empId, employeeNo: row.employee?.employeeNo || '', name, present: 0, absent: 0, leave: 0, half_day: 0 };
@@ -406,7 +489,7 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
     }, {});
 
     const dailyTrendMap = {};
-    records.forEach((row) => {
+    allRecords.forEach((row) => {
       const day = new Date(row.date).getDate();
       if (!dailyTrendMap[day]) dailyTrendMap[day] = { day, present: 0, absent: 0, leave: 0, half_day: 0 };
       const key = row.isHalfDay ? 'half_day' : row.status;
@@ -417,7 +500,7 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
       success: true, month, year, byStatus,
       byEmployee: Object.values(byEmployee).sort((a, b) => (b.present + b.half_day) - (a.present + a.half_day)),
       dailyTrend: Object.values(dailyTrendMap).sort((a, b) => a.day - b.day),
-      totalRecords: records.length,
+      totalRecords: allRecords.length,
     });
   } catch (err) { next(err); }
 };

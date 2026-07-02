@@ -27,6 +27,8 @@ export default function AdminProjects() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState('')
   const [selectedTeam, setSelectedTeam] = useState([])
   const [commissionAllocations, setCommissionAllocations] = useState([])
   const [linkedInvoices, setLinkedInvoices] = useState([])
@@ -78,7 +80,9 @@ export default function AdminProjects() {
 
   const projects = (projData?.projects || []).filter(p =>
     (!search || p.title?.toLowerCase().includes(search.toLowerCase())) &&
-    (!statusFilter || p.status === statusFilter)
+    (!statusFilter || p.status === statusFilter) &&
+    (!serviceTypeFilter || p.serviceType === serviceTypeFilter) &&
+    (!priorityFilter || p.priority === priorityFilter)
   )
   const employees = empData?.employees || []
   const branches = branchData?.branches || []
@@ -250,8 +254,16 @@ export default function AdminProjects() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="form-input !pl-10"/>
         </div>
         <select className="form-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="">All Status</option>
+          <option value="">All Statuses</option>
           {['planning','active','on_hold','completed','completed_payment_pending','paid_completed','overdue','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</option>)}
+        </select>
+        <select className="form-select" value={serviceTypeFilter} onChange={e => setServiceTypeFilter(e.target.value)}>
+          <option value="">All Service Types</option>
+          {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="form-select" value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}>
+          <option value="">All Priorities</option>
+          {['low','medium','high','critical'].map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
         </select>
         <select className="form-select" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
           <option value="">All Branches</option>

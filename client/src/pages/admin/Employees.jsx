@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiEye, FiAlertCircle } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUser, FiX, FiActivity, FiEye, FiAlertCircle, FiClock } from 'react-icons/fi'
 import EmployeeDetail from './EmployeeDetail'
 import EmployeeFormModal from '../../components/admin/EmployeeFormModal'
 import { DEPARTMENTS, EMPLOYEE_STATUSES, EMPLOYEE_STATUS_FILTERS, STATUS_BADGE } from '../../constants/employeeStatus'
@@ -45,6 +46,7 @@ function invalidateAllEmployeeLists(qc) {
 
 export default function AdminEmployees() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -443,6 +445,12 @@ export default function AdminEmployees() {
                           <FiEye size={14}/>
                         </button>
                         <button
+                          onClick={() => navigate(`/admin/work-logs?employee=${emp._id}`)}
+                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Work Logs" type="button">
+                          <FiClock size={14}/>
+                        </button>
+                        <button
                           onClick={() => setActivityEmp(emp)}
                           className="p-1.5 text-gray-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
                           title="View activity" type="button">
@@ -522,6 +530,12 @@ export default function AdminEmployees() {
                   <button type="button" onClick={() => setViewEmp(emp)}
                     className="p-2 text-gray-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-colors" title="View Details">
                     <FiEye size={14}/>
+                  </button>
+                  <button
+                    onClick={() => navigate(`/admin/work-logs?employee=${emp._id}`)}
+                    className="p-2 text-gray-500 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
+                    title="Work Logs" type="button">
+                    <FiClock size={14}/>
                   </button>
                   <button
                     onClick={() => setActivityEmp(emp)}

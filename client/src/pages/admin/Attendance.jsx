@@ -72,8 +72,14 @@ export default function AdminAttendance() {
     },
   })
   const { data: analyticsData } = useQuery({
-    queryKey: ['attendance-analytics', month, year, branchFilter],
-    queryFn: () => api.get(`/attendance/analytics?month=${month}&year=${year}${branchFilter ? `&branch=${branchFilter}` : ''}`).then(r => r.data),
+    queryKey: ['attendance-analytics', month, year, branchFilter, filterMode, dateFrom, dateTo],
+    queryFn: () => {
+      const p = new URLSearchParams()
+      if (filterMode === 'month') { p.set('month', month); p.set('year', year) }
+      else { if (dateFrom) p.set('startDate', dateFrom); if (dateTo) p.set('endDate', dateTo) }
+      if (branchFilter) p.set('branch', branchFilter)
+      return api.get(`/attendance/analytics?${p.toString()}`).then(r => r.data)
+    },
   })
   const { data: empData } = useQuery({
     queryKey: ['employees-list-mini'],
@@ -100,7 +106,7 @@ export default function AdminAttendance() {
   }
 
   const saveMut = useMutation({
-    mutationFn: (payload) => editingRecord
+    mutationFn: (payload) => (editingRecord && !editingRecord.isDummy)
       ? api.put(`/attendance/${editingRecord._id}`, payload)
       : api.post('/attendance', payload),
     onSuccess: () => {
@@ -198,11 +204,13 @@ export default function AdminAttendance() {
       <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Attendance</h1>
-          <p className="page-subtitle">{records.length} records · {new Date(year, month - 1).toLocaleString('default', { month: 'long' })} {year}</p>
+          <p className="page-subtitle">
+            {records.length} records · {filterMode === 'range' ? `${fmtDate(dateFrom)}${dateFrom !== dateTo ? ` to ${fmtDate(dateTo)}` : ''}` : `${new Date(year, month - 1).toLocaleString('default', { month: 'long' })} ${year}`}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <ExportBar data={records} columns={exportColumns} title="Attendance Report"
-            filters={{ Month: `${month}/${year}`, Status: statusFilter || 'All', Employee: empFilter || 'All', Branch: branchFilter || 'All' }} />
+            filters={{ Period: filterMode === 'range' ? `${fmtDate(dateFrom)}${dateFrom !== dateTo ? ` to ${fmtDate(dateTo)}` : ''}` : `${month}/${year}`, Status: statusFilter || 'All', Employee: empFilter || 'All', Branch: branchFilter || 'All' }} />
           <button onClick={openCreate} className="btn-primary gap-2"><FiPlus size={14} /> Add Record</button>
         </div>
       </div>
@@ -283,7 +291,9 @@ export default function AdminAttendance() {
       {/* Employee summary table */}
       {byEmployee.length > 0 && (
         <div className="card card-body">
-          <h3 className="font-bold text-primary font-heading mb-3 text-sm">Employee Summary — {new Date(year, month - 1).toLocaleString('default', { month: 'long' })} {year}</h3>
+          <h3 className="font-bold text-primary font-heading mb-3 text-sm">
+            Employee Summary — {filterMode === 'range' ? `${fmtDate(dateFrom)}${dateFrom !== dateTo ? ` to ${fmtDate(dateTo)}` : ''}` : `${new Date(year, month - 1).toLocaleString('default', { month: 'long' })} ${year}`}
+          </h3>
           <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
