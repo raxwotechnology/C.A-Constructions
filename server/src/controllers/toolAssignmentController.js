@@ -105,14 +105,7 @@ exports.getMyAssignments = async (req, res, next) => {
       .populate('assignedBy', 'name')
       .sort({ createdAt: -1 });
 
-    // Return with password hidden unless admin
-    const safe = assignments.map(a => {
-      const obj = a.toObject();
-      if (req.user.role !== 'admin') obj.accountPassword = '••••••••';
-      return obj;
-    });
-
-    res.json({ success: true, assignments: safe });
+    res.json({ success: true, assignments });
   } catch (err) { next(err); }
 };
 

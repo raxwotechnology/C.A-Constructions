@@ -732,12 +732,30 @@ exports.createInvoiceFromPayment = async (req, res, next) => {
     const invoiceNo = await generateAutoInvoiceNo('INV');
     const Invoice = require('../models/Invoice');
 
+    const SiteSetting = require('../models/SiteSetting');
+    const settings = await SiteSetting.findOne();
+    
+    let signatures = {};
+    if (settings) {
+      if (req.body.withSeal && settings.sealUrl) {
+        signatures.seal = { data: settings.sealUrl, note: '' };
+      }
+      if (settings.signatures && settings.signatures.director && settings.signatures.director.url) {
+        signatures.authorizer = {
+          data: settings.signatures.director.url,
+          name: settings.quotationDirectorName || '',
+          title: settings.signatures.director.label || 'Director'
+        };
+      }
+    }
+
     const invoice = await Invoice.create({
       client: sub.client,
       project: sub.project,
       invoiceNo,
       invoiceDate: payment.paidAt,
       dueDate: payment.paidAt,
+      serviceType: 'Subscription',
       items: [{
         description: `Subscription Payment - ${sub.title}`,
         quantity: 1,
@@ -751,6 +769,7 @@ exports.createInvoiceFromPayment = async (req, res, next) => {
       bankAccount: payment.bankAccount,
       notes: `Generated from subscription ${sub.subscriptionNo || sub.title} payment (${payment.reference || payment.note || 'No ref'})`,
       createdBy: req.user._id,
+      signatures,
       payments: [{
         amount: payment.amount,
         date: payment.paidAt,

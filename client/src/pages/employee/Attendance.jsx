@@ -216,7 +216,7 @@ export default function EmployeeAttendance() {
                       clockOutMut.mutate()
                     }}
                     disabled={isLoading}
-                    className="bg-red-600 hover:bg-red-700 text-white btn gap-2 px-6"
+                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg shadow-red-500/30 btn gap-2 px-6 border-0"
                   >
                     <FiLogOut size={15} />
                     {clockOutMut.isPending ? 'Clocking out...' : 'Clock Out'}

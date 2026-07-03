@@ -207,6 +207,16 @@ exports.getDashboard = async (req, res, next) => {
     const financeIncomeTotal = financeIncomeTotalAgg[0]?.total || 0;
     const financeExpenseTotal = financeExpenseTotalAgg[0]?.total || 0;
 
+    // Calculate all-time revenue (Invoices + Subscriptions + FinanceIncome)
+    const allInvoicesAgg = await Invoice.aggregate([{ $match: { ...invMatch, status: 'paid' } }, { $group: { _id: null, total: { $sum: '$total' } } }]);
+    const allPayrollAgg = await Payroll.aggregate([{ $match: { ...relatedEmpMatch, status: { $in: ['approved', 'paid'] } } }, { $group: { _id: null, total: { $sum: '$netSalary' } } }]);
+    
+    const allInvoiceTotal = allInvoicesAgg[0]?.total || 0;
+    const allPayrollTotal = allPayrollAgg[0]?.total || 0;
+    
+    const allTimeRevenue = allInvoiceTotal + financeIncomeTotal + (subscriptionRevenue[0]?.total || 0);
+    const allTimeExpense = financeExpenseTotal + allPayrollTotal;
+
     // Daily & Monthly Revenue/Expenses exact values
     const todayStart = new Date(now.toDateString());
     const [revToday, expToday, revMonth, expMonth] = await Promise.all([
@@ -242,7 +252,8 @@ exports.getDashboard = async (req, res, next) => {
       }
     });
 
-    const bankBalance = bankIn - bankOut;
+    // Use actual bank account balances for bankBalance
+    const bankBalance = bankAccountsTotalBalance;
     const cashBalance = cashIn - cashOut;
 
     const pettyCashQuery = branch ? { branch } : {};
@@ -300,6 +311,8 @@ exports.getDashboard = async (req, res, next) => {
         bankAccountsTotalBalance,
         financeIncomeTotal,
         financeExpenseTotal,
+        allTimeRevenue,
+        allTimeExpense,
       },
       charts: {
         revenueData, expenseData, payrollCost,

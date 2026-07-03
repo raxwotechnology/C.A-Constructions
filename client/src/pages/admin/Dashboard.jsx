@@ -81,8 +81,8 @@ export default function AdminDashboard() {
             { label: 'Paid invoices', value: String(kpis.paidInvoicesCount ?? 0), sub: 'Marked paid', icon: FiCheckCircle, accent: '#16a34a', bg: 'bg-green-50 text-green-700' },
             { label: 'Pending payments', value: `${money(kpis.pendingPaymentsTotal || 0)}`, sub: 'Outstanding balances', icon: FiAlertTriangle, accent: '#ea580c', bg: 'bg-orange-50 text-orange-700', alert: (kpis.pendingPaymentsTotal || 0) > 0 },
             { label: 'Bank balances', value: `${money(kpis.bankAccountsTotalBalance || 0)}`, sub: 'Active accounts', icon: FiBriefcase, accent: '#2563eb', bg: 'bg-blue-50 text-blue-700' },
-            { label: 'Income total', value: `${money(kpis.financeIncomeTotal || 0)}`, sub: 'Income entries (all time)', icon: FiTrendingUp, accent: '#059669', bg: 'bg-emerald-50 text-emerald-700' },
-            { label: 'Expense total', value: `${money(kpis.financeExpenseTotal || 0)}`, sub: 'Expense entries (all time)', icon: FiPieChart, accent: '#dc2626', bg: 'bg-red-50 text-red-700' },
+            { label: 'Income total', value: `${money(kpis.allTimeRevenue || 0)}`, sub: 'All income sources', icon: FiTrendingUp, accent: '#059669', bg: 'bg-emerald-50 text-emerald-700' },
+            { label: 'Expense total', value: `${money(kpis.allTimeExpense || 0)}`, sub: 'All expenses', icon: FiPieChart, accent: '#dc2626', bg: 'bg-red-50 text-red-700' },
           ].map((c, i) => (
             <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`card card-body relative overflow-hidden ${c.alert ? 'border-orange-200' : ''}`}>
               <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: c.accent, borderRadius: '12px 0 0 12px' }} />
@@ -127,7 +127,7 @@ export default function AdminDashboard() {
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🏦 Cash & Bank Balances</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label:'Bank Balance', value:`${money(kpis.bankBalance||0)}`, sub:'From reconciled txns', icon:FiBriefcase, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
+            { label:'Bank Balance', value:`${money(kpis.bankBalance||0)}`, sub:'Total from all accounts', icon:FiBriefcase, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
             { label:'Cash in Hand', value:`${money(kpis.cashBalance||0)}`, sub:'Physical cash', icon:FiDollarSign, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
             { label:'Petty Cash', value:`${money(kpis.pettyCashBalance||0)}`, sub:'Office funds', icon:FiFolder, accent:'#f59e0b', bg:'bg-yellow-50 text-yellow-600' },
             { label:'Subscription MRR', value:`${money(kpis.subscriptionRevenue||0)}`, sub:`${kpis.activeSubscriptions||0} active`, icon:FiServer, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600' },

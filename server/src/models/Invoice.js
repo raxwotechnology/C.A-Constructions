@@ -33,7 +33,7 @@ const invoiceSchema = new mongoose.Schema({
   createdBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   serviceType: {
     type: String,
-    enum: ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'],
+    enum: ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Subscription', 'Other'],
     default: 'Other'
   },
 

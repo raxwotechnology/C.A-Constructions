@@ -33,7 +33,7 @@ export default function ManagerProfile() {
     if (!avatarFile) return user?.avatar || ''
     const fd = new FormData()
     fd.append('image', avatarFile)
-    const { data } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const { data } = await api.post('/uploads/image', fd)
     return data.imageUrl
   }
 

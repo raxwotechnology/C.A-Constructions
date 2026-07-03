@@ -352,7 +352,7 @@ exports.getEntries = async (req, res, next) => {
     let allEntries = [];
     const seenAll = new Set();
     for (const e of allEntriesRaw) {
-      const key = `${e.type}-${e.amount}-${e.title}`;
+      const key = String(e._id);
       if (!seenAll.has(key)) {
         seenAll.add(key);
         allEntries.push(e);
@@ -536,7 +536,7 @@ exports.getOverview = async (req, res, next) => {
     const uniqueRecent = [];
     const seenRecent = new Set();
     for (const e of recentFinance) {
-      const key = `${e.type}-${e.amount}-${e.title}`;
+      const key = e._id ? String(e._id) : `${e.type}-${e.amount}-${e.title}-${e.date}`;
       if (!seenRecent.has(key)) {
         seenRecent.add(key);
         uniqueRecent.push(e);

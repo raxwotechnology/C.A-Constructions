@@ -1052,10 +1052,15 @@ export default function AdminSubscriptions() {
                           <td>{p.recordedBy?.name || '—'}</td>
                           <td>
                             <div className="flex items-center justify-end gap-1">
+                              <label className="flex items-center gap-1 text-[10px] text-slate-500 mr-2 cursor-pointer" title="Add Company Seal">
+                                <input type="checkbox" id={`seal-${p._id}`} className="w-3 h-3 accent-indigo-500" defaultChecked />
+                                Seal
+                              </label>
                               <button
                                 onClick={async () => {
                                   try {
-                                    const res = await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/invoice`);
+                                    const withSeal = document.getElementById(`seal-${p._id}`)?.checked;
+                                    const res = await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/invoice`, { withSeal });
                                     toast.success('Invoice created, downloading...');
                                     const invoiceId = res.data?.invoice?._id;
                                     if (invoiceId) {

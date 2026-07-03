@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
-import { FiKey, FiMonitor, FiCode, FiTrendingUp, FiMessageSquare, FiCpu, FiFolder, FiExternalLink, FiClock } from 'react-icons/fi'
+import toast from 'react-hot-toast'
+import { FiKey, FiMonitor, FiCode, FiTrendingUp, FiMessageSquare, FiCpu, FiFolder, FiExternalLink, FiClock, FiCopy } from 'react-icons/fi'
 
 const TOOL_TYPE_ICONS = {
   design: { icon: FiMonitor, color: 'from-purple-500 to-pink-500', bg: 'bg-purple-50', text: 'text-purple-700' },
@@ -76,7 +77,8 @@ export default function MyTools() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {tools.map((tool, i) => (
                     <motion.div key={tool._id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
-                      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white hover:shadow-md transition-shadow group">
+                      onClick={() => tool.accessUrl && window.open(tool.accessUrl.startsWith('http') ? tool.accessUrl : `https://${tool.accessUrl}`, '_blank')}
+                      className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white hover:shadow-md transition-shadow group ${tool.accessUrl ? 'cursor-pointer hover:border-secondary/50' : ''}`}>
                       <div className={`h-1 w-full bg-gradient-to-r ${meta.color}`} />
                       <div className="p-4">
                         {/* Tool header */}
@@ -92,17 +94,34 @@ export default function MyTools() {
 
                         {/* Account email */}
                         {tool.accountEmail && (
-                          <div className="bg-slate-50 rounded-xl px-3 py-2 mb-2 border border-slate-100">
-                            <p className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5">Account</p>
+                          <div className="bg-slate-50 rounded-xl px-3 py-2 mb-2 border border-slate-100 cursor-pointer group" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(tool.accountEmail); toast.success('Email copied!') }} title="Click to copy">
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5 flex items-center justify-between">
+                              Account Email
+                              <FiCopy size={10} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+                            </p>
                             <p className="text-sm font-mono text-slate-700 truncate">{tool.accountEmail}</p>
                           </div>
                         )}
 
-                        {/* Password (masked) */}
-                        {tool.accountPassword && tool.accountPassword !== '••••••••' && (
-                          <div className="bg-slate-50 rounded-xl px-3 py-2 mb-2 border border-slate-100">
-                            <p className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5">Password</p>
-                            <p className="text-sm font-mono text-slate-700">••••••••</p>
+                        {/* Password */}
+                        {tool.accountPassword && (
+                          <div className="bg-slate-50 rounded-xl px-3 py-2 mb-2 border border-slate-100 cursor-pointer group" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(tool.accountPassword); toast.success('Password copied!') }} title="Click to copy">
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5 flex items-center justify-between">
+                              Password
+                              <FiCopy size={10} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+                            </p>
+                            <p className="text-sm font-mono text-slate-700 truncate">{tool.accountPassword}</p>
+                          </div>
+                        )}
+
+                        {/* License Key */}
+                        {tool.licenseKey && (
+                          <div className="bg-slate-50 rounded-xl px-3 py-2 mb-2 border border-slate-100 cursor-pointer group" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(tool.licenseKey); toast.success('License key copied!') }} title="Click to copy">
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5 flex items-center justify-between">
+                              License Key
+                              <FiCopy size={10} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+                            </p>
+                            <p className="text-sm font-mono text-slate-700 truncate">{tool.licenseKey}</p>
                           </div>
                         )}
 
@@ -121,7 +140,8 @@ export default function MyTools() {
 
                         {/* Action */}
                         {tool.accessUrl && (
-                          <a href={tool.accessUrl} target="_blank" rel="noreferrer"
+                          <a href={tool.accessUrl.startsWith('http') ? tool.accessUrl : `https://${tool.accessUrl}`} target="_blank" rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="w-full btn-outline btn-sm text-xs justify-center mt-2 hover:bg-secondary hover:text-white hover:border-secondary transition-colors gap-1.5">
                             <FiExternalLink size={12} /> Open Tool
                           </a>

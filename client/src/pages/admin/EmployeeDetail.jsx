@@ -81,17 +81,17 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
   })
   const { data: leaveData } = useQuery({
     queryKey: ['emp-detail-leaves', empId],
-    queryFn: () => api.get(`/leaves?employeeId=${empId}&limit=5`).then(r => r.data),
+    queryFn: () => api.get(`/leaves?employee=${empId}&limit=5`).then(r => r.data),
     enabled: !!empId && tab === 'Dashboard',
   })
   const { data: payrollData } = useQuery({
     queryKey: ['emp-detail-payroll', empId],
-    queryFn: () => api.get(`/payroll?employeeId=${empId}&limit=3`).then(r => r.data),
+    queryFn: () => api.get(`/payroll?employee=${empId}&limit=3`).then(r => r.data),
     enabled: !!empId && tab === 'Dashboard',
   })
   const { data: projectData } = useQuery({
     queryKey: ['emp-detail-projects', empId],
-    queryFn: () => api.get(`/projects?employeeId=${empId}&limit=5`).then(r => r.data),
+    queryFn: () => api.get(`/projects?employee=${empId}&limit=5`).then(r => r.data),
     enabled: !!empId && tab === 'Dashboard',
   })
   const { data: loanSummary } = useQuery({
@@ -111,7 +111,7 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
   })
   const { data: allPayroll } = useQuery({
     queryKey: ['emp-detail-payroll-all', empId],
-    queryFn: () => api.get(`/payroll?employeeId=${empId}`).then(r => r.data),
+    queryFn: () => api.get(`/payroll?employee=${empId}`).then(r => r.data),
     enabled: !!empId && tab === 'Payroll',
   })
   const { data: epfHistory } = useQuery({

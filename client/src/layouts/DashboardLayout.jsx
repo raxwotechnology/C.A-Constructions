@@ -143,7 +143,6 @@ export default function DashboardLayout({ role }) {
   const [showNotif, setShowNotif] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const notifButtonRef = useRef(null)
-  const [notifPos, setNotifPos] = useState({ top: 72, right: 16 })
   
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearchBox, setShowSearchBox] = useState(false)
@@ -200,34 +199,7 @@ export default function DashboardLayout({ role }) {
     return results.slice(0, 8)
   }, [searchQuery, navGroups])
 
-  useEffect(() => {
-    const updateNotifPos = () => {
-      const rect = notifButtonRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const panelWidth = 320 // w-80
-      const margin = 12
-      const computedTop = rect.bottom + 8
-      const computedLeft = Math.min(
-        Math.max(margin, rect.right - panelWidth),
-        window.innerWidth - panelWidth - margin
-      )
-      setNotifPos({
-        top: Math.max(8, computedTop),
-        right: Math.max(8, window.innerWidth - (computedLeft + panelWidth)),
-      })
-    }
 
-    if (showNotif) {
-      updateNotifPos()
-      window.addEventListener('resize', updateNotifPos)
-      window.addEventListener('scroll', updateNotifPos, true)
-    }
-
-    return () => {
-      window.removeEventListener('resize', updateNotifPos)
-      window.removeEventListener('scroll', updateNotifPos, true)
-    }
-  }, [showNotif])
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -436,21 +408,20 @@ export default function DashboardLayout({ role }) {
                       onClick={() => setShowNotif(false)}
                     />
                     <motion.div
-                      initial={{ opacity: 0, y: 100 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 100 }}
-                      className="fixed sm:absolute bottom-0 left-0 right-0 sm:bottom-auto sm:left-auto sm:w-80 bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl z-[1000] border-t sm:border border-slate-200"
-                      style={window.innerWidth > 640 ? { top: `48px`, right: `0px` } : {}}
+                      initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                      className="absolute right-0 top-12 w-[calc(100vw-24px)] max-w-[340px] sm:w-80 bg-white rounded-2xl shadow-2xl z-[1000] border border-slate-200 origin-top-right"
                     >
-                      <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-slate-50 sm:bg-transparent rounded-t-2xl">
-                        <h3 className="font-semibold text-gray-800 text-lg sm:text-base">Notifications</h3>
+                      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
+                        <h3 className="font-semibold text-gray-800 text-base">Notifications</h3>
                         <span className="badge badge-blue">{unreadCount} new</span>
                       </div>
-                      <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto custom-scrollbar pb-safe">
+                      <div className="max-h-[65vh] sm:max-h-80 overflow-y-auto custom-scrollbar pb-2">
                         {notifications.length === 0 ? (
                           <p className="text-center text-gray-400 text-sm py-12 sm:py-8">No notifications</p>
                         ) : notifications.slice(0, 8).map(n => (
-                          <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-4 sm:p-3.5 border-b border-slate-100 transition-all flex items-start gap-3 relative group ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-[#20b2f5]/5 hover:bg-[#20b2f5]/10'}`}>
+                          <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-4 sm:p-3.5 border-b border-slate-50 transition-all flex items-start gap-3 relative group ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-[#20b2f5]/5 hover:bg-[#20b2f5]/10'}`}>
                             {!n.read && <div className="absolute top-1/2 -translate-y-1/2 left-0 w-1 h-0 group-hover:h-8 transition-all bg-[#20b2f5] rounded-r-md" />}
                             <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${n.read ? 'bg-slate-100 text-slate-400' : 'bg-[#20b2f5]/20 text-[#20b2f5]'}`}>
                               <FiBell size={16} />

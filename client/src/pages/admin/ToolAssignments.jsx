@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FiPlus, FiX, FiEdit2, FiSlash, FiKey, FiMonitor, FiCode, FiTrendingUp, FiMessageSquare, FiCpu, FiFolder } from 'react-icons/fi'
+import { FiPlus, FiX, FiEdit2, FiSlash, FiKey, FiMonitor, FiCode, FiTrendingUp, FiMessageSquare, FiCpu, FiFolder, FiChevronDown } from 'react-icons/fi'
 
 const TOOL_TYPES = [
   { value: 'design', label: 'Design', icon: FiMonitor, color: 'from-purple-500 to-pink-500' },
@@ -23,6 +23,8 @@ export default function ToolAssignments() {
   const [editing, setEditing] = useState(null)
   const [filter, setFilter] = useState('all')
   const [form, setForm] = useState({ employee: '', toolName: '', toolType: 'other', accountEmail: '', accountPassword: '', accessUrl: '', licenseKey: '', notes: '', expiresAt: '' })
+  const [empSearch, setEmpSearch] = useState('')
+  const [showEmpDropdown, setShowEmpDropdown] = useState(false)
 
   const { data: empData } = useQuery({ queryKey: ['employees-list'], queryFn: () => api.get('/employees').then(r => r.data) })
   const employees = empData?.employees || []
@@ -39,6 +41,12 @@ export default function ToolAssignments() {
     onError: e => toast.error(e.response?.data?.message || 'Failed')
   })
 
+  const updateMut = useMutation({
+    mutationFn: (payload) => api.put(`/tool-assignments/${payload._id}`, payload).then(r => r.data),
+    onSuccess: () => { toast.success('Tool updated!'); setShowForm(false); resetForm(); qc.invalidateQueries({ queryKey: ['tool-assignments'] }) },
+    onError: e => toast.error(e.response?.data?.message || 'Failed')
+  })
+
   const revokeMut = useMutation({
     mutationFn: (id) => api.put(`/tool-assignments/${id}/revoke`),
     onSuccess: () => { toast.success('Access revoked'); qc.invalidateQueries({ queryKey: ['tool-assignments'] }) },
@@ -50,7 +58,36 @@ export default function ToolAssignments() {
     onSuccess: () => { toast.success('Deleted'); qc.invalidateQueries({ queryKey: ['tool-assignments'] }) }
   })
 
-  const resetForm = () => setForm({ employee: '', toolName: '', toolType: 'other', accountEmail: '', accountPassword: '', accessUrl: '', licenseKey: '', notes: '', expiresAt: '' })
+  const resetForm = () => {
+    setEditing(null)
+    setForm({ employee: '', toolName: '', toolType: 'other', accountEmail: '', accountPassword: '', accessUrl: '', licenseKey: '', notes: '', expiresAt: '' })
+    setEmpSearch('')
+    setShowEmpDropdown(false)
+  }
+
+  const handleEdit = (tool) => {
+    setEditing(tool._id)
+    setForm({
+      employee: tool.employee?._id || tool.employee || '',
+      toolName: tool.toolName || '',
+      toolType: tool.toolType || 'other',
+      accountEmail: tool.accountEmail || '',
+      accountPassword: tool.accountPassword || '',
+      accessUrl: tool.accessUrl || '',
+      licenseKey: tool.licenseKey || '',
+      notes: tool.notes || '',
+      expiresAt: tool.expiresAt ? new Date(tool.expiresAt).toISOString().split('T')[0] : ''
+    })
+    setShowForm(true)
+  }
+
+  const handleSubmit = () => {
+    if (editing) {
+      updateMut.mutate({ _id: editing, ...form })
+    } else {
+      createMut.mutate(form)
+    }
+  }
 
   const getTypeInfo = (type) => TOOL_TYPES.find(t => t.value === type) || TOOL_TYPES[TOOL_TYPES.length - 1]
 
@@ -146,6 +183,9 @@ export default function ToolAssignments() {
                       {a.accessUrl && <a href={a.accessUrl} target="_blank" rel="noreferrer" className="text-xs text-secondary hover:underline inline-block mb-1">🔗 Open Tool</a>}
                       {a.expiresAt && <p className="text-xs text-amber-600 mt-1">⏰ Expires {new Date(a.expiresAt).toLocaleDateString()}</p>}
                       <div className="flex gap-1 mt-3 pt-3 border-t border-slate-100">
+                        <button onClick={() => handleEdit(a)} className="btn-ghost btn-sm text-xs text-secondary hover:bg-secondary/10 gap-1">
+                          <FiEdit2 size={11} /> Edit
+                        </button>
                         {a.status === 'active' && (
                           <button onClick={() => revokeMut.mutate(a._id)} className="btn-outline btn-sm text-xs text-red-500 border-red-200 hover:bg-red-50 gap-1">
                             <FiSlash size={11} /> Revoke
@@ -169,16 +209,58 @@ export default function ToolAssignments() {
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
               <div className="p-5 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
-                <h2 className="font-bold text-primary text-lg">Assign Tool / Account</h2>
+                <h2 className="font-bold text-primary text-lg">{editing ? 'Edit Tool Assignment' : 'Assign Tool / Account'}</h2>
                 <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-200 rounded-xl"><FiX /></button>
               </div>
               <div className="p-5 overflow-y-auto space-y-4">
-                <div>
+                <div className="relative">
                   <label className="form-label">Employee</label>
-                  <select className="form-select" value={form.employee} onChange={e => setForm(s => ({ ...s, employee: e.target.value }))}>
-                    <option value="">Select Employee...</option>
-                    {employees.map(e => <option key={e._id} value={e._id}>{e.userId?.name} ({e.userId?.role})</option>)}
-                  </select>
+                  <div 
+                    className="form-input flex justify-between items-center cursor-pointer" 
+                    onClick={() => setShowEmpDropdown(!showEmpDropdown)}
+                  >
+                    <span className={form.employee ? 'text-slate-800' : 'text-slate-400'}>
+                      {form.employee ? employees.find(e => e._id === form.employee)?.userId?.name || 'Unknown' : 'Select Employee...'}
+                    </span>
+                    <FiChevronDown className="text-slate-400" />
+                  </div>
+                  
+                  {showEmpDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-[40]" onClick={() => setShowEmpDropdown(false)} />
+                      <div className="absolute z-[50] top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden flex flex-col max-h-60">
+                        <div className="p-2 border-b border-slate-100 bg-white sticky top-0">
+                          <input 
+                            type="text" 
+                            autoFocus
+                            placeholder="Search employee by name or role..." 
+                            className="form-input py-1.5 text-sm" 
+                            value={empSearch}
+                            onChange={e => setEmpSearch(e.target.value)}
+                          />
+                        </div>
+                        <div className="overflow-y-auto custom-scrollbar">
+                          {employees.filter(e => (e.userId?.name || '').toLowerCase().includes(empSearch.toLowerCase()) || (e.userId?.role || '').toLowerCase().includes(empSearch.toLowerCase())).map(e => (
+                            <div 
+                              key={e._id} 
+                              className={`px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-l-2 ${form.employee === e._id ? 'border-primary bg-slate-50' : 'border-transparent'}`}
+                              onClick={() => {
+                                setForm(s => ({ ...s, employee: e._id }));
+                                setShowEmpDropdown(false);
+                                setEmpSearch('');
+                              }}
+                            >
+                              <p className="font-medium text-slate-800">{e.userId?.name}</p>
+                              <p className="text-xs text-slate-400 capitalize">{e.userId?.role}</p>
+                            </div>
+                          ))}
+                          {employees.filter(e => (e.userId?.name || '').toLowerCase().includes(empSearch.toLowerCase()) || (e.userId?.role || '').toLowerCase().includes(empSearch.toLowerCase())).length === 0 && (
+                            <div className="p-3 text-sm text-slate-400 text-center">No employees found matching "{empSearch}"</div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Tool Name</label>
@@ -224,8 +306,8 @@ export default function ToolAssignments() {
                 </div>
               </div>
               <div className="p-5 border-t bg-slate-50 rounded-b-2xl">
-                <button onClick={() => createMut.mutate(form)} disabled={!form.employee || !form.toolName || createMut.isPending} className="btn-primary w-full justify-center">
-                  {createMut.isPending ? <span className="spinner" /> : 'Assign Tool'}
+                <button onClick={handleSubmit} disabled={!form.employee || !form.toolName || createMut.isPending || updateMut.isPending} className="btn-primary w-full justify-center">
+                  {createMut.isPending || updateMut.isPending ? <span className="spinner" /> : (editing ? 'Update Tool' : 'Assign Tool')}
                 </button>
               </div>
             </motion.div>

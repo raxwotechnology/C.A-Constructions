@@ -95,7 +95,7 @@ export default function WorkLogs() {
       fd.append('projectLinks', JSON.stringify(payload.projectLinks.filter(l => l.url)))
       screenshots.forEach(f => fd.append('screenshots', f))
       attachments.forEach(f => fd.append('attachments', f))
-      return api.post('/work-logs/my', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+      return api.post('/work-logs/my', fd).then(r => r.data)
     },
     onSuccess: () => {
       toast.success('Work log submitted!')

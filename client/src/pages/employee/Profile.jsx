@@ -35,7 +35,7 @@ export default function EmployeeProfile() {
       if (avatarFile) {
         const fd = new FormData()
         fd.append('image', avatarFile)
-        const { data: up } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+        const { data: up } = await api.post('/uploads/image', fd)
         avatar = up.imageUrl
       }
       return api.put('/auth/profile', { ...vals, avatar }).then(r => r.data)

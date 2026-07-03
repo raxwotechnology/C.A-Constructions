@@ -439,7 +439,7 @@ export default function AdminInvoices() {
         </select>
         <select className="form-select py-2 text-sm w-auto" value={serviceTypeFilter} onChange={e => setServiceTypeFilter(e.target.value)}>
           <option value="">All Services</option>
-          {['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+          {['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Subscription', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className="form-select py-2 text-sm w-auto" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
           <option value="">All Branches</option>
@@ -625,7 +625,7 @@ export default function AdminInvoices() {
                     <div>
                       <label className="form-label">Service Type</label>
                       <select {...register('serviceType')} className="form-select">
-                        {['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+                        {['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Subscription', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                   </div>
