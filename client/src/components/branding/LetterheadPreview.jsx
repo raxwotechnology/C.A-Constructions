@@ -9,14 +9,17 @@ export default function LetterheadPreview({ settings }) {
       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
         Letterhead preview (Quotations, Invoices, Exports &amp; Letters)
       </p>
-      <div
-        dangerouslySetInnerHTML={{
-          __html: buildDocumentLetterheadHtml(merged, {
-            forPrint: false,
-            showTagline: merged.letterheadTagline || merged.siteDescription || 'Next Level Tech',
-          }),
-        }}
-      />
+      <div className="overflow-x-auto w-full rounded bg-slate-50 border border-slate-100 pb-2">
+        <div
+          className="min-w-[700px] p-4"
+          dangerouslySetInnerHTML={{
+            __html: buildDocumentLetterheadHtml(merged, {
+              forPrint: false,
+              showTagline: merged.letterheadTagline || merged.siteDescription || 'Next Level Tech',
+            }),
+          }}
+        />
+      </div>
     </div>
   )
 }

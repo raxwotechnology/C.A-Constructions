@@ -21,6 +21,7 @@ import {
 import ConfirmModal from '../../components/ui/ConfirmModal'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 import SearchableSelect from '../../components/ui/SearchableSelect'
+import ExportBar from '../../components/ui/ExportBar'
 import { lookupLoaders } from '../../lib/lookupApi'
 
 const STATUS_COLOR = {
@@ -394,12 +395,35 @@ export default function AdminQuotations() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="page-header">
+      <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Quotations</h1>
           <p className="page-subtitle">{quotData?.count || 0} quotations total</p>
         </div>
-        <button onClick={openCreate} className="btn-primary"><FiPlus size={15}/> New Quotation</button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <ExportBar
+            data={quotations}
+            columns={[
+              { header: 'Quotation No.', accessor: 'quotationNo' },
+              { header: 'Client', accessor: q => q.client?.name || '—' },
+              { header: 'Title', accessor: q => q.title || '—' },
+              { header: 'Service', accessor: q => q.serviceType || 'Other' },
+              { header: 'Total', accessor: q => formatMoney(q.total || 0, q.currency || 'LKR') },
+              { header: 'Valid Until', accessor: q => q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-LK') : '—' },
+              { header: 'Status', accessor: 'status' }
+            ]}
+            title="Quotations Report"
+            filters={{
+              Status: statusFilter || 'All',
+              Service: serviceTypeFilter || 'All',
+              Branch: branchesQuot.find(b => b._id === branchFilter)?.name || (branchFilter ? 'Filtered' : 'All'),
+              Client: clientData?.users?.find(c => c._id === clientFilter)?.name || (clientFilter ? 'Filtered' : 'All'),
+              'Start Date': startDate || 'Any',
+              'End Date': endDate || 'Any'
+            }}
+          />
+          <button onClick={openCreate} className="btn-primary whitespace-nowrap"><FiPlus size={15}/> New Quotation</button>
+        </div>
       </div>
 
       {/* Filters */}

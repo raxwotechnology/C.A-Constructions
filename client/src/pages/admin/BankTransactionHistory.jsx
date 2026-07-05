@@ -84,7 +84,7 @@ export default function BankTransactionHistory() {
 
       <div className="card card-body">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1"><FiFilter size={12} /> Filters</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <div><label className="form-label text-xs">From</label><input type="date" className="form-input py-2 text-sm w-full" value={filters.fromDate} onChange={f('fromDate')} /></div>
           <div><label className="form-label text-xs">To</label><input type="date" className="form-input py-2 text-sm w-full" value={filters.toDate} onChange={f('toDate')} /></div>
           <div><label className="form-label text-xs">Branch</label>

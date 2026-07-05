@@ -178,8 +178,8 @@ export default function FinanceEntries() {
           <p className="page-subtitle">Track, filter and export all financial transactions</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <button type="button" onClick={()=>exportData('excel')} className="btn-export bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"><FiDownload size={12}/> Excel</button>
-          <button type="button" onClick={()=>exportData('pdf')} className="btn-export bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"><FiDownload size={12}/> PDF</button>
+          <button type="button" onClick={()=>exportData('excel')} className="btn-export bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"><FiDownload size={12}/> Excel</button>
+          <button type="button" onClick={()=>exportData('pdf')} className="btn-export bg-white border border-rose-200 text-rose-700 hover:bg-rose-50"><FiDownload size={12}/> PDF</button>
           <button type="button" onClick={()=>{setEditingId(null); setForm(EMPTY); setShowModal(true)}} className="btn-primary btn-sm"><FiPlus size={13}/> Add Entry</button>
         </div>
       </div>

@@ -181,8 +181,8 @@ export default function AdminLeaves() {
 
       {/* Filters */}
       <div className="card card-body">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+          <div className="col-span-2 sm:col-span-1">
             <label className="form-label text-xs">Search</label>
             <input type="text" className="form-input py-2 text-sm" placeholder="Name or Emp No..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>

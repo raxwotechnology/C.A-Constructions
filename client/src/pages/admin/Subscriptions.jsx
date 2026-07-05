@@ -554,7 +554,72 @@ export default function AdminSubscriptions() {
             {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
         </div>
-        <div className="table-container">
+
+        {/* Mobile View */}
+        <div className="sm:hidden space-y-4 p-4">
+          {isLoading && <div className="text-center py-10"><div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></div>}
+          {!isLoading && filteredSubs.map(s => (
+            <div key={s._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <span className="badge badge-navy font-mono text-[10px] tracking-tight">{s.subscriptionNo}</span>
+                  <p className="font-bold text-slate-800 mt-1 truncate">{s.title}</p>
+                  <p className="text-xs text-slate-500 truncate">{s.client?.name}</p>
+                </div>
+                <div className="flex flex-col items-end shrink-0 gap-1">
+                  <span className={`badge capitalize text-[10px] px-2 py-0.5 ${s.status === 'active' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{s.status}</span>
+                  {s.overdueDays > 0 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md">{s.overdueDays}d overdue</span>}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Amount</p>
+                  <p className="font-semibold text-slate-800">LKR {s.amount?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Frequency</p>
+                  <p className="font-medium text-slate-700 capitalize">{s.billingFrequency === 'monthly' ? 'Monthly' : s.billingFrequency}</p>
+                </div>
+                <div className="col-span-2 flex items-center justify-between border-t border-slate-200/60 pt-2 mt-1">
+                   <p className="text-[11px] text-slate-500 font-medium">Due: <span className="font-bold text-slate-700">{new Date(s.nextDueDate).toLocaleDateString()}</span></p>
+                   {s.remainingBalance > 0 && <p className="text-[11px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded-full">Bal: LKR {s.remainingBalance?.toLocaleString()}</p>}
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
+                  <FiEye size={16} />
+                  <span className="text-[10px] font-semibold">View</span>
+                </button>
+                <button onClick={() => openPayment(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors">
+                  <FiDollarSign size={16} />
+                  <span className="text-[10px] font-semibold">Pay</span>
+                </button>
+                <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors">
+                  <FiList size={16} />
+                  <span className="text-[10px] font-semibold">Logs</span>
+                </button>
+                <button onClick={() => openAgreement(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
+                  <FiFileText size={16} />
+                  <span className="text-[10px] font-semibold">Docs</span>
+                </button>
+                <button onClick={() => openEdit(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
+                  <FiEdit2 size={16} />
+                  <span className="text-[10px] font-semibold">Edit</span>
+                </button>
+                <button type="button" onClick={() => requestDeleteSub(s._id)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-colors">
+                  <FiTrash2 size={16} />
+                  <span className="text-[10px] font-semibold">Delete</span>
+                </button>
+              </div>
+            </div>
+          ))}
+          {!isLoading && filteredSubs.length === 0 && <div className="text-center py-8 text-slate-400 text-sm font-medium">No subscriptions found.</div>}
+        </div>
+
+        <div className="hidden sm:block table-container">
+
           <table className="table">
             <thead>
               <tr>

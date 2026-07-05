@@ -512,20 +512,20 @@ export default function SocialAnalytics() {
         {/* 6 & 7. AI Suggestions & Video Analytics */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* 6. AI Suggestions */}
-          <div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-3xl p-6 shadow-lg text-white">
-            <h3 className="text-xl font-bold mb-2 flex items-center gap-2"><FiZap className="text-yellow-400" /> AI-Powered Growth Suggestions</h3>
-            <p className="text-indigo-200 text-sm mb-6">Generated based on your recent engagement and reach velocity.</p>
+          <div className="bg-gradient-to-br from-sky-50 to-blue-100 rounded-3xl p-6 shadow-lg border border-blue-200">
+            <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-blue-900"><FiZap className="text-blue-600" /> AI-Powered Growth Suggestions</h3>
+            <p className="text-blue-700 text-sm mb-6">Generated based on your recent engagement and reach velocity.</p>
             <div className="space-y-4">
               {insights.aiRecommendations.map((rec, i) => (
-                <div key={i} className="bg-white/10 border border-white/10 rounded-2xl p-4 backdrop-blur-sm">
-                  <h4 className="font-bold text-indigo-100 flex items-center gap-2 mb-1">
+                <div key={i} className="bg-white/60 border border-white rounded-2xl p-4 shadow-sm backdrop-blur-sm">
+                  <h4 className="font-bold text-blue-900 flex items-center gap-2 mb-1">
                     {rec.type === 'content' && <FiVideo />}
                     {rec.type === 'timing' && <FiClock />}
                     {rec.type === 'seo' && <FiTarget />}
                     {rec.type === 'engagement' && <FiMessageCircle />}
                     {rec.title}
                   </h4>
-                  <p className="text-sm text-indigo-50 leading-relaxed">{rec.desc}</p>
+                  <p className="text-sm text-blue-800 leading-relaxed">{rec.desc}</p>
                 </div>
               ))}
             </div>

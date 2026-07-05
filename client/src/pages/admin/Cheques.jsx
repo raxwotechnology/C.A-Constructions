@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiTrash2, FiEye, FiX } from 'react-icons/fi'
+import { FiPlus, FiTrash2, FiEye, FiX, FiFilter } from 'react-icons/fi'
 import { statusNeedsBankLedger } from '../../lib/chequeLedger'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import ExportBar from '../../components/ui/ExportBar'
@@ -226,29 +226,53 @@ export default function AdminCheques() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 items-center">
-        <select className="form-select w-auto" value={filter.direction} onChange={(e) => setFilter((p) => ({ ...p, direction: e.target.value }))}>
-          <option value="">Incoming & outgoing</option>
-          <option value="incoming">Incoming</option>
-          <option value="outgoing">Outgoing</option>
-        </select>
-        <select className="form-select w-auto" value={filter.status} onChange={(e) => setFilter((p) => ({ ...p, status: e.target.value }))}>
-          <option value="">All statuses</option>
-          {CHEQUE_STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <input type="date" className="form-input w-auto py-2 text-sm" value={filter.fromDate} onChange={(e) => setFilter((p) => ({ ...p, fromDate: e.target.value }))} />
-        <input type="date" className="form-input w-auto py-2 text-sm" value={filter.toDate} onChange={(e) => setFilter((p) => ({ ...p, toDate: e.target.value }))} />
-        <select className="form-select w-auto" value={filter.source} onChange={(e) => setFilter((p) => ({ ...p, source: e.target.value }))}>
-          <option value="">All sources</option>
-          <option value="manual">Manual</option>
-          <option value="subscription">Subscription</option>
-          <option value="invoice">Invoice</option>
-          <option value="income">Income</option>
-          <option value="expense">Expense</option>
-          <option value="payroll">Payroll</option>
-        </select>
+      {/* Filters */}
+      <div className="card card-body filter-toolbar space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600"><FiFilter size={14}/> Filters</div>
+          {(filter.status || filter.source || filter.direction || filter.fromDate || filter.toDate) && (
+            <button onClick={() => setFilter({ status: '', source: '', direction: '', fromDate: '', toDate: '' })} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Clear all</button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div>
+            <label className="form-label text-xs">Direction</label>
+            <select className="form-select text-sm py-2" value={filter.direction} onChange={(e) => setFilter((p) => ({ ...p, direction: e.target.value }))}>
+              <option value="">Incoming & outgoing</option>
+              <option value="incoming">Incoming</option>
+              <option value="outgoing">Outgoing</option>
+            </select>
+          </div>
+          <div>
+            <label className="form-label text-xs">Status</label>
+            <select className="form-select text-sm py-2" value={filter.status} onChange={(e) => setFilter((p) => ({ ...p, status: e.target.value }))}>
+              <option value="">All statuses</option>
+              {CHEQUE_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="form-label text-xs">Source</label>
+            <select className="form-select text-sm py-2" value={filter.source} onChange={(e) => setFilter((p) => ({ ...p, source: e.target.value }))}>
+              <option value="">All sources</option>
+              <option value="manual">Manual</option>
+              <option value="subscription">Subscription</option>
+              <option value="invoice">Invoice</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+              <option value="payroll">Payroll</option>
+            </select>
+          </div>
+          <div>
+            <label className="form-label text-xs">From Date</label>
+            <input type="date" className="form-input text-sm py-2 w-full" value={filter.fromDate} onChange={(e) => setFilter((p) => ({ ...p, fromDate: e.target.value }))} />
+          </div>
+          <div>
+            <label className="form-label text-xs">To Date</label>
+            <input type="date" className="form-input text-sm py-2 w-full" value={filter.toDate} onChange={(e) => setFilter((p) => ({ ...p, toDate: e.target.value }))} />
+          </div>
+        </div>
       </div>
 
       {showForm && (
