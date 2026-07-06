@@ -266,7 +266,7 @@ export default function LeavePolicies({ triggerNew }) {
                       <option value="all">All Employment Types</option>
                       <option value="permanent">Permanent</option>
                       <option value="contract">Contract</option>
-                      <option value="probation">Probation</option>
+                      <option value="part_time">Part Time</option>
                       <option value="intern">Intern</option>
                     </select>
                   </div>

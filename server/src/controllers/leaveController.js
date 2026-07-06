@@ -24,6 +24,8 @@ function employmentTypeMatch(policy, employee) {
 async function getPolicyForEmployee(employee) {
   if (!employee) return null;
 
+  const noEmployee = { $or: [{ employee: null }, { employee: { $exists: false } }] };
+
   // 1. Employee-specific
   let policy = await LeavePolicy.findOne({ employee: employee._id });
   if (policy) return policy;
@@ -32,7 +34,7 @@ async function getPolicyForEmployee(employee) {
   if (employee.department) {
     const deptPolicies = await LeavePolicy.find({
       department: employee.department,
-      employee: { $exists: false },
+      ...noEmployee,
       isDefault: false,
     });
     policy = deptPolicies.find((p) => employmentTypeMatch(p, employee));
@@ -43,9 +45,9 @@ async function getPolicyForEmployee(employee) {
   if (employee.branch) {
     const branchPolicies = await LeavePolicy.find({
       branch: employee.branch,
-      employee: { $exists: false },
+      ...noEmployee,
       isDefault: false,
-      $or: [{ department: '' }, { department: { $exists: false } }],
+      $or: [{ department: '' }, { department: null }, { department: { $exists: false } }],
     });
     policy = branchPolicies.find((p) => employmentTypeMatch(p, employee));
     if (policy) return policy;
@@ -54,18 +56,18 @@ async function getPolicyForEmployee(employee) {
   // 4. Employment type only (no branch/employee)
   const typePolicies = await LeavePolicy.find({
     employmentType: { $nin: ['', 'all', null] },
-    employee: { $exists: false },
+    ...noEmployee,
     isDefault: false,
     $and: [
-      { $or: [{ branch: { $exists: false } }, { branch: null }] },
-      { $or: [{ department: '' }, { department: { $exists: false } }] },
+      { $or: [{ branch: null }, { branch: { $exists: false } }] },
+      { $or: [{ department: '' }, { department: null }, { department: { $exists: false } }] },
     ],
   });
   policy = typePolicies.find((p) => employmentTypeMatch(p, employee));
   if (policy) return policy;
 
-  // 5. Default
-  return LeavePolicy.findOne({ isDefault: true, employee: { $exists: false } });
+  // 5. Default policy (org-wide fallback)
+  return LeavePolicy.findOne({ isDefault: true, $or: [{ employee: null }, { employee: { $exists: false } }] });
 }
 
 // ─── Calculate balances for each leave type for an employee ───────────────────
@@ -393,6 +395,28 @@ exports.updateLeaveStatus = async (req, res, next) => {
     }
 
     res.json({ success: true, leave });
+  } catch (err) { next(err); }
+};
+
+// ─── @route GET /api/leaves/policy-for/:employeeId (admin) ──────────────────
+exports.getPolicyForEmployee = async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.employeeId);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const policy = await getPolicyForEmployee(employee);
+    res.json({
+      success: true,
+      policy: policy
+        ? {
+            _id: policy._id,
+            name: policy.name,
+            employmentType: policy.employmentType,
+            duration: policy.duration,
+            isDefault: policy.isDefault,
+            quotas: policy.quotas,
+          }
+        : null,
+    });
   } catch (err) { next(err); }
 };
 

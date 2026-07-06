@@ -31,6 +31,13 @@ const invoiceSchema = new mongoose.Schema({
   quotationRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Quotation' },
   branch:       { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   createdBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // ── Source ──────────────────────────────────────────────────────────────────
+  source: {
+    type: String,
+    enum: ['manual', 'subscription'],
+    default: 'manual',
+  },
+  subscriptionRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Subscription' },
   serviceType: {
     type: String,
     enum: ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Subscription', 'Other'],

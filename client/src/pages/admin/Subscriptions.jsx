@@ -193,6 +193,7 @@ export default function AdminSubscriptions() {
       qc.invalidateQueries({ queryKey: ['finance-entries-category'] })
       qc.invalidateQueries({ queryKey: ['finance-pl'] })
       qc.invalidateQueries({ queryKey: ['finance-entries'] })
+      qc.invalidateQueries({ queryKey: ['admin-subscription-invoices'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed')
   })

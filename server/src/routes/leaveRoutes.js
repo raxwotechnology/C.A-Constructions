@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   requestLeave, getLeaves, getMyLeaves, getMyBalances,
   updateLeaveStatus, assignLeave, getPolicies, createPolicy, updatePolicy,
-  getEmployeeLeaveBalance, updateLeave, deleteLeave, deletePolicy,
+  getEmployeeLeaveBalance, updateLeave, deleteLeave, deletePolicy, getPolicyForEmployee,
 } = require('../controllers/leaveController');
 const { protect, authorize } = require('../middleware/auth');
 const { uploadDocument } = require('../middleware/upload');
@@ -20,6 +20,7 @@ router.put('/:id/status', protect, authorize('admin', 'manager'), updateLeaveSta
 router.put('/:id', protect, authorize('admin', 'manager'), updateLeave);
 router.delete('/:id', protect, authorize('admin', 'manager'), deleteLeave);
 router.get('/balance/:employeeId', protect, authorize('admin', 'manager'), getEmployeeLeaveBalance);
+router.get('/policy-for/:employeeId', protect, authorize('admin', 'manager'), getPolicyForEmployee);
 
 // Leave Policies
 router.get('/policies', protect, authorize('admin'), getPolicies);

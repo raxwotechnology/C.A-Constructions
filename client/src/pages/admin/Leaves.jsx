@@ -42,6 +42,12 @@ export default function AdminLeaves() {
     employeeId:'', leaveType:'annual', startDate:'', endDate:'', reason:'', remarks:'',
   })
 
+  // Reset leave type when employee changes (pick first from policy)
+  const handleEmployeeChange = (v) => {
+    setSelectedEmpId(v)
+    setAssignForm(s => ({ ...s, employeeId: v, leaveType: 'annual' }))
+  }
+
   // Remarks/rejection inline state
   const [remarks, setRemarks] = useState({})
   const [rejectionReasons, setRejectionReasons] = useState({})
@@ -75,6 +81,23 @@ export default function AdminLeaves() {
     enabled: !!selectedEmpId,
   })
   const balances = balanceData?.balances || {}
+
+  // Fetch resolved leave policy for selected employee
+  const { data: policyData, isFetching: policyFetching } = useQuery({
+    queryKey: ['employee-policy', selectedEmpId],
+    queryFn: () => api.get(`/leaves/policy-for/${selectedEmpId}`).then(r => r.data),
+    enabled: !!selectedEmpId,
+  })
+  const employeePolicy = policyData?.policy || null
+
+  // Build leave type options from policy quotas (only types with quota > 0)
+  // Falls back to the default full list if no policy
+  const ALL_LEAVE_TYPES = ['annual','sick','casual','medical','half_day','short_leave','maternity','paternity','no_pay']
+  const policyLeaveTypes = employeePolicy
+    ? employeePolicy.quotas.filter(q => q.quota > 0).map(q => q.leaveType)
+    : ALL_LEAVE_TYPES
+  // Always include 'no_pay' as an option even if not in quota
+  const assignableLeaveTypes = policyLeaveTypes.length > 0 ? policyLeaveTypes : ALL_LEAVE_TYPES
 
   const allLeaves = data?.leaves || []
   const leaves = useMemo(() => {
@@ -391,11 +414,39 @@ export default function AdminLeaves() {
                 <label className="form-label">Employee *</label>
                 <SearchableSelect
                   value={assignForm.employeeId}
-                  onChange={(v) => { setSelectedEmpId(v); setAssignForm(s=>({...s,employeeId:v})) }}
+                  onChange={(v) => { handleEmployeeChange(v) }}
                   loadOptions={lookupLoaders.employeesAll()}
                   placeholder="Search employee…"
                 />
               </div>
+
+              {/* Policy badge */}
+              {selectedEmpId && (
+                <div className="flex items-center gap-2 py-1">
+                  {policyFetching ? (
+                    <span className="text-xs text-slate-400 animate-pulse">Detecting policy…</span>
+                  ) : employeePolicy ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        🛡️ {employeePolicy.name}
+                        {employeePolicy.isDefault && <span className="opacity-60">(Default)</span>}
+                      </span>
+                      {employeePolicy.employmentType && employeePolicy.employmentType !== 'all' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600 capitalize">
+                          {employeePolicy.employmentType}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500 capitalize">
+                        {(employeePolicy.duration || 'yearly').replace('_', ' ')}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                      ⚠️ No specific policy — using system defaults
+                    </span>
+                  )}
+                </div>
+              )}
 
               {selectedEmpId && (
                 <div className="rounded-xl border border-slate-200 overflow-hidden">
@@ -405,7 +456,7 @@ export default function AdminLeaves() {
                   </div>
                   <div className="divide-y divide-slate-100">
                     {Object.entries(balances).map(([type, bal]) => {
-                      const pct = bal.quota > 0 ? Math.min(100, (bal.taken / bal.quota) * 100) : 0
+                      const pct = bal.quota > 0 ? Math.min(100, (bal.used / bal.quota) * 100) : 0
                       const danger = bal.remaining <= 0, warn = bal.remaining > 0 && bal.remaining <= 3
                       return (
                         <div key={type} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50" onClick={() => setAssignForm(s=>({...s,leaveType:type}))}>
@@ -429,8 +480,17 @@ export default function AdminLeaves() {
                 <div>
                   <label className="form-label">Leave Type *</label>
                   <select value={assignForm.leaveType} onChange={e => setAssignForm(s=>({...s,leaveType:e.target.value}))} className="form-select capitalize">
-                    {['annual','sick','casual','medical','half_day','short_leave','maternity','paternity','no_pay'].map(t => <option key={t} value={t}>{t.replace('_',' ')}</option>)}
+                    {assignableLeaveTypes.map(t => (
+                      <option key={t} value={t}>{t.replace('_',' ')}</option>
+                    ))}
+                    {/* Always allow no_pay */}
+                    {!assignableLeaveTypes.includes('no_pay') && (
+                      <option value="no_pay">no pay</option>
+                    )}
                   </select>
+                  {employeePolicy && (
+                    <p className="text-[11px] text-slate-400 mt-1">Options from: <span className="font-medium text-indigo-600">{employeePolicy.name}</span></p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Reason</label>

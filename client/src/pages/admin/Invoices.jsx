@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiCreditCard, FiSearch, FiEdit2, FiTrash2, FiSend, FiEye, FiFileText } from 'react-icons/fi'
+import { FiPlus, FiX, FiCreditCard, FiSearch, FiEdit2, FiTrash2, FiSend, FiEye, FiFileText, FiRefreshCw, FiExternalLink } from 'react-icons/fi'
 import InvoiceDetail from './InvoiceDetail'
 import InvoicePreviewPanel from '../../components/documents/InvoicePreviewPanel'
 import { buildInvoiceDraft } from '../../lib/buildInvoiceDraft'
@@ -28,6 +28,7 @@ export default function AdminInvoices() {
   const qc = useQueryClient()
   const location = useLocation()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('invoices') // 'invoices' | 'subscriptions'
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [mobileTab, setMobileTab] = useState('form')
@@ -84,8 +85,9 @@ export default function AdminInvoices() {
     navigate(location.pathname, { replace: true, state: {} })
   }, [location.state, location.pathname, navigate])
 
-  const buildQuery = () => {
+  const buildQuery = (source = 'manual') => {
     const p = new URLSearchParams()
+    p.set('source', source)
     if (statusFilter) p.set('status', statusFilter)
     if (startDate) p.set('startDate', startDate)
     if (endDate) p.set('endDate', endDate)
@@ -98,7 +100,13 @@ export default function AdminInvoices() {
 
   const { data: invData, isLoading } = useQuery({
     queryKey: ['admin-invoices', statusFilter, startDate, endDate, serviceTypeFilter, branchFilter, clientFilter, paymentMethodFilter],
-    queryFn: () => api.get(`/invoices?${buildQuery()}`).then(r => r.data),
+    queryFn: () => api.get(`/invoices?${buildQuery('manual')}`).then(r => r.data),
+  })
+
+  const { data: subInvData, isLoading: subInvLoading } = useQuery({
+    queryKey: ['admin-subscription-invoices', statusFilter, startDate, endDate, branchFilter, clientFilter],
+    queryFn: () => api.get(`/invoices?${buildQuery('subscription')}`).then(r => r.data),
+    enabled: activeTab === 'subscriptions',
   })
   const { data: siteData } = useQuery({
     queryKey: SITE_SETTINGS_QUERY_KEY,
@@ -401,16 +409,27 @@ export default function AdminInvoices() {
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
+  const subInvoices = ((activeTab === 'subscriptions' ? subInvData?.invoices : []) || []).filter(inv =>
+    !search || inv.invoiceNo?.toLowerCase().includes(search.toLowerCase()) || inv.client?.name?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const activeInvoices = activeTab === 'subscriptions' ? subInvoices : invoices
+  const activeIsLoading = activeTab === 'subscriptions' ? subInvLoading : isLoading
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
           <h1 className="page-title">Invoices</h1>
-          <p className="page-subtitle">{invData?.count || 0} total invoices</p>
+          <p className="page-subtitle">
+            {activeTab === 'subscriptions'
+              ? `${subInvData?.count || 0} subscription invoices`
+              : `${invData?.count || 0} total invoices`}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <ExportBar
-            data={invoices}
+            data={activeInvoices}
             columns={[
               { header: 'Invoice No', accessor: 'invoiceNo' },
               { header: 'Client', accessor: (i) => i.client?.name || '' },
@@ -421,11 +440,43 @@ export default function AdminInvoices() {
               { header: 'Status', accessor: 'status' },
               { header: 'Due Date', accessor: (i) => i.dueDate ? new Date(i.dueDate).toLocaleDateString() : '' },
             ]}
-            title="Invoices Report"
+            title={activeTab === 'subscriptions' ? 'Subscription Invoices Report' : 'Invoices Report'}
             filters={{ Branch: branches.find(b => b._id === branchFilter)?.name }}
           />
-          <button onClick={openCreate} className="btn-primary"><FiPlus size={15}/> Create Invoice</button>
+          {activeTab === 'invoices' && (
+            <button onClick={openCreate} className="btn-primary"><FiPlus size={15}/> Create Invoice</button>
+          )}
+          {activeTab === 'subscriptions' && (
+            <button onClick={() => navigate('/admin/subscriptions')} className="btn-outline flex items-center gap-2 text-sm">
+              <FiExternalLink size={14}/> Go to Subscriptions
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* ── Tab Switcher ── */}
+      <div className="flex border-b border-slate-200 -mb-2">
+        {[
+          { key: 'invoices', label: 'Invoices', count: invData?.count },
+          { key: 'subscriptions', label: 'Subscriptions', count: activeTab === 'subscriptions' ? subInvData?.count : null },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors relative ${
+              activeTab === tab.key
+                ? 'text-primary border-b-2 border-primary -mb-[2px]'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {tab.label}
+            {tab.count != null && (
+              <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                activeTab === tab.key ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400'
+              }`}>{tab.count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
@@ -494,15 +545,19 @@ export default function AdminInvoices() {
 
       {/* Mobile card list */}
       <div className="sm:hidden space-y-3">
-        {isLoading ? (
+        {activeIsLoading ? (
           <div className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></div>
-        ) : invoices.length === 0 ? (
-          <div className="text-center py-12 text-gray-400"><FiCreditCard size={36} className="mx-auto mb-2 opacity-30"/>No invoices found</div>
-        ) : invoices.map(inv => (
+        ) : activeInvoices.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <FiCreditCard size={36} className="mx-auto mb-2 opacity-30"/>
+            {activeTab === 'subscriptions' ? 'No subscription invoices found. Create one from the Subscriptions page.' : 'No invoices found'}
+          </div>
+        ) : activeInvoices.map(inv => (
           <div key={inv._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <span className="badge badge-navy font-mono text-xs tracking-tight">{inv.invoiceNo}</span>
+                {activeTab === 'subscriptions' && <span className="ml-1.5 badge badge-blue text-[10px]">Subscription</span>}
                 <p className="font-semibold text-slate-800 mt-1 truncate">{inv.client?.name}</p>
                 <p className="text-xs text-slate-400">{inv.serviceType || 'Other'} {inv.branch?.name ? `· ${inv.branch.name}` : ''}</p>
               </div>
@@ -530,15 +585,21 @@ export default function AdminInvoices() {
             <th>Invoice No</th><th>Client</th><th>Service</th><th>Branch</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
-            {isLoading ? (
+            {activeIsLoading ? (
               <tr><td colSpan={7} className="text-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/></td></tr>
-            ) : invoices.length === 0 ? (
+            ) : activeInvoices.length === 0 ? (
               <tr><td colSpan={7} className="text-center py-12 text-gray-400">
-                <FiCreditCard size={36} className="mx-auto mb-2 opacity-30"/>No invoices found
+                <FiCreditCard size={36} className="mx-auto mb-2 opacity-30"/>
+                {activeTab === 'subscriptions'
+                  ? 'No subscription invoices yet. Generate them from the Subscriptions page → Payment History → Invoice button.'
+                  : 'No invoices found'}
               </td></tr>
-            ) : invoices.map(inv => (
+            ) : activeInvoices.map(inv => (
               <tr key={inv._id}>
-                <td><span className="badge badge-navy font-mono text-xs tracking-tight">{inv.invoiceNo}</span></td>
+                <td>
+                  <span className="badge badge-navy font-mono text-xs tracking-tight">{inv.invoiceNo}</span>
+                  {activeTab === 'subscriptions' && <span className="ml-1.5 badge badge-blue text-[10px]">Sub</span>}
+                </td>
                 <td className="font-medium">{inv.client?.name}</td>
                 <td className="text-sm text-gray-500">{inv.serviceType || 'Other'}</td>
                 <td className="text-sm text-gray-500">{inv.branch?.name || '—'}</td>

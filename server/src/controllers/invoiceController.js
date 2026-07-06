@@ -74,6 +74,14 @@ exports.getInvoices = async (req, res, next) => {
       if (req.query.endDate) query.createdAt.$lte = new Date(req.query.endDate + 'T23:59:59.999Z');
     }
 
+    // Source filter: 'subscription' = subscription invoices only, anything else = regular only
+    if (req.query.source === 'subscription') {
+      query.source = 'subscription';
+    } else {
+      // Default: exclude subscription-generated invoices from the regular invoices tab
+      query.$or = [{ source: 'manual' }, { source: { $exists: false } }, { source: null }];
+    }
+
     // Auto-mark overdue
     const now = new Date();
     await Invoice.updateMany(
@@ -92,6 +100,7 @@ exports.getInvoices = async (req, res, next) => {
     res.json({ success: true, count: invoices.length, invoices });
   } catch (err) { next(err); }
 };
+
 
 // ─── GET single invoice ───────────────────────────────────────────────────────
 exports.getInvoice = async (req, res, next) => {

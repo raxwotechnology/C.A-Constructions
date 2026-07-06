@@ -20,7 +20,17 @@ async function allocateInvoiceNoFromQuotationNo(rawBase) {
 async function generateAutoInvoiceNo(prefix = 'INV') {
   const year = new Date().getFullYear();
   const count = await Invoice.countDocuments();
-  return `${prefix || 'INV'}-${year}-${String(count + 1).padStart(4, '0')}`;
+  
+  let offset = 1;
+  let candidateNo = `${prefix || 'INV'}-${year}-${String(count + offset).padStart(4, '0')}`;
+  
+  // Ensure uniqueness in case of deleted invoices or concurrent creation
+  while (true) {
+    const taken = await Invoice.findOne({ invoiceNo: candidateNo }).select('_id').lean();
+    if (!taken) return candidateNo;
+    offset++;
+    candidateNo = `${prefix || 'INV'}-${year}-${String(count + offset).padStart(4, '0')}`;
+  }
 }
 
 module.exports = { allocateInvoiceNoFromQuotationNo, generateAutoInvoiceNo };

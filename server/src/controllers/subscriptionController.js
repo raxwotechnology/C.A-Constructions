@@ -728,9 +728,18 @@ exports.createInvoiceFromPayment = async (req, res, next) => {
     const payment = sub.payments.id(req.params.paymentId);
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
     
-    const { generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
-    const invoiceNo = await generateAutoInvoiceNo('INV');
     const Invoice = require('../models/Invoice');
+    
+    // Check if an invoice already exists for this exact payment (compare timestamps)
+    const existingInvoice = await Invoice.findOne({
+      subscriptionRef: sub._id,
+      invoiceDate: new Date(payment.paidAt),
+      subtotal: payment.amount
+    });
+    
+    if (existingInvoice) {
+      return res.json({ success: true, message: 'Invoice retrieved', invoice: existingInvoice });
+    }
 
     const SiteSetting = require('../models/SiteSetting');
     const settings = await SiteSetting.findOne();
@@ -749,40 +758,69 @@ exports.createInvoiceFromPayment = async (req, res, next) => {
       }
     }
 
-    const invoice = await Invoice.create({
-      client: sub.client,
-      project: sub.project,
-      invoiceNo,
-      invoiceDate: payment.paidAt,
-      dueDate: payment.paidAt,
-      serviceType: 'Subscription',
-      items: [{
-        description: `Subscription Payment - ${sub.title}`,
-        quantity: 1,
-        unitPrice: payment.amount,
-        total: payment.amount
-      }],
-      subtotal: payment.amount,
-      total: payment.amount,
-      status: 'paid',
-      paymentMethod: payment.method,
-      bankAccount: payment.bankAccount,
-      notes: `Generated from subscription ${sub.subscriptionNo || sub.title} payment (${payment.reference || payment.note || 'No ref'})`,
-      createdBy: req.user._id,
-      signatures,
-      payments: [{
-        amount: payment.amount,
-        date: payment.paidAt,
-        method: payment.method,
-        reference: payment.reference,
-        notes: payment.note,
-        bankAccount: payment.bankAccount,
-        recordedBy: payment.recordedBy,
-        isAdvance: false
-      }]
-    });
+    let invoice = null;
+    let attempts = 0;
+    while (attempts < 3) {
+      try {
+        const { generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
+        const invoiceNo = await generateAutoInvoiceNo('INV');
 
-    res.json({ success: true, message: 'Invoice created successfully', invoice });
+        invoice = await Invoice.create({
+          client: sub.client,
+          project: sub.project,
+          invoiceNo,
+          invoiceDate: payment.paidAt,
+          dueDate: payment.paidAt,
+          serviceType: 'Subscription',
+          source: 'subscription',
+          subscriptionRef: sub._id,
+          items: [{
+            description: `Subscription Payment - ${sub.title}`,
+            quantity: 1,
+            unitPrice: payment.amount,
+            total: payment.amount
+          }],
+          subtotal: payment.amount,
+          total: payment.amount,
+          status: 'paid',
+          paymentMethod: payment.method,
+          bankAccount: payment.bankAccount,
+          notes: `Generated from subscription ${sub.subscriptionNo || sub.title} payment (${payment.reference || payment.note || 'No ref'})`,
+          createdBy: req.user._id,
+          signatures,
+          payments: [{
+            amount: payment.amount,
+            date: payment.paidAt,
+            method: payment.method,
+            reference: payment.reference,
+            notes: payment.note,
+            bankAccount: payment.bankAccount,
+            recordedBy: payment.recordedBy,
+            isAdvance: false
+          }]
+        });
+        break; // Success
+      } catch (e) {
+        if (e.code === 11000 && attempts < 2) {
+          // If a race condition occurred and another request took this invoiceNo, retry.
+          // Also check if the invoice was literally just created by the competing request
+          const justCreated = await Invoice.findOne({
+            subscriptionRef: sub._id,
+            invoiceDate: new Date(payment.paidAt),
+            subtotal: payment.amount
+          });
+          if (justCreated) {
+            invoice = justCreated;
+            break;
+          }
+          attempts++;
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'Invoice retrieved', invoice });
   } catch (err) { next(err); }
 };
 
