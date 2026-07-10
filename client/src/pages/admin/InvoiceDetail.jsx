@@ -170,7 +170,8 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
                 <FiFileText className="shrink-0 mt-0.5 sm:mt-0"/> <span>{inv?.client?.name} {inv?.project ? `— ${inv.project.title}` : ''}</span>
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap shrink-0 w-full sm:w-auto pt-2 sm:pt-0">
+            {/* Desktop-only action buttons — hidden on mobile (shown in sticky footer instead) */}
+            <div className="hidden sm:flex items-center gap-2 flex-wrap shrink-0">
               {inv?.status !== 'cancelled' && (
                 <button
                   type="button"
@@ -357,6 +358,32 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
           <div id="invoice-print-export-root">
             <InvoicePrintBody invoice={inv} siteSettings={site} forPrint />
           </div>
+        </div>
+
+        {/* Mobile-only sticky bottom action bar */}
+        <div className="sm:hidden flex-shrink-0 border-t bg-white px-4 py-3 flex items-center gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+          <button
+            type="button"
+            onClick={() => downloadInvoicePdf(inv._id, inv.invoiceNo)}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-primary/90 active:scale-95 transition-all"
+          >
+            <FiDownload size={15}/> PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('Overview'); setTimeout(handlePrint, 100) }}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-200 active:scale-95 transition-all"
+          >
+            <FiPrinter size={15}/> Print
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center justify-center w-11 h-11 bg-slate-100 text-slate-600 rounded-xl hover:bg-red-50 hover:text-red-600 active:scale-95 transition-all shrink-0"
+            title="Close"
+          >
+            <FiX size={18}/>
+          </button>
         </div>
 
       </motion.div>

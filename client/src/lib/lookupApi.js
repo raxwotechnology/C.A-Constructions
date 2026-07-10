@@ -57,7 +57,9 @@ async function loadClientOptions({ search = '', page = 1 } = {}) {
 
 export const lookupLoaders = {
   employees: (extra = {}) => createLookupLoader('employees', { assignable: '1', ...extra }),
-  employeesAll: (extra = {}) => createLookupLoader('employees', extra),
+  // employeesAll also enforces active-only; use employeesIncludeInactive for history/reports
+  employeesAll: (extra = {}) => createLookupLoader('employees', { assignable: '1', ...extra }),
+  employeesIncludeInactive: (extra = {}) => createLookupLoader('employees', extra),
   clients: (extra = {}) => createLookupLoader('clients', extra),
   banks: (extra = {}) => createLookupLoader('banks', extra),
   projects: (extra = {}) => createLookupLoader('projects', extra),

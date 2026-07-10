@@ -18,7 +18,7 @@ import {
   payslipSignatoryPayload,
   PAYSLIP_SIGNATORY_ROLES,
 } from '../../lib/payslipDocument'
-import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiX, FiAlertCircle, FiRefreshCw, FiFileText, FiEye, FiPrinter, FiUser } from 'react-icons/fi'
+import { FiDollarSign, FiPlay, FiCheck, FiPlus, FiSend, FiX, FiAlertCircle, FiRefreshCw, FiFileText, FiEye, FiPrinter, FiUser, FiChevronDown } from 'react-icons/fi'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 

@@ -382,7 +382,7 @@ export default function WorkLogs() {
 
       {/* Submit Modal */}
       <AnimatePresence>
-        {showSubmit && createPortal(
+        {showSubmit && (
           <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-0 sm:p-4">
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               className="modal-sheet bg-white rounded-none sm:rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[100dvh] sm:max-h-[90vh] overflow-hidden">
@@ -398,7 +398,7 @@ export default function WorkLogs() {
 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <label className="form-label mb-0">Tasks Completed</label>
+                     <label className="form-label mb-0">Tasks Completed</label>
                     <button onClick={addTask} className="text-xs text-secondary font-bold hover:underline flex items-center gap-1"><FiPlus size={12} /> Add Task</button>
                   </div>
                   {tasks.map((t, idx) => (
@@ -480,7 +480,7 @@ export default function WorkLogs() {
                 </button>
               </div>
             </motion.div>
-          </div>, document.body
+          </div>
         )}
       </AnimatePresence>
     </div>

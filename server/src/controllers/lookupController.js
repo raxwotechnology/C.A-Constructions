@@ -47,10 +47,12 @@ exports.searchLookup = async (req, res, next) => {
     switch (type) {
       case 'employees': {
         const query = {};
-        if (assignable === '1' || assignable === 'true') {
-          query.status = { $in: ASSIGNED_STATUSES };
-        } else if (assignable === '0' || assignable === 'false') {
+        if (assignable === '0' || assignable === 'false') {
+          // Explicitly requesting all statuses (e.g., history/reports)
           query.status = { $nin: INACTIVE_STATUSES };
+        } else {
+          // Default behaviour: active-only (assignable=1 or no param)
+          query.status = { $in: ASSIGNED_STATUSES };
         }
         if (branch) query.branch = branch;
         let empQuery = Employee.find(query).populate('userId', 'name email');

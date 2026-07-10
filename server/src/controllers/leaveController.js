@@ -82,13 +82,22 @@ async function getEmployeeBalances(employeeId) {
     startDate: { $gte: start, $lte: end }
   });
 
-  const defaultQuotas = {
-    annual: 14, medical: 7, casual: 7, half_day: 6, short_leave: 12, maternity: 84, paternity: 3, no_pay: 999
-  };
+  // Employment-type-aware fallback defaults (used only when no policy is assigned)
+  const empType = String(employee?.employmentType || '').toLowerCase();
+  const isIntern = empType === 'intern' || empType === 'internship';
+
+  const defaultQuotas = isIntern
+    ? {
+        // Interns only get casual & short leave by default; all others are 0
+        annual: 0, medical: 0, casual: 6, half_day: 0, short_leave: 6, maternity: 0, paternity: 0, no_pay: 999
+      }
+    : {
+        annual: 14, medical: 7, casual: 7, half_day: 6, short_leave: 12, maternity: 84, paternity: 3, no_pay: 999
+      };
 
   const balances = {};
   for (const leaveType of BALANCE_TYPES) {
-    let quota = defaultQuotas[leaveType] || 0;
+    let quota = defaultQuotas[leaveType] ?? 0;
     let carryForward = false;
     let requireDocument = leaveType === 'medical';
     let requireReason = leaveType === 'medical';
@@ -102,6 +111,9 @@ async function getEmployeeBalances(employeeId) {
         requireReason = q.requireReason;
       }
     }
+
+    // Skip leave types with 0 quota entirely (don't pollute the balance view)
+    if (quota === 0 && !policy) continue;
 
     const used = approvedLeaves
       .filter(l => l.leaveType === leaveType)

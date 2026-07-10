@@ -421,17 +421,18 @@ export default function FinancialReports() {
                 <h3 className="font-bold text-primary text-lg">Invoice Payment Report ({invoicePayments.length})</h3>
                 <div className="table-container">
                   <table className="table">
-                    <thead><tr><th>Invoice No</th><th>Client</th><th>Paid At</th><th>Total</th></tr></thead>
+                    <thead><tr><th>Invoice No</th><th>Client</th><th>Paid At</th><th>Paid Amount</th><th>Total</th></tr></thead>
                     <tbody>
                       {invoicePayments.map(i => (
                         <tr key={i._id}>
                           <td className="font-medium text-slate-800">{i.invoiceNo}</td>
                           <td>{i.client?.name || '—'}</td>
                           <td className="text-slate-500 text-sm">{i.paidAt ? new Date(i.paidAt).toLocaleDateString() : '—'}</td>
+                          <td className="text-blue-600 font-semibold">{fmt(i.totalPaid ?? (i.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0))}</td>
                           <td className="text-emerald-600 font-semibold">{fmt(i.total)}</td>
                         </tr>
                       ))}
-                      {invoicePayments.length === 0 && <tr><td colSpan={4} className="text-center py-4 text-slate-400">No paid invoices.</td></tr>}
+                      {invoicePayments.length === 0 && <tr><td colSpan={5} className="text-center py-4 text-slate-400">No paid invoices.</td></tr>}
                     </tbody>
                   </table>
                 </div>

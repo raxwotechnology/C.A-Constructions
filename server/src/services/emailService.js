@@ -16,7 +16,7 @@ const buildEmailHTML = async (title, content) => {
   if (!settings) settings = {};
 
   const companyName = settings.siteName || 'Raxwo Technology';
-  const BACKEND_URL = (process.env.SERVER_URL || APP_URL).replace(/\/+$/, '');
+  const BACKEND_URL = (process.env.SERVER_URL || 'http://localhost:5000').replace(/\/+$/, '');
   const rawLogoUrl = settings.logoUrl || '';
   const logoSrc = rawLogoUrl ? (rawLogoUrl.startsWith('http') ? rawLogoUrl : BACKEND_URL + (rawLogoUrl.startsWith('/') ? rawLogoUrl : '/' + rawLogoUrl)) : '';
   const contactEmail = settings.contactEmail || settings.adminEmail || 'contact@raxwo.net';

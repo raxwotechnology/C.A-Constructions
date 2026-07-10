@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import {
   FiPlus, FiSearch, FiEdit2, FiTrash2, FiFileText,
   FiLink, FiServer, FiAlertCircle, FiDollarSign, FiX, FiList, FiEye, FiExternalLink,
-  FiMail, FiMessageSquare, FiUsers
+  FiMail, FiMessageSquare, FiUsers, FiCheck
 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import ExportBar from '../../components/ui/ExportBar'
@@ -68,6 +68,11 @@ export default function AdminSubscriptions() {
   const [search, setSearch] = useState('')
   const [selectedSubIds, setSelectedSubIds] = useState([])
   const [bulkSending, setBulkSending] = useState(false)
+  // Per-payment invoice seal state: { [paymentId]: { sealChecked: bool, sealKey: string } }
+  const [invoiceSealState, setInvoiceSealState] = useState({})
+  const setSealField = (paymentId, field, value) =>
+    setInvoiceSealState(s => ({ ...s, [paymentId]: { ...(s[paymentId] || { sealChecked: true, sealKey: 'main' }), [field]: value } }))
+  const getSealState = (paymentId) => invoiceSealState[paymentId] || { sealChecked: true, sealKey: 'main' }
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -107,6 +112,29 @@ export default function AdminSubscriptions() {
     queryKey: ['bank-accounts'],
     queryFn: () => api.get('/bank-accounts').then((r) => r.data),
   })
+
+  const { data: siteRes } = useQuery({
+    queryKey: ['site-settings'],
+    queryFn: () => api.get('/site-settings').then(r => r.data),
+  })
+  const siteSettings = siteRes?.settings || {}
+
+  // Build list of seal options from admin settings
+  const sealOptions = (() => {
+    const opts = []
+    if (siteSettings.sealUrl) opts.push({ key: 'main', label: 'Company Seal (main)', url: siteSettings.sealUrl })
+    const sigs = siteSettings.signatures || {}
+    Object.entries(sigs).forEach(([key, sig]) => {
+      if (sig && sig.url) {
+        // use sig.label if exists, otherwise capitalize the key
+        const displayLabel = sig.label 
+          ? `${sig.label} (${key})` 
+          : key.charAt(0).toUpperCase() + key.slice(1);
+        opts.push({ key, label: displayLabel, url: sig.url })
+      }
+    })
+    return opts
+  })()
 
   const subs = data?.subscriptions || []
   const clients = (clientsData?.users || []).filter(u => u.role === 'client')
@@ -1041,16 +1069,27 @@ export default function AdminSubscriptions() {
 
       {/* ── Payment History Modal ── */}
       <AnimatePresence>
-        <Modal open={showHistoryModal} onClose={() => setShowHistoryModal(false)} title="Payment History" maxWidth="max-w-2xl">
+        <Modal open={showHistoryModal} onClose={() => setShowHistoryModal(false)} title="Payment History" maxWidth="max-w-3xl">
           {selectedSub && (
-            <div className="space-y-4">
-              <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-1">
-                <p className="text-slate-500">Subscription: <span className="font-semibold text-slate-800">{selectedSub.title}</span></p>
-                <p className="text-slate-500">Total Billed: <span className="font-semibold text-slate-800">LKR {selectedSub.totalBilled?.toLocaleString()}</span></p>
-                <p className="text-slate-500">Total Paid: <span className="font-semibold text-green-600">LKR {selectedSub.totalPaid?.toLocaleString()}</span></p>
+            <div className="space-y-6">
+              {/* Modern Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100/50 p-4 rounded-2xl shadow-sm flex flex-col justify-center">
+                  <p className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider mb-1">Subscription</p>
+                  <p className="text-sm font-semibold text-slate-800 line-clamp-2" title={selectedSub.title}>{selectedSub.title}</p>
+                </div>
+                <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex flex-col justify-center">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Billed</p>
+                  <p className="text-xl font-bold text-slate-800">LKR {selectedSub.totalBilled?.toLocaleString()}</p>
+                </div>
+                <div className="bg-emerald-50/50 border border-emerald-100/50 p-4 rounded-2xl shadow-sm flex flex-col justify-center">
+                  <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-wider mb-1">Total Paid</p>
+                  <p className="text-xl font-bold text-emerald-600">LKR {selectedSub.totalPaid?.toLocaleString()}</p>
+                </div>
               </div>
+
               {/* Action buttons: Export PDF, Email, SMS */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center justify-between bg-slate-50/50 p-2 rounded-xl border border-slate-100">
                 <ExportBar
                   data={[...(selectedSub.payments || [])].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))}
                   columns={[
@@ -1064,113 +1103,185 @@ export default function AdminSubscriptions() {
                   title={`Payment History - ${selectedSub.title}`}
                   filters={{ Subscription: selectedSub.subscriptionNo, Client: selectedSub.client?.name }}
                 />
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await api.post(`/subscriptions/${selectedSub._id}/send-history`, { methods: ['email'] })
-                      toast.success('Payment history sent via email')
-                    } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
-                  }}
-                  className="btn-outline btn-sm gap-1 text-blue-600 border-blue-200 hover:border-blue-300"
-                >
-                  <FiExternalLink size={13}/> Email
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await api.post(`/subscriptions/${selectedSub._id}/send-history`, { methods: ['sms'] })
-                      toast.success('Payment notification sent via SMS')
-                    } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
-                  }}
-                  className="btn-outline btn-sm gap-1 text-emerald-600 border-emerald-200 hover:border-emerald-300"
-                >
-                  <FiExternalLink size={13}/> SMS
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.post(`/subscriptions/${selectedSub._id}/send-history`, { methods: ['email'] })
+                        toast.success('Payment history sent via email')
+                      } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
+                    }}
+                    className="btn-outline btn-sm gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all rounded-lg bg-white"
+                  >
+                    <FiExternalLink size={14}/> Email All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.post(`/subscriptions/${selectedSub._id}/send-history`, { methods: ['sms'] })
+                        toast.success('Payment notification sent via SMS')
+                      } catch (e) { toast.error(e.response?.data?.message || 'Send failed') }
+                    }}
+                    className="btn-outline btn-sm gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 transition-all rounded-lg bg-white"
+                  >
+                    <FiExternalLink size={14}/> SMS All
+                  </button>
+                </div>
               </div>
+
+              {/* Payment Cards */}
               {(!selectedSub.payments || selectedSub.payments.length === 0) ? (
-                 <p className="text-center py-6 text-slate-400">No payment history found.</p>
+                 <div className="flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <FiDollarSign className="text-slate-300 mb-3" size={32} />
+                    <p className="text-slate-500 font-medium">No payment history found.</p>
+                 </div>
               ) : (
-                <div className="table-container">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Amount</th>
-                        <th>Method</th>
-                        <th>Ref / Note</th>
-                        <th>Recorded By</th>
-                        <th className="text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...selectedSub.payments].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt)).map((p, idx) => (
-                        <tr key={idx}>
-                          <td>{new Date(p.paidAt).toLocaleDateString()}</td>
-                          <td className="font-medium text-green-600">LKR {p.amount?.toLocaleString()}</td>
-                          <td className="capitalize">{p.method?.replace('_', ' ')}</td>
-                          <td>
-                            {p.reference && <p className="text-sm">Ref: {p.reference}</p>}
-                            {p.note && <p className="text-xs text-slate-400">{p.note}</p>}
-                            {p.method === 'cheque' && <p className="text-xs text-slate-400">Cheque: {p.chequeNumber} {p.chequeBank ? `(${p.chequeBank})` : ''}</p>}
-                          </td>
-                          <td>{p.recordedBy?.name || '—'}</td>
-                          <td>
-                            <div className="flex items-center justify-end gap-1">
-                              <label className="flex items-center gap-1 text-[10px] text-slate-500 mr-2 cursor-pointer" title="Add Company Seal">
-                                <input type="checkbox" id={`seal-${p._id}`} className="w-3 h-3 accent-indigo-500" defaultChecked />
-                                Seal
-                              </label>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const withSeal = document.getElementById(`seal-${p._id}`)?.checked;
-                                    const res = await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/invoice`, { withSeal });
-                                    toast.success('Invoice created, downloading...');
-                                    const invoiceId = res.data?.invoice?._id;
-                                    if (invoiceId) {
-                                      const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator');
-                                      const htmlRes = await api.get(`/invoices/${invoiceId}/pdf?html=true&t=${Date.now()}`, { responseType: 'text' });
-                                      await htmlStringToPdfDownload(htmlRes.data, `Invoice_${invoiceId}.pdf`);
-                                    }
-                                  } catch (e) { toast.error(e.response?.data?.message || 'Failed to create invoice'); }
-                                }}
-                                className="btn-outline btn-xs gap-1 border-slate-200 hover:border-slate-300 text-slate-600"
-                                title="Create & Download Invoice"
-                              >
-                                Invoice
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/receipt`, { methods: ['email'] });
-                                    toast.success('Email receipt sent');
-                                  } catch (e) { toast.error(e.response?.data?.message || 'Failed to send email'); }
-                                }}
-                                className="btn-outline btn-xs gap-1 border-blue-200 hover:border-blue-300 text-blue-600"
-                                title="Email Receipt"
-                              >
-                                <FiMail size={12} /> Email
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/receipt`, { methods: ['sms'] });
-                                    toast.success('SMS receipt sent');
-                                  } catch (e) { toast.error(e.response?.data?.message || 'Failed to send SMS'); }
-                                }}
-                                className="btn-outline btn-xs gap-1 border-emerald-200 hover:border-emerald-300 text-emerald-600"
-                                title="SMS Receipt"
-                              >
-                                <FiMessageSquare size={12} /> SMS
-                              </button>
+                <div className="space-y-4">
+                  {[...selectedSub.payments].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt)).map((p, idx) => (
+                    <motion.div 
+                      key={p._id || idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow rounded-2xl overflow-hidden"
+                    >
+                      {/* Card Header */}
+                      <div className="flex flex-wrap items-center justify-between p-4 sm:px-6 bg-slate-50/50 border-b border-slate-100 gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                            <FiCheck size={20} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{new Date(p.paidAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            <p className="text-lg font-bold text-slate-800">LKR {p.amount?.toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-600 capitalize shadow-sm">
+                             {p.method?.replace('_', ' ')}
+                           </span>
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-4 sm:px-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                        <div className="sm:col-span-2 space-y-2">
+                          {p.reference && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-slate-400 font-medium min-w-[70px]">Ref:</span>
+                              <span className="text-slate-800 font-medium">{p.reference}</span>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          )}
+                          {p.note && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-slate-400 font-medium min-w-[70px]">Note:</span>
+                              <span className="text-slate-600">{p.note}</span>
+                            </div>
+                          )}
+                          {p.method === 'cheque' && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-slate-400 font-medium min-w-[70px]">Cheque:</span>
+                              <span className="text-slate-600">{p.chequeNumber} {p.chequeBank ? `(${p.chequeBank})` : ''}</span>
+                            </div>
+                          )}
+                          {!p.reference && !p.note && p.method !== 'cheque' && (
+                            <span className="text-slate-400 italic text-xs">No additional details</span>
+                          )}
+                        </div>
+                        <div className="sm:text-right space-y-1 border-t sm:border-t-0 sm:border-l border-slate-100 pt-3 sm:pt-0 sm:pl-4">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Recorded By</p>
+                          <p className="font-medium text-slate-700">{p.recordedBy?.name || 'System'}</p>
+                        </div>
+                      </div>
+
+                      {/* Card Footer (Actions) */}
+                      <div className="bg-slate-50/80 border-t border-slate-100 p-3 sm:px-6 flex flex-wrap items-center justify-between gap-4">
+                         {/* Seal Picker */}
+                         <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex-1 sm:flex-none max-w-full overflow-hidden">
+                            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap shrink-0" title="Include Company Seal on Invoice">
+                              <input
+                                type="checkbox"
+                                className="w-3.5 h-3.5 accent-indigo-500 rounded-sm"
+                                checked={getSealState(p._id).sealChecked}
+                                onChange={e => setSealField(p._id, 'sealChecked', e.target.checked)}
+                              />
+                              Include Seal
+                            </label>
+                            {getSealState(p._id).sealChecked && sealOptions.length > 0 && (
+                              <div className="pl-2 border-l border-slate-200 min-w-0 flex-1">
+                                <select
+                                  className="text-xs border-none bg-transparent text-slate-700 font-medium focus:outline-none cursor-pointer py-0.5 w-full truncate"
+                                  value={getSealState(p._id).sealKey}
+                                  onChange={e => setSealField(p._id, 'sealKey', e.target.value)}
+                                  title="Select seal image"
+                                >
+                                  {sealOptions.map(opt => (
+                                    <option key={opt.key} value={opt.key}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                            {getSealState(p._id).sealChecked && sealOptions.length === 0 && (
+                              <span className="pl-2 border-l border-slate-200 text-[10px] text-amber-500 italic font-medium shrink-0">No seal configured</span>
+                            )}
+                         </div>
+
+                         {/* Action Buttons */}
+                         <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const { sealChecked, sealKey } = getSealState(p._id)
+                                  const chosenSeal = sealChecked ? (sealOptions.find(o => o.key === sealKey) || sealOptions[0]) : null
+                                  const sealUrl = chosenSeal ? chosenSeal.url : null
+                                  const res = await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/invoice`, {
+                                    withSeal: sealChecked && !!sealUrl,
+                                    sealUrl,
+                                  });
+                                  toast.success('Invoice created, downloading...');
+                                  const invoiceId = res.data?.invoice?._id;
+                                  if (invoiceId) {
+                                    const { htmlStringToPdfDownload } = await import('../../lib/pdfGenerator');
+                                    const htmlRes = await api.get(`/invoices/${invoiceId}/pdf?html=true&t=${Date.now()}`, { responseType: 'text' });
+                                    await htmlStringToPdfDownload(htmlRes.data, `Invoice_${invoiceId}.pdf`);
+                                  }
+                                } catch (e) { toast.error(e.response?.data?.message || 'Failed to create invoice'); }
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 font-semibold text-xs rounded-lg transition-colors border border-indigo-100/50 shadow-sm"
+                              title="Create & Download Invoice"
+                            >
+                              <FiFileText size={14} /> Download Invoice
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/receipt`, { methods: ['email'] });
+                                  toast.success('Email receipt sent');
+                                } catch (e) { toast.error(e.response?.data?.message || 'Failed to send email'); }
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 font-semibold text-xs rounded-lg transition-colors border border-blue-100/50 shadow-sm"
+                              title="Email Receipt"
+                            >
+                              <FiMail size={14} /> Email
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api.post(`/subscriptions/${selectedSub._id}/payments/${p._id}/receipt`, { methods: ['sms'] });
+                                  toast.success('SMS receipt sent');
+                                } catch (e) { toast.error(e.response?.data?.message || 'Failed to send SMS'); }
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 font-semibold text-xs rounded-lg transition-colors border border-emerald-100/50 shadow-sm"
+                              title="SMS Receipt"
+                            >
+                              <FiMessageSquare size={14} /> SMS
+                            </button>
+                         </div>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
               )}
             </div>
