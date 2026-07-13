@@ -6,7 +6,7 @@
 const { sendMail } = require('../utils/mailer');
 const EmailLog = require('../models/EmailLog');
 const SiteSetting = require('../models/SiteSetting');
-// Note: toAbsoluteUrl removed — use absoluteMediaUrl from the client side instead
+const { localFileToDataUri } = require('./documentHtmlService');
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
@@ -16,9 +16,9 @@ const buildEmailHTML = async (title, content) => {
   if (!settings) settings = {};
 
   const companyName = settings.siteName || 'Raxwo Technology';
-  const BACKEND_URL = (process.env.SERVER_URL || 'http://localhost:5000').replace(/\/+$/, '');
   const rawLogoUrl = settings.logoUrl || '';
-  const logoSrc = rawLogoUrl ? (rawLogoUrl.startsWith('http') ? rawLogoUrl : BACKEND_URL + (rawLogoUrl.startsWith('/') ? rawLogoUrl : '/' + rawLogoUrl)) : '';
+  // Embed logo as Base64 data URI so email clients (Gmail, Outlook) never block it
+  const logoSrc = rawLogoUrl ? localFileToDataUri(rawLogoUrl) : '';
   const contactEmail = settings.contactEmail || settings.adminEmail || 'contact@raxwo.net';
   const contactPhone = settings.contactPhone || '';
   const address = settings.contactAddress || 'Colombo, Sri Lanka';
