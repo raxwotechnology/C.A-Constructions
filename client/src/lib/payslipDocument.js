@@ -90,18 +90,20 @@ export function buildPayslipHtml(payroll, siteSettings = {}, signatoryOpts = {})
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Payslip ${MONTHS[(p.month || 1) - 1]} ${p.year || ''}</title>
   <style>
     ${documentPrintStyles()}
-    body{max-width:720px;margin:0 auto;padding:24px}
-    .slip-banner{background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+    @page { size: A4; margin: 12mm 15mm; }
+    * { box-sizing: border-box; }
+    body { width: 100%; max-width: 100%; margin: 0; padding: 16px 20px; box-sizing: border-box; }
+    .slip-banner{width:100%;box-sizing:border-box;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
     .slip-banner h3{margin:0;font-size:15px;font-weight:700}
     .slip-banner .status{font-size:10px;font-weight:700;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.15)}
-    .info{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px}
+    .info{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;width:100%;box-sizing:border-box}
     .info-row{display:flex;justify-content:space-between;font-size:12px;color:#555;padding:4px 0;border-bottom:1px solid #f0f0f0}
     .info-row span:last-child{font-weight:600;color:#111}
-    .sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#64748b;font-weight:700;margin:14px 0 6px;padding-bottom:4px;border-bottom:2px solid #e2e8f0}
-    .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+    .sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#64748b;font-weight:700;margin:14px 0 6px;padding-bottom:4px;border-bottom:2px solid #e2e8f0;width:100%}
+    .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px;width:100%}
     .add{color:#16a34a}.ded{color:#dc2626}
-    .net{background:#ecfdf5;border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-top:12px;display:flex;justify-content:space-between;font-weight:800;font-size:16px;color:#15803d}
-    .foot{margin-top:20px;font-size:9px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px;line-height:1.5}
+    .net{width:100%;box-sizing:border-box;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-top:12px;display:flex;justify-content:space-between;font-weight:800;font-size:16px;color:#15803d}
+    .foot{margin-top:20px;font-size:9px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px;line-height:1.5;width:100%}
   </style></head><body>
   ${letterhead}
   <div class="slip-banner">

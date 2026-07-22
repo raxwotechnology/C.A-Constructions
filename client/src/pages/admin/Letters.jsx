@@ -486,6 +486,16 @@ export default function AdminLetters() {
         </button>
       </div>
 
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-xl p-3.5 flex items-center justify-between gap-4 flex-wrap text-xs text-blue-900">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-primary">💡 Note:</span>
+          <span>For full multi-page legal contracts, service agreements, or employee agreements, please use the <strong>Agreements & Contracts Module</strong>.</span>
+        </div>
+        <a href="/admin/agreements" className="btn-ghost btn-xs text-primary font-bold hover:underline bg-white border border-blue-200">
+          Open Agreements →
+        </a>
+      </div>
+
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>

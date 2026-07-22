@@ -6,8 +6,9 @@ import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
+import { mediaUrl } from '../../lib/media'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiInfo } from 'react-icons/fi'
+import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiInfo, FiUser } from 'react-icons/fi'
 import { invoicePaymentDisplay } from '../../lib/invoicePayment'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
@@ -24,15 +25,16 @@ export default function AdminProjects() {
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [branchFilter, setBranchFilter] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [branchFilter, setBranchFilter] = useState('')
   const [serviceTypeFilter, setServiceTypeFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
   const [selectedTeam, setSelectedTeam] = useState([])
   const [commissionAllocations, setCommissionAllocations] = useState([])
   const [linkedInvoices, setLinkedInvoices] = useState([])
   const [clientSelectLabel, setClientSelectLabel] = useState('')
+  const [selectedClientData, setSelectedClientData] = useState(null)
 
   const { register, handleSubmit, reset, setValue, watch } = useForm({ defaultValues: { progress: 0, budget: 0, client: '' } })
 
@@ -49,12 +51,15 @@ export default function AdminProjects() {
   useEffect(() => {
     if (!watchedClient) {
       setLinkedInvoices((prev) => prev.length === 0 ? prev : [])
+      setSelectedClientData(null)
       return
     }
     setLinkedInvoices((prev) => {
       const next = prev.filter((id) => clientInvoices.some((i) => String(i._id) === String(id)))
       return next.length === prev.length ? prev : next
     })
+    // Fetch client user profile to get logo / avatar preview
+    api.get(`/users/${watchedClient}`).then(r => setSelectedClientData(r.data?.user || r.data)).catch(() => {})
   }, [watchedClient, clientInvoices])
 
   useEffect(() => {
@@ -70,8 +75,8 @@ export default function AdminProjects() {
     queryFn: () => api.get(`/projects${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
   })
   const { data: empData } = useQuery({
-    queryKey: ['employees-list'],
-    queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data),
+    queryKey: ['employees-list-all'],
+    queryFn: () => api.get(assignableEmployeesUrl({ includeFormer: 'true' })).then(r => r.data),
   })
   const { data: branchData } = useQuery({
     queryKey: ['branches'],
@@ -181,16 +186,22 @@ export default function AdminProjects() {
   }
 
   const onSubmit = d => {
-    if (selectedTeam.length > 0) {
-      const missing = selectedTeam.filter((userId) => {
-        const emp = employees.find((e) => String(e.userId?._id) === String(userId))
-        const alloc = commissionAllocations.find((a) => String(a.employeeId) === String(emp?._id))
-        return alloc == null || Number(alloc.commission) < 0
-      })
-      if (missing.length > 0) {
-        toast.error('Enter a commission amount for each selected team member')
-        return
+    const finalAllocations = selectedTeam.map((userId) => {
+      const emp = employees.find((e) => String(e.userId?._id) === String(userId))
+      const empId = emp?._id || userId
+      const existing = commissionAllocations.find((a) => String(a.employeeId) === String(empId) || String(a.employee) === String(empId))
+      return {
+        employee: empId,
+        employeeName: existing?.employeeName || emp?.userId?.name || 'Team Member',
+        amount: Number(existing?.amount || 0),
+        commission: Number(existing?.commission || 0),
       }
+    })
+
+    const hasNegative = finalAllocations.some((a) => a.commission < 0)
+    if (hasNegative) {
+      toast.error('Commission amount cannot be negative')
+      return
     }
 
     const payload = {
@@ -198,12 +209,7 @@ export default function AdminProjects() {
       assignedEmployees: selectedTeam,
       linkedInvoices,
       invoice: linkedInvoices[0] || undefined,
-      salaryAllocations: commissionAllocations.map((a) => ({
-        employee: a.employeeId,
-        employeeName: a.employeeName,
-        amount: Number(a.amount || 0),
-        commission: Number(a.commission || 0),
-      })),
+      salaryAllocations: finalAllocations,
     }
     if (!payload.client) delete payload.client
     if (!payload.projectManager) delete payload.projectManager
@@ -386,6 +392,21 @@ export default function AdminProjects() {
                         clearable
                         initialLabel={clientSelectLabel}
                       />
+                      {watchedClient && selectedClientData && (
+                        <div className="mt-2 flex items-center gap-2.5 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                          {selectedClientData.avatar ? (
+                            <img src={mediaUrl(selectedClientData.avatar)} alt="" className="w-7 h-7 rounded-full object-cover border border-slate-300" onError={(e) => { e.target.style.display = 'none' }} />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                              <FiUser size={14} />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate">{selectedClientData.name}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{selectedClientData.email || 'Client'}</p>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-xs text-slate-400 mt-1">Leave empty for internal / no client</p>
                     </div>
                     <div className="sm:col-span-3">

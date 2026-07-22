@@ -3,6 +3,7 @@ const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Payroll = require('../models/Payroll');
 const Project = require('../models/Project');
+const Advance = require('../models/Advance');
 const SiteSetting = require('../models/SiteSetting');
 const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { htmlToPdfBuffer } = require('../services/documentPdfService');
@@ -36,8 +37,9 @@ async function getDeveloperContext(user) {
   const attendance = await Attendance.find({ employee: employee._id }).sort({ date: -1 }).limit(365);
   const leaves = await Leave.find({ employee: employee._id }).sort({ createdAt: -1 }).limit(200);
   const payrolls = await Payroll.find({ employee: employee._id }).sort({ year: -1, month: -1 }).limit(24);
+  const advances = await Advance.find({ employee: employee._id }).sort({ date: -1 }).limit(100);
 
-  return { employee, projects, tasks, attendance, leaves, payrolls, userId };
+  return { employee, projects, tasks, attendance, leaves, payrolls, advances, userId };
 }
 
 async function getEmployeeContextById(employeeId) {
@@ -61,13 +63,16 @@ async function getEmployeeContextById(employeeId) {
   const attendance = await Attendance.find({ employee: employee._id }).sort({ date: -1 }).limit(365);
   const leaves = await Leave.find({ employee: employee._id }).sort({ createdAt: -1 }).limit(200);
   const payrolls = await Payroll.find({ employee: employee._id }).sort({ year: -1, month: -1 }).limit(24);
-  return { employee, projects, tasks, attendance, leaves, payrolls, userId };
+  const advances = await Advance.find({ employee: employee._id }).sort({ date: -1 }).limit(100);
+  return { employee, projects, tasks, attendance, leaves, payrolls, advances, userId };
 }
 
 function toCategoryPayload(category, ctx) {
   switch (category) {
     case 'salary':
       return { employee: ctx.employee, payrolls: ctx.payrolls };
+    case 'salary_advances':
+      return { employee: ctx.employee, advances: ctx.advances };
     case 'attendance':
       return { employee: ctx.employee, attendance: ctx.attendance };
     case 'leaves':
@@ -97,6 +102,7 @@ async function renderHtml(category, payload) {
 
   const titleMap = {
     salary: 'Salary Reports',
+    salary_advances: 'Salary Advances & Loans',
     attendance: 'Attendance Reports',
     leaves: 'Leave Reports',
     epf: 'EPF / ETF Summary',
@@ -132,7 +138,31 @@ async function renderHtml(category, payload) {
   const money = (n) => `LKR ${Number(n || 0).toLocaleString()}`;
 
   let content = '';
-  if (category === 'salary') {
+  if (category === 'salary_advances') {
+    const rows = (payload.advances || []).map((a) => `
+      <tr>
+        <td>${a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
+        <td>${money(a.amount)}</td>
+        <td>${safe(a.repaymentType || 'lump_sum').replace('_', ' ')}</td>
+        <td>${money(a.totalRecovered)}</td>
+        <td>${money(a.outstandingBalance)}</td>
+        <td>${safe(a.status || 'active').toUpperCase()}</td>
+      </tr>
+    `).join('');
+    const totalAdv = (payload.advances || []).reduce((s, a) => s + (a.amount || 0), 0);
+    const totalOut = (payload.advances || []).reduce((s, a) => s + (a.outstandingBalance || 0), 0);
+    content = `
+      <div class="grid">
+        <div class="card"><div class="k">Total Advance Granted</div><div class="v">${money(totalAdv)}</div></div>
+        <div class="card"><div class="k">Outstanding Balance</div><div class="v">${money(totalOut)}</div></div>
+        <div class="card"><div class="k">Active Loans</div><div class="v">${(payload.advances || []).filter(x => x.status === 'active').length}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Date</th><th>Amount</th><th>Repayment Type</th><th>Recovered</th><th>Outstanding Balance</th><th>Status</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="6">No advance records found</td></tr>'}</tbody>
+      </table>
+    `;
+  } else if (category === 'salary') {
     const rows = (payload.payrolls || []).map((p) => `
       <tr>
         <td>${p.month}/${p.year}</td>

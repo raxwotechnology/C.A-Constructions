@@ -16,6 +16,7 @@ const agreementSchema = new mongoose.Schema({
 
   // ── Linked records ────────────────────────────────────────────────────────
   client:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  employee:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   project:      { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
   invoice:      { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
   subscription: { type: mongoose.Schema.Types.ObjectId, ref: 'Subscription' },
@@ -49,6 +50,7 @@ const agreementSchema = new mongoose.Schema({
       signedAt: Date,
     },
     client: {
+      label: { type: String, default: 'Client' },
       data: { type: String, default: '' },
       signerName: { type: String, default: '' },
       signedAt: Date,

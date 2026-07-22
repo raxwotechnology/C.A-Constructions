@@ -16,9 +16,17 @@ const buildEmailHTML = async (title, content) => {
   if (!settings) settings = {};
 
   const companyName = settings.siteName || 'Raxwo Technology';
-  const rawLogoUrl = settings.logoUrl || '';
-  // Embed logo as Base64 data URI so email clients (Gmail, Outlook) never block it
-  const logoSrc = rawLogoUrl ? localFileToDataUri(rawLogoUrl) : '';
+  const rawLogoUrl = (settings.logoUrl || '').trim();
+  
+  // Gmail/Outlook strip base64 data URIs. Use a public absolute URL (or default live logo) for 100% email client compatibility
+  let logoSrc = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png';
+  if (/^https?:\/\//i.test(rawLogoUrl)) {
+    logoSrc = rawLogoUrl;
+  } else if (rawLogoUrl) {
+    const rel = rawLogoUrl.startsWith('/') ? rawLogoUrl : `/${rawLogoUrl}`;
+    logoSrc = `${APP_URL}${rel}`;
+  }
+
   const contactEmail = settings.contactEmail || settings.adminEmail || 'contact@raxwo.net';
   const contactPhone = settings.contactPhone || '';
   const address = settings.contactAddress || 'Colombo, Sri Lanka';

@@ -43,13 +43,15 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
 
 export function documentPrintStyles() {
   return `
-    @page { size: A4; margin: 10mm 14mm 10mm 14mm; }
+    @page { size: A4; margin: 12mm 14mm 12mm 14mm; }
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; margin: 0; padding: 0; }
-    .doc-frame { border: 1px solid #cbd5e1; border-radius: 4px; padding: 28px 32px; min-height: 100%; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; margin: 0; padding: 0; width: 100%; }
+    img { max-width: 100%; height: auto; }
+    .doc-letterhead { width: 100%; max-width: 100%; box-sizing: border-box; }
+    .doc-frame { border: 1px solid #cbd5e1; border-radius: 4px; padding: 28px 32px; min-height: 100%; width: 100%; max-width: 100%; box-sizing: border-box; }
     .doc-title { font-size: 22pt; font-weight: 800; color: #0f172a; letter-spacing: 0.06em; margin: 0 0 4px; }
     .doc-meta { font-size: 10pt; color: #64748b; }
-    table { page-break-inside: auto; }
+    table { page-break-inside: auto; width: 100%; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
     table.doc-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
@@ -62,16 +64,18 @@ export function documentPrintStyles() {
     .doc-thankyou { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-style: italic; color: #64748b; text-align: center; font-size: 10.5pt; }
     .doc-continuation { padding-top: 0; }
     @media print {
-      body { padding: 0 !important; margin: 0; }
+      body { padding: 0 !important; margin: 0; width: 100% !important; }
       .no-print { display: none !important; }
       .doc-frame, .doc-print-frame, .quotation-doc, .invoice-doc {
         border: none !important;
         border-radius: 0 !important;
         padding: 0 !important;
         margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
         box-shadow: none !important;
       }
-      .doc-letterhead, .doc-letterhead-wrap { page-break-after: avoid; page-break-inside: avoid; }
+      .doc-letterhead, .doc-letterhead-wrap { page-break-after: avoid; page-break-inside: avoid; width: 100% !important; max-width: 100% !important; }
       .quotation-doc-inner > div:first-child,
       .invoice-doc-inner > div:first-child { page-break-inside: avoid; }
       body, .quotation-doc, .quotation-doc-inner, .invoice-doc, .invoice-doc-inner {

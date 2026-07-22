@@ -7,6 +7,7 @@ const { createNotification } = require('../services/notificationService');
 
 const POPULATE = [
   { path: 'client', select: 'name email phone' },
+  { path: 'employee', select: 'name email phone' },
   { path: 'project', select: 'title serviceType budget' },
   { path: 'invoice', select: 'invoiceNo total remainingBalance' },
   { path: 'subscription', select: 'name plan' },
@@ -21,6 +22,7 @@ function mergeSignatures(prev = {}, incoming = {}) {
     provider: { ...p.provider, ...incoming.provider },
     client: { ...p.client, ...incoming.client },
     witness: { ...p.witness, ...incoming.witness },
+    seal: { ...p.seal, ...incoming.seal },
   };
 }
 
@@ -50,6 +52,23 @@ exports.createAgreementTemplate = async (req, res, next) => {
       createdBy: req.user._id,
     });
     res.status(201).json({ success: true, template });
+  } catch (err) { next(err); }
+};
+
+// ── PUT /api/agreements/templates/:templateId ──────────────────────────────────
+exports.updateAgreementTemplate = async (req, res, next) => {
+  try {
+    const { name, content, agreementType, hasFrame } = req.body;
+    const template = await AgreementTemplate.findById(req.params.templateId);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+    if (name && String(name).trim()) template.name = name.trim();
+    if (content !== undefined) template.content = content;
+    if (agreementType) template.agreementType = agreementType;
+    if (hasFrame !== undefined) template.hasFrame = hasFrame;
+    await template.save();
+    res.json({ success: true, template });
   } catch (err) { next(err); }
 };
 

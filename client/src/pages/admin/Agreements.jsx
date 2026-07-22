@@ -29,7 +29,7 @@ const AGREEMENT_TYPES = [
 
 const EMPTY_SIG = () => ({
   provider: { data: '', signerName: '' },
-  client: { data: '', signerName: '' },
+  client: { data: '', signerName: '', label: 'Client / Counterparty' },
   witness: { name: '', data: '' },
   seal: { data: '' },
 })
@@ -62,6 +62,7 @@ export default function Agreements() {
   const [step, setStep] = useState(1)
   const [search, setSearch] = useState('')
   const [signatures, setSignatures] = useState(EMPTY_SIG())
+  const [linkEntityType, setLinkEntityType] = useState('client')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const tplQuillRef = useRef(null)
   
@@ -664,20 +665,54 @@ export default function Agreements() {
                     </div>
 
                     <div className="card card-body space-y-4 border-slate-200">
-                      <h4 className="text-sm font-bold text-slate-700">Link records (auto-fills tokens)</h4>
-                      <div>
-                        <label className="form-label">Client</label>
-                        <SearchableSelect
-                          value={watch('client')}
-                          onChange={(v) => setValue('client', v)}
-                          loadOptions={lookupLoaders.clients()}
-                          placeholder="Search client…"
-                          initialLabel={
-                            clients.find((c) => c._id === watch('client'))?.name || 
-                            (editing?.client?._id === watch('client') ? `${editing.client.name} (${editing.client.email || ''})` : '')
-                          }
-                        />
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <h4 className="text-sm font-bold text-slate-700">Link records (auto-fills tokens)</h4>
+                        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => setLinkEntityType('client')}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${linkEntityType === 'client' ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                          >
+                            Client
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLinkEntityType('employee')}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${linkEntityType === 'employee' ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                          >
+                            Employee / Intern
+                          </button>
+                        </div>
                       </div>
+
+                      {linkEntityType === 'client' ? (
+                        <div>
+                          <label className="form-label">Client</label>
+                          <SearchableSelect
+                            value={watch('client')}
+                            onChange={(v) => setValue('client', v)}
+                            loadOptions={lookupLoaders.clients()}
+                            placeholder="Search client…"
+                            initialLabel={
+                              clients.find((c) => c._id === watch('client'))?.name || 
+                              (editing?.client?._id === watch('client') ? `${editing.client.name} (${editing.client.email || ''})` : '')
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="form-label">Employee / Intern</label>
+                          <SearchableSelect
+                            value={watch('employee')}
+                            onChange={(v) => setValue('employee', v)}
+                            loadOptions={lookupLoaders.employeesAll()}
+                            placeholder="Search employee / intern…"
+                            initialLabel={
+                              editing?.employee?.name ? `${editing.employee.name} (${editing.employee.email || ''})` : ''
+                            }
+                          />
+                        </div>
+                      )}
 
                       {type === 'client_project' && (
                         <div>
@@ -831,7 +866,7 @@ export default function Agreements() {
                                   </div>
 
                                   <div style={{ marginBottom: '24px', textAlign: 'right' }}>
-                                    <p style={{ margin: '0 0 8px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Client / counterparty</p>
+                                    <p style={{ margin: '0 0 8px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>{signatures.client.label || 'Client / counterparty'}</p>
                                     {signatures.client.data ? (
                                       <img src={signatures.client.data} alt="" style={{ maxHeight: '60px', maxWidth: '180px', objectFit: 'contain', marginLeft: 'auto', display: 'block' }} />
                                     ) : (
@@ -895,13 +930,19 @@ export default function Agreements() {
                       />
                       <input
                         className="form-input text-sm"
-                        placeholder="Client signatory name (or title)"
+                        placeholder="Signature label (e.g. Client, Intern, Employee)"
+                        value={signatures.client.label || ''}
+                        onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, label: e.target.value } }))}
+                      />
+                      <input
+                        className="form-input text-sm"
+                        placeholder="Client / Counterparty signatory name"
                         list="signatory-titles"
                         value={signatures.client.signerName}
                         onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, signerName: e.target.value } }))}
                       />
                       <SignaturePad
-                        label="Client"
+                        label={signatures.client.label || "Client"}
                         value={signatures.client.data}
                         onChange={(data) => setSignatures((s) => ({ ...s, client: { ...s.client, data } }))}
                       />

@@ -361,6 +361,15 @@ export default function AdminInvoices() {
   const editingPaid = editing?.status === 'paid'
 
   const onSubmit = (d) => {
+    if (!d.client) {
+      toast.error('Client is required')
+      return
+    }
+    const validItems = (d.items || []).filter((i) => i && String(i.description || '').trim())
+    if (!editingPaid && validItems.length === 0) {
+      toast.error('Item descriptions are required!')
+      return
+    }
     if (editingPaid) {
       const payload = {
         status: d.status,
@@ -1014,12 +1023,7 @@ export default function AdminInvoices() {
 
                 <div className="flex gap-3 pt-6 border-t sticky bottom-0 bg-white pb-1 z-10">
                   <button type="button" onClick={closeModal} className="btn-ghost flex-1">Cancel</button>
-                  <button type="submit" onClick={() => {
-                    const errs = [];
-                    if (!watch('client')) errs.push('Client is required');
-                    if (fields.some(f => !f.description)) errs.push('Item descriptions are required');
-                    if (errs.length > 0) errs.forEach(e => toast.error(e));
-                  }} disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
+                  <button type="submit" disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
                     {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : (editing ? 'Save Invoice' : 'Create Invoice')}
                   </button>
                 </div>

@@ -11,12 +11,14 @@ const {
   generateAgreementPdf,
   getAgreementTemplates,
   createAgreementTemplate,
+  updateAgreementTemplate,
   deleteAgreementTemplate,
 } = require('../controllers/agreementController');
 
 // Static paths must be registered before `/:id` so "templates" is not parsed as an id.
 router.get('/templates', protect, getAgreementTemplates);
 router.post('/templates', protect, authorize('admin', 'manager'), createAgreementTemplate);
+router.put('/templates/:templateId', protect, authorize('admin', 'manager'), updateAgreementTemplate);
 router.delete('/templates/:templateId', protect, authorize('admin', 'manager'), deleteAgreementTemplate);
 
 router.post('/generate-preview', protect, authorize('admin', 'manager'), generatePreview);

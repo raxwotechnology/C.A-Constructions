@@ -22,7 +22,8 @@ const DATASET_GROUPS = [
   {
     label: 'HR & Payroll',
     items: [
-      { value: 'employee_details', label: 'Employees', needsEmployee: false, supportsCategory: true },
+      { value: 'salary_advances', label: 'Salary Advances & Loans', supportsMonthYear: true, supportsDateRange: true },
+      { value: 'employee_details', label: 'Employee Summary', needsEmployee: false, supportsCategory: true },
       { value: 'salary_payments', label: 'Salary Payments', supportsMonthYear: true, supportsDateRange: true },
       { value: 'epf_etf', label: 'EPF / ETF', supportsMonthYear: true, supportsDateRange: true },
       { value: 'attendance_reports', label: 'Attendance', supportsMonthYear: true, supportsDateRange: true },

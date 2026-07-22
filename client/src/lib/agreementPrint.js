@@ -106,7 +106,7 @@ export function buildAgreementBodyHtml(opts) {
     <div style="margin-top:40px;padding-top:24px;border-top:1px solid #e2e8f0;page-break-inside:avoid;">
       <div style="margin-left:auto;width:fit-content;min-width:200px;text-align:right;font-family:system-ui,Segoe UI,sans-serif;">
         ${sigBlock('Service provider', signatures?.provider?.data, signatures?.provider?.signerName)}
-        ${sigBlock('Client / counterparty', signatures?.client?.data, signatures?.client?.signerName)}
+        ${sigBlock(signatures?.client?.label || 'Client / counterparty', signatures?.client?.data, signatures?.client?.signerName)}
         ${witness}
         ${sealHtml}
       </div>
@@ -131,17 +131,21 @@ export function buildAgreementBodyHtml(opts) {
 }
 
 const AGREEMENT_PRINT_STYLES = `
-  @page { size: A4; margin: 25mm 15mm; }
+  @page { size: A4; margin: 15mm 15mm; }
+  * { box-sizing: border-box; }
   body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; }
+  img { max-width: 100%; height: auto; }
+  header { max-width: 100%; box-sizing: border-box; }
   ${LETTER_COMPACT_CSS}
   .agreement-content h1, .agreement-content h2, .agreement-content h3 { font-family: system-ui, sans-serif; color: #0f172a; margin-top: 1.25em; margin-bottom: 0.5em; }
   .agreement-content p { margin: 0 0 12px; }
   .agreement-content ul { margin: 0 0 12px 1.2em; }
-  .letter-page-wrap { width: 100%; max-width: 780px; margin: 0 auto; }
-  .letter-page-content { transform-origin: top center; }
+  .letter-page-wrap { width: 100%; max-width: 100%; margin: 0 auto; box-sizing: border-box; }
+  .letter-page-content { transform-origin: top center; width: 100%; box-sizing: border-box; }
   @media print {
-    body { margin: 0; padding: 0; }
-    .letter-page-wrap { width: 100%; max-width: none; }
+    body { margin: 0; padding: 0; width: 100%; }
+    header { width: 100% !important; max-width: 100% !important; page-break-inside: avoid; }
+    .letter-page-wrap { width: 100% !important; max-width: 100% !important; }
   }
 `
 
