@@ -67,7 +67,6 @@ const adminNav = [
     { to: '/admin/messages', label: 'Messages', icon: FiMessageSquare },
     { to: '/admin/meetings', label: 'Meetings', icon: FiVideo },
     { to: '/admin/requests', label: 'Requests', icon: FiClipboard },
-    { to: '/admin/tool-assignments', label: 'Tool Assignments', icon: FiKey },
     { to: '/admin/settings', label: 'Settings', icon: FiSettings },
   ]},
 ]
@@ -101,7 +100,6 @@ const developerNav = [
     { to: '/developer/tasks', label: 'Assigned Tasks', icon: FiCheckSquare },
     { to: '/developer/work-logs', label: 'Daily Work Log', icon: FiClipboard },
     { to: '/developer/requests', label: 'My Requests', icon: FiFileText },
-    { to: '/developer/tools', label: 'My Tools', icon: FiKey },
     { to: '/developer/performance', label: 'Performance', icon: FiTrendingUp },
     { to: '/developer/social-analytics', label: 'Social Analytics', icon: FiBarChart2 },
   ]},
