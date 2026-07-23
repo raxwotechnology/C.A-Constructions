@@ -184,7 +184,31 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Raxwo API is running', timestamp: new Date().toISOString() });
 });
 
-// 404 handler
+// Serve client build if available (for single-domain or proxy deployments)
+const clientBuildPath = path.resolve(__dirname, '../../client/dist');
+const altClientBuildPath = path.resolve(process.cwd(), 'client/dist');
+const distDir = fs.existsSync(clientBuildPath) ? clientBuildPath : (fs.existsSync(altClientBuildPath) ? altClientBuildPath : null);
+
+if (distDir) {
+  app.use(express.static(distDir));
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
+      return next();
+    }
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.json({ success: true, message: 'Raxwo API Server is running', timestamp: new Date().toISOString() });
+  });
+}
+
+// 404 handler for API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
+
+// Fallback 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
 });
