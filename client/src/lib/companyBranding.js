@@ -7,20 +7,20 @@ export function buildCompanyFromSettings(settings = {}) {
   const email =
     settings.adminEmail?.trim() ||
     settings.contactEmail?.trim() ||
-    'raxwotechnology@gmail.com'
+    'racreationshd@gmail.com'
   return {
-    name: settings.siteName?.trim() || 'Company',
-    tagline: settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || '',
+    name: settings.siteName?.trim() || 'R A Creations & Home Designs',
+    tagline: settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Construction & Home Designs',
     logo,
     logoPath: settings.logoUrl?.trim() || '',
-    address: settings.contactAddress?.trim() || '',
-    phone: settings.contactPhone?.trim() || '0743573333',
+    address: settings.contactAddress?.trim() || 'Sri Lanka',
+    phone: settings.contactPhone?.trim() || '0770749690',
     email,
-    contactEmail: settings.contactEmail?.trim() || 'raxwotechnology@gmail.com',
-    adminEmail: settings.adminEmail?.trim() || settings.contactEmail?.trim() || 'raxwotechnology@gmail.com',
-    website: settings.websiteUrl?.trim() || 'www.raxwo.net',
+    contactEmail: settings.contactEmail?.trim() || 'racreationshd@gmail.com',
+    adminEmail: settings.adminEmail?.trim() || settings.contactEmail?.trim() || 'racreationshd@gmail.com',
+    website: settings.websiteUrl?.trim() || 'www.rach.lk',
     branchDetails: settings.branchDetails?.trim() || '',
-    footer: settings.footerText?.trim() || '',
+    footer: settings.footerText?.trim() || '© R A Creations & Home Designs. All rights reserved.',
     seal: settings.sealUrl ? mediaUrl(settings.sealUrl) : '',
     letterhead: settings.letterheadUrl ? mediaUrl(settings.letterheadUrl) : '',
     signatures: settings.signatures || {},

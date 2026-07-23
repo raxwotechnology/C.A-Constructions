@@ -67,8 +67,8 @@ function localFileToDataUri(uploadPath) {
 }
 
 function buildLetterhead(settings) {
-  const name = settings.siteName || 'Company';
-  const tagline = settings.letterheadTagline || settings.siteDescription || 'Next Level Tech';
+  const name = settings.siteName || 'R A Creations & Home Designs';
+  const tagline = settings.letterheadTagline || settings.siteDescription || 'Construction & Home Designs';
   const logo = settings.logoUrl ? localFileToDataUri(settings.logoUrl) : '';
   const logoHtml = logo
     ? `<img src="${logo.replace(/"/g, '')}" alt="" style="max-height:64px;object-fit:contain"/>`

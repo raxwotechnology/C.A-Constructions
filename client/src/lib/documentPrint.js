@@ -20,7 +20,7 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
   const tagline =
     showTagline !== undefined
       ? showTagline
-      : settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Next Level Tech'
+      : settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Construction & Home Designs'
   
   // Use absolute URLs for logo to ensure cross-origin compatibility on print/PDF
   const logo = companyLogoHtml(company, { forPrint, maxHeight: 64 })
