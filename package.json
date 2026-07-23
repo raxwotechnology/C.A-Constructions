@@ -6,7 +6,9 @@
   "scripts": {
     "start": "cd server && node src/server.js",
     "dev": "cd server && nodemon src/server.js",
-    "seed": "cd server && node src/seed.js"
+    "seed": "cd server && node src/seed.js",
+    "build": "cd client && npm install && npm run build",
+    "postinstall": "cd client && npm install && npm run build"
   },
   "dependencies": {
     "axios": "^1.7.9",
