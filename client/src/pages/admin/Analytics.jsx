@@ -123,13 +123,13 @@ export default function AdminAnalytics() {
       {/* Revenue vs Expenses */}
       <div className="card card-body">
         <h3 className="font-bold text-primary font-heading mb-1">Revenue vs Expenses (YTD)</h3>
-        <p className="text-xs text-gray-400 mb-4">Monthly comparison — blue=revenue, red=expenses</p>
+        <p className="text-xs text-gray-400 mb-4">Monthly comparison — orange=revenue, red=expenses</p>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={revExpChart}>
             <defs>
               <linearGradient id="revG" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#2563EB" stopOpacity={0.15}/>
-                <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#f97316" stopOpacity={0.2}/>
+                <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
               </linearGradient>
               <linearGradient id="expG" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#EF4444" stopOpacity={0.1}/>
@@ -140,7 +140,7 @@ export default function AdminAnalytics() {
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
             <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
             <Tooltip formatter={(v, n) => tooltipMoney(v, n)} contentStyle={tooltipStyle}/>
-            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#2563EB" strokeWidth={2.5} fill="url(#revG)"/>
+            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#f97316" strokeWidth={2.5} fill="url(#revG)"/>
             <Area type="monotone" dataKey="expense" name="Expenses" stroke="#EF4444" strokeWidth={2} fill="url(#expG)"/>
           </AreaChart>
         </ResponsiveContainer>
@@ -157,7 +157,7 @@ export default function AdminAnalytics() {
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
               <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
               <Tooltip formatter={(v) => tooltipMoney(v, 'Payroll')} contentStyle={tooltipStyle}/>
-              <Bar dataKey="value" name="Payroll" fill="#2563EB" radius={[4,4,0,0]}/>
+              <Bar dataKey="value" name="Payroll" fill="#f97316" radius={[4,4,0,0]}/>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -172,7 +172,7 @@ export default function AdminAnalytics() {
                 <XAxis type="number" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} allowDecimals={false}/>
                 <YAxis dataKey="dept" type="category" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} width={85}/>
                 <Tooltip contentStyle={tooltipStyle}/>
-                <Bar dataKey="count" name="Employees" fill="#0B1F3A" radius={[0,4,4,0]}/>
+                <Bar dataKey="count" name="Employees" fill="#ea580c" radius={[0,4,4,0]}/>
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="h-48 flex items-center justify-center text-gray-400 text-sm">No department data yet</div>}

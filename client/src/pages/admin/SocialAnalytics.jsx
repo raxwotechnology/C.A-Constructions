@@ -415,15 +415,15 @@ export default function SocialAnalytics() {
                 <AreaChart data={insights.growthTrend} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorAudience" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} minTickGap={20} />
                   <YAxis axisLine={false} tickLine={false} tickFormatter={formatNum} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                   <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                  <Area type="monotone" dataKey="value" stroke={chartColor} strokeWidth={3} fillOpacity={1} fill="url(#colorAudience)" />
+                  <Area type="monotone" dataKey="value" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorAudience)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

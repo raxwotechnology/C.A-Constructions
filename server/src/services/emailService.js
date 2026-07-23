@@ -89,7 +89,7 @@ const infoBoxHtml = (rows) => {
 const sendLoggedMail = async (options, moduleName = 'system') => {
   try {
     // Gmail requires from == authenticated SMTP_USER
-    options.from = process.env.SMTP_FROM || process.env.SMTP_USER || 'raxwotechnology@gmail.com';
+    options.from = process.env.SMTP_FROM || process.env.SMTP_USER || 'racreationshd@gmail.com';
     console.log(`[Email] Sending "${options.subject}" to ${options.to} via ${options.from}`);
     const result = await sendMail(options);
     if (result && result.sent === false) {

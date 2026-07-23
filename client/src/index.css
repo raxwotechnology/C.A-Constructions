@@ -3,6 +3,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Change Primary Blue/Indigo to Orange Theme */
+  --primary: #f97316;          /* Orange-500 */
+  --primary-hover: #ea580c;    /* Orange-600 */
+  --primary-light: #fff7ed;    /* Orange-50 */
+  --primary-border: #fdba74;   /* Orange-300 */
+  
+  /* Accent / Yellow Gold Option */
+  --accent-yellow: #eab308;
+}
+
 @layer base {
   * { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
   /* Root: 14px — professional SaaS-dashboard baseline */
@@ -14,12 +25,12 @@
     font-weight: 400;
     line-height: 1.65;
     letter-spacing: -0.01em;
-    background-image: radial-gradient(circle at top right, rgba(12, 2, 39, 0.08), transparent 38%);
+    background-image: radial-gradient(circle at top right, rgba(249, 115, 22, 0.08), transparent 38%);
   }
   
   h1, h2, h3, h4, h5, h6 { 
     font-family: 'Poppins', sans-serif !important;
-    color: #0C0227;
+    color: #1e293b;
     line-height: 1.25;
     letter-spacing: -0.02em;
   }
@@ -42,13 +53,13 @@
   }
 }
 
-/* ── Force #0C0227 background-color on hero/gradient sections ─────── */
+/* ── Force Orange background-color on hero/gradient sections ─────── */
 @layer utilities {
   .bg-gradient-hero,
   .bg-gradient-navy,
   .bg-gradient-blue {
-    background-color: #0C0227 !important;
-    background-image: none !important;
+    background-color: #ea580c !important;
+    background-image: linear-gradient(135deg, #ea580c 0%, #f97316 50%, #eab308 100%) !important;
   }
 }
 
@@ -58,18 +69,18 @@
     @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-blue text-white font-semibold rounded-lg
-    hover:brightness-110 active:scale-95 transition-all duration-200 shadow-blue disabled:opacity-60 disabled:cursor-not-allowed;
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-lg
+    hover:brightness-110 active:scale-95 transition-all duration-200 shadow-orange-500/20 disabled:opacity-60 disabled:cursor-not-allowed;
     font-size: 13px;
   }
   .btn-navy {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-xl
-    hover:bg-navy-800 active:scale-95 transition-all duration-200 shadow-navy disabled:opacity-60;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white font-semibold rounded-xl
+    hover:bg-orange-700 active:scale-95 transition-all duration-200 shadow-orange-500/20 disabled:opacity-60;
     font-size: 13px;
   }
   .btn-outline {
-    @apply inline-flex items-center gap-2 px-4 py-2 border-2 border-secondary text-secondary font-semibold rounded-xl
-    hover:bg-secondary hover:text-white active:scale-95 transition-all duration-200;
+    @apply inline-flex items-center gap-2 px-4 py-2 border-2 border-orange-500 text-orange-600 font-semibold rounded-xl
+    hover:bg-orange-500 hover:text-white active:scale-95 transition-all duration-200;
     font-size: 13px;
   }
   .btn-ghost {
@@ -83,8 +94,8 @@
     font-size: 13px;
   }
   .btn-success {
-    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white font-semibold rounded-lg
-    hover:bg-green-600 active:scale-95 transition-all duration-200;
+    @apply inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white font-semibold rounded-lg
+    hover:bg-amber-600 active:scale-95 transition-all duration-200;
     font-size: 13px;
   }
   .btn-sm  { @apply px-3 py-1.5; font-size: 12px; font-weight: 500; }
@@ -105,7 +116,7 @@
   /* Form controls */
   .form-input {
     @apply w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg
-    focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary
+    focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500
     placeholder:text-gray-400 transition-all duration-200;
     font-size: 14px;
     font-weight: 500;
@@ -114,7 +125,7 @@
   .form-error { @apply text-red-500 mt-1 font-medium; font-size: 12.5px; }
   .form-select {
     @apply w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg
-    focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary
+    focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500
     transition-all duration-200 cursor-pointer;
     font-size: 14px;
   }
@@ -125,13 +136,13 @@
     font-size: 11.5px;
     letter-spacing: 0.01em;
   }
-  .badge-blue   { @apply bg-blue-100 text-blue-700; }
+  .badge-blue   { @apply bg-orange-100 text-orange-700; }
   .badge-green  { @apply bg-green-100 text-green-700; }
   .badge-red    { @apply bg-red-100 text-red-700; }
   .badge-yellow { @apply bg-yellow-100 text-yellow-700; }
   .badge-gray   { @apply bg-gray-100 text-gray-600; }
-  .badge-purple { @apply bg-purple-100 text-purple-700; }
-  .badge-navy   { @apply bg-navy-900/10 text-navy-900; }
+  .badge-purple { @apply bg-amber-100 text-amber-700; }
+  .badge-navy   { @apply bg-orange-500/10 text-orange-700; }
 
   /* KPI card */
   .kpi-card {
@@ -141,10 +152,10 @@
     content: '';
     @apply absolute top-0 left-0 w-1 h-full rounded-l-2xl;
   }
-  .kpi-blue::before   { @apply bg-secondary; }
+  .kpi-blue::before   { @apply bg-orange-500; }
   .kpi-green::before  { @apply bg-accent; }
   .kpi-navy::before   { @apply bg-primary; }
-  .kpi-purple::before { @apply bg-purple-500; }
+  .kpi-purple::before { @apply bg-amber-500; }
   .kpi-gray::before   { @apply bg-gray-400; }
   .kpi-orange::before { @apply bg-orange-500; }
 
@@ -160,7 +171,7 @@
   /* Page header */
   .page-header { @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 rounded-2xl border border-slate-200/70 bg-white/80 shadow-card px-5 sm:px-6 py-4; }
   /* Page title: prominent but compact — 22px on 14px root */
-  .page-title { font-size: 1.571rem; font-weight: 700; @apply text-primary; font-family: 'Poppins', sans-serif !important; letter-spacing: -0.025em; }
+  .page-title { font-size: 1.571rem; font-weight: 700; @apply text-slate-900; font-family: 'Poppins', sans-serif !important; letter-spacing: -0.025em; }
   .page-subtitle { font-size: 13px; @apply text-slate-500 mt-0.5; font-weight: 500; }
 
   .topbar-glass {
@@ -170,11 +181,11 @@
   /* Sidebar */
   .sidebar-link {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold
-    text-slate-600 hover:text-[#000080] hover:bg-blue-50 transition-all duration-200;
+    text-slate-600 hover:text-orange-600 hover:bg-orange-50 transition-all duration-200;
     font-size: 13.5px;
   }
   .sidebar-link.active {
-    @apply bg-[#000080] text-white shadow-sm;
+    @apply bg-orange-500 text-white shadow-sm;
   }
   .sidebar-group-label {
     @apply font-bold text-slate-500 uppercase tracking-widest px-3 mb-1;

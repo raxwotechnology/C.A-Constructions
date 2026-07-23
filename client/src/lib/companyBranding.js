@@ -43,7 +43,7 @@ export function contactBlockHtml(company, { inline = false } = {}) {
   const lines = companyContactLines(company)
   if (!lines.length) return ''
   if (inline) {
-    return `<p style="margin:8px 0 0;font-size:9.5pt;color:#475569;line-height:1.5">${lines.map((l) => `<span style="color:#38bdf8;font-weight:600">${l.label}:</span> ${escapeHtml(l.text)}`).join(' · ')}</p>`
+    return `<p style="margin:8px 0 0;font-size:9.5pt;color:#475569;line-height:1.5">${lines.map((l) => `<span style="color:#ea580c;font-weight:600">${l.label}:</span> ${escapeHtml(l.text)}`).join(' · ')}</p>`
   }
   return `<table style="margin:10px 0 0 auto;font-size:9.5pt;color:#475569;line-height:1.5;border-collapse:collapse;text-align:left">
     <tbody>
@@ -51,7 +51,7 @@ export function contactBlockHtml(company, { inline = false } = {}) {
         .map(
           (l) =>
             `<tr>
-              <td style="padding:2px 8px 2px 0;color:#38bdf8;font-weight:600;text-align:right;vertical-align:top;white-space:nowrap">${l.label}</td>
+              <td style="padding:2px 8px 2px 0;color:#ea580c;font-weight:600;text-align:right;vertical-align:top;white-space:nowrap">${l.label}</td>
               <td style="padding:2px 0;vertical-align:top;white-space:pre-wrap;color:#475569">${escapeHtml(l.text)}</td>
             </tr>`,
         )
@@ -74,7 +74,7 @@ export function companyLogoHtml(company, { forPrint = false, maxHeight = 56 } = 
   const raw = company.logoPath || company.logo
   const src = forPrint ? absoluteMediaUrl(raw) : company.logo || mediaUrl(raw)
   if (!src) {
-    return `<span style="display:inline-flex;width:52px;height:52px;border-radius:10px;background:#1e3a8a;color:#fff;align-items:center;justify-content:center;font-weight:800;font-size:22px">${escapeHtml((company.name || 'C').charAt(0))}</span>`
+    return `<span style="display:inline-flex;width:52px;height:52px;border-radius:10px;background:#ea580c;color:#fff;align-items:center;justify-content:center;font-weight:800;font-size:22px">${escapeHtml((company.name || 'C').charAt(0))}</span>`
   }
   return `<img src="${src.replace(/"/g, '')}" alt="" style="max-height:${maxHeight}px;max-width:200px;object-fit:contain;display:block"/>`
 }
@@ -87,11 +87,11 @@ export function letterheadHtml(company, { forPrint = false } = {}) {
     ? `<img src="${sealSrc.replace(/"/g, '')}" alt="Seal" style="max-height:64px;margin-left:12px"/>`
     : ''
   return `
-    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:3px solid #1e3a8a;margin-bottom:20px">
+    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:3px solid #ea580c;margin-bottom:20px">
       <div style="flex-shrink:0">${logo}</div>
       <div style="text-align:right;flex:1;min-width:180px">
-        <h1 style="margin:0;font-size:18px;font-weight:800;color:#0f172a">${escapeHtml(company.name)}</h1>
-        ${company.tagline ? `<p style="margin:4px 0 0;font-size:10pt;color:#64748b;font-style:italic">${escapeHtml(company.tagline)}</p>` : ''}
+        <h1 style="margin:0;font-size:18px;font-weight:800;color:#1e293b">${escapeHtml(company.name)}</h1>
+        ${company.tagline ? `<p style="margin:4px 0 0;font-size:10pt;color:#ea580c;font-weight:600">${escapeHtml(company.tagline)}</p>` : ''}
         ${contactBlockHtml(company)}
       </div>
       ${seal}

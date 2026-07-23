@@ -472,13 +472,13 @@ export default function AdminAIAnalyzer() {
               <p className="text-xs text-slate-400 mb-4">Blue = actual · Purple dashed = AI prediction</p>
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={revChartData}>
-                  <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.15}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient></defs>
+                  <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f97316" stopOpacity={0.2}/><stop offset="95%" stopColor="#f97316" stopOpacity={0}/></linearGradient></defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
                   <XAxis dataKey="label" tick={{ fontSize:10, fill:'#9CA3AF' }} axisLine={false} tickLine={false}/>
                   <YAxis tick={{ fontSize:10, fill:'#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
                   <Tooltip contentStyle={{ borderRadius:'10px', fontSize:'12px' }}/>
-                  <Area type="monotone" dataKey="actual" name="Actual" stroke="#2563EB" strokeWidth={2.5} fill="url(#rg)" dot={{ fill:'#2563EB', r:3 }} connectNulls={false}/>
-                  <Area type="monotone" dataKey="predicted" name="Predicted" stroke="#8B5CF6" strokeWidth={2.5} strokeDasharray="6 3" fill="none" dot={{ fill:'#8B5CF6', r:5 }} connectNulls={false}/>
+                  <Area type="monotone" dataKey="actual" name="Actual" stroke="#ea580c" strokeWidth={2.5} fill="url(#rg)" dot={{ fill:'#ea580c', r:3 }} connectNulls={false}/>
+                  <Area type="monotone" dataKey="predicted" name="Predicted" stroke="#eab308" strokeWidth={2.5} strokeDasharray="6 3" fill="none" dot={{ fill:'#eab308', r:5 }} connectNulls={false}/>
                 </AreaChart>
               </ResponsiveContainer>
             </div>

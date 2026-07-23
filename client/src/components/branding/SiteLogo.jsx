@@ -13,10 +13,8 @@ export default function SiteLogo({
   imgClassName = '',
   asLink = true,
 }) {
-  const { siteName, siteTagline, logoUrl } = useSiteBranding()
+  const { siteName, siteTagline, logoSrc } = useSiteBranding()
   const isDark = variant === 'dark'
-
-  const logoSrc = logoUrl ? logoUrl : ''
   const [logoBroken, setLogoBroken] = useState(false)
 
   useEffect(() => {
@@ -39,7 +37,7 @@ export default function SiteLogo({
             src={logoSrc}
             alt={siteName || 'R A Creations & Home Designs'}
             onError={() => setLogoBroken(true)}
-            className={`object-contain flex-shrink-0 max-h-12 md:max-h-14 w-auto max-w-[220px] transition-transform hover:scale-[1.02] ${imgClassName}`}
+            className={`object-contain flex-shrink-0 h-16 md:h-20 max-h-20 w-auto max-w-[240px] transition-transform hover:scale-[1.02] ${imgClassName}`}
           />
         </div>
       ) : (

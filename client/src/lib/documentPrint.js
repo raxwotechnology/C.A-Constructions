@@ -27,12 +27,13 @@ export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTag
   const contactHtml = contactBlockHtml(company)
 
   return `
-    <header class="doc-letterhead" style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #0ea5e9;margin-bottom:24px">
+    <header class="doc-letterhead" style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #ea580c;margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:16px;">
         <div style="flex-shrink:0">${logo}</div>
         <div>
-          <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;line-height:1.2;word-break:break-word">${esc(company.name)}</h1>
-          ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#38bdf8">${esc(tagline)}</p>` : ''}
+          <h1 style="margin:0;font-size:24px;font-weight:900;color:#1e293b;letter-spacing:-0.02em;line-height:1.2;word-break:break-word">${esc(company.name)}</h1>
+          ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:600;color:#ea580c;letter-spacing:0.04em">${esc(tagline)}</p>` : ''}
+          <div style="height:3px;width:100%;max-width:240px;background:#f59e0b;border-radius:9999px;margin-top:8px"></div>
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0;">
@@ -59,7 +60,7 @@ export function documentPrintStyles() {
     table.doc-table td { border: 1px solid #e2e8f0; padding: 10px 12px; vertical-align: top; }
     .doc-totals { width: 280px; margin-left: auto; }
     .doc-totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 10.5pt; color: #475569; }
-    .doc-totals-row.total { font-size: 13pt; font-weight: 800; color: #0f172a; border-top: 2px solid #0ea5e9; margin-top: 8px; padding-top: 10px; }
+    .doc-totals-row.total { font-size: 13pt; font-weight: 800; color: #0f172a; border-top: 2px solid #ea580c; margin-top: 8px; padding-top: 10px; }
     .doc-seal-block { margin-top: 40px; text-align: right; page-break-inside: avoid; }
     .doc-thankyou { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-style: italic; color: #64748b; text-align: center; font-size: 10.5pt; }
     .doc-continuation { padding-top: 0; }

@@ -8,9 +8,9 @@ const SmsLog = require('../models/SmsLog');
 const Employee = require('../models/Employee');
 
 const SMSLENZ_URL = 'https://www.smslenz.lk/api';
-const SMSLENZ_USER_ID = process.env.SMSLENZ_USER_ID || '157';
-const SMSLENZ_API_KEY = process.env.SMSLENZ_API_KEY || '31396018-0f04-47ab-b9a8-60b2f55a8e2c';
-const SMSLENZ_SENDER_ID = process.env.SMSLENZ_SENDER_ID || 'Raxwo';
+const SMSLENZ_USER_ID = process.env.SMSLENZ_USER_ID || '2191';
+const SMSLENZ_API_KEY = process.env.SMSLENZ_API_KEY || '80daf790-82c7-4611-827b-d759354513f8';
+const SMSLENZ_SENDER_ID = process.env.SMSLENZ_SENDER_ID || 'SMSlenzDEMO';
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;

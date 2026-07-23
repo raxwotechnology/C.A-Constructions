@@ -35,20 +35,12 @@ const adminNav = [
     { to: '/admin/letters', label: 'Letters', icon: FiFileText },
     { to: '/admin/performance', label: 'Performance', icon: FiTrendingUp },
   ]},
-  { group: 'Recruitment', items: [
-    { to: '/admin/recruitment', label: 'Recruitment / ATS', icon: FiBriefcase },
-  ]},
   { group: 'Business', items: [
     { to: '/admin/projects', label: 'Projects', icon: FiFolder },
     { to: '/admin/clients', label: 'Clients', icon: FiUsers },
     { to: '/admin/quotations', label: 'Quotations', icon: FiQuote },
     { to: '/admin/invoices', label: 'Invoices', icon: FiCreditCard },
-    { to: '/admin/agreements', label: 'Agreements', icon: FiFileText },
-    { to: '/admin/bookings', label: 'Bookings', icon: FiBook },
-    { to: '/admin/services', label: 'Services & Products', icon: FiLayers },
-    { to: '/admin/leaders', label: 'Leaders', icon: FiUsers },
     { to: '/admin/rewards', label: 'Rewards & Loyalty', icon: FiGift },
-    { to: '/admin/feedback', label: 'Feedback', icon: FiMessageSquare },
   ]},
   { group: 'Finance', items: [
     { to: '/admin/financial', label: 'Financial Overview', icon: FiDollarSign },
@@ -62,9 +54,7 @@ const adminNav = [
     { to: '/admin/exports', label: 'Export Center', icon: FiDownload },
   ]},
   { group: 'System', items: [
-    { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
     { to: '/admin/log-centre', label: 'Log Centre', icon: FiShield },
-    { to: '/admin/messages', label: 'Messages', icon: FiMessageSquare },
     { to: '/admin/meetings', label: 'Meetings', icon: FiVideo },
     { to: '/admin/requests', label: 'Requests', icon: FiClipboard },
     { to: '/admin/settings', label: 'Settings', icon: FiSettings },

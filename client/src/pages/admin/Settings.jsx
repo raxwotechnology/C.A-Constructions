@@ -215,8 +215,8 @@ export default function AdminSettings() {
 
       <div className="card card-body">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-            <FiSave className="text-blue-500" size={18}/>
+          <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
+            <FiSave className="text-orange-500" size={18}/>
           </div>
           <div>
             <h3 className="font-bold text-primary font-heading">Database Backup</h3>
