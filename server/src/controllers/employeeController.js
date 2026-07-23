@@ -174,7 +174,7 @@ exports.createEmployee = async (req, res, next) => {
       const allowedRoles = ['developer', 'designer', 'marketing', 'manager', 'admin'];
       let safeRole = allowedRoles.includes(requestedRole) ? requestedRole : 'developer';
       if (safeRole === 'admin' && req.user.role !== 'admin') safeRole = 'developer';
-      user = await User.create({ name, email, password: password || 'Raxwo@2026', role: safeRole });
+      user = await User.create({ name, email, password: password || 'RA@2026', role: safeRole });
     } else if (role && req.user.role === 'admin') {
       // Admin can update an existing user's role when creating the employee profile
       await User.findByIdAndUpdate(user._id, { role, ...(name ? { name } : {}) });
@@ -251,14 +251,14 @@ exports.createEmployee = async (req, res, next) => {
 
     // Send welcome email and SMS to new employee
     try {
-      const loginPassword = password || 'Raxwo@2026';
+      const loginPassword = password || 'RA@2026';
       const loginUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '') + '/login';
       await sendLoggedMail({
         to: email,
-        subject: 'Welcome to Raxwo ERP — Your Account Details',
+        subject: 'Welcome to R A Creations ERP — Your Account Details',
         html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-            <h2 style="color:#1e40af">Welcome to Raxwo ERP, ${name}! 🎉</h2>
+            <h2 style="color:#1e40af">Welcome to R A Creations ERP, ${name}! 🎉</h2>
             <p>Your employee account has been created. Here are your login credentials:</p>
             <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:16px 0">
               <p><strong>Portal:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
@@ -267,16 +267,16 @@ exports.createEmployee = async (req, res, next) => {
               <p><strong>Employee No:</strong> ${employeeNo}</p>
             </div>
             <p style="color:#ef4444">Please change your password after your first login.</p>
-            <p>— Raxwo Team</p>
+            <p>— R A Creations Team</p>
           </div>`,
-        text: `Welcome to Raxwo ERP, ${name}! Login: ${loginUrl} | Email: ${email} | Password: ${loginPassword} | Employee No: ${employeeNo}`,
+        text: `Welcome to R A Creations ERP, ${name}! Login: ${loginUrl} | Email: ${email} | Password: ${loginPassword} | Employee No: ${employeeNo}`,
         category: 'hr'
       });
 
       if (primaryPhone) {
         await sendSms(
           primaryPhone,
-          `Welcome to Raxwo ERP, ${name}!\nYour employee account is ready.\n\nLogin: ${loginUrl}\nEmail: ${email}\nPassword: ${loginPassword}\nEmp No: ${employeeNo}\n\nPlease change your password upon login.`,
+          `Welcome to R A Creations ERP, ${name}!\nYour employee account is ready.\n\nLogin: ${loginUrl}\nEmail: ${email}\nPassword: ${loginPassword}\nEmp No: ${employeeNo}\n\nPlease change your password upon login.`,
           name,
           'hr'
         );
@@ -587,7 +587,7 @@ exports.adminResetEmployeePassword = async (req, res, next) => {
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
     const user = await User.findById(employee.userId).select('+password');
     if (!user) return res.status(404).json({ success: false, message: 'User account not found' });
-    const tempPassword = `Raxwo@${crypto.randomBytes(4).toString('hex')}`;
+    const tempPassword = `RA@${crypto.randomBytes(4).toString('hex')}`;
     user.password = tempPassword;
     await user.save();
     await createAuditLog({
@@ -622,14 +622,14 @@ exports.adminSendPasswordResetEmail = async (req, res, next) => {
 
     const html = `
       <p>Hello ${user.name},</p>
-      <p>An administrator requested a password reset for your Raxwo account.</p>
+      <p>An administrator requested a password reset for your R A Creations account.</p>
       <p><a href="${resetUrl}">Reset your password</a> (link expires in 1 hour).</p>
       <p>If you did not request this, contact your administrator.</p>
     `;
 
     const mailResult = await sendMail({
       to: user.email,
-      subject: 'Raxwo — Password reset',
+      subject: 'R A Creations — Password reset',
       html,
       text: `Reset your password: ${resetUrl}`,
     });

@@ -193,15 +193,15 @@ exports.updateApplicationStatus = async (req, res, next) => {
           <p><strong>New Status:</strong> <span style="text-transform: capitalize; font-weight: bold; color: #1e293b;">${status.replace('_', ' ')}</span></p>
           ${interviewDate && (status === 'interview' || status === 'shortlisted') ? `<p><strong>Interview Date:</strong> ${new Date(interviewDate).toLocaleString()}</p>` : ''}
           <p style="margin-top: 30px;">Thank you for your interest,</p>
-          <p><strong>Raxwo Recruitment Team</strong></p>
+          <p><strong>R A Creations Recruitment Team</strong></p>
         </div>
       `;
       try {
         await sendMail({
           to: app.email,
-          subject: `Update on your application for ${app.job?.title || 'Raxwo'}`,
+          subject: `Update on your application for ${app.job?.title || 'R A Creations'}`,
           html,
-          text: `Your application status for ${app.job?.title || 'Raxwo'} has been updated to: ${status.replace('_', ' ')}.`
+          text: `Your application status for ${app.job?.title || 'R A Creations'} has been updated to: ${status.replace('_', ' ')}.`
         });
       } catch (err) {
         console.error('Failed to send application status email:', err);

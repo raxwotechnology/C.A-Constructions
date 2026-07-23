@@ -31,7 +31,7 @@ router.post('/apply', uploadCV, async (req, res) => {
     }
 
     const mailRes = await sendMail({
-      to: 'raxwotechnology@gmail.com',
+      to: 'racreationshd@gmail.com',
       subject: `Job Application: ${position} - ${name}`,
       html,
       attachments,

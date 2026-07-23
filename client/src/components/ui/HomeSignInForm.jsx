@@ -55,7 +55,7 @@ export default function HomeSignInForm() {
           role: 'client',
           referralCode: data.referralCode || '',
         })
-        toast.success('Account created! Welcome to Raxwo Portal')
+        toast.success('Account created! Welcome to R A Creations Portal')
         navigate('/my-dashboard')
       }
     } catch (err) {
@@ -136,7 +136,7 @@ export default function HomeSignInForm() {
                 <input
                   {...register('email', { required: 'Email is required' })}
                   type="email"
-                  placeholder="you@raxwo.com"
+                  placeholder="you@rach.lk"
                   className={inputClass}
                 />
               </div>

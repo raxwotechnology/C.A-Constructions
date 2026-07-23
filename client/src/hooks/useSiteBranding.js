@@ -5,7 +5,7 @@ import { mediaUrl } from '../lib/media'
 export const SITE_SETTINGS_QUERY_KEY = ['site-settings']
 
 export function siteLogoSrc(settings) {
-  const defaultLogo = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png';
+  const defaultLogo = '';
   if (!settings?.logoUrl?.trim()) return defaultLogo;
   const v = settings.updatedAt ? new Date(settings.updatedAt).getTime() : ''
   const url = mediaUrl(settings.logoUrl.trim());

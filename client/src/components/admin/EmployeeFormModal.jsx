@@ -99,8 +99,8 @@ export default function EmployeeFormModal({
         <FormSection title="Account" icon={FiKey}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="form-label">Full Name *</label><input {...register('name', { required: true })} className="form-input" placeholder="Full name" /></div>
-            <div><label className="form-label">Email *</label><input {...register('email', { required: true })} type="email" className="form-input" placeholder="email@raxwo.com" /></div>
-            <div><label className="form-label">Password (optional)</label><input {...register('password')} type="password" className="form-input" placeholder="Default: Raxwo@2026" /></div>
+            <div><label className="form-label">Email *</label><input {...register('email', { required: true })} type="email" className="form-input" placeholder="email@rach.lk" /></div>
+            <div><label className="form-label">Password (optional)</label><input {...register('password')} type="password" className="form-input" placeholder="Default: RA@2026" /></div>
             <div><label className="form-label">Role *</label><select {...register('role', { required: true })} className="form-select">{ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
           </div>
         </FormSection>

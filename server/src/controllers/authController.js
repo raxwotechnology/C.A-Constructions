@@ -178,9 +178,9 @@ exports.changePassword = async (req, res, next) => {
     try {
       await sendMail({
         to: user.email,
-        subject: 'Your Raxwo password was changed',
+        subject: 'Your R A Creations password was changed',
         html: `<p>Hi ${user.name},</p><p>Your account password was changed successfully. If you did not make this change, contact support immediately.</p>`,
-        text: `Hi ${user.name}, your Raxwo account password was changed. If this was not you, contact support.`,
+        text: `Hi ${user.name}, your R A Creations account password was changed. If this was not you, contact support.`,
       });
     } catch (mailErr) {
       console.warn('[changePassword] email notification failed:', mailErr.message);
@@ -418,9 +418,9 @@ exports.sendForgotPasswordOtp = async (req, res, next) => {
     try {
       mailResult = await sendMail({
         to: user.email,
-        subject: 'Raxwo — Password reset verification code',
+        subject: 'R A Creations — Password reset verification code',
         html: `<p>Hi ${user.name},</p><p>Your password reset code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in 15 minutes. If you did not request this, ignore this email.</p>`,
-        text: `Your Raxwo password reset code is ${otp}. It expires in 15 minutes.`,
+        text: `Your R A Creations password reset code is ${otp}. It expires in 15 minutes.`,
       });
     } catch (mailErr) {
       console.error('[sendForgotPasswordOtp] SMTP error:', mailErr.message);
@@ -496,9 +496,9 @@ exports.resetPasswordWithOtp = async (req, res, next) => {
     try {
       await sendMail({
         to: user.email,
-        subject: 'Your Raxwo password was reset',
+        subject: 'Your R A Creations password was reset',
         html: `<p>Hi ${user.name},</p><p>Your password was reset successfully. You can sign in with your new password.</p>`,
-        text: `Hi ${user.name}, your Raxwo password was reset successfully.`,
+        text: `Hi ${user.name}, your R A Creations password was reset successfully.`,
       });
     } catch (mailErr) {
       console.warn('[resetPasswordWithOtp] email notification failed:', mailErr.message);

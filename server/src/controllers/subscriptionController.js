@@ -852,7 +852,7 @@ exports.sendPaymentReceipt = async (req, res, next) => {
             ${payment.reference ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Reference</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${payment.reference}</td></tr>` : ''}
           </table>
           <p style="margin-top: 20px;">Thank you for your business!</p>
-          <p style="font-size: 12px; color: #64748b;">— Raxwo Team</p>
+          <p style="font-size: 12px; color: #64748b;">— R A Creations Team</p>
         </div>
       `;
       await sendMail({

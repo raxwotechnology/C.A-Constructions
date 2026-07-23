@@ -60,8 +60,8 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'https://manage.raxwo.net',
-  'https://manage.raxwo.net',
+  process.env.CLIENT_URL || 'https://c-a-constructions.onrender.com',
+  'https://c-a-constructions.onrender.com',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:5175',
@@ -193,7 +193,7 @@ ensureDefaultRules().catch(() => {});
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Raxwo API is running', timestamp: new Date().toISOString() });
+  res.json({ success: true, message: 'R A Creations API is running', timestamp: new Date().toISOString() });
 });
 
 // Serve client build if available (for single-domain or proxy deployments)
@@ -220,7 +220,7 @@ if (distDir) {
 } else {
   console.log(`⚠️ React Frontend dist directory not found in: ${possibleDistPaths.join(', ')}`);
   app.get('/', (req, res) => {
-    res.json({ success: true, message: 'Raxwo API Server is running', timestamp: new Date().toISOString() });
+    res.json({ success: true, message: 'R A Creations API Server is running', timestamp: new Date().toISOString() });
   });
 }
 

@@ -14,7 +14,7 @@ export function applySiteFavicon(logoUrl, cacheKey) {
   const link = document.createElement('link')
   link.rel = 'icon'
 
-  let fullLogoUrl = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png'
+  let fullLogoUrl = '/favicon.png'
 
   if (logo) {
     let href = mediaUrl(logo)
@@ -26,9 +26,9 @@ export function applySiteFavicon(logoUrl, cacheKey) {
     fullLogoUrl = href
   } else {
     const origin = window.location.origin
-    link.href = `${origin}/raxwo-logo-final.png`
+    link.href = `${origin}/favicon.png`
     link.type = 'image/png'
-    fullLogoUrl = `${origin}/raxwo-logo-final.png`
+    fullLogoUrl = `${origin}/favicon.png`
   }
 
   document.head.appendChild(link)
