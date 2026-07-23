@@ -185,11 +185,19 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve client build if available (for single-domain or proxy deployments)
-const clientBuildPath = path.resolve(__dirname, '../../client/dist');
-const altClientBuildPath = path.resolve(process.cwd(), 'client/dist');
-const distDir = fs.existsSync(clientBuildPath) ? clientBuildPath : (fs.existsSync(altClientBuildPath) ? altClientBuildPath : null);
+const possibleDistPaths = [
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(__dirname, '../client/dist'),
+  path.resolve(__dirname, '../../../client/dist'),
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(process.cwd(), '../client/dist'),
+  path.resolve(process.cwd(), 'dist'),
+];
+
+let distDir = possibleDistPaths.find(p => fs.existsSync(path.join(p, 'index.html')));
 
 if (distDir) {
+  console.log(`🎨 Serving React Frontend static build from: ${distDir}`);
   app.use(express.static(distDir));
   app.get('*', (req, res, next) => {
     if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
@@ -198,6 +206,7 @@ if (distDir) {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 } else {
+  console.log(`⚠️ React Frontend dist directory not found in: ${possibleDistPaths.join(', ')}`);
   app.get('/', (req, res) => {
     res.json({ success: true, message: 'Raxwo API Server is running', timestamp: new Date().toISOString() });
   });
