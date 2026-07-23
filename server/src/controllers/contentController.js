@@ -7,7 +7,58 @@ exports.getServices = async (req, res, next) => {
   try {
     const isPrivileged = ['admin', 'manager'].includes(req.user?.role);
     const query = isPrivileged ? { archived: { $ne: true } } : { active: true, archived: { $ne: true } };
-    const services = await Service.find(query).sort({ order: 1, createdAt: -1 });
+    let services = await Service.find(query).sort({ order: 1, createdAt: -1 });
+
+    if (services.length === 0) {
+      const defaultServices = [
+        {
+          title: 'Architectural & Structural Design',
+          description: 'Full architectural planning, 2D floor plans, 3D elevation designs, and structural engineering calculations.',
+          category: 'Architecture',
+          priceText: 'Custom Estimate',
+          priceType: 'custom',
+          features: ['2D Floor Plans & 3D Elevations', 'Structural Engineering', 'Council Drawing Approvals'],
+          active: true,
+          order: 1,
+          type: 'service',
+        },
+        {
+          title: 'Residential & Commercial Construction',
+          description: 'Complete turnkey building construction with high-grade materials, quality assurance, and site supervision.',
+          category: 'Construction',
+          priceText: 'Per Sq. Ft. Estimate',
+          priceType: 'custom',
+          features: ['Turnkey Construction', 'Foundation to Roof', 'Site Supervision', 'Quality Materials'],
+          active: true,
+          order: 2,
+          type: 'service',
+        },
+        {
+          title: 'Interior Design & Remodeling',
+          description: '3D interior rendering, custom ceiling & pantry designs, lighting concepts, and luxury home renovation.',
+          category: 'Interior',
+          priceText: 'Custom Quote',
+          priceType: 'custom',
+          features: ['3D Interior Renderings', 'Pantry & Cabinetry Design', 'Full Home Remodeling'],
+          active: true,
+          order: 3,
+          type: 'service',
+        },
+        {
+          title: 'Quantity Surveying & BOQ Estimation',
+          description: 'Detailed Bill of Quantities (BOQ), material requirement calculations, and accurate project budgeting.',
+          category: 'Estimation',
+          priceText: 'Per Project',
+          priceType: 'one-time',
+          features: ['Detailed BOQ Preparation', 'Material Cost Estimation', 'Budget Planning'],
+          active: true,
+          order: 4,
+          type: 'service',
+        },
+      ];
+      services = await Service.create(defaultServices);
+    }
+
     res.json({ success: true, count: services.length, services });
   } catch (err) { next(err); }
 };

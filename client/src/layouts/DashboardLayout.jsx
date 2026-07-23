@@ -44,7 +44,6 @@ const adminNav = [
     { to: '/admin/quotations', label: 'Quotations', icon: FiQuote },
     { to: '/admin/invoices', label: 'Invoices', icon: FiCreditCard },
     { to: '/admin/agreements', label: 'Agreements', icon: FiFileText },
-    { to: '/admin/subscriptions', label: 'Subscriptions', icon: FiServer },
     { to: '/admin/bookings', label: 'Bookings', icon: FiBook },
     { to: '/admin/services', label: 'Services & Products', icon: FiLayers },
     { to: '/admin/leaders', label: 'Leaders', icon: FiUsers },

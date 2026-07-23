@@ -24,7 +24,7 @@ export default function Register() {
         role: 'client',
         referralCode: data.referralCode || '',
       })
-      toast.success('Account created! Welcome to Raxwo Portal')
+      toast.success('Account created! Welcome to R A Creations & Home Designs Client Portal')
       navigate('/my-dashboard')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed')

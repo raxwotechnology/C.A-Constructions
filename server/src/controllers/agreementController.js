@@ -311,7 +311,7 @@ function buildCustomAgreementShell(companyName, companyAddress, companyPhone, co
 // ── Template builder ──────────────────────────────────────────────────────────
 async function buildTemplateContent(type, { client, project, invoice, subscription, agreementDate }) {
   const siteSettings = await require('../models/SiteSetting').findOne().catch(() => null);
-  const companyName = siteSettings?.siteName || 'Raxwo Technology';
+  const companyName = siteSettings?.siteName || 'R A Creations & Home Designs';
   const companyAddress = siteSettings?.contactAddress || '';
   const companyPhone = siteSettings?.contactPhone || '';
   const companyEmail = siteSettings?.contactEmail || '';

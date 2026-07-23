@@ -1,17 +1,17 @@
 const mongoose = require('mongoose');
 
 const siteSettingSchema = new mongoose.Schema({
-  siteName: { type: String, default: 'Raxwo Pvt Ltd' },
-  siteDescription: { type: String, default: '' },
+  siteName: { type: String, default: 'R A Creations & Home Designs' },
+  siteDescription: { type: String, default: 'Construction & Home Design Management ERP' },
   logoUrl: { type: String, default: '' },
-  footerText: { type: String, default: '' },
-  contactEmail: { type: String, default: '' },
-  contactPhone: { type: String, default: '' },
-  contactAddress: { type: String, default: 'Weliweriya, Sri Lanka' },
+  footerText: { type: String, default: '© R A Creations & Home Designs. All rights reserved.' },
+  contactEmail: { type: String, default: 'racreationshd@gmail.com' },
+  contactPhone: { type: String, default: '0770749690' },
+  contactAddress: { type: String, default: 'Sri Lanka' },
   branchDetails: { type: String, default: '' },
-  websiteUrl: { type: String, default: '' },
-  /** Shown under company name on quotations/invoices (e.g. Next Level Tech) */
-  letterheadTagline: { type: String, default: 'Next Level Tech' },
+  websiteUrl: { type: String, default: 'www.rach.lk' },
+  /** Shown under company name on quotations/invoices */
+  letterheadTagline: { type: String, default: 'Construction & Home Designs' },
   quotationThankYouMessage: { type: String, default: 'We appreciate your business and look forward to the opportunity to work with you. Should you have any questions regarding this quotation, please do not hesitate to contact us.' },
   quotationNotesTemplate: { type: String, default: '' },
   quotationTermsTemplate: { type: String, default: '' },
@@ -26,9 +26,9 @@ const siteSettingSchema = new mongoose.Schema({
   quotationLayoutContentMaxWidth: { type: String, default: '100%' },
   quotationLayoutShowDocumentFrame: { type: Boolean, default: true },
   quotationLayoutShowRefOnDocument: { type: Boolean, default: true },
-  whatsappNumber: { type: String, default: '' },
+  whatsappNumber: { type: String, default: '0770749690' },
   /** System admin email — notifications, letterheads, agreements */
-  adminEmail: { type: String, default: '' },
+  adminEmail: { type: String, default: 'racreationshd@gmail.com' },
   sealUrl: { type: String, default: '' },
   letterheadUrl: { type: String, default: '' },
   signatures: {

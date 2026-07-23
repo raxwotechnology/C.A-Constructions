@@ -290,7 +290,7 @@ async function renderHtml(category, payload) {
           </div>
         </div>
         ${content}
-        <div class="footer">System-generated report · ${safe(settings.siteName || 'Raxwo')}</div>
+        <div class="footer">System-generated report · ${safe(settings.siteName || 'R A Creations & Home Designs')}</div>
       </body>
     </html>
   `;

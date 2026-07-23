@@ -154,13 +154,26 @@ function DynamicFaviconFromSettings() {
   return null
 }
 
+const RootRedirect = () => {
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  const redirect = {
+    admin: '/admin',
+    manager: '/manager',
+    developer: '/developer',
+    designer: '/designer',
+    marketing: '/marketing',
+    client: '/my-dashboard',
+  }
+  return <Navigate to={redirect[user?.role] || '/login'} replace />
+}
+
 export default function App() {
   useEffect(() => {
     const { initAuth, refreshSession } = useAuthStore.getState()
     initAuth()
     refreshSession()
 
-    // When user returns to the tab after inactivity, re-validate session & refresh avatar/profile
     let lastRefresh = Date.now()
     const onVisibility = () => {
       if (document.visibilityState === 'visible' && Date.now() - lastRefresh > 60_000) {
@@ -178,24 +191,23 @@ export default function App() {
       <DynamicFaviconFromSettings />
       <WhatsAppButton />
       <Routes>
-      {/* Home — no header */}
-      <Route element={<HomeLayout />}>
-        <Route path="/" element={<Home />} />
-      </Route>
+      {/* System Root — redirect to login or dashboard */}
+      <Route path="/" element={<RootRedirect />} />
 
-      {/* Public Website */}
+      {/* Redirect deprecated public marketing pages to system login */}
+      <Route path="/services" element={<Navigate to="/login" replace />} />
+      <Route path="/software-products" element={<Navigate to="/login" replace />} />
+      <Route path="/about" element={<Navigate to="/login" replace />} />
+      <Route path="/portfolio" element={<Navigate to="/login" replace />} />
+      <Route path="/careers" element={<Navigate to="/login" replace />} />
+      <Route path="/careers/*" element={<Navigate to="/login" replace />} />
+      <Route path="/contact" element={<Navigate to="/login" replace />} />
+      <Route path="/my-subscriptions" element={<Navigate to="/my-dashboard" replace />} />
+
+      {/* Client Portal */}
       <Route element={<PublicLayout />}>
-        <Route path="/services" element={<Services />} />
-        <Route path="/software-products" element={<SoftwareProducts />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/portfolio" element={<Portfolio />} />
-        <Route path="/careers" element={<Careers />} />
-        <Route path="/careers/:id" element={<JobDetail />} />
-        <Route path="/careers/:id/apply" element={<Apply />} />
-        <Route path="/contact" element={<Contact />} />
         <Route path="/my-dashboard" element={<ProtectedRoute roles={['client']}><ClientDashboard /></ProtectedRoute>} />
         <Route path="/my-projects" element={<ProtectedRoute roles={['client']}><ClientProjects /></ProtectedRoute>} />
-        <Route path="/my-subscriptions" element={<ProtectedRoute roles={['client']}><ClientSubscriptions /></ProtectedRoute>} />
         <Route path="/booking" element={<ClientBooking />} />
         <Route path="/payments" element={<ProtectedRoute roles={['client']}><ClientInvoices /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute roles={['client']}><ClientMessages /></ProtectedRoute>} />
@@ -203,7 +215,6 @@ export default function App() {
         <Route path="/notifications" element={<ProtectedRoute roles={['client']}><ClientNotifications /></ProtectedRoute>} />
         <Route path="/notifications/:id" element={<ProtectedRoute roles={['client']}><NotificationDetail /></ProtectedRoute>} />
         <Route path="/my-account" element={<ProtectedRoute roles={['client']}><ClientProfile /></ProtectedRoute>} />
-
         <Route path="/rewards" element={<ProtectedRoute roles={['client']}><ClientRewards /></ProtectedRoute>} />
         <Route path="/our-services" element={<ProtectedRoute roles={['client']}><ClientServices /></ProtectedRoute>} />
       </Route>
@@ -225,7 +236,6 @@ export default function App() {
         <Route path="recruitment/candidates/:id" element={<CandidateProfile />} />
         <Route path="projects" element={<AdminProjects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
-        <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="clients" element={<AdminClients />} />
         <Route path="clients/:id" element={<AdminClientProfile />} />
         <Route path="invoices" element={<AdminInvoices />} />
@@ -277,7 +287,6 @@ export default function App() {
         <Route path="recruitment/candidates/:id" element={<CandidateProfile />} />
         <Route path="projects" element={<AdminProjects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
-        <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="clients" element={<AdminClients />} />
         <Route path="clients/:id" element={<AdminClientProfile />} />
         <Route path="invoices" element={<AdminInvoices />} />

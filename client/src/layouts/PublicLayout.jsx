@@ -284,7 +284,6 @@ export default function PublicLayout() {
                         <NavLink to="/my-dashboard" className="btn-ghost w-full justify-start text-sm"><FiHome size={14} /> Dashboard</NavLink>
                         <NavLink to="/my-projects" className="btn-ghost w-full justify-start text-sm"><FiFolder size={14} /> My Projects</NavLink>
                         <NavLink to="/our-services" className="btn-ghost w-full justify-start text-sm"><FiLayers size={14} /> Services & Products</NavLink>
-                        <NavLink to="/my-subscriptions" className="btn-ghost w-full justify-start text-sm"><FiServer size={14} /> Subscriptions</NavLink>
                         <NavLink to="/payments" className="btn-ghost w-full justify-start text-sm"><FiCreditCard size={14} /> Payments</NavLink>
                         <NavLink to="/booking" className="btn-ghost w-full justify-start text-sm"><FiCalendar size={14} /> Booking</NavLink>
                         <NavLink to="/messages" className="btn-ghost w-full justify-start text-sm"><FiMessageSquare size={14} /> Messages</NavLink>
@@ -415,10 +414,6 @@ export default function PublicLayout() {
                     <NavLink to="/our-services" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-indigo-400/20 text-indigo-400"><FiLayers size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Services</span>
-                    </NavLink>
-                    <NavLink to="/my-subscriptions" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
-                      <div className="p-3 rounded-2xl bg-emerald-400/20 text-emerald-400"><FiServer size={22} /></div>
-                      <span className="text-[12px] font-extrabold tracking-wide">Subscriptions</span>
                     </NavLink>
                     <NavLink to="/payments" onClick={() => setMenuOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-rose-400/20 text-rose-400"><FiCreditCard size={22} /></div>

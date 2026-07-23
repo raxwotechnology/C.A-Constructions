@@ -26,7 +26,7 @@ async function getCompany() {
   const s = await SiteSetting.findOne().lean();
   const logo = s?.logoUrl ? toRelativeUploadUrl(s.logoUrl) : '';
   return {
-    name: s?.siteName || 'Raxwo Pvt Ltd',
+    name: s?.siteName || 'R A Creations & Home Designs',
     logo,
     address: s?.contactAddress || 'Weliweriya, Sri Lanka',
     branchDetails: s?.branchDetails || '',

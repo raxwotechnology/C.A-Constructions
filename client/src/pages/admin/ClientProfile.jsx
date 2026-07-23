@@ -8,7 +8,7 @@ import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import toast from 'react-hot-toast'
 import { FiArrowLeft, FiEdit2, FiBriefcase, FiMail, FiPhone, FiMapPin, FiGlobe, FiFileText, FiFolder, FiCreditCard, FiServer, FiMessageSquare, FiPlus, FiX } from 'react-icons/fi'
 
-const TABS = ['Profile', 'Subscriptions', 'Invoices', 'Agreements', 'Payment History', 'Projects', 'Activity Log']
+const TABS = ['Profile', 'Invoices', 'Agreements', 'Payment History', 'Projects', 'Activity Log']
 const statusColors = { Active: 'badge-green', Inactive: 'badge-gray', Lead: 'badge-yellow', Prospect: 'badge-blue', Lost: 'badge-red' }
 
 export default function ClientProfile() {

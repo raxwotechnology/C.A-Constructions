@@ -15,7 +15,7 @@ const buildEmailHTML = async (title, content) => {
   let settings = await SiteSetting.findOne().lean();
   if (!settings) settings = {};
 
-  const companyName = settings.siteName || 'Raxwo Technology';
+  const companyName = settings.siteName || 'R A Creations & Home Designs';
   const rawLogoUrl = (settings.logoUrl || '').trim();
   
   // Gmail/Outlook strip base64 data URIs. Use a public absolute URL (or default live logo) for 100% email client compatibility

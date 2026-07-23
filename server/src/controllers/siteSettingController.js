@@ -17,7 +17,19 @@ exports.downloadDatabase = async (req, res, next) => {
 exports.getSiteSettings = async (req, res, next) => {
   try {
     let settings = await SiteSetting.findOne();
-    if (!settings) settings = await SiteSetting.create({});
+    if (!settings) {
+      settings = await SiteSetting.create({});
+    } else {
+      let changed = false;
+      if (!settings.siteName || settings.siteName === 'Raxwo Pvt Ltd') { settings.siteName = 'R A Creations & Home Designs'; changed = true; }
+      if (!settings.contactEmail) { settings.contactEmail = 'racreationshd@gmail.com'; changed = true; }
+      if (!settings.contactPhone) { settings.contactPhone = '0770749690'; changed = true; }
+      if (!settings.websiteUrl) { settings.websiteUrl = 'www.rach.lk'; changed = true; }
+      if (!settings.letterheadTagline || settings.letterheadTagline === 'Next Level Tech') { settings.letterheadTagline = 'Construction & Home Designs'; changed = true; }
+      if (!settings.whatsappNumber) { settings.whatsappNumber = '0770749690'; changed = true; }
+      if (!settings.adminEmail) { settings.adminEmail = 'racreationshd@gmail.com'; changed = true; }
+      if (changed) await settings.save();
+    }
     const plain = settings.toObject ? settings.toObject() : settings;
     if (plain.logoUrl) plain.logoUrl = toRelativeUploadUrl(plain.logoUrl);
     if (plain.sealUrl) plain.sealUrl = toRelativeUploadUrl(plain.sealUrl);

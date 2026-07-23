@@ -467,7 +467,6 @@ export default function AdminInvoices() {
       <div className="flex border-b border-slate-200 -mb-2">
         {[
           { key: 'invoices', label: 'Invoices', count: invData?.count },
-          { key: 'subscriptions', label: 'Subscriptions', count: activeTab === 'subscriptions' ? subInvData?.count : null },
         ].map(tab => (
           <button
             key={tab.key}

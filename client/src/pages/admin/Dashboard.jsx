@@ -379,13 +379,7 @@ export default function AdminDashboard() {
                 <FiArrowRight size={13} className="text-yellow-500"/>
               </Link>
             )}
-            {kpis.overdueSubscriptions > 0 && (
-              <Link to="/admin/subscriptions" className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors">
-                <FiServer size={15} className="text-red-600 flex-shrink-0"/>
-                <div className="flex-1"><p className="text-sm font-semibold text-red-800">{kpis.overdueSubscriptions} Overdue Subscription{kpis.overdueSubscriptions!==1?'s':''}</p><p className="text-xs text-red-600">Payment overdue — action needed</p></div>
-                <FiArrowRight size={13} className="text-red-500"/>
-              </Link>
-            )}
+
             {kpis.pendingInvoices > 0 && (
               <Link to="/admin/invoices" className="flex items-center gap-3 p-3 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition-colors">
                 <FiCreditCard size={15} className="text-orange-600 flex-shrink-0"/>

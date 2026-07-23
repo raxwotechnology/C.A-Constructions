@@ -11,12 +11,12 @@ import ClientPageHeader from '../../components/ui/ClientPageHeader'
 const SERVICE_ICONS = { FiCpu, FiSmartphone, FiCloud, FiShield, FiDatabase, FiLayers }
 
 const STATIC_SERVICES = [
-  { label: 'Web Development', icon: 'FiCpu', color: 'from-blue-500 to-blue-600' },
-  { label: 'Mobile App Development', icon: 'FiSmartphone', color: 'from-green-500 to-green-600' },
-  { label: 'Enterprise Systems', icon: 'FiLayers', color: 'from-orange-500 to-orange-600' },
-  { label: 'Cloud & DevOps', icon: 'FiCloud', color: 'from-purple-500 to-purple-600' },
-  { label: 'Database & Backend', icon: 'FiDatabase', color: 'from-red-500 to-red-600' },
-  { label: 'Cybersecurity', icon: 'FiShield', color: 'from-gray-600 to-gray-800' },
+  { label: 'Architectural Design & Planning', icon: 'FiLayers', color: 'from-blue-500 to-blue-600' },
+  { label: '3D Visualization & Modeling', icon: 'FiCpu', color: 'from-purple-500 to-purple-600' },
+  { label: 'House & Building Construction', icon: 'FiLayers', color: 'from-amber-500 to-amber-600' },
+  { label: 'Interior & Landscape Design', icon: 'FiSmartphone', color: 'from-emerald-500 to-emerald-600' },
+  { label: 'Renovation & Remodeling', icon: 'FiDatabase', color: 'from-orange-500 to-orange-600' },
+  { label: 'BOQ & Cost Estimation', icon: 'FiShield', color: 'from-slate-600 to-slate-800' },
 ]
 
 const STEPS = ['Select Service', 'Project Details', 'Confirmation']

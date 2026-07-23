@@ -8,7 +8,8 @@ const { validateStrongPassword } = require('../utils/passwordValidation');
 const { toRelativeUploadUrl } = require('../utils/uploadsPath');
 const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 
-const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '30d' });
+const JWT_SECRET = process.env.JWT_SECRET || 'racreations_hd_jwt_secret_key_2026_super_secure_token';
+const generateToken = (id) => jwt.sign({ id }, JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '30d' });
 
 function serializeUser(user) {
   if (!user) return user;

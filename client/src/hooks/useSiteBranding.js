@@ -24,8 +24,8 @@ export function useSiteBranding() {
 
   const settings = data?.settings || {}
   const logoSrc = siteLogoSrc(settings)
-  const siteName = settings.siteName?.trim() || 'Raxwo'
-  const siteTagline = settings.siteDescription?.trim() || ''
+  const siteName = settings.siteName?.trim() || 'R A Creations & Home Designs'
+  const siteTagline = settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Construction & Home Designs'
 
   return {
     settings,
