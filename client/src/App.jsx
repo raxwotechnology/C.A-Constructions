@@ -31,6 +31,8 @@ import ForgotPassword from './pages/auth/ForgotPassword'
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard'
+import CEODashboard from './pages/admin/CEODashboard'
+import SiteInventory from './pages/admin/SiteInventory'
 import AdminEmployees from './pages/admin/Employees'
 import AdminLeaves from './pages/admin/Leaves'
 import AdminPayroll from './pages/admin/Payroll'
@@ -100,6 +102,14 @@ import EmployeeRequests from './pages/employee/Requests'
 import MyTools from './pages/employee/MyTools'
 import EmployeePerformance from './pages/employee/Performance'
 
+import PMDashboard from './pages/manager/PMDashboard'
+import SupervisorActionDeck from './pages/supervisor/SupervisorActionDeck'
+import AccountantDashboard from './pages/accountant/AccountantDashboard'
+import WorkerPortal from './pages/worker/WorkerPortal'
+import SubcontractorPortal from './pages/subcontractor/SubcontractorPortal'
+import SupplierPortal from './pages/supplier/SupplierPortal'
+import ClientPortal from './pages/client/ClientPortal'
+
 // Client pages
 import ClientProjects from './pages/client/Projects'
 import ClientSubscriptions from './pages/client/Subscriptions'
@@ -121,18 +131,24 @@ const ProtectedRoute = ({ children, roles }) => {
   return children
 }
 
+const roleRedirectMap = {
+  admin: '/admin',
+  manager: '/manager',
+  supervisor: '/supervisor',
+  accountant: '/accountant',
+  worker: '/worker',
+  subcontractor: '/subcontractor',
+  supplier: '/supplier',
+  client: '/client',
+  developer: '/worker',
+  designer: '/worker',
+  marketing: '/worker',
+}
+
 const GuestRoute = ({ children }) => {
   const { isAuthenticated, user } = useAuthStore()
   if (isAuthenticated) {
-    const redirect = {
-      admin: '/admin',
-      manager: '/manager',
-      developer: '/developer',
-      designer: '/designer',
-      marketing: '/marketing',
-      client: '/my-dashboard',
-    }
-    return <Navigate to={redirect[user?.role] || '/'} replace />
+    return <Navigate to={roleRedirectMap[user?.role] || '/admin'} replace />
   }
   return children
 }
@@ -157,15 +173,7 @@ function DynamicFaviconFromSettings() {
 const RootRedirect = () => {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  const redirect = {
-    admin: '/admin',
-    manager: '/manager',
-    developer: '/developer',
-    designer: '/designer',
-    marketing: '/marketing',
-    client: '/my-dashboard',
-  }
-  return <Navigate to={redirect[user?.role] || '/login'} replace />
+  return <Navigate to={roleRedirectMap[user?.role] || '/login'} replace />
 }
 
 export default function App() {
@@ -227,7 +235,9 @@ export default function App() {
 
       {/* Admin */}
       <Route path="/admin" element={<ProtectedRoute roles={['admin']}><DashboardLayout role="admin" /></ProtectedRoute>}>
-        <Route index element={<AdminDashboard />} />
+        <Route index element={<CEODashboard />} />
+        <Route path="legacy-dashboard" element={<AdminDashboard />} />
+        <Route path="inventory" element={<SiteInventory />} />
         <Route path="employees" element={<AdminEmployees />} />
         <Route path="leaves" element={<AdminLeaves />} />
         <Route path="payroll" element={<AdminPayroll />} />
@@ -277,48 +287,69 @@ export default function App() {
         <Route path="meetings" element={<Meetings />} />
       </Route>
 
-      {/* Manager */}
-      <Route path="/manager" element={<ProtectedRoute roles={['manager']}><DashboardLayout role="manager" /></ProtectedRoute>}>
-        <Route index element={<AdminDashboard />} />
+      {/* Manager / PM */}
+      <Route path="/manager" element={<ProtectedRoute roles={['manager', 'admin']}><DashboardLayout role="manager" /></ProtectedRoute>}>
+        <Route index element={<PMDashboard />} />
+        <Route path="inventory" element={<SiteInventory />} />
         <Route path="employees" element={<AdminEmployees />} />
         <Route path="leaves" element={<AdminLeaves />} />
         <Route path="epf" element={<AdminEPF />} />
-        <Route path="recruitment" element={<AdminRecruitment />} />
-        <Route path="recruitment/candidates/:id" element={<CandidateProfile />} />
         <Route path="projects" element={<AdminProjects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
         <Route path="clients" element={<AdminClients />} />
-        <Route path="clients/:id" element={<AdminClientProfile />} />
         <Route path="invoices" element={<AdminInvoices />} />
-        <Route path="letters" element={<AdminLetters />} />
         <Route path="analytics" element={<AdminAnalytics />} />
-        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="messages" element={<MessagesCenter />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
-        <Route path="bookings" element={<AdminBookings />} />
-        <Route path="feedback" element={<AdminFeedbacks />} />
         <Route path="attendance" element={<AdminAttendance />} />
-        <Route path="performance" element={<AdminPerformance />} />
-        <Route path="exports" element={<AdminExports />} />
-        <Route path="services" element={<AdminServices />} />
-        <Route path="portfolio" element={<AdminPortfolio />} />
-        <Route path="rewards" element={<AdminRewards />} />
-        <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
-        <Route path="log-centre" element={<LogCentre />} />
-        <Route path="leaders" element={<AdminLeaders />} />
         <Route path="quotations" element={<AdminQuotations />} />
         <Route path="agreements" element={<Agreements />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
         <Route path="advances" element={<AdminAdvances />} />
-        <Route path="loans" element={<AdminLoans />} />
-        <Route path="work-logs" element={<WorkLogs />} />
-        <Route path="leave-policies" element={<PolicyManagement />} />
-        <Route path="policies" element={<PolicyManagement />} />
-        <Route path="cheques" element={<AdminCheques />} />
         <Route path="requests" element={<AdminRequests />} />
-        <Route path="tool-assignments" element={<ToolAssignments />} />
         <Route path="meetings" element={<Meetings />} />
+      </Route>
+
+      {/* Supervisor Portal */}
+      <Route path="/supervisor" element={<ProtectedRoute roles={['supervisor', 'admin']}><DashboardLayout role="supervisor" /></ProtectedRoute>}>
+        <Route index element={<SupervisorActionDeck />} />
+        <Route path="attendance" element={<AdminAttendance />} />
+        <Route path="inventory" element={<SiteInventory />} />
+        <Route path="petty-cash" element={<AdminPettyCash />} />
+      </Route>
+
+      {/* Accountant Portal */}
+      <Route path="/accountant" element={<ProtectedRoute roles={['accountant', 'admin']}><DashboardLayout role="accountant" /></ProtectedRoute>}>
+        <Route index element={<AccountantDashboard />} />
+        <Route path="payroll" element={<AdminPayroll />} />
+        <Route path="inventory" element={<SiteInventory />} />
+        <Route path="price-index" element={<AccountantDashboard />} />
+        <Route path="petty-cash" element={<AdminPettyCash />} />
+      </Route>
+
+      {/* Worker Portal */}
+      <Route path="/worker" element={<ProtectedRoute roles={['worker', 'developer', 'designer', 'marketing', 'admin']}><DashboardLayout role="worker" /></ProtectedRoute>}>
+        <Route index element={<WorkerPortal />} />
+        <Route path="advances" element={<AdminAdvances />} />
+        <Route path="attendance" element={<DeveloperAttendance />} />
+      </Route>
+
+      {/* Subcontractor Portal */}
+      <Route path="/subcontractor" element={<ProtectedRoute roles={['subcontractor', 'admin']}><DashboardLayout role="subcontractor" /></ProtectedRoute>}>
+        <Route index element={<SubcontractorPortal />} />
+        <Route path="agreements" element={<Agreements />} />
+      </Route>
+
+      {/* Supplier Portal */}
+      <Route path="/supplier" element={<ProtectedRoute roles={['supplier', 'admin']}><DashboardLayout role="supplier" /></ProtectedRoute>}>
+        <Route index element={<SupplierPortal />} />
+      </Route>
+
+      {/* Client Portal */}
+      <Route path="/client" element={<ProtectedRoute roles={['client', 'admin']}><DashboardLayout role="client" /></ProtectedRoute>}>
+        <Route index element={<ClientPortal />} />
+        <Route path="escrow" element={<ClientPortal />} />
       </Route>
 
       {/* Developer */}

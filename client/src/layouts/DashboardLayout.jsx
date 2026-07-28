@@ -18,108 +18,114 @@ import toast from 'react-hot-toast'
 
 const adminNav = [
   { group: 'Overview', items: [
-    { to: '/admin', label: 'Dashboard', icon: FiHome, exact: true },
-    { to: '/admin/analytics', label: 'Analytics', icon: FiBarChart2 },
-    { to: '/admin/ai-analyzer', label: 'AI Analyzer', icon: FiZap },
-    { to: '/admin/social-analytics', label: 'Social Analytics', icon: FiPieChart },
+    { to: '/admin', label: '10-Sec Pulse Dashboard', icon: FiHome, exact: true },
+    { to: '/admin/analytics', label: 'Analytics & Pulse', icon: FiBarChart2 },
+    { to: '/admin/ai-analyzer', label: 'Forensic AI Analyzer', icon: FiZap },
   ]},
-  { group: 'Human Resources', items: [
-    { to: '/admin/employees', label: 'Employees', icon: FiUsers },
-    { to: '/admin/attendance', label: 'Attendance', icon: FiClipboard },
-    { to: '/admin/leaves', label: 'Leave Management', icon: FiCalendar },
-    { to: '/admin/policies', label: 'Policy Management', icon: FiShield },
-    { to: '/admin/payroll', label: 'Payroll', icon: FiDollarSign },
+  { group: 'Site Management', items: [
+    { to: '/admin/projects', label: 'Construction Sites', icon: FiFolder },
+    { to: '/admin/inventory', label: 'Warehouse & Site Stock', icon: FiLayers },
+    { to: '/admin/daily-diary', label: '12-Section Daily Diary', icon: FiClipboard },
+    { to: '/admin/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
+    { to: '/admin/quotations', label: 'SLS 573 Auto BOQ', icon: FiQuote },
+    { to: '/admin/invoices', label: 'Site Invoices & Billing', icon: FiCreditCard },
+  ]},
+  { group: 'Human Resources & Field', items: [
+    { to: '/admin/employees', label: 'Site Engineers & Workers', icon: FiUsers },
+    { to: '/admin/attendance', label: 'GPS Photo Attendance', icon: FiClipboard },
+    { to: '/admin/leaves', label: 'Leave Requests', icon: FiCalendar },
+    { to: '/admin/payroll', label: '3-Min Automated Payroll', icon: FiDollarSign },
     { to: '/admin/epf', label: 'EPF / ETF', icon: FiTrendingUp },
-    { to: '/admin/advances', label: 'Advances', icon: FiCreditCard },
-    { to: '/admin/loans', label: 'Loans', icon: FiCreditCard },
-    { to: '/admin/letters', label: 'Letters', icon: FiFileText },
-    { to: '/admin/performance', label: 'Performance', icon: FiTrendingUp },
+    { to: '/admin/advances', label: 'Advances & Receipts', icon: FiCreditCard },
   ]},
-  { group: 'Business', items: [
-    { to: '/admin/projects', label: 'Projects', icon: FiFolder },
-    { to: '/admin/clients', label: 'Clients', icon: FiUsers },
-    { to: '/admin/quotations', label: 'Quotations', icon: FiQuote },
-    { to: '/admin/invoices', label: 'Invoices', icon: FiCreditCard },
-    { to: '/admin/rewards', label: 'Rewards & Loyalty', icon: FiGift },
-  ]},
-  { group: 'Finance', items: [
-    { to: '/admin/financial', label: 'Financial Overview', icon: FiDollarSign },
-    { to: '/admin/financial-reports', label: 'Financial Reports', icon: FiPieChart },
-    { to: '/admin/finance-entries', label: 'Income & Expenses', icon: FiClipboard },
-    { to: '/admin/petty-cash', label: 'Petty Cash', icon: FiCreditCard },
-    { to: '/admin/cheques', label: 'Cheques', icon: FiTarget },
+  { group: 'Finance & Leak Audits', items: [
+    { to: '/admin/financial', label: 'Site Profitability & Expenses', icon: FiDollarSign },
+    { to: '/admin/financial-reports', label: 'Capital Health Reports', icon: FiPieChart },
+    { to: '/admin/finance-entries', label: 'Site Income & Expenses', icon: FiClipboard },
+    { to: '/admin/petty-cash', label: 'Site Petty Cash', icon: FiCreditCard },
+    { to: '/admin/cheques', label: 'Cheque Section', icon: FiTarget },
     { to: '/admin/bank-management', label: 'Bank Management', icon: FiBarChart2 },
-    { to: '/admin/bank-transactions', label: 'Bank Transactions', icon: FiClipboard },
-    { to: '/admin/income-tax', label: 'Income Tax', icon: FiDollarSign },
-    { to: '/admin/exports', label: 'Export Center', icon: FiDownload },
   ]},
-  { group: 'System', items: [
+  { group: 'System & Branding', items: [
     { to: '/admin/log-centre', label: 'Log Centre', icon: FiShield },
-    { to: '/admin/meetings', label: 'Meetings', icon: FiVideo },
+    { to: '/admin/meetings', label: 'Site Meetings', icon: FiVideo },
     { to: '/admin/requests', label: 'Requests', icon: FiClipboard },
-    { to: '/admin/settings', label: 'Settings', icon: FiSettings },
+    { to: '/admin/settings', label: 'White-Label Branding', icon: FiSettings },
   ]},
 ]
 
-const excludedManagerPaths = [
-  '/admin/financial-reports',
-  '/admin/payroll',
-  '/admin/income-tax',
-  '/admin/branches',
-  '/admin/bank-management',
-  '/admin/bank-transactions',
-  '/admin/financial',
-  '/admin/finance-entries',
-]
-
-const managerNav = adminNav.map(group => ({
-  ...group,
-  items: group.items
-    .filter(item => !excludedManagerPaths.includes(item.to))
-    .map(item => ({
-      ...item,
-      to: item.to.replace('/admin', '/manager')
-    }))
-})).filter(group => group.items.length > 0)
-
-const developerNav = [
-  { group: 'My Workspace', items: [
-    { to: '/developer', label: 'Dashboard', icon: FiHome, exact: true },
-    { to: '/developer/projects', label: 'My Projects', icon: FiFolder },
-    { to: '/developer/profile', label: 'My Profile', icon: FiUser },
-    { to: '/developer/tasks', label: 'Assigned Tasks', icon: FiCheckSquare },
-    { to: '/developer/work-logs', label: 'Daily Work Log', icon: FiClipboard },
-    { to: '/developer/requests', label: 'My Requests', icon: FiFileText },
-    { to: '/developer/performance', label: 'Performance', icon: FiTrendingUp },
-    { to: '/developer/social-analytics', label: 'Social Analytics', icon: FiBarChart2 },
-  ]},
-  { group: 'Compensation', items: [
-    { to: '/developer/attendance', label: 'Attendance', icon: FiClipboard },
-    { to: '/developer/leaves', label: 'Leave Requests', icon: FiCalendar },
-    { to: '/developer/payslips', label: 'Salary + EPF/ETF', icon: FiDollarSign },
-    { to: '/developer/export', label: 'Export Center', icon: FiDownload },
-    { to: '/developer/letters', label: 'Letters', icon: FiFileText },
-    { to: '/developer/messages', label: 'Messages', icon: FiMessageSquare },
-    { to: '/developer/meetings', label: 'Meetings', icon: FiVideo },
-    { to: '/developer/notifications', label: 'Notifications', icon: FiBell },
+const pmNav = [
+  { group: 'PM Control Deck', items: [
+    { to: '/manager', label: 'PM Dashboard', icon: FiHome, exact: true },
+    { to: '/manager/projects', label: 'Active Sites', icon: FiFolder },
+    { to: '/manager/quotations', label: 'Auto BOQ Generator', icon: FiQuote },
+    { to: '/manager/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
+    { to: '/manager/daily-diary', label: '12-Section Daily Diary', icon: FiClipboard },
+    { to: '/manager/attendance', label: 'Attendance & Conflicts', icon: FiClipboard },
+    { to: '/manager/inventory', label: 'Site Material Stock', icon: FiLayers },
   ]},
 ]
 
-const withBasePath = (groups, basePath) =>
-  groups.map((group) => ({
-    ...group,
-    items: group.items.map((item) => ({
-      ...item,
-      to: item.to.startsWith('/developer') ? item.to.replace('/developer', basePath) : item.to,
-    })),
-  }))
+const supervisorNav = [
+  { group: 'Supervisor Action Deck', items: [
+    { to: '/supervisor', label: 'Action Cards Deck', icon: FiHome, exact: true },
+    { to: '/supervisor/attendance', label: 'Photo & GPS Attendance', icon: FiClipboard },
+    { to: '/supervisor/daily-diary', label: 'Interactive Daily Diary', icon: FiBook },
+    { to: '/supervisor/inventory', label: 'Stock & Transfers', icon: FiLayers },
+    { to: '/supervisor/petty-cash', label: 'Site Petty Cash Log', icon: FiCreditCard },
+  ]},
+]
+
+const accountantNav = [
+  { group: 'Finance Deck', items: [
+    { to: '/accountant', label: 'Payroll & GRN Deck', icon: FiHome, exact: true },
+    { to: '/accountant/payroll', label: '3-Min Automated Payroll', icon: FiDollarSign },
+    { to: '/accountant/inventory', label: 'GRN Variance Warnings', icon: FiShield },
+    { to: '/accountant/price-index', label: 'Supplier Price Alerts', icon: FiTrendingUp },
+    { to: '/accountant/petty-cash', label: 'Petty Cash Audits', icon: FiCreditCard },
+  ]},
+]
+
+const workerNav = [
+  { group: 'Worker Portal', items: [
+    { to: '/worker', label: 'My Wage & Heatmap', icon: FiHome, exact: true },
+    { to: '/worker/advances', label: 'Advances & Receipts', icon: FiCreditCard },
+    { to: '/worker/attendance', label: 'My Attendance', icon: FiClipboard },
+  ]},
+]
+
+const subcontractorNav = [
+  { group: 'Sub-Contractor Deck', items: [
+    { to: '/subcontractor', label: 'Claim Progress Pipeline', icon: FiHome, exact: true },
+    { to: '/subcontractor/agreements', label: 'SBD-03 Court Agreements', icon: FiShield },
+  ]},
+]
+
+const supplierNav = [
+  { group: 'Supplier Deck', items: [
+    { to: '/supplier', label: 'Digital GRN & PO Tracker', icon: FiHome, exact: true },
+  ]},
+]
+
+const clientNav = [
+  { group: 'Client Owner Deck', items: [
+    { to: '/client', label: 'Live Progress Tracker', icon: FiHome, exact: true },
+    { to: '/client/escrow', label: 'Escrow & Variations', icon: FiDollarSign },
+  ]},
+]
 
 const navMap = {
   admin: adminNav,
-  manager: managerNav,
-  developer: developerNav,
-  designer: withBasePath(developerNav, '/designer'),
-  marketing: withBasePath(developerNav, '/marketing'),
+  manager: pmNav,
+  supervisor: supervisorNav,
+  accountant: accountantNav,
+  worker: workerNav,
+  subcontractor: subcontractorNav,
+  supplier: supplierNav,
+  client: clientNav,
+  developer: workerNav,
+  designer: workerNav,
+  marketing: workerNav,
 }
 
 export default function DashboardLayout({ role }) {
@@ -170,7 +176,19 @@ export default function DashboardLayout({ role }) {
     window.location.href = '/'
   }
 
-  const navGroups = navMap[user?.role] || navMap[role] || []
+  const baseNavGroups = navMap[user?.role] || navMap[role] || navMap.admin
+  const navGroups = useMemo(() => {
+    if (user?.allowedTabs && user.allowedTabs.length > 0) {
+      return baseNavGroups.map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+          const tabKey = item.to.split('/').pop()
+          return user.allowedTabs.includes(tabKey) || item.exact
+        })
+      })).filter(group => group.items.length > 0)
+    }
+    return baseNavGroups
+  }, [user, role, baseNavGroups])
 
   const searchResults = useMemo(() => {
     if (!searchQuery) return []

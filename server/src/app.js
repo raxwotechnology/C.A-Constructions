@@ -143,6 +143,9 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/recruitment', recruitmentRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/sites', projectRoutes); // Alias for Construction Sites
+app.use('/api/inventory', require('./routes/inventoryRoutes'));
+app.use('/api/daily-diary', require('./routes/dailyDiaryRoutes'));
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/letters', letterRoutes);
 app.use('/api/analytics', analyticsRoutes);

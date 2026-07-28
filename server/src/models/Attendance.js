@@ -25,7 +25,16 @@ const attendanceSchema = new mongoose.Schema({
   lateDeductionAmount: { type: Number, default: 0 },
   hourlyDeductionAmount: { type: Number, default: 0 },
   isHalfDay: { type: Boolean, default: false },
-  isFullDay: { type: Boolean, default: true },
+  site: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+  gpsLocation: {
+    lat: Number,
+    lng: Number,
+    address: String,
+    accuracy: Number,
+  },
+  photoUrl: String,
+  conflictFlag: { type: Boolean, default: false },
+  conflictDetails: String,
   notes: String,
   markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });

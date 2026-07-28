@@ -22,40 +22,22 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { mediaUrl } from '../../lib/media'
 
-const ICON_MAP = { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiLayers, FiPackage }
-
-const TECH_STACK = [
-  { name: 'React.js',     Icon: SiReact,       color: '#61dafb' },
-  { name: 'Node.js',      Icon: SiNodedotjs,   color: '#68a063' },
-  { name: 'MongoDB',      Icon: SiMongodb,     color: '#47a248' },
-  { name: 'Next.js',      Icon: SiNextdotjs,   color: '#6366f1' },
-  { name: 'AWS',          Icon: FiCloud,        color: '#ff9900' },
-  { name: 'Docker',       Icon: SiDocker,      color: '#2496ed' },
-  { name: 'PostgreSQL',   Icon: SiPostgresql,  color: '#336791' },
-  { name: 'TypeScript',   Icon: SiTypescript,  color: '#3178c6' },
-  { name: 'Tailwind CSS', Icon: SiTailwindcss, color: '#38bdf8' },
-  { name: 'Redux',        Icon: SiRedux,       color: '#764abc' },
-  { name: 'Firebase',     Icon: SiFirebase,    color: '#ff8f00' },
-  { name: 'GraphQL',      Icon: SiGraphql,     color: '#e10098' },
-  { name: 'Kubernetes',   Icon: SiKubernetes,  color: '#326ce5' },
-  { name: 'Express.js',   Icon: SiExpress,     color: '#404040' },
-  { name: 'WordPress',    Icon: SiWordpress,   color: '#21759b' },
-  { name: 'Figma',        Icon: SiFigma,       color: '#f24e1e' },
-  { name: 'Canva',        Icon: SiCanva,       color: '#00c4cc' },
-  { name: 'CapCut',       Icon: FiSmartphone,   color: '#1a1a1a' },
-  { name: 'Draw.io',      Icon: FiLayers,       color: '#f08705' },
-  { name: 'React Native', Icon: SiReact,       color: '#20b2f5' },
+const CONSTRUCTION_STANDARDS = [
+  { name: 'SLS 573:1999 BOQ Standard', desc: 'Sri Lankan Standard BOQ format' },
+  { name: 'SBD-03 Legal Contracts', desc: 'Court-Ready Standard Building Agreements' },
+  { name: 'Reinforced Concrete G30/G40', desc: 'High-strength structural concrete' },
+  { name: 'Tor Steel & Structural Rebar', desc: 'High-yield tensile steel reinforcement' },
+  { name: 'MEP Electrical & HVAC', desc: 'High-voltage & air distribution systems' },
+  { name: 'Sheet & Bored Piling', desc: 'Deep site foundation piling' },
 ]
 
-
-
 const SERVICES = [
-  { icon: FiCode,        title: 'Web Development',       desc: 'Scalable, modern web applications built with React, Node.js, and cloud infrastructure.', color: 'bg-blue-50 text-blue-600' },
-  { icon: FiSmartphone,  title: 'Mobile Apps',           desc: 'Cross-platform iOS & Android apps using React Native that deliver native performance and beautiful UX.', color: 'bg-green-50 text-green-600' },
-  { icon: FiCloud,       title: 'Cloud & DevOps',        desc: 'AWS/Azure cloud setup, CI/CD pipelines, Docker orchestration, and 24/7 infrastructure monitoring.', color: 'bg-purple-50 text-purple-600' },
-  { icon: FiShield,      title: 'Cybersecurity',         desc: 'Penetration testing, security audits, compliance consulting, and secure software development practices.', color: 'bg-red-50 text-red-600' },
-  { icon: FiTrendingUp,  title: 'Digital Transformation', desc: 'End-to-end digital transformation strategy, legacy modernisation, and enterprise system integration.', color: 'bg-orange-50 text-orange-600' },
-  { icon: FiUsers,       title: 'IT Consulting',         desc: 'Strategic technology consulting, architecture reviews, and dedicated development team augmentation.', color: 'bg-indigo-50 text-indigo-600' },
+  { icon: FiLayers,       title: 'Earthworks & Foundation Piling', desc: 'Mass excavation, site grading, sheet piling, and bored piling for commercial & residential structures.', color: 'bg-amber-50 text-amber-700' },
+  { icon: FiBriefcase,    title: 'Structural & Concrete Framing',  desc: 'Reinforced concrete framing, post-tensioned slabs, pre-engineered steel structures, and multi-story towers.', color: 'bg-blue-50 text-blue-700' },
+  { icon: FiShield,       title: 'MEP (Mechanical, Electrical, Plumbing)', desc: 'High-voltage distribution, HVAC air conditioning, plumbing riser stacks, and fire safety systems.', color: 'bg-indigo-50 text-indigo-700' },
+  { icon: FiHome,         title: 'Architectural Finishing & Interiors', desc: 'Luxury porcelain tiling, aluminum glass cladding, drywall partitions, and interior fit-outs.', color: 'bg-emerald-50 text-emerald-700' },
+  { icon: FiPackage,      title: 'Material Supply & Concrete', desc: 'Direct supply of ReadyMix concrete, Tokyo cement, Melwa steel, sand cubes, and aggregates.', color: 'bg-purple-50 text-purple-700' },
+  { icon: FiTrendingUp,   title: 'Heavy Machinery & Crane Rentals', desc: 'Sub-leasing excavators, tower cranes, dump trucks, and heavy construction equipment.', color: 'bg-rose-50 text-rose-700' },
 ]
 
 
@@ -381,20 +363,20 @@ function HomeNav() {
 /* ── Home Page ────────────────────────────────────────────────── */
 export default function Home() {
   const HOME_SERVICES = [
-    { _id:'s1', icon:'FiCode',        title:'Web Development',        color:'bg-blue-50 text-blue-600',   desc:'Scalable, modern web applications built with React, Node.js, and cloud infrastructure.' },
-    { _id:'s2', icon:'FiSmartphone',  title:'Mobile Apps',            color:'bg-green-50 text-green-600', desc:'Cross-platform iOS & Android apps using React Native that deliver native performance and beautiful UX.' },
-    { _id:'s3', icon:'FiCloud',       title:'Cloud & DevOps',         color:'bg-purple-50 text-purple-600',desc:'AWS/Azure cloud setup, CI/CD pipelines, Docker orchestration, and 24/7 infrastructure monitoring.' },
-    { _id:'s4', icon:'FiShield',      title:'Cybersecurity',          color:'bg-red-50 text-red-600',     desc:'Penetration testing, security audits, compliance consulting, and secure software development practices.' },
-    { _id:'s5', icon:'FiTrendingUp',  title:'Digital Transformation', color:'bg-orange-50 text-orange-600',desc:'End-to-end digital transformation strategy, legacy modernisation, and enterprise system integration.' },
-    { _id:'s6', icon:'FiUsers',       title:'IT Consulting',          color:'bg-indigo-50 text-indigo-600',desc:'Strategic technology consulting, architecture reviews, and dedicated development team augmentation.' },
+    { _id:'s1', icon:'FiLayers',       title:'Earthworks & Foundation Piling', color:'bg-amber-50 text-amber-700',   desc:'Mass site excavation, slope stabilization, sheet piling, and bored piling for commercial & residential foundations.' },
+    { _id:'s2', icon:'FiBriefcase',    title:'Structural Concrete Framing',    color:'bg-blue-50 text-blue-700',    desc:'Reinforced concrete framing, post-tensioned slabs, structural steel fabrication, and multi-story towers.' },
+    { _id:'s3', icon:'FiShield',       title:'MEP (Mechanical, Electrical, Plumbing)', color:'bg-indigo-50 text-indigo-700', desc:'High-voltage power distribution, HVAC air conditioning, plumbing riser stacks, and fire safety systems.' },
+    { _id:'s4', icon:'FiHome',         title:'Architectural Finishing & Interiors', color:'bg-emerald-50 text-emerald-700', desc:'Luxury porcelain tiling, aluminum glass cladding, drywall partitions, and interior fit-outs.' },
+    { _id:'s5', icon:'FiPackage',      title:'Material Supply & ReadyMix Concrete', color:'bg-purple-50 text-purple-700', desc:'Direct supply of ReadyMix concrete, Tokyo cement, Melwa steel, sand cubes, and aggregates.' },
+    { _id:'s6', icon:'FiTrendingUp',   title:'Heavy Machinery & Crane Rentals', color:'bg-rose-50 text-rose-700',     desc:'Sub-leasing excavators, tower cranes, dump trucks, and heavy construction equipment.' },
   ]
   const displayServices = HOME_SERVICES;
 
   const HOME_PRODUCTS = [
-    { _id:'p1', title:'Mobile Shop ERP 📱', desc:'Complete ERP system for mobile phone shops — inventory, sales, repairs, and billing.', img: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600&q=80' },
-    { _id:'p2', title:'Salon Management ERP 💇', desc:'Full-featured salon management system with appointments, staff, and billing.', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&q=80' },
-    { _id:'p3', title:'Restaurant & Hotel ERP 🍽️', desc:'Restaurant and hotel management with table orders, kitchen display, and billing.', img: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80' },
-    { _id:'p4', title:'Hardware & Distribution ERP 🏗️', desc:'Hardware store management with stock control, orders, and supplier management.', img: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&q=80' },
+    { _id:'p1', title:'SLS 573:1999 Auto BOQ Generator 📋', desc:'Auto-generate Sri Lankan Standard Bill of Quantities in 60 seconds with accurate rates.', img: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=600&q=80' },
+    { _id:'p2', title:'SBD-03 Court-Ready Legal Contracts ⚖️', desc:'Standard Building Document SBD-03 compliant contracts for Subcontractors, Suppliers, and Clients.', img: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=600&q=80' },
+    { _id:'p3', title:'Central Warehouse & Site Stock Engine 📦', desc:'Track material transfers from Central Stock to sites with GRN variance delivery fraud protection.', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&q=80' },
+    { _id:'p4', title:'Supervisor Mobile Action Deck & 12-Section Diary 📔', desc:'35°C touch-friendly mobile action cards with GPS photo attendance and 12-section daily diary.', img: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80' },
   ]
   const displayProducts = HOME_PRODUCTS;
 

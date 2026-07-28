@@ -4,50 +4,43 @@ const PortfolioItem = require('./src/models/PortfolioItem');
 const Service = require('./src/models/Service');
 
 const STATIC_PROJECTS = [
-  { title: 'TechCorp ERP System', category: 'Enterprise', tech: ['React', 'Node.js', 'MongoDB'], desc: 'Full ERP system with HR, payroll, inventory, and client management for a Colombo-based tech firm.', colorFrom: '#3b82f6', colorTo: '#1d4ed8', result: '40% ops efficiency gain' },
-  { title: 'FashionHub E-Commerce', category: 'E-Commerce', tech: ['Next.js', 'Stripe', 'PostgreSQL'], desc: 'Multi-vendor e-commerce platform with vendor dashboards, inventory tracking, and payment processing.', colorFrom: '#a855f7', colorTo: '#7e22ce', result: '3x revenue increase' },
-  { title: 'HealthCare Patient Portal', category: 'Healthcare', tech: ['React Native', 'Node.js', 'MySQL'], desc: 'Patient management system with appointment scheduling, medical records, and billing integration.', colorFrom: '#22c55e', colorTo: '#15803d', result: '60% admin time saved' },
-  { title: 'LogiTrack Delivery App', category: 'Logistics', tech: ['React Native', 'Google Maps', 'Socket.io'], desc: 'Real-time delivery tracking app for a logistics company with driver and customer portals.', colorFrom: '#f97316', colorTo: '#c2410c', result: '25% delivery efficiency' },
-  { title: 'SchoolMS Learning Platform', category: 'Education', tech: ['React', 'Express', 'MongoDB'], desc: 'Comprehensive school management system with student, teacher, and parent portals.', colorFrom: '#ef4444', colorTo: '#b91c1c', result: '5,000+ daily users' },
-  { title: 'FinPro Accounting Suite', category: 'Finance', tech: ['Vue.js', 'Node.js', 'PostgreSQL'], desc: 'Cloud-based accounting software with GST/VAT, invoicing, and financial reporting.', colorFrom: '#14b8a6', colorTo: '#0f766e', result: '200+ businesses using' },
+  { title: 'Colombo Commercial High-Rise Tower', category: 'Structural', tech: ['Reinforced Concrete', 'Post-Tensioned Slabs', 'Curtain Wall Cladding'], desc: '28-story luxury commercial high-rise tower in Colombo 03 featuring basement parking and green building design.', colorFrom: '#3b82f6', colorTo: '#1d4ed8', result: 'Completed 2 months ahead of schedule' },
+  { title: 'Kandy Luxury Residential Villas Complex', category: 'Residential', tech: ['Retaining Walls', 'Timber Roofing', 'Smart MEP'], desc: '14-villa luxury gated community in Kandy featuring eco-friendly retaining walls and architectural finishes.', colorFrom: '#a855f7', colorTo: '#7e22ce', result: '100% SLS 573 Compliant' },
+  { title: 'Galle Highway & Overpass Extension', category: 'Infrastructure', tech: ['Earthworks', 'Bridge Girders', 'Asphalt Paving'], desc: 'Civil engineering highway extension including 4-lane overpass bridges and heavy earthwork excavation.', colorFrom: '#22c55e', colorTo: '#15803d', result: 'Zero Safety Incidents' },
+  { title: 'Gampaha Industrial Warehouse Complex', category: 'Industrial', tech: ['Pre-Engineered Steel', 'Industrial Flooring', 'MEP Racks'], desc: '120,000 sq ft industrial logistics warehouse built with heavy pre-engineered steel frames and heavy-duty concrete floors.', colorFrom: '#f97316', colorTo: '#c2410c', result: '30% cost efficiency gain' },
+  { title: 'Negombo Beach Resort Structural Upgrade', category: 'Commercial', tech: ['Deep Piling', 'Waterproofing', 'HVAC MEP'], desc: 'Structural retrofitting and luxury beachfront hotel expansion built to withstand coastal corrosion.', colorFrom: '#ef4444', colorTo: '#b91c1c', result: 'SBD-03 Compliant Execution' },
 ];
 
 const STATIC_SERVICES = [
   {
-    icon: 'FiCode', title: 'Web Development', colorFrom: '#3b82f6', colorTo: '#2563eb',
-    description: 'Full-stack web applications using React, Node.js, MongoDB, and modern cloud infrastructure. We build scalable, maintainable solutions.',
-    features: ['React / Next.js frontends', 'Node.js / Express APIs', 'MongoDB & PostgreSQL', 'REST & GraphQL APIs'],
-    priceText: 'From LKR 150,000'
+    icon: 'FiLayers', title: 'Earthworks & Foundation Piling', colorFrom: '#3b82f6', colorTo: '#2563eb',
+    description: 'Professional site excavation, mass earthworks, slope stabilization, sheet piling, and bored piling for commercial & residential foundations.',
+    features: ['Mass Excavation & Earth Cutting', 'Bored Piling & Sheet Piling', 'Retaining Wall Construction', 'Soil Stabilization'],
+    priceText: 'From LKR 450,000'
   },
   {
-    icon: 'FiSmartphone', title: 'Mobile App Development', colorFrom: '#22c55e', colorTo: '#16a34a',
-    description: 'Cross-platform iOS and Android apps with React Native. Native performance, beautiful UI, and seamless backend integration.',
-    features: ['React Native / Expo', 'iOS & Android', 'Push notifications', 'Offline-first architecture'],
-    priceText: 'From LKR 250,000'
+    icon: 'FiBriefcase', title: 'Structural & Concrete Construction', colorFrom: '#22c55e', colorTo: '#16a34a',
+    description: 'Turnkey structural concrete framing, post-tensioned slabs, steel structures, and multi-story building construction.',
+    features: ['Reinforced Concrete Framing', 'Post-Tensioned Slabs', 'Structural Steel Fabrication', 'Bridge & Infrastructure Concrete'],
+    priceText: 'From LKR 1,500,000'
   },
   {
-    icon: 'FiCloud', title: 'Cloud & DevOps', colorFrom: '#a855f7', colorTo: '#9333ea',
-    description: 'End-to-end cloud infrastructure setup, CI/CD pipelines, containerization, and ongoing DevOps support.',
-    features: ['AWS / Azure / GCP', 'Docker & Kubernetes', 'CI/CD pipelines', '24/7 monitoring'],
-    priceText: 'From LKR 80,000/mo'
+    icon: 'FiZap', title: 'MEP (Mechanical, Electrical, Plumbing)', colorFrom: '#a855f7', colorTo: '#9333ea',
+    description: 'Comprehensive MEP engineering including high-voltage wiring, HVAC air conditioning, plumbing riser stacks, and fire safety systems.',
+    features: ['HVAC & Air Distribution', 'High Voltage & Electrical Distribution', 'Plumbing Riser Stacks', 'Fire Suppression Systems'],
+    priceText: 'From LKR 800,000'
   },
   {
-    icon: 'FiLayers', title: 'Enterprise Systems', colorFrom: '#f97316', colorTo: '#ea580c',
-    description: 'Custom ERP, HRM, CRM, and inventory management systems designed for Sri Lankan enterprises.',
-    features: ['ERP / HRM Systems', 'Custom workflows', 'EPF/ETF compliance', 'Multi-role portals'],
-    priceText: 'From LKR 500,000'
+    icon: 'FiHome', title: 'Architectural Finishing & Interiors', colorFrom: '#f97316', colorTo: '#ea580c',
+    description: 'High-end architectural finishes, luxury tiling, aluminum curtain wall cladding, partition walls, and interior fit-outs.',
+    features: ['Granite & Porcelain Tiling', 'Aluminum Glass Cladding', 'Gypsum Partitions & Ceiling', 'Waterproofing Systems'],
+    priceText: 'From LKR 600,000'
   },
   {
-    icon: 'FiDatabase', title: 'Database & Backend', colorFrom: '#ef4444', colorTo: '#dc2626',
-    description: 'Database design, optimization, API development, and backend architecture for high-performance applications.',
-    features: ['Database design', 'Query optimization', 'API security', 'Data migration'],
-    priceText: 'From LKR 100,000'
-  },
-  {
-    icon: 'FiShield', title: 'Cybersecurity', colorFrom: '#4b5563', colorTo: '#1f2937',
-    description: 'Security audits, penetration testing, vulnerability assessments, and security consulting for your systems.',
-    features: ['Penetration testing', 'Security audits', 'GDPR compliance', 'Secure code review'],
-    priceText: 'From LKR 120,000'
+    icon: 'FiTruck', title: 'Construction Material & Machinery Supply', colorFrom: '#ef4444', colorTo: '#dc2626',
+    description: 'Direct supply of ReadyMix concrete, Tokyo cement, Melwa steel, sand cubes, excavators, tower cranes, and heavy machinery rental.',
+    features: ['ReadyMix Concrete & Cement', 'Tor Steel & Rebar Supply', 'Excavator & Crane Sub-leasing', 'Digital GRN Tracking'],
+    priceText: 'Daily / Unit Rates'
   },
 ];
 
@@ -55,47 +48,41 @@ async function seed() {
   await mongoose.connect(process.env.MONGO_URI);
   console.log('Connected to DB');
 
-  const pCount = await PortfolioItem.countDocuments();
-  if (pCount === 0) {
-    for (let i = 0; i < STATIC_PROJECTS.length; i++) {
-      const p = STATIC_PROJECTS[i];
-      await PortfolioItem.create({
-        title: p.title,
-        category: p.category,
-        technologies: p.tech,
-        description: p.desc,
-        colorFrom: p.colorFrom,
-        colorTo: p.colorTo,
-        result: p.result,
-        order: i,
-      });
-    }
-    console.log('Seeded PortfolioItems');
-  } else {
-    console.log('PortfolioItems already exist');
+  await PortfolioItem.deleteMany({});
+  for (let i = 0; i < STATIC_PROJECTS.length; i++) {
+    const p = STATIC_PROJECTS[i];
+    await PortfolioItem.create({
+      title: p.title,
+      category: p.category,
+      technologies: p.tech,
+      description: p.desc,
+      colorFrom: p.colorFrom,
+      colorTo: p.colorTo,
+      result: p.result,
+      order: i,
+    });
   }
+  console.log('Seeded Construction PortfolioItems');
 
-  const sCount = await Service.countDocuments();
-  if (sCount === 0) {
-    for (let i = 0; i < STATIC_SERVICES.length; i++) {
-      const s = STATIC_SERVICES[i];
-      await Service.create({
-        title: s.title,
-        icon: s.icon,
-        description: s.description,
-        features: s.features,
-        priceText: s.priceText,
-        colorFrom: s.colorFrom,
-        colorTo: s.colorTo,
-        order: i,
-      });
-    }
-    console.log('Seeded Services');
-  } else {
-    console.log('Services already exist');
+  await Service.deleteMany({});
+  for (let i = 0; i < STATIC_SERVICES.length; i++) {
+    const s = STATIC_SERVICES[i];
+    await Service.create({
+      icon: s.icon,
+      title: s.title,
+      description: s.description,
+      features: s.features,
+      priceText: s.priceText,
+      colorFrom: s.colorFrom,
+      colorTo: s.colorTo,
+      order: i,
+    });
   }
+  console.log('Seeded Construction Services');
 
-  await mongoose.disconnect();
+  mongoose.connection.close();
 }
 
-seed().catch(console.error);
+if (require.main === module) {
+  seed();
+}

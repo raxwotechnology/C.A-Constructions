@@ -20,11 +20,13 @@ import DocumentAssetPicker from '../../components/branding/DocumentAssetPicker'
 import { FiBookmark, FiEdit } from 'react-icons/fi'
 
 const AGREEMENT_TYPES = [
+  { value: 'sbd03_subcontractor', label: 'Subcontractor Legal Agreement (SBD-03 Compliant)' },
+  { value: 'sbd03_supplier', label: 'Supplier Supply Agreement (SBD-03 Compliant)' },
+  { value: 'sbd03_worker', label: 'Site Worker Employment Contract (SBD-03 Compliant)' },
+  { value: 'sbd03_client', label: 'Client Building Construction Agreement (SBD-03 Compliant)' },
   { value: 'client_project', label: 'Client Project Agreement' },
-  { value: 'subscription_service', label: 'Subscription Service Agreement' },
-  { value: 'invoice_payment', label: 'Invoice Payment Agreement' },
-  { value: 'general', label: 'General Agreement' },
-  { value: 'custom', label: 'Custom Agreement (blank shell)' },
+  { value: 'general', label: 'General Construction Agreement' },
+  { value: 'custom', label: 'Custom Agreement' },
 ]
 
 const EMPTY_SIG = () => ({

@@ -58,7 +58,7 @@ export default function Careers() {
               transition={{ delay: 0.6 }}
               className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal"
             >
-              Build your career at Raxwo. Work on exciting projects with brilliant minds in a collaborative, growth-focused environment.
+              Build your career at C.A-Constructions (Pvt) Ltd. Work on prestigious civil engineering and building construction projects across Sri Lanka.
             </motion.p>
           </motion.div>
 

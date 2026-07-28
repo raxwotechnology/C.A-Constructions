@@ -7,13 +7,18 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, minlength: 6 },
   role: {
     type: String,
-    enum: ['admin', 'manager', 'developer', 'designer', 'marketing', 'client'],
-    default: 'developer'
+    enum: [
+      'admin', 'manager', 'supervisor', 'accountant', 'worker',
+      'subcontractor', 'supplier', 'client', 'developer', 'designer', 'marketing'
+    ],
+    default: 'worker'
   },
   avatar: { type: String, default: '' },
   phone: { type: String, default: '' },
   isActive: { type: Boolean, default: true },
   isEmailVerified: { type: Boolean, default: false },
+  allowedTabs: [{ type: String }], // Dynamic permissions toggled by Admin for Managers/Supervisors
+  assignedSites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }], // Multi-site flexible assignment
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   otpCode: String,

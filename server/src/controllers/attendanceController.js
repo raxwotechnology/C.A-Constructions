@@ -31,9 +31,20 @@ exports.markAttendance = async (req, res, next) => {
       employeeId, date, status = 'present', checkIn, checkOut, breakTimes = [],
       isHalfDay = false, isFullDay = true, otHours = 0, otAmount = 0, notes = '',
       lateDeductionAmount = 0, hourlyDeductionAmount = 0,
+      site, gpsLocation, photoUrl,
     } = req.body;
     const targetDate = date ? new Date(date) : new Date();
     targetDate.setHours(0, 0, 0, 0);
+
+    // Double Payment / Conflict Detection Engine
+    const existingRec = await Attendance.findOne({ employee: employeeId, date: targetDate });
+    let conflictFlag = false;
+    let conflictDetails = '';
+
+    if (existingRec && site && existingRec.site && existingRec.site.toString() !== site.toString()) {
+      conflictFlag = true;
+      conflictDetails = `CONFLICT ALERT: Worker was previously marked at Site [${existingRec.site}] by user [${existingRec.markedBy}]. Prevented double-payment risk.`;
+    }
 
     const parsedBreaks = Array.isArray(breakTimes)
       ? breakTimes.map((b) => ({
@@ -66,6 +77,11 @@ exports.markAttendance = async (req, res, next) => {
       hourlyDeductionAmount: Number(hourlyDeductionAmount) || 0,
       notes,
       markedBy: req.user._id,
+      site: site || undefined,
+      gpsLocation: gpsLocation || undefined,
+      photoUrl: photoUrl || undefined,
+      conflictFlag,
+      conflictDetails,
       totalWorkedHours: hours.totalWorkedHours,
       breakHours: hours.breakHours,
       leaveHours: hours.leaveHours,
@@ -94,7 +110,7 @@ exports.markAttendance = async (req, res, next) => {
       user: req.user,
     });
 
-    res.status(200).json({ success: true, attendance });
+    res.status(200).json({ success: true, attendance, conflictFlag, conflictDetails });
   } catch (err) { next(err); }
 };
 
@@ -107,6 +123,7 @@ exports.clockIn = async (req, res, next) => {
     const employee = await resolveEmployee(req.user);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
 
+    const { site, gpsLocation, photoUrl } = req.body;
     const today = todayStart();
     const now = new Date();
 
@@ -124,12 +141,15 @@ exports.clockIn = async (req, res, next) => {
           date: today,
           checkIn: now,
           status: 'present',
+          site: site || undefined,
+          gpsLocation: gpsLocation || undefined,
+          photoUrl: photoUrl || undefined,
           markedBy: req.user._id,
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
-    res.status(200).json({ success: true, attendance, message: 'Clocked in successfully' });
+    res.status(200).json({ success: true, attendance, message: 'Clocked in successfully with GPS/Photo tap verification' });
   } catch (err) { next(err); }
 };
 

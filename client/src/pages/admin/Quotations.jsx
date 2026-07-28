@@ -30,7 +30,10 @@ const STATUS_COLOR = {
 }
 
 const STATUS_LIFECYCLE = ['draft','sent','accepted','rejected','expired']
-const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
+const SERVICE_TYPES = [
+  'Earthworks', 'Structural Work', 'MEP (Mechanical, Electrical, Plumbing)',
+  'Finishing', 'Material Supply', 'Machinery Rental', 'ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'
+]
 const PAYMENT_METHODS = [
   { value: '', label: '— Select —' },
   { value: 'cash', label: 'Cash' },

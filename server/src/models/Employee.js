@@ -50,9 +50,12 @@ const employeeSchema = new mongoose.Schema({
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   manager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
+  dailyWageRate: { type: Number, default: 0 },
+  assignedSites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
+
   employmentType: {
     type: String,
-    enum: ['permanent', 'intern', 'contract', 'part_time'],
+    enum: ['permanent', 'intern', 'contract', 'part_time', 'daily_wage'],
     default: 'permanent',
   },
 

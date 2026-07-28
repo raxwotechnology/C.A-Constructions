@@ -48,9 +48,43 @@ const projectSchema = new mongoose.Schema({
   description:     { type: String, default: '' },
   serviceType: {
     type: String,
-    enum: ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'],
-    default: 'Other'
+    enum: [
+      'Earthworks', 'Structural Work', 'MEP (Mechanical, Electrical, Plumbing)',
+      'Finishing', 'Material Supply', 'Machinery Rental', 'ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other'
+    ],
+    default: 'Structural Work'
   },
+
+  // ── Site Location & GPS Geofencing ─────────────────────────────────────
+  siteLocation: {
+    lat: { type: Number, default: 6.9271 },
+    lng: { type: Number, default: 79.8612 },
+    address: { type: String, default: '' },
+    geofenceRadiusMeter: { type: Number, default: 250 },
+  },
+
+  // ── Site Financials & Escrow ───────────────────────────────────────────
+  escrowBalance: { type: Number, default: 0 },
+  siteExpenses: {
+    rawMaterial: { type: Number, default: 0 },
+    equipmentRental: { type: Number, default: 0 },
+    dailyWagePayroll: { type: Number, default: 0 },
+    fuelTransport: { type: Number, default: 0 },
+    subcontractorClaims: { type: Number, default: 0 },
+    pettyCash: { type: Number, default: 0 },
+    extraIncome: { type: Number, default: 0 }
+  },
+
+  // ── Variation Change Requests ─────────────────────────────────────────
+  variationRequests: [{
+    title: { type: String, required: true },
+    description: String,
+    amount: { type: Number, required: true },
+    requestedBy: { type: String, enum: ['client', 'pm', 'supervisor'], default: 'pm' },
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    createdAt: { type: Date, default: Date.now },
+    approvedAt: Date,
+  }],
 
   // ── Relations ─────────────────────────────────────────────────────────────
   client:          { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -87,6 +121,7 @@ const projectSchema = new mongoose.Schema({
   milestones:    [{
     title: String, dueDate: Date,
     completed: { type: Boolean, default: false }, completedAt: Date,
+    photos: [String],
   }],
   notes:         [projectNoteSchema],
   links:         [projectLinkSchema],
