@@ -60,8 +60,10 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'https://c-a-constructions.onrender.com',
+  process.env.CLIENT_URL || 'https://c-a-constructions-2.onrender.com',
   'https://c-a-constructions.onrender.com',
+  'https://c-a-constructions-2.onrender.com',
+  'https://rach-lk.netlify.app',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:5175',
