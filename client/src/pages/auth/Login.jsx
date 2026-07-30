@@ -24,10 +24,16 @@ export default function Login() {
       const redirect = {
         admin: '/admin',
         manager: '/manager',
-        developer: '/developer',
-        designer: '/designer',
-        marketing: '/marketing',
+        engineer: '/worker',
+        supervisor: '/supervisor',
+        accountant: '/accountant',
+        subcontractor: '/subcontractor',
+        supplier: '/supplier',
+        worker: '/worker',
         client: '/my-dashboard',
+        developer: '/worker',
+        designer: '/worker',
+        marketing: '/worker',
       }
       const dest = redirect[user.role]
       if (!dest) {

@@ -71,7 +71,7 @@ export default function SiteInventory() {
           <span className="bg-amber-500/20 text-amber-300 text-xs font-bold px-3 py-1 rounded-full border border-amber-400/30">
             Central Warehouse vs. Site Stock Engine
           </span>
-          <h1 className="text-2xl font-black mt-2">Site Material Stock & Fraud Protection</h1>
+          <h1 className="text-2xl font-black mt-2 text-white">Site Material Stock & Fraud Protection</h1>
           <p className="text-slate-300 text-xs mt-1">Track Central Warehouse to Site transfers, GRN variance warnings & theft tracking.</p>
         </div>
         <div className="flex gap-3">

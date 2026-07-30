@@ -31,12 +31,25 @@ export const STATUS_BADGE = {
   intern_ended: 'badge-gray',
 }
 
-export const DEPARTMENTS = ['Engineering', 'Design', 'Marketing', 'HR', 'Finance', 'Operations', 'Sales', 'Infrastructure']
+export const DEPARTMENTS = [
+  'Civil & Structural Engineering',
+  'Architecture & Building Design',
+  'Quantity Surveying & Estimating',
+  'Site Operations & Supervision',
+  'Project Management',
+  'Finance & Accounting',
+  'Safety & Quality Control (HSE)',
+  'Procurement & Logistics',
+]
 
 export const ROLES = [
-  { value: 'developer', label: 'Developer' },
-  { value: 'designer', label: 'Designer' },
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'admin', label: 'Admin' },
+  { value: 'admin', label: 'Admin / Managing Director' },
+  { value: 'manager', label: 'Project Manager (PM)' },
+  { value: 'engineer', label: 'Site Engineer / QS' },
+  { value: 'supervisor', label: 'Site Supervisor' },
+  { value: 'accountant', label: 'Accountant' },
+  { value: 'subcontractor', label: 'Subcontractor' },
+  { value: 'supplier', label: 'Supplier / Vendor' },
+  { value: 'worker', label: 'Site Worker / Mason' },
+  { value: 'client', label: 'Client / Property Owner' },
 ]

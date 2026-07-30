@@ -16,7 +16,7 @@ const commentSchema = new mongoose.Schema({
 
 const workLogSchema = new mongoose.Schema({
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-  employeeRole: { type: String, enum: ['developer', 'designer', 'marketing', 'manager', 'admin'], default: 'developer' },
+  employeeRole: { type: String, enum: ['admin', 'manager', 'engineer', 'supervisor', 'accountant', 'worker', 'subcontractor', 'supplier', 'developer', 'designer', 'marketing'], default: 'worker' },
   date: { type: Date, required: true, default: Date.now },
   tasks: [taskSchema],
   blockers: { type: String },

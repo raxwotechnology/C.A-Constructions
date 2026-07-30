@@ -49,7 +49,7 @@ export default function CEODashboard() {
               C.A-Constructions Super Admin
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold">CEO & Executive Control Matrix</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">CEO & Executive Control Matrix</h1>
           <p className="text-slate-300 text-sm mt-1">Real-time capital health, forensic profit leaks & active site ecosystem.</p>
         </div>
         <div className="flex gap-3">

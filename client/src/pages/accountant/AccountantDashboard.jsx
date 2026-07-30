@@ -43,7 +43,7 @@ export default function AccountantDashboard() {
         <span className="bg-emerald-500/20 text-emerald-300 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-400/30">
           Accountant & Finance Manager Portal
         </span>
-        <h1 className="text-2xl md:text-3xl font-bold mt-2">Automated Payroll & Audit Control Matrix</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-white">Automated Payroll & Audit Control Matrix</h1>
         <p className="text-emerald-200 text-sm mt-1">3-Minute Payroll Calculator, GRN Variance Protection & Supplier Price Alerts.</p>
       </div>
 

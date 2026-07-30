@@ -134,6 +134,7 @@ const ProtectedRoute = ({ children, roles }) => {
 const roleRedirectMap = {
   admin: '/admin',
   manager: '/manager',
+  engineer: '/worker',
   supervisor: '/supervisor',
   accountant: '/accountant',
   worker: '/worker',

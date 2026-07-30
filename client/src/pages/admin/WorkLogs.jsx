@@ -9,7 +9,7 @@ import { FiPlus, FiX, FiCheck, FiMessageSquare, FiFlag, FiUpload, FiLink, FiImag
 import useAuthStore from '../../store/authStore'
 import ExportBar from '../../components/ui/ExportBar'
 
-const ROLES = ['all', 'developer', 'designer', 'marketing', 'manager']
+const ROLES = ['all', 'manager', 'engineer', 'supervisor', 'accountant', 'worker']
 
 const statusBadge = (s, approval) => {
   if (approval === 'approved') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'

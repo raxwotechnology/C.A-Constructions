@@ -43,7 +43,7 @@ export default function ClientPortal() {
         <span className="bg-blue-500/20 text-blue-300 text-xs font-semibold px-3 py-1 rounded-full border border-blue-400/30">
           Client & Property Owner Portal
         </span>
-        <h1 className="text-2xl md:text-3xl font-bold mt-2">{site.title}</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-white">{site.title}</h1>
         <p className="text-blue-200 text-sm mt-1">Live construction progress, milestone photos & Escrow change request approvals.</p>
       </div>
 

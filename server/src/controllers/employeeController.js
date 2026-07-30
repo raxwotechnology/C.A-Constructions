@@ -170,10 +170,10 @@ exports.createEmployee = async (req, res, next) => {
     // Create user account
     let user = await User.findOne({ email });
     if (!user) {
-      const requestedRole = role || 'developer';
-      const allowedRoles = ['developer', 'designer', 'marketing', 'manager', 'admin'];
-      let safeRole = allowedRoles.includes(requestedRole) ? requestedRole : 'developer';
-      if (safeRole === 'admin' && req.user.role !== 'admin') safeRole = 'developer';
+      const requestedRole = role || 'worker';
+      const allowedRoles = ['admin', 'manager', 'engineer', 'supervisor', 'accountant', 'subcontractor', 'supplier', 'worker', 'client', 'developer', 'designer', 'marketing'];
+      let safeRole = allowedRoles.includes(requestedRole) ? requestedRole : 'worker';
+      if (safeRole === 'admin' && req.user.role !== 'admin') safeRole = 'worker';
       user = await User.create({ name, email, password: password || 'RA@2026', role: safeRole });
     } else if (role && req.user.role === 'admin') {
       // Admin can update an existing user's role when creating the employee profile

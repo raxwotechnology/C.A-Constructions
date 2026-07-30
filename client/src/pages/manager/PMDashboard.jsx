@@ -25,7 +25,7 @@ export default function PMDashboard() {
         <span className="bg-indigo-500/20 text-indigo-300 text-xs font-semibold px-3 py-1 rounded-full border border-indigo-400/30">
           Project Manager (PM) Control Portal
         </span>
-        <h1 className="text-2xl md:text-3xl font-bold mt-2">PM Site Engineering Deck</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-white">PM Site Engineering Deck</h1>
         <p className="text-indigo-200 text-sm mt-1">SLS 573 BOQ Generator, SBD-03 Contracts, Daily Diary & Conflict Detection Engine.</p>
       </div>
 
