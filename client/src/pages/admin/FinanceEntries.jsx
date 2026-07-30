@@ -9,8 +9,15 @@ import { mediaUrl } from '../../lib/media'
 import { paymentPillClass, PaymentTypeIcon } from '../../lib/financeDisplay'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 
-const EXPENSE_CATEGORIES = ['Salary','Hosting','Domain','Server','Equipment','Marketing','Transport','Utilities','Rent','Other']
-const INCOME_CATEGORIES  = ['Client Payment','Subscription','Service Revenue','Invoice Payment','Other']
+const EXPENSE_CATEGORIES = [
+  'Cement (Material)', 'Steel (Material)', 'Sand (Material)', 'Metal (Material)', 'Blocks (Material)', 'Tiles (Material)',
+  'Electrical Items', 'Plumbing Items', 'Daily Labour', 'Skilled Labour', 'Sub Contractor Payment',
+  'Transport', 'Machinery Rent', 'Fuel', 'Site Meals & Welfare', 'Safety Tools & Equipment',
+  'Office Rent', 'Salary', 'Utilities', 'Stationery', 'Other Expense'
+]
+const INCOME_CATEGORIES  = [
+  'Client Payment', 'Advance Payment', 'Variation / Extra Work Income', 'Retention Release', 'Other Income'
+]
 
 const now = new Date()
 const EMPTY = { type:'income', category:'', title:'', amount:0, note:'', file:null, branch:'', paymentMethod:'Bank Transfer', bankAccount:'' }

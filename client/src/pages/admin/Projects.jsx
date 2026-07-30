@@ -15,7 +15,15 @@ import { lookupLoaders } from '../../lib/lookupApi'
 import ExportBar from '../../components/ui/ExportBar'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
-const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
+const SERVICE_TYPES = [
+  'Residential Construction',
+  'Commercial Construction',
+  'Renovation & Remodeling',
+  'Interior Design & Fit-out',
+  'Civil Engineering & Infrastructure',
+  'Architectural Design',
+  'MEP Services'
+]
 const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', cancelled:'badge-red', overdue:'badge-red' }
 const paymentStatusColor = { unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', none: 'badge-gray' }
 const priorityColor = { low:'badge-gray', medium:'badge-yellow', high:'badge-red', critical:'badge-purple' }
