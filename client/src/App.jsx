@@ -275,6 +275,7 @@ export default function App() {
         <Route path="advances" element={<AdminAdvances />} />
         <Route path="loans" element={<AdminLoans />} />
         <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="tasks" element={<WorkLogs />} />
         <Route path="financial-reports" element={<FinancialReports />} />
         <Route path="leave-policies" element={<PolicyManagement />} />
         <Route path="policies" element={<PolicyManagement />} />
@@ -308,6 +309,8 @@ export default function App() {
         <Route path="petty-cash" element={<AdminPettyCash />} />
         <Route path="advances" element={<AdminAdvances />} />
         <Route path="requests" element={<AdminRequests />} />
+        <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="tasks" element={<WorkLogs />} />
         <Route path="meetings" element={<Meetings />} />
       </Route>
 
@@ -317,6 +320,8 @@ export default function App() {
         <Route path="attendance" element={<AdminAttendance />} />
         <Route path="inventory" element={<SiteInventory />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
+        <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="tasks" element={<WorkLogs />} />
       </Route>
 
       {/* Accountant Portal */}
@@ -333,6 +338,8 @@ export default function App() {
         <Route index element={<WorkerPortal />} />
         <Route path="advances" element={<AdminAdvances />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
+        <Route path="work-logs" element={<WorkLogs />} />
+        <Route path="tasks" element={<WorkLogs />} />
       </Route>
 
       {/* Subcontractor Portal */}

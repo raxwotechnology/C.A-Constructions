@@ -24,6 +24,7 @@ const adminNav = [
   ]},
   { group: 'Site Management', items: [
     { to: '/admin/projects', label: 'Construction Sites', icon: FiFolder },
+    { to: '/admin/work-logs', label: 'Task Panel & Work Logs', icon: FiCheckSquare },
     { to: '/admin/inventory', label: 'Warehouse & Site Stock', icon: FiLayers },
     { to: '/admin/daily-diary', label: '12-Section Daily Diary', icon: FiClipboard },
     { to: '/admin/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
@@ -58,6 +59,7 @@ const pmNav = [
   { group: 'PM Control Deck', items: [
     { to: '/manager', label: 'PM Dashboard', icon: FiHome, exact: true },
     { to: '/manager/projects', label: 'Active Sites', icon: FiFolder },
+    { to: '/manager/work-logs', label: 'Task Panel & Assignments', icon: FiCheckSquare },
     { to: '/manager/quotations', label: 'Auto BOQ Generator', icon: FiQuote },
     { to: '/manager/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
     { to: '/manager/daily-diary', label: '12-Section Daily Diary', icon: FiClipboard },
@@ -69,6 +71,7 @@ const pmNav = [
 const supervisorNav = [
   { group: 'Supervisor Action Deck', items: [
     { to: '/supervisor', label: 'Action Cards Deck', icon: FiHome, exact: true },
+    { to: '/supervisor/work-logs', label: 'Site Task Board', icon: FiCheckSquare },
     { to: '/supervisor/attendance', label: 'Photo & GPS Attendance', icon: FiClipboard },
     { to: '/supervisor/daily-diary', label: 'Interactive Daily Diary', icon: FiBook },
     { to: '/supervisor/inventory', label: 'Stock & Transfers', icon: FiLayers },
@@ -89,6 +92,7 @@ const accountantNav = [
 const workerNav = [
   { group: 'Worker Portal', items: [
     { to: '/worker', label: 'My Wage & Heatmap', icon: FiHome, exact: true },
+    { to: '/worker/work-logs', label: 'My Task Panel', icon: FiCheckSquare },
     { to: '/worker/advances', label: 'Advances & Receipts', icon: FiCreditCard },
     { to: '/worker/attendance', label: 'My Attendance', icon: FiClipboard },
   ]},
