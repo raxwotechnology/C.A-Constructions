@@ -1,13 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
-const { exportJson, exportPdf, exportHtml, adminEmployeeExport } = require('../controllers/exportController');
+const { exportToExcel, exportToPDF } = require('../controllers/exportController');
+const { authenticateJWT } = require('../middleware/auth');
+const { authorizeRoles } = require('../middleware/rbac');
 
-const STAFF_EXPORT_ROLES = ['developer', 'designer', 'marketing'];
+// PDF and Excel Export Routes (Accessible by Admin, CEO, Project Manager, Accountant)
+router.get(
+  '/excel/:moduleName',
+  authenticateJWT,
+  authorizeRoles('Admin', 'CEO', 'Project Manager', 'Accountant', 'Engineer'),
+  exportToExcel
+);
 
-router.get('/admin/:employeeId/:category/:format', protect, authorize('admin', 'manager'), adminEmployeeExport);
-router.get('/:category/html', protect, authorize(...STAFF_EXPORT_ROLES), exportHtml);
-router.get('/:category/pdf', protect, authorize(...STAFF_EXPORT_ROLES), exportPdf);
-router.get('/:category/json', protect, authorize(...STAFF_EXPORT_ROLES), exportJson);
+router.get(
+  '/pdf/:moduleName',
+  authenticateJWT,
+  authorizeRoles('Admin', 'CEO', 'Project Manager', 'Accountant', 'Engineer'),
+  exportToPDF
+);
 
 module.exports = router;

@@ -1,21 +1,49 @@
 const mongoose = require('mongoose');
+const {
+  INCOME_CATEGORIES,
+  ALL_EXPENSE_FLAT,
+  ASSET_CATEGORIES,
+  LIABILITY_CATEGORIES,
+  CAPITAL_CATEGORIES,
+  TAX_CATEGORIES
+} = require('../constants/masterCategories');
 
-const financeEntrySchema = new mongoose.Schema({
-  type: { type: String, enum: ['income', 'expense'], required: true },
-  category: { type: String, required: true, trim: true },
-  title: { type: String, required: true, trim: true },
-  amount: { type: Number, required: true, min: 0 },
-  date: { type: Date, required: true, default: Date.now },
-  note: { type: String, default: '' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
-  // Bill / receipt support
-  billFile: { type: String, default: '' },    // URL to uploaded bill/receipt file
-  billFileName: { type: String, default: '' }, // Original file name
-  paymentMethod: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Online Payment', 'Cheque', 'Other'], default: 'Cash' },
-  bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
-}, { timestamps: true });
-
-financeEntrySchema.index({ type: 1, category: 1, date: -1 });
+const financeEntrySchema = new mongoose.Schema(
+  {
+    transactionNo: { type: String, required: true, unique: true },
+    project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+    transactionType: {
+      type: String,
+      enum: ['Income', 'Expense', 'Asset', 'Liability', 'Capital', 'Tax'],
+      required: true
+    },
+    masterCategory: {
+      type: String,
+      required: true
+    },
+    subCategory: { type: String },
+    amount: { type: Number, required: true },
+    date: { type: Date, default: Date.now, required: true },
+    paymentMethod: {
+      type: String,
+      enum: ['Cash', 'Cheque', 'Bank Transfer', 'Credit'],
+      default: 'Bank Transfer'
+    },
+    chequeDetails: {
+      chequeNumber: { type: String },
+      bankName: { type: String },
+      realizationDate: { type: Date },
+      status: { type: String, enum: ['Pending', 'Realized', 'Bounced'], default: 'Pending' }
+    },
+    vatAmount: { type: Number, default: 0 },
+    apitTaxAmount: { type: Number, default: 0 },
+    payeeOrPayer: { type: String, required: true },
+    description: { type: String },
+    referenceDoc: { type: String }, // e.g. receipt or invoice URL
+    status: { type: String, enum: ['Draft', 'Approved', 'Paid', 'Reconciled'], default: 'Approved' },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model('FinanceEntry', financeEntrySchema);

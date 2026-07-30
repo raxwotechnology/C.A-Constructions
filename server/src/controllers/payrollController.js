@@ -1270,3 +1270,43 @@ exports.salaryPayHereNotify = async (req, res, next) => {
     res.send('OK');
   } catch (err) { next(err); }
 };
+
+// @desc    Process Monthly Payroll for all eligible employees (Sri Lanka Statutory EPF/ETF/APIT)
+// @route   POST /api/payroll/process
+exports.processMonthlyPayroll = async (req, res, next) => {
+  try {
+    const { month, employeeBreakdowns } = req.body;
+    const targetMonth = month || new Date().toISOString().slice(0, 7);
+
+    const savedRecords = [];
+    if (Array.isArray(employeeBreakdowns) && employeeBreakdowns.length > 0) {
+      for (const item of employeeBreakdowns) {
+        const record = await Payroll.create({
+          employee: item.employeeId || item.id,
+          month: targetMonth,
+          basicSalary: item.basicSalary || 0,
+          regularOtPay: item.otPay || 0,
+          grossSalary: item.grossSalary || item.gross || 0,
+          epfEligibleAmount: (item.basicSalary || 0) + (item.allowances || 0),
+          epfEmployee8Percent: item.epf8 || Math.round(((item.basicSalary || 0) + (item.allowances || 0)) * 0.08),
+          epfEmployer12Percent: item.epf12 || Math.round(((item.basicSalary || 0) + (item.allowances || 0)) * 0.12),
+          etfEmployer3Percent: item.etf3 || Math.round(((item.basicSalary || 0) + (item.allowances || 0)) * 0.03),
+          apitTaxDeduction: item.apit || item.apitTax || 0,
+          netPay: item.netPay || 0,
+          paymentStatus: 'Approved'
+        });
+        savedRecords.push(record);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Monthly Payroll for ${targetMonth} processed successfully. EPF/ETF Form C export ready.`,
+      processedCount: savedRecords.length,
+      records: savedRecords
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

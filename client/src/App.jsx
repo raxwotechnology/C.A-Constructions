@@ -64,6 +64,18 @@ import AdminAIAnalyzer from './pages/admin/AIAnalyzer'
 import AdminBranches from './pages/admin/Branches'
 import Meetings from './pages/shared/Meetings'
 import AdminQuotations from './pages/admin/Quotations'
+
+// Enterprise Construction Management Views
+import EnterpriseDashboard from './pages/Dashboard'
+import CRMView from './pages/CRM'
+import ProjectsView from './pages/ProjectsView'
+import SiteManagementView from './pages/SiteManagementView'
+import FinanceView from './pages/FinanceView'
+import PayrollHRView from './pages/PayrollHRView'
+import AssetVehicleView from './pages/AssetVehicleView'
+import ReportsExportView from './pages/ReportsExportView'
+import ApprovalSystem from './pages/admin/ApprovalSystem'
+import DocumentManager from './pages/admin/DocumentManager'
 import AdminPettyCash from './pages/admin/PettyCash'
 import AdminAdvances from './pages/admin/Advances'
 import AdminLoans from './pages/admin/Loans'
@@ -237,6 +249,16 @@ export default function App() {
       {/* Admin */}
       <Route path="/admin" element={<ProtectedRoute roles={['admin']}><DashboardLayout role="admin" /></ProtectedRoute>}>
         <Route index element={<CEODashboard />} />
+        <Route path="enterprise-dashboard" element={<EnterpriseDashboard />} />
+        <Route path="crm-leads" element={<CRMView />} />
+        <Route path="boq-projects" element={<ProjectsView />} />
+        <Route path="site-dsr" element={<SiteManagementView />} />
+        <Route path="finance-ledger" element={<FinanceView />} />
+        <Route path="payroll-hr" element={<PayrollHRView />} />
+        <Route path="assets-fleet" element={<AssetVehicleView />} />
+        <Route path="reports-export" element={<ReportsExportView />} />
+        <Route path="approval-system" element={<ApprovalSystem />} />
+        <Route path="document-manager" element={<DocumentManager />} />
         <Route path="legacy-dashboard" element={<AdminDashboard />} />
         <Route path="inventory" element={<SiteInventory />} />
         <Route path="employees" element={<AdminEmployees />} />

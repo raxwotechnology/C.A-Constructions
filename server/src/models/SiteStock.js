@@ -1,20 +1,29 @@
 const mongoose = require('mongoose');
+const { EXPENSE_CATEGORIES } = require('../constants/masterCategories');
 
-const siteStockSchema = new mongoose.Schema({
-  site: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', default: null }, // null = Central Warehouse
-  isCentralWarehouse: { type: Boolean, default: false },
-  itemName: { type: String, required: true },
-  category: {
-    type: String,
-    enum: ['Cement', 'Sand', 'Aggregates', 'Steel', 'Bricks/Blocks', 'Timber', 'Tiles', 'MEP Fittings', 'Machinery/Tools', 'Other'],
-    default: 'Cement'
+const siteStockSchema = new mongoose.Schema(
+  {
+    itemCode: { type: String, required: true, unique: true, uppercase: true },
+    itemName: { type: String, required: true },
+    category: {
+      type: String,
+      enum: EXPENSE_CATEGORIES.material,
+      required: true
+    },
+    unit: { type: String, required: true }, // e.g. "Bags", "Tons", "Cubes", "Nos"
+    centralStockQty: { type: Number, default: 0 },
+    siteStockQty: [
+      {
+        project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+        qty: { type: Number, default: 0 }
+      }
+    ],
+    minThresholdQty: { type: Number, default: 10 },
+    unitPrice: { type: Number, default: 0 },
+    supplier: { type: String },
+    lastRestockedAt: { type: Date }
   },
-  quantity: { type: Number, default: 0 },
-  unit: { type: String, enum: ['bags', 'cubes', 'kg', 'tons', 'nos', 'meters', 'units'], default: 'bags' },
-  unitPrice: { type: Number, default: 0 },
-  reorderLevel: { type: Number, default: 10 },
-  lastRestocked: Date,
-  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-}, { timestamps: true });
+  { timestamps: true }
+);
 
 module.exports = mongoose.model('SiteStock', siteStockSchema);

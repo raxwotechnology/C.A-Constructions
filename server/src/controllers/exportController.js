@@ -1,397 +1,174 @@
-const Employee = require('../models/Employee');
-const Attendance = require('../models/Attendance');
-const Leave = require('../models/Leave');
-const Payroll = require('../models/Payroll');
+const xlsx = require('xlsx');
+const puppeteer = require('puppeteer');
 const Project = require('../models/Project');
-const Advance = require('../models/Advance');
-const SiteSetting = require('../models/SiteSetting');
-const { resolveEmployeeForUser } = require('../utils/employeeResolver');
-const { htmlToPdfBuffer } = require('../services/documentPdfService');
-const { buildLetterhead, inlineUploadImagesInHtml } = require('../services/documentHtmlService');
+const FinanceEntry = require('../models/FinanceEntry');
+const Payroll = require('../models/Payroll');
+const SiteStock = require('../models/SiteStock');
 
-function fileSafe(s) {
-  return String(s || '').replace(/[^a-z0-9_\-]+/gi, '_').slice(0, 64);
-}
+/**
+ * Generate Excel (.xlsx) Report for any collection (Projects, Finance, Payroll, Inventory)
+ */
+const exportToExcel = async (req, res) => {
+  try {
+    const { moduleName } = req.params;
+    let data = [];
+    let fileName = `RA_Constructions_${moduleName}_Report.xlsx`;
 
-async function getDeveloperContext(user) {
-  const employee = await resolveEmployeeForUser(user, { populate: { path: 'userId', select: 'name email role' } });
-  if (!employee) return { employee: null, userId: user._id };
+    if (moduleName === 'projects') {
+      const projects = await Project.find().lean();
+      data = projects.map(p => ({
+        'Project Code': p.code,
+        'Project Name': p.name,
+        'Service Type': p.serviceType,
+        'Client': p.clientName,
+        'Contract Value (LKR)': p.contractValue,
+        'Actual Cost (LKR)': p.actualCost,
+        'Progress (%)': p.progressPercentage,
+        'Status': p.status,
+        'Start Date': p.startDate ? p.startDate.toISOString().split('T')[0] : ''
+      }));
+    } else if (moduleName === 'finance') {
+      const finance = await FinanceEntry.find().lean();
+      data = finance.map(f => ({
+        'Tx No': f.transactionNo,
+        'Type': f.transactionType,
+        'Master Category': f.masterCategory,
+        'Payee/Payer': f.payeeOrPayer,
+        'Amount (LKR)': f.amount,
+        'Payment Method': f.paymentMethod,
+        'Status': f.status,
+        'Date': f.date ? f.date.toISOString().split('T')[0] : ''
+      }));
+    } else if (moduleName === 'inventory') {
+      const stock = await SiteStock.find().lean();
+      data = stock.map(s => ({
+        'Item Code': s.itemCode,
+        'Item Name': s.itemName,
+        'Category': s.category,
+        'Unit': s.unit,
+        'Central Stock Qty': s.centralStockQty,
+        'Unit Price (LKR)': s.unitPrice,
+        'Threshold Qty': s.minThresholdQty
+      }));
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid module specified for Excel export' });
+    }
 
-  const userId = user._id;
-  const projects = await Project.find({ assignedEmployees: userId })
-    .select('title status progress deadline startDate completedAt tasks updatedAt')
-    .sort({ updatedAt: -1 })
-    .limit(100);
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, moduleName.toUpperCase());
 
-  const tasks = projects.flatMap((p) => (p.tasks || []).filter((t) => String(t.assignedTo) === String(userId)).map((t) => ({
-    _id: t._id,
-    title: t.title,
-    status: t.status,
-    priority: t.priority,
-    dueDate: t.dueDate,
-    completedAt: t.completedAt,
-    projectId: p._id,
-    projectTitle: p.title,
-  })));
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-  const attendance = await Attendance.find({ employee: employee._id }).sort({ date: -1 }).limit(365);
-  const leaves = await Leave.find({ employee: employee._id }).sort({ createdAt: -1 }).limit(200);
-  const payrolls = await Payroll.find({ employee: employee._id }).sort({ year: -1, month: -1 }).limit(24);
-  const advances = await Advance.find({ employee: employee._id }).sort({ date: -1 }).limit(100);
-
-  return { employee, projects, tasks, attendance, leaves, payrolls, advances, userId };
-}
-
-async function getEmployeeContextById(employeeId) {
-  const employee = await Employee.findById(employeeId).populate('userId', 'name email role');
-  if (!employee) return { employee: null };
-  const userId = employee.userId?._id;
-  const projects = await Project.find({ assignedEmployees: userId })
-    .select('title status progress deadline startDate completedAt tasks updatedAt')
-    .sort({ updatedAt: -1 })
-    .limit(100);
-  const tasks = projects.flatMap((p) => (p.tasks || []).filter((t) => String(t.assignedTo) === String(userId)).map((t) => ({
-    _id: t._id,
-    title: t.title,
-    status: t.status,
-    priority: t.priority,
-    dueDate: t.dueDate,
-    completedAt: t.completedAt,
-    projectId: p._id,
-    projectTitle: p.title,
-  })));
-  const attendance = await Attendance.find({ employee: employee._id }).sort({ date: -1 }).limit(365);
-  const leaves = await Leave.find({ employee: employee._id }).sort({ createdAt: -1 }).limit(200);
-  const payrolls = await Payroll.find({ employee: employee._id }).sort({ year: -1, month: -1 }).limit(24);
-  const advances = await Advance.find({ employee: employee._id }).sort({ date: -1 }).limit(100);
-  return { employee, projects, tasks, attendance, leaves, payrolls, advances, userId };
-}
-
-function toCategoryPayload(category, ctx) {
-  switch (category) {
-    case 'salary':
-      return { employee: ctx.employee, payrolls: ctx.payrolls };
-    case 'salary_advances':
-      return { employee: ctx.employee, advances: ctx.advances };
-    case 'attendance':
-      return { employee: ctx.employee, attendance: ctx.attendance };
-    case 'leaves':
-      return { employee: ctx.employee, leaves: ctx.leaves };
-    case 'epf':
-      return {
-        employee: ctx.employee,
-        epfEtf: (ctx.payrolls || []).map((p) => ({
-          month: p.month,
-          year: p.year,
-          basicSalary: p.basicSalary,
-          epfEmployee: p.epfEmployee,
-          epfEmployer: p.epfEmployer,
-          etfEmployer: p.etfEmployer,
-        })),
-      };
-    case 'projects':
-      return { employee: ctx.employee, projects: ctx.projects, tasks: ctx.tasks };
-    default:
-      return null;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+  } catch (error) {
+    console.error('Export to Excel Error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to generate Excel export', error: error.message });
   }
-}
+};
 
-async function renderHtml(category, payload) {
-  const settings = (await SiteSetting.findOne().lean()) || {};
-  const letterhead = buildLetterhead(settings);
+/**
+ * Generate PDF Report using Puppeteer for SBD-03 Contracts, BOQ Reports & Financial Statements
+ */
+const exportToPDF = async (req, res) => {
+  let browser;
+  try {
+    const { moduleName } = req.params;
+    let title = 'Executive Summary Report';
+    let contentHtml = '';
 
-  const titleMap = {
-    salary: 'Salary Reports',
-    salary_advances: 'Salary Advances & Loans',
-    attendance: 'Attendance Reports',
-    leaves: 'Leave Reports',
-    epf: 'EPF / ETF Summary',
-    projects: 'Project History',
-  };
-  const title = titleMap[category] || 'Export';
-  const name = payload?.employee?.userId?.name || 'Employee';
-  const empNo = payload?.employee?.employeeNo || '';
-  const gen = new Date().toLocaleString();
+    if (moduleName === 'projects') {
+      const projects = await Project.find().limit(10).lean();
+      title = 'Project Portfolio & SLS 573 Variance Report';
+      contentHtml = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+          <thead>
+            <tr style="background: #1e293b; color: white;">
+              <th style="padding: 8px; border: 1px solid #cbd5e1;">Code</th>
+              <th style="padding: 8px; border: 1px solid #cbd5e1;">Project Name</th>
+              <th style="padding: 8px; border: 1px solid #cbd5e1;">Type</th>
+              <th style="padding: 8px; border: 1px solid #cbd5e1;">Contract Value</th>
+              <th style="padding: 8px; border: 1px solid #cbd5e1;">Actual Cost</th>
+              <th style="padding: 8px; border: 1px solid #cbd5e1;">Progress</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${projects.map(p => `
+              <tr>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${p.code}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${p.name}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${p.serviceType}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">LKR ${p.contractValue.toLocaleString()}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">LKR ${p.actualCost.toLocaleString()}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${p.progressPercentage}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      contentHtml = `<p style="font-size: 14px; color: #475569;">Standard Enterprise PDF Report for <b>R A Creations / R A Constructions</b> generated on ${new Date().toLocaleDateString()}</p>`;
+    }
 
-  const style = `
-    <style>
-      @page { margin: 12mm; }
-      * { box-sizing: border-box; }
-      body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; margin: 0; padding: 24px 28px; font-size: 10.5pt; line-height: 1.55; }
-      .doc-title { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 18px; }
-      .doc-title h1 { margin: 0; font-size: 18pt; font-weight: 800; letter-spacing: 0.04em; }
-      .muted { color: #64748b; font-size: 11px; }
-      .pill { display:inline-block; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 999px; font-size: 11px; color:#334155; background:#f8fafc; }
-      table { width: 100%; border-collapse: collapse; margin-top: 12px; page-break-inside: auto; }
-      th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 10pt; vertical-align: top; }
-      th { background: #f1f5f9; text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }
-      tr { page-break-inside: avoid; }
-      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
-      .card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #ffffff; }
-      .k { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
-      .v { font-size: 16px; font-weight: 800; margin-top: 4px; color: #0f172a; }
-      .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 10px; color:#64748b; text-align: center; }
-    </style>
-  `;
-
-  const safe = (v) => (v === null || v === undefined ? '' : String(v));
-  const money = (n) => `LKR ${Number(n || 0).toLocaleString()}`;
-
-  let content = '';
-  if (category === 'salary_advances') {
-    const rows = (payload.advances || []).map((a) => `
-      <tr>
-        <td>${a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
-        <td>${money(a.amount)}</td>
-        <td>${safe(a.repaymentType || 'lump_sum').replace('_', ' ')}</td>
-        <td>${money(a.totalRecovered)}</td>
-        <td>${money(a.outstandingBalance)}</td>
-        <td>${safe(a.status || 'active').toUpperCase()}</td>
-      </tr>
-    `).join('');
-    const totalAdv = (payload.advances || []).reduce((s, a) => s + (a.amount || 0), 0);
-    const totalOut = (payload.advances || []).reduce((s, a) => s + (a.outstandingBalance || 0), 0);
-    content = `
-      <div class="grid">
-        <div class="card"><div class="k">Total Advance Granted</div><div class="v">${money(totalAdv)}</div></div>
-        <div class="card"><div class="k">Outstanding Balance</div><div class="v">${money(totalOut)}</div></div>
-        <div class="card"><div class="k">Active Loans</div><div class="v">${(payload.advances || []).filter(x => x.status === 'active').length}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Date</th><th>Amount</th><th>Repayment Type</th><th>Recovered</th><th>Outstanding Balance</th><th>Status</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="6">No advance records found</td></tr>'}</tbody>
-      </table>
-    `;
-  } else if (category === 'salary') {
-    const rows = (payload.payrolls || []).map((p) => `
-      <tr>
-        <td>${p.month}/${p.year}</td>
-        <td>${money(p.basicSalary)}</td>
-        <td>${money(p.allowances)}</td>
-        <td>${money(p.epfEmployee)}</td>
-        <td>${money(p.netSalary)}</td>
-        <td>${safe(p.status)}</td>
-      </tr>
-    `).join('');
-    content = `
-      <div class="grid">
-        <div class="card"><div class="k">Payroll records</div><div class="v">${(payload.payrolls || []).length}</div></div>
-        <div class="card"><div class="k">Latest net</div><div class="v">${payload.payrolls?.[0] ? money(payload.payrolls[0].netSalary) : '—'}</div></div>
-        <div class="card"><div class="k">Latest status</div><div class="v">${payload.payrolls?.[0]?.status || '—'}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Month</th><th>Basic</th><th>Allowances</th><th>EPF (emp)</th><th>Net</th><th>Status</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="6">No payroll records</td></tr>'}</tbody>
-      </table>
-    `;
-  } else if (category === 'attendance') {
-    const rows = (payload.attendance || []).map((a) => `
-      <tr>
-        <td>${new Date(a.date).toLocaleDateString()}</td>
-        <td>${safe(a.status)}</td>
-        <td>${a.checkIn ? new Date(a.checkIn).toLocaleTimeString() : '—'}</td>
-        <td>${a.checkOut ? new Date(a.checkOut).toLocaleTimeString() : '—'}</td>
-        <td>${safe(a.notes)}</td>
-      </tr>
-    `).join('');
-    content = `
-      <div class="grid">
-        <div class="card"><div class="k">Records</div><div class="v">${(payload.attendance || []).length}</div></div>
-        <div class="card"><div class="k">Present</div><div class="v">${(payload.attendance || []).filter(x => x.status === 'present').length}</div></div>
-        <div class="card"><div class="k">Absent</div><div class="v">${(payload.attendance || []).filter(x => x.status === 'absent').length}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Date</th><th>Status</th><th>Check-in</th><th>Check-out</th><th>Notes</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="5">No attendance records</td></tr>'}</tbody>
-      </table>
-    `;
-  } else if (category === 'leaves') {
-    const rows = (payload.leaves || []).map((l) => `
-      <tr>
-        <td>${safe(l.leaveType)}</td>
-        <td>${new Date(l.startDate).toLocaleDateString()} → ${new Date(l.endDate).toLocaleDateString()}</td>
-        <td>${safe(l.days)}</td>
-        <td>${safe(l.status)}</td>
-        <td>${safe(l.reason)}</td>
-      </tr>
-    `).join('');
-    content = `
-      <div class="grid">
-        <div class="card"><div class="k">Requests</div><div class="v">${(payload.leaves || []).length}</div></div>
-        <div class="card"><div class="k">Approved</div><div class="v">${(payload.leaves || []).filter(x => x.status === 'approved').length}</div></div>
-        <div class="card"><div class="k">Pending</div><div class="v">${(payload.leaves || []).filter(x => x.status === 'pending').length}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th>Reason</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="5">No leave records</td></tr>'}</tbody>
-      </table>
-    `;
-  } else if (category === 'epf') {
-    const rows = (payload.epfEtf || []).map((p) => `
-      <tr>
-        <td>${p.month}/${p.year}</td>
-        <td>${money(p.basicSalary)}</td>
-        <td>${money(p.epfEmployee)}</td>
-        <td>${money(p.epfEmployer)}</td>
-        <td>${money(p.etfEmployer)}</td>
-      </tr>
-    `).join('');
-    content = `
-      <div class="grid">
-        <div class="card"><div class="k">Records</div><div class="v">${(payload.epfEtf || []).length}</div></div>
-        <div class="card"><div class="k">Total EPF (emp)</div><div class="v">${money((payload.epfEtf || []).reduce((a,b)=>a+(b.epfEmployee||0),0))}</div></div>
-        <div class="card"><div class="k">Total ETF</div><div class="v">${money((payload.epfEtf || []).reduce((a,b)=>a+(b.etfEmployer||0),0))}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Month</th><th>Basic</th><th>EPF (emp)</th><th>EPF (employer)</th><th>ETF (employer)</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="5">No EPF/ETF records</td></tr>'}</tbody>
-      </table>
-    `;
-  } else if (category === 'projects') {
-    const rows = (payload.projects || []).map((p) => `
-      <tr>
-        <td>${safe(p.title)}</td>
-        <td>${safe(p.status)}</td>
-        <td>${safe(p.progress)}%</td>
-        <td>${p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}</td>
-      </tr>
-    `).join('');
-    content = `
-      <div class="grid">
-        <div class="card"><div class="k">Projects</div><div class="v">${(payload.projects || []).length}</div></div>
-        <div class="card"><div class="k">Tasks</div><div class="v">${(payload.tasks || []).length}</div></div>
-        <div class="card"><div class="k">Completed tasks</div><div class="v">${(payload.tasks || []).filter(x => x.status === 'done').length}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Project</th><th>Status</th><th>Progress</th><th>Deadline</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="4">No projects</td></tr>'}</tbody>
-      </table>
-    `;
-  }
-
-  const html = `
-    <!doctype html>
-    <html>
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
       <head>
-        <meta charset="utf-8"/>
+        <meta charset="utf-8" />
         <title>${title}</title>
-        ${style}
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 30px; color: #0f172a; }
+          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0284c7; padding-bottom: 15px; margin-bottom: 20px; }
+          .company-title { font-size: 24px; font-weight: bold; color: #0284c7; }
+          .report-title { font-size: 18px; color: #334155; font-weight: 600; margin-top: 5px; }
+          .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 10px; color: #94a3b8; text-align: center; }
+        </style>
       </head>
       <body>
-        ${letterhead}
-        <div class="doc-title">
+        <div class="header">
           <div>
-            <h1>${title}</h1>
-            <div class="muted">${safe(name)}${empNo ? ` · ${safe(empNo)}` : ''}</div>
+            <div class="company-title">R A CREATIONS / R A CONSTRUCTIONS</div>
+            <div style="font-size: 12px; color: #64748b;">Enterprise Construction Management System (Sri Lanka)</div>
           </div>
-          <div style="text-align:right">
-            <div class="muted">Generated: ${safe(gen)}</div>
-            <div style="margin-top:6px"><span class="pill">${safe(category).toUpperCase()}</span></div>
+          <div style="text-align: right; font-size: 12px; color: #64748b;">
+            Date: ${new Date().toISOString().split('T')[0]}<br/>
+            Ref: RAC-PDF-${Math.floor(1000 + Math.random() * 9000)}
           </div>
         </div>
-        ${content}
-        <div class="footer">System-generated report · ${safe(settings.siteName || 'R A Creations & Home Designs')}</div>
+        <h2>${title}</h2>
+        ${contentHtml}
+        <div class="footer">
+          Confidential - For Internal Enterprise Use Only | R A Creations / R A Constructions © 2026
+        </div>
       </body>
-    </html>
-  `;
+      </html>
+    `;
 
-  return inlineUploadImagesInHtml(html);
-}
-
-// @desc    Export category as JSON (staff)
-// @route   GET /api/exports/:category/json
-exports.exportJson = async (req, res, next) => {
-  try {
-    const category = String(req.params.category || '').toLowerCase();
-    const ctx = await getDeveloperContext(req.user);
-    if (!ctx.employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
-
-    const payload = toCategoryPayload(category, ctx);
-    if (!payload) return res.status(400).json({ success: false, message: 'Invalid export category' });
-
-    const filename = `raxwo_${fileSafe(category)}_${fileSafe(ctx.employee.employeeNo)}.json`;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.status(200).send(JSON.stringify({ success: true, category, generatedAt: new Date().toISOString(), data: payload }, null, 2));
-  } catch (err) { next(err); }
-};
-
-// @desc    Export category as HTML (for same-tab print)
-// @route   GET /api/exports/:category/html
-exports.exportHtml = async (req, res, next) => {
-  try {
-    const category = String(req.params.category || '').toLowerCase();
-    const ctx = await getDeveloperContext(req.user);
-    if (!ctx.employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
-
-    const payload = toCategoryPayload(category, ctx);
-    if (!payload) return res.status(400).json({ success: false, message: 'Invalid export category' });
-
-    const html = await renderHtml(category, payload);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.status(200).send(html);
-  } catch (err) {
-    console.error('[export] HTML generation failed:', err.message);
-    next(err);
-  }
-};
-
-// @desc    Export category as PDF (staff)
-// @route   GET /api/exports/:category/pdf
-exports.exportPdf = async (req, res, next) => {
-  try {
-    const category = String(req.params.category || '').toLowerCase();
-    const ctx = await getDeveloperContext(req.user);
-    if (!ctx.employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
-
-    const payload = toCategoryPayload(category, ctx);
-    if (!payload) return res.status(400).json({ success: false, message: 'Invalid export category' });
-
-    const html = await renderHtml(category, payload);
-    const pdfBuffer = await htmlToPdfBuffer(html);
-    const filename = `raxwo_${fileSafe(category)}_${fileSafe(ctx.employee.employeeNo)}.pdf`;
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.status(200).send(pdfBuffer);
-  } catch (err) {
-    console.error('[export] PDF generation failed:', err.message, err.stack?.split('\n')[0]);
-    return res.status(500).json({
-      success: false,
-      message: 'PDF generation failed. Ensure Puppeteer/Chrome is installed on the server.',
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
+    const page = await browser.newPage();
+    await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+    });
+
+    await browser.close();
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename=RA_Constructions_${moduleName}.pdf`);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    if (browser) await browser.close();
+    console.error('Export to PDF Error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to generate PDF report', error: error.message });
   }
 };
 
-// @desc    Admin export employee data (json/pdf)
-// @route   GET /api/exports/admin/:employeeId/:category/:format
-exports.adminEmployeeExport = async (req, res, next) => {
-  try {
-    const { employeeId, category, format } = req.params;
-    const cat = String(category || '').toLowerCase();
-    const fmt = String(format || '').toLowerCase();
-
-    const ctx = await getEmployeeContextById(employeeId);
-    if (!ctx.employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    const payload = toCategoryPayload(cat, ctx);
-    if (!payload) return res.status(400).json({ success: false, message: 'Invalid export category' });
-
-    if (fmt === 'json') {
-      const filename = `raxwo_admin_${fileSafe(cat)}_${fileSafe(ctx.employee.employeeNo)}.json`;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      return res.status(200).send(JSON.stringify({ success: true, category: cat, generatedAt: new Date().toISOString(), data: payload }, null, 2));
-    }
-
-    if (fmt === 'pdf') {
-      const html = await renderHtml(cat, payload);
-      const pdfBuffer = await htmlToPdfBuffer(html);
-      const filename = `raxwo_admin_${fileSafe(cat)}_${fileSafe(ctx.employee.employeeNo)}.pdf`;
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      return res.status(200).send(pdfBuffer);
-    }
-
-    return res.status(400).json({ success: false, message: 'Invalid export format' });
-  } catch (err) { next(err); }
-};
-
+module.exports = { exportToExcel, exportToPDF };

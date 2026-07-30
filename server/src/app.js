@@ -165,6 +165,8 @@ app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/site-settings', siteSettingRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/exports', exportRoutes);
+app.use('/api/backup', require('./routes/backupRoutes'));
+app.use('/api/approvals', require('./routes/approvalRoutes'));
 app.use('/api/finance', financeRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);

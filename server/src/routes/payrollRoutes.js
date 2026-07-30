@@ -6,10 +6,11 @@ const {
   getEpfSummary, addOvertime, getOvertime, deleteOvertime,
   syncPayroll, reopenPayroll, getRecalcLogs, getEmployeeFinancialSummary, getPayrollLiveSnapshot,
   initiateSalaryPayHere, salaryPayHereNotify,
-  updateEpfRecord, deletePayroll, sendPayrollNotification, generatePayslipPdf,
+  updateEpfRecord, deletePayroll, sendPayrollNotification, generatePayslipPdf, processMonthlyPayroll,
 } = require('../controllers/payrollController');
 const { protect, authorize } = require('../middleware/auth');
 
+router.post('/process', protect, authorize('admin', 'accountant'), processMonthlyPayroll);
 router.post('/generate', protect, authorize('admin'), generatePayroll);
 router.post('/generate-all', protect, authorize('admin'), generateAllPayroll);
 router.post('/generate-pdf', protect, authorize('admin', 'manager'), generatePayslipPdf);
