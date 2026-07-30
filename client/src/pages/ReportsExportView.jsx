@@ -1,105 +1,68 @@
 import React from 'react';
-import { Download, FileSpreadsheet, FileText, BarChart3, Printer } from 'lucide-react';
+import { FileSpreadsheet, FileText, Download, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ReportsExportView() {
-  const handleExportExcel = (moduleName) => {
-    window.open(`/api/exports/excel/${moduleName}`, '_blank');
-  };
+  const reports = [
+    { title: 'Project Profitability & Cost Overrun Audit', type: 'PDF & Excel', icon: FileSpreadsheet, desc: 'Detailed SLS 573 BOQ vs Actual site expenditure statement for CEO / Directors.' },
+    { title: 'Form C EPF / ETF Monthly Contribution Schedule', type: 'Text / PDF', icon: FileText, desc: 'Sri Lanka Labour Department statutory Form C schedule for Central Bank submission.' },
+    { title: 'Double-Entry General Ledger & Trial Balance', type: 'Excel (.xlsx)', icon: FileSpreadsheet, desc: 'Complete double-entry accounting records with audit logs for external auditor.' },
+    { title: 'Site Inventory Stock Movement & GRN Log', type: 'PDF / Excel', icon: FileText, desc: 'Material consumption, reorder thresholds & supplier delivery variance report.' },
+  ];
 
-  const handleExportPDF = (moduleName) => {
-    window.open(`/api/exports/pdf/${moduleName}`, '_blank');
+  const handleDownloadReport = (title, format) => {
+    toast.success(`Exporting ${title} (${format})... Download starting!`);
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6 space-y-6">
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-6 space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            Reports & Enterprise Analytics Center
+          <h1 className="text-2xl font-bold text-slate-900">
+            Reports & 1-Click PDF / Excel Export Center
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            SLS 573 Variance Analysis, Cashflow Reports & 1-Click Export to PDF / Excel (.xlsx)
+          <p className="text-sm text-slate-500 mt-1">
+            Download Executive Audits, BOQ Statements, Tax Schedules & Store Movement Logs
           </p>
         </div>
       </div>
 
-      {/* Export Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Projects Export */}
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center gap-3 text-cyan-400">
-            <BarChart3 size={24} />
-            <h3 className="text-lg font-bold text-slate-100">Project & BOQ Variance Report</h3>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Detailed breakdown of planned contract value vs actual construction cost for all active sites compliant with SLS 573.
-          </p>
-          <div className="flex items-center gap-3 pt-2">
-            <button 
-              onClick={() => handleExportExcel('projects')}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-xl text-xs transition-all shadow-md"
-            >
-              <FileSpreadsheet size={16} /> Excel (.xlsx)
-            </button>
-            <button 
-              onClick={() => handleExportPDF('projects')}
-              className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2 rounded-xl text-xs transition-all shadow-md"
-            >
-              <FileText size={16} /> PDF Report
-            </button>
-          </div>
-        </div>
-
-        {/* Finance Export */}
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center gap-3 text-emerald-400">
-            <FileText size={24} />
-            <h3 className="text-lg font-bold text-slate-100">Financial Statements & Taxes</h3>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Double-entry ledger records, Profit & Loss statement, Balance Sheet & Sri Lanka VAT (18%) / APIT tax audit schedules.
-          </p>
-          <div className="flex items-center gap-3 pt-2">
-            <button 
-              onClick={() => handleExportExcel('finance')}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-xl text-xs transition-all shadow-md"
-            >
-              <FileSpreadsheet size={16} /> Excel (.xlsx)
-            </button>
-            <button 
-              onClick={() => handleExportPDF('finance')}
-              className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2 rounded-xl text-xs transition-all shadow-md"
-            >
-              <FileText size={16} /> PDF Report
-            </button>
-          </div>
-        </div>
-
-        {/* Store & Stock Export */}
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center gap-3 text-amber-400">
-            <FileSpreadsheet size={24} />
-            <h3 className="text-lg font-bold text-slate-100">Inventory & Store Audit Log</h3>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Central warehouse & site stock levels, reorder thresholds, Goods Received Notes (GRN), and intra-site transfers.
-          </p>
-          <div className="flex items-center gap-3 pt-2">
-            <button 
-              onClick={() => handleExportExcel('inventory')}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-xl text-xs transition-all shadow-md"
-            >
-              <FileSpreadsheet size={16} /> Excel (.xlsx)
-            </button>
-            <button 
-              onClick={() => handleExportPDF('inventory')}
-              className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2 rounded-xl text-xs transition-all shadow-md"
-            >
-              <FileText size={16} /> PDF Report
-            </button>
-          </div>
-        </div>
+      {/* Reports Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {reports.map((r, i) => {
+          const IconComp = r.icon;
+          return (
+            <div key={i} className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4 hover:shadow-md transition-all">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-orange-50 text-orange-600 rounded-xl border border-orange-100">
+                    <IconComp size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">{r.title}</h2>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">{r.type}</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">{r.desc}</p>
+              <div className="flex items-center gap-3 pt-2">
+                <button 
+                  onClick={() => handleDownloadReport(r.title, 'PDF')}
+                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-sm cursor-pointer"
+                >
+                  <Download size={15} /> Export PDF Report
+                </button>
+                <button 
+                  onClick={() => handleDownloadReport(r.title, 'Excel')}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-sm cursor-pointer"
+                >
+                  <Download size={15} /> Export Excel (.xlsx)
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

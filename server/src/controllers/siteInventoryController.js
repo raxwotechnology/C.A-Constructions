@@ -138,54 +138,110 @@ exports.getTransfers = async (req, res) => {
   }
 };
 
-// Create GRN with Fraud Protection Variance Warning
+// Create Multi-Item GRN with Fraud Protection Variance Warning
 exports.createGRN = async (req, res) => {
   try {
-    const { site, supplierName, poNumber, itemName, orderedQty, receivedQty, unit, unitPrice, supervisorSignatureUrl } = req.body;
+    const { site, siteName, supplierName, poNumber, items, supervisorSignatureUrl } = req.body;
     const grnNo = 'GRN-' + Date.now().toString().slice(-6);
 
-    const ord = Number(orderedQty);
-    const rec = Number(receivedQty);
-    const varianceQty = ord - rec;
-    const hasVariance = varianceQty !== 0;
+    let processedItems = [];
+    let hasVariance = false;
+    let varianceDetails = [];
+    let totalAmount = 0;
+
+    if (Array.isArray(items) && items.length > 0) {
+      processedItems = items.map(item => {
+        const ord = Number(item.orderedQty || 0);
+        const rec = Number(item.receivedQty || 0);
+        const price = Number(item.unitPrice || 0);
+        const varQty = ord - rec;
+        const itemHasVariance = varQty !== 0;
+
+        if (itemHasVariance) {
+          hasVariance = true;
+          varianceDetails.push(`${item.itemName}: Ordered ${ord} ${item.unit || 'units'}, Received ${rec} ${item.unit || 'units'}`);
+        }
+
+        const lineTotal = rec * price;
+        totalAmount += lineTotal;
+
+        return {
+          itemName: item.itemName,
+          category: item.category || 'General',
+          orderedQty: ord,
+          receivedQty: rec,
+          unit: item.unit || 'units',
+          unitPrice: price,
+          lineTotal,
+          varianceQty: varQty,
+          hasVariance: itemHasVariance,
+        };
+      });
+    } else {
+      // Legacy single-item fallback
+      const { itemName, orderedQty, receivedQty, unit, unitPrice } = req.body;
+      const ord = Number(orderedQty || 0);
+      const rec = Number(receivedQty || 0);
+      const price = Number(unitPrice || 0);
+      const varQty = ord - rec;
+      hasVariance = varQty !== 0;
+      totalAmount = rec * price;
+
+      if (hasVariance) {
+        varianceDetails.push(`${itemName}: Ordered ${ord} ${unit}, Received ${rec} ${unit}`);
+      }
+
+      processedItems.push({
+        itemName,
+        category: 'General',
+        orderedQty: ord,
+        receivedQty: rec,
+        unit: unit || 'units',
+        unitPrice: price,
+        lineTotal: totalAmount,
+        varianceQty: varQty,
+        hasVariance,
+      });
+    }
 
     const grn = await GRN.create({
       grnNo,
       site,
+      siteName: siteName || 'Central Warehouse',
       supplier: req.user.role === 'supplier' ? req.user._id : undefined,
       supplierName: supplierName || req.user.name,
       poNumber: poNumber || 'PO-' + Date.now().toString().slice(-4),
-      itemName,
-      orderedQty: ord,
-      receivedQty: rec,
-      unit,
-      unitPrice: Number(unitPrice || 0),
-      varianceQty,
+      items: processedItems,
+      totalAmount,
       hasVariance,
       paymentHoldFlag: hasVariance,
-      varianceReason: hasVariance ? `Variance detected: Ordered ${ord} ${unit}, but received ${rec} ${unit}. Payment auto-held for Accountant verification.` : '',
+      varianceReason: hasVariance ? `Variance detected: ${varianceDetails.join('; ')}. Payment auto-held for Accountant verification.` : '',
       receivedBy: req.user._id,
       supervisorSignatureUrl: supervisorSignatureUrl || '',
       status: hasVariance ? 'flagged_variance' : 'verified',
     });
 
-    // Update site stock
-    let targetStock = await SiteStock.findOne({ site, itemName });
-    if (targetStock) {
-      targetStock.quantity += rec;
-      await targetStock.save();
-    } else {
-      await SiteStock.create({
-        site,
-        isCentralWarehouse: false,
-        itemName,
-        category: 'Cement',
-        quantity: rec,
-        unit: unit || 'bags',
-        unitPrice: Number(unitPrice || 0),
-        lastRestocked: new Date(),
-        updatedBy: req.user._id,
-      });
+    // Update site stock for each item in the GRN
+    for (const item of processedItems) {
+      if (item.receivedQty > 0) {
+        let targetStock = await SiteStock.findOne({ site, itemName: item.itemName });
+        if (targetStock) {
+          targetStock.quantity += item.receivedQty;
+          await targetStock.save();
+        } else {
+          await SiteStock.create({
+            site,
+            isCentralWarehouse: !site,
+            itemName: item.itemName,
+            category: item.category || 'General',
+            quantity: item.receivedQty,
+            unit: item.unit || 'units',
+            unitPrice: item.unitPrice,
+            lastRestocked: new Date(),
+            updatedBy: req.user._id,
+          });
+        }
+      }
     }
 
     res.json({ success: true, grn });
@@ -203,6 +259,55 @@ exports.getGRNs = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json({ success: true, grns });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Resolve GRN Payment Hold / Variance Flag
+exports.resolveGRN = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { resolutionNotes } = req.body;
+
+    const grn = await GRN.findById(id);
+    if (!grn) {
+      return res.status(404).json({ success: false, message: 'GRN record not found' });
+    }
+
+    grn.hasVariance = false;
+    grn.paymentHoldFlag = false;
+    grn.status = 'resolved';
+    grn.varianceReason = resolutionNotes ? `Resolved by Audit: ${resolutionNotes}` : 'Variance audit completed & Payment Hold released by Accountant.';
+    
+    if (Array.isArray(grn.items)) {
+      grn.items = grn.items.map(item => ({ ...item, hasVariance: false }));
+    }
+
+    await grn.save();
+
+    res.json({ success: true, message: 'GRN Payment Hold released & resolved successfully', grn });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Update Transfer Status (e.g. In Transit -> Received at Site)
+exports.updateTransferStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'received' or 'in_transit'
+
+    const transfer = await MaterialTransfer.findById(id);
+    if (!transfer) {
+      return res.status(404).json({ success: false, message: 'Transfer not found' });
+    }
+
+    transfer.status = status || 'received';
+    transfer.receivedAt = new Date();
+    await transfer.save();
+
+    res.json({ success: true, message: `Material Transfer status updated to ${transfer.status}`, transfer });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -17,12 +17,8 @@ const {
 const POPULATE = [
   { path: 'client', select: 'name email avatar phone' },
   { path: 'projectManager', select: 'name email avatar' },
-  { path: 'assignedEmployees', select: 'name email avatar' },
-  { path: 'branch', select: 'name' },
-  { path: 'invoice', select: 'invoiceNo total totalPaid totalAdvances remainingBalance status dueDate payments currency' },
-  { path: 'linkedInvoices', select: 'invoiceNo total totalPaid remainingBalance status dueDate currency' },
-  { path: 'tasks.assignedTo', select: 'name email avatar' },
-  { path: 'notes.createdBy', select: 'name' },
+  { path: 'siteSupervisor', select: 'name email avatar' },
+  { path: 'handoverSnagList.assignedTo', select: 'name email avatar' },
 ];
 
 // ── GET all projects ──────────────────────────────────────────────────────────
@@ -33,21 +29,17 @@ exports.getProjects = async (req, res, next) => {
     if (status) query.status = status;
     if (branch) query.branch = branch;
 
-    if (req.user.role === 'client') query.client = req.user._id;
-    else if (client) query.client = client;
-    if (['developer', 'designer', 'marketing'].includes(req.user.role)) query.assignedEmployees = req.user._id;
-
-    // Auto-mark overdue
-    const now = new Date();
-    await Project.updateMany(
-      { status: 'active', deadline: { $lt: now } },
-      { status: 'overdue' }
-    );
+    const userRole = (req.user?.role || '').toLowerCase();
+    if (userRole === 'client' && req.user?._id) {
+      query.client = req.user._id;
+    } else if (client) {
+      query.client = client;
+    }
 
     const projects = await Project.find(query)
       .populate('client', 'name email avatar')
-      .populate('branch', 'name')
-      .populate('invoice', 'invoiceNo total totalPaid remainingBalance status')
+      .populate('projectManager', 'name email avatar')
+      .populate('siteSupervisor', 'name email avatar')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, count: projects.length, projects });

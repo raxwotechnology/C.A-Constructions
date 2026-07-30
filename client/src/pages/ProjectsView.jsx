@@ -1,93 +1,111 @@
 import React, { useState } from 'react';
-import { Building2, Layers, DollarSign, Image, AlertCircle, Plus, CheckCircle } from 'lucide-react';
+import { Layers, Calendar, CheckSquare, Camera, FileCheck, Plus, X } from 'lucide-react';
 import { PROJECT_SERVICE_TYPES } from '../config/categories';
+import toast from 'react-hot-toast';
 
 export default function ProjectsView() {
-  const [selectedSubTab, setSelectedSubTab] = useState('boq');
+  const [activeTab, setActiveTab] = useState('boq');
+  const [showProjectModal, setShowProjectModal] = useState(false);
+
+  const [projectForm, setProjectForm] = useState({
+    title: '',
+    serviceType: 'Residential Construction',
+    contractValue: '',
+    location: '',
+  });
 
   const boqItems = [
-    { code: '1.1', bill: 'Bill 01 - Earthwork & Excavation', desc: 'Site clearance and top soil excavation up to 150mm depth', unit: 'm2', qty: 450, rate: 850, amount: 382500, actualQty: 420, actualCost: 357000 },
-    { code: '1.2', bill: 'Bill 01 - Earthwork & Excavation', desc: 'Excavation for column footings in ordinary soil exceeding 1.5m depth', unit: 'm3', qty: 180, rate: 3200, amount: 576000, actualQty: 185, actualCost: 592000 },
-    { code: '2.1', bill: 'Bill 02 - Concrete Work', desc: 'Grade 30 reinforced concrete in column footings (SLS 573)', unit: 'm3', qty: 65, rate: 48500, amount: 3152500, actualQty: 65, actualCost: 3217500 },
-    { code: '2.2', bill: 'Bill 02 - Concrete Work', desc: 'High yield deformed steel bar reinforcement (Tor Steel 16mm)', unit: 'Tons', qty: 8.5, rate: 340000, amount: 2890000, actualQty: 8.2, actualCost: 2788000 },
+    { code: 'DIV-03-01', division: 'Earthworks & Excavation', item: 'Site clearing, topsoil stripping & foundation trench excavation', unit: 'm3', qty: 450, rate: 3500, amount: 1575000 },
+    { code: 'DIV-04-02', division: 'Concrete & Formwork', item: 'Grade 30 ReadyMix Concrete for Columns & Beams including shuttering', unit: 'm3', qty: 180, rate: 48000, amount: 8640000 },
+    { code: 'DIV-05-01', division: 'Reinforcement Steel', item: 'High yield Tor Steel (12mm & 16mm TMT) cut, bend & place', unit: 'kg', qty: 12500, rate: 340, amount: 4250000 },
   ];
 
-  const snagList = [
-    { id: 1, item: 'Micro-crack on east balcony plastering', location: 'Floor 02 Balcony', severity: 'Low', status: 'Pending' },
-    { id: 2, item: 'DB box wiring label verification missing', location: 'Main Entrance Panel', severity: 'Medium', status: 'In Progress' },
-  ];
+  const handleCreateProject = (e) => {
+    e.preventDefault();
+    if (!projectForm.title.trim()) {
+      toast.error('Please enter project title!');
+      return;
+    }
+    toast.success(`Project "${projectForm.title}" registered successfully!`);
+    setShowProjectModal(false);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6 space-y-6">
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-6 space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            Project & SLS 573 BOQ Management
+          <h1 className="text-2xl font-bold text-slate-900">
+            Project Management & SLS 573 Standard BOQ
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Standard SLS 573 Bill of Quantities, Budget vs Actual Tracker & Handover Snag Lists
+          <p className="text-sm text-slate-500 mt-1">
+            BOQ Measurement, Timeline Gantt Chart, Task Assignment & Snag List
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg transition-all text-sm">
+        <button 
+          onClick={() => setShowProjectModal(true)}
+          className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all text-sm cursor-pointer"
+        >
           <Plus size={18} />
           Create New Project
         </button>
       </div>
 
-      {/* View Sub-Tabs */}
-      <div className="flex border-b border-slate-700/60 gap-4 text-sm font-medium">
-        {['boq', 'budget', 'gallery', 'snag'].map((t) => (
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200 gap-4 text-sm font-medium">
+        {['boq', 'timeline', 'snag'].map((t) => (
           <button
             key={t}
-            onClick={() => setSelectedSubTab(t)}
+            onClick={() => setActiveTab(t)}
             className={`pb-3 px-2 border-b-2 capitalize transition-colors ${
-              selectedSubTab === t
-                ? 'border-cyan-400 text-cyan-400 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+              activeTab === t
+                ? 'border-orange-600 text-orange-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             {t === 'boq' && 'SLS 573 BOQ Breakdown'}
-            {t === 'budget' && 'Budget vs Actual Cost Tracker'}
-            {t === 'gallery' && 'Site Photo Gallery'}
-            {t === 'snag' && 'Handover Snag List'}
+            {t === 'timeline' && 'Milestone Timeline (Gantt)'}
+            {t === 'snag' && 'Snag List & Quality Inspection'}
           </button>
         ))}
       </div>
 
-      {/* SLS 573 BOQ Breakdown Table */}
-      {selectedSubTab === 'boq' && (
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-100">Bill of Quantities (SLS 573 Standard)</h2>
-            <span className="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-300">Project: Lotus Luxury Villa (PRJ-2026-001)</span>
+      {/* BOQ View */}
+      {activeTab === 'boq' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <Layers size={20} className="text-orange-600" />
+              SLS 573 Standard Bill of Quantities (BOQ)
+            </h2>
+            <span className="text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+              Total BOQ Value: LKR 14,465,000.00
+            </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/60 text-slate-400 uppercase text-xs">
-                <tr>
-                  <th className="p-3">Item</th>
-                  <th className="p-3">Bill Section</th>
-                  <th className="p-3">Description</th>
-                  <th className="p-3">Unit</th>
-                  <th className="p-3">Est. Qty</th>
-                  <th className="p-3">Unit Rate (LKR)</th>
-                  <th className="p-3">Total Est. (LKR)</th>
-                  <th className="p-3">Actual Cost (LKR)</th>
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase">
+                  <th className="py-3 px-2">Code</th>
+                  <th className="py-3 px-2">SLS 573 Division</th>
+                  <th className="py-3 px-2">Description</th>
+                  <th className="py-3 px-2">Unit</th>
+                  <th className="py-3 px-2 text-right">Quantity</th>
+                  <th className="py-3 px-2 text-right">Unit Rate (LKR)</th>
+                  <th className="py-3 px-2 text-right">Total Amount (LKR)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/40">
+              <tbody className="divide-y divide-slate-100">
                 {boqItems.map((item) => (
-                  <tr key={item.code} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="p-3 font-mono text-cyan-400 font-bold">{item.code}</td>
-                    <td className="p-3 text-xs text-slate-400">{item.bill}</td>
-                    <td className="p-3 text-slate-200">{item.desc}</td>
-                    <td className="p-3 text-xs font-semibold">{item.unit}</td>
-                    <td className="p-3 font-mono">{item.qty}</td>
-                    <td className="p-3 font-mono">{item.rate.toLocaleString()}</td>
-                    <td className="p-3 font-mono text-cyan-400 font-semibold">{item.amount.toLocaleString()}</td>
-                    <td className="p-3 font-mono text-emerald-400">{item.actualCost.toLocaleString()}</td>
+                  <tr key={item.code} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-2 font-mono text-xs font-bold text-orange-600">{item.code}</td>
+                    <td className="py-3 px-2 text-xs font-semibold text-slate-700">{item.division}</td>
+                    <td className="py-3 px-2 text-xs text-slate-600 max-w-xs">{item.item}</td>
+                    <td className="py-3 px-2 text-xs text-slate-500">{item.unit}</td>
+                    <td className="py-3 px-2 text-xs text-right font-medium text-slate-700">{item.qty.toLocaleString()}</td>
+                    <td className="py-3 px-2 text-xs text-right font-medium text-slate-700">{item.rate.toLocaleString()}</td>
+                    <td className="py-3 px-2 text-xs text-right font-bold text-slate-900">{item.amount.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -96,36 +114,66 @@ export default function ProjectsView() {
         </div>
       )}
 
-      {/* Handover Snag List */}
-      {selectedSubTab === 'snag' && (
-        <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
-            <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-              <AlertCircle size={20} className="text-amber-400" />
-              Handover Defect & Snag List
-            </h2>
-            <button className="text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-3 py-1.5 rounded-lg">
-              Add Snag Item
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {snagList.map((snag) => (
-              <div key={snag.id} className="bg-slate-900/60 border border-slate-700 p-4 rounded-xl flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-slate-200">{snag.item}</div>
-                  <div className="text-xs text-slate-400 mt-1">Location: {snag.location}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-950/60 text-amber-400 border border-amber-800">
-                    {snag.severity}
-                  </span>
-                  <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-800 text-slate-300">
-                    {snag.status}
-                  </span>
-                </div>
+      {/* Project Modal */}
+      {showProjectModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">Create New Project</h3>
+              <button onClick={() => setShowProjectModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateProject} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Project Name / Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Luxury Residence - Nugegoda"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  value={projectForm.title}
+                  onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
+                />
               </div>
-            ))}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Service Category</label>
+                <select
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                  value={projectForm.serviceType}
+                  onChange={(e) => setProjectForm({ ...projectForm, serviceType: e.target.value })}
+                >
+                  {PROJECT_SERVICE_TYPES.map((s) => (
+                    <option key={s.id} value={s.labelEn}>{s.labelEn} ({s.labelSi})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Estimated Budget / Contract Value (LKR)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 45000000"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                  value={projectForm.contractValue}
+                  onChange={(e) => setProjectForm({ ...projectForm, contractValue: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowProjectModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold shadow-sm"
+                >
+                  Save Project
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

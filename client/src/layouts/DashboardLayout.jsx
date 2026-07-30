@@ -10,123 +10,167 @@ import { resolveNotificationLink } from '../lib/notificationLink'
 import {
   FiHome, FiUsers, FiCalendar, FiDollarSign, FiFileText, FiBriefcase,
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
-  FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
+  FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown, FiChevronRight,
   FiDownload, FiSearch,
   FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey, FiMail, FiVideo
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
 const adminNav = [
-  { group: 'Enterprise Management (A-Z)', items: [
-    { to: '/admin/enterprise-dashboard', label: 'Executive Dashboard', icon: FiHome },
-    { to: '/admin/crm-leads', label: 'CRM & SBD-03 Contracts', icon: FiUsers },
-    { to: '/admin/boq-projects', label: 'SLS 573 BOQ & Projects', icon: FiFolder },
-    { to: '/admin/daily-diary', label: 'Daily Site Report (DSR)', icon: FiClipboard },
-    { to: '/admin/finance-ledger', label: 'Double-Entry Finance & VAT', icon: FiDollarSign },
-    { to: '/admin/payroll-hr', label: 'Sri Lanka Payroll (EPF/ETF)', icon: FiCreditCard },
-    { to: '/admin/assets-fleet', label: 'Heavy Plant & Vehicles', icon: FiServer },
-    { to: '/admin/approval-system', label: 'Central Approval Deck', icon: FiShield },
-    { to: '/admin/document-manager', label: 'CAD & Legal Documents', icon: FiBook },
-    { to: '/admin/reports-export', label: '1-Click Reports Export', icon: FiDownload },
-  ]},
-  { group: 'Overview', items: [
-    { to: '/admin', label: '10-Sec Pulse Dashboard', icon: FiHome, exact: true },
-    { to: '/admin/analytics', label: 'Analytics & Pulse', icon: FiBarChart2 },
-    { to: '/admin/ai-analyzer', label: 'Forensic AI Analyzer', icon: FiZap },
-  ]},
-  { group: 'Site Management', items: [
-    { to: '/admin/projects', label: 'Construction Sites', icon: FiFolder },
-    { to: '/admin/work-logs', label: 'Task Panel & Work Logs', icon: FiCheckSquare },
-    { to: '/admin/inventory', label: 'Warehouse & Site Stock', icon: FiLayers },
-    { to: '/admin/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
-    { to: '/admin/quotations', label: 'SLS 573 Auto BOQ', icon: FiQuote },
-    { to: '/admin/invoices', label: 'Site Invoices & Billing', icon: FiCreditCard },
-  ]},
-  { group: 'Human Resources & Field', items: [
-    { to: '/admin/employees', label: 'Site Engineers & Workers', icon: FiUsers },
-    { to: '/admin/attendance', label: 'GPS Photo Attendance', icon: FiClipboard },
-    { to: '/admin/leaves', label: 'Leave Requests', icon: FiCalendar },
-    { to: '/admin/payroll', label: '3-Min Automated Payroll', icon: FiDollarSign },
-    { to: '/admin/epf', label: 'EPF / ETF', icon: FiTrendingUp },
-    { to: '/admin/advances', label: 'Advances & Receipts', icon: FiCreditCard },
-  ]},
-  { group: 'Finance & Leak Audits', items: [
-    { to: '/admin/financial', label: 'Site Profitability & Expenses', icon: FiDollarSign },
-    { to: '/admin/financial-reports', label: 'Capital Health Reports', icon: FiPieChart },
-    { to: '/admin/finance-entries', label: 'Site Income & Expenses', icon: FiClipboard },
-    { to: '/admin/petty-cash', label: 'Site Petty Cash', icon: FiCreditCard },
-    { to: '/admin/cheques', label: 'Cheque Section', icon: FiTarget },
-    { to: '/admin/bank-management', label: 'Bank Management', icon: FiBarChart2 },
-  ]},
-  { group: 'System & Branding', items: [
-    { to: '/admin/log-centre', label: 'Log Centre', icon: FiShield },
-    { to: '/admin/meetings', label: 'Site Meetings', icon: FiVideo },
-    { to: '/admin/requests', label: 'Requests', icon: FiClipboard },
-    { to: '/admin/settings', label: 'White-Label Branding', icon: FiSettings },
-  ]},
+  {
+    group: 'Overview & Analytics',
+    items: [
+      { to: '/admin', label: 'Executive Pulse Dashboard', icon: FiHome, exact: true },
+      { to: '/admin/enterprise-dashboard', label: 'Executive KPI Dashboard', icon: FiPieChart },
+      { to: '/admin/analytics', label: 'Analytics & Trends', icon: FiBarChart2 },
+      { to: '/admin/ai-analyzer', label: 'Forensic AI Analyzer', icon: FiZap },
+    ]
+  },
+  {
+    group: 'Construction & Site Operations',
+    items: [
+      { to: '/admin/projects', label: 'Construction Sites & Projects', icon: FiFolder },
+      { to: '/admin/boq-projects', label: 'SLS 573 BOQ Breakdown', icon: FiLayers },
+      { to: '/admin/daily-diary', label: 'Daily Site Report (DSR)', icon: FiClipboard },
+      { to: '/admin/work-logs', label: 'Task Board & Work Logs', icon: FiCheckSquare },
+      { to: '/admin/inventory', label: 'Warehouse & Site Stock', icon: FiLayers },
+      { to: '/admin/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
+      { to: '/admin/quotations', label: 'BOQ Quotations Generator', icon: FiQuote },
+      { to: '/admin/invoices', label: 'Site Invoices & Billing', icon: FiCreditCard },
+    ]
+  },
+  {
+    group: 'Human Resources & Payroll',
+    items: [
+      { to: '/admin/employees', label: 'Engineers & Labour Profiles', icon: FiUsers },
+      { to: '/admin/payroll-hr', label: 'Sri Lanka Statutory Payroll', icon: FiDollarSign },
+      { to: '/admin/attendance', label: 'GPS Photo Attendance', icon: FiClipboard },
+      { to: '/admin/leaves', label: 'Leave Requests', icon: FiCalendar },
+      { to: '/admin/payroll', label: 'Automated Payroll Engine', icon: FiCreditCard },
+      { to: '/admin/epf', label: 'EPF (8%/12%) & ETF (3%)', icon: FiTrendingUp },
+      { to: '/admin/advances', label: 'Advances & Receipts', icon: FiDollarSign },
+    ]
+  },
+  {
+    group: 'Finance & Accounts',
+    items: [
+      { to: '/admin/finance-ledger', label: 'Double-Entry Finance & VAT', icon: FiDollarSign },
+      { to: '/admin/finance-entries', label: 'Income & Expense Entries', icon: FiClipboard },
+      { to: '/admin/financial', label: 'Site Profitability & Expenses', icon: FiPieChart },
+      { to: '/admin/financial-reports', label: 'Financial Statements (P&L)', icon: FiBarChart2 },
+      { to: '/admin/petty-cash', label: 'Site Petty Cash', icon: FiCreditCard },
+      { to: '/admin/cheques', label: 'Cheque Realization', icon: FiTarget },
+      { to: '/admin/bank-management', label: 'Bank Accounts Management', icon: FiBarChart2 },
+    ]
+  },
+  {
+    group: 'Machinery & Equipment',
+    items: [
+      { to: '/admin/assets-fleet', label: 'Heavy Plant & Vehicles', icon: FiServer },
+    ]
+  },
+  {
+    group: 'Approvals & Documents',
+    items: [
+      { to: '/admin/approval-system', label: 'Central Approval Deck', icon: FiShield },
+      { to: '/admin/document-manager', label: 'CAD Drawings & Documents', icon: FiBook },
+      { to: '/admin/reports-export', label: '1-Click Reports Export', icon: FiDownload },
+    ]
+  },
+  {
+    group: 'CRM & System Settings',
+    items: [
+      { to: '/admin/crm-leads', label: 'CRM & Customer Leads', icon: FiUsers },
+      { to: '/admin/log-centre', label: 'System Audit Logs', icon: FiShield },
+      { to: '/admin/meetings', label: 'Site Meetings', icon: FiVideo },
+      { to: '/admin/requests', label: 'System Requests', icon: FiClipboard },
+      { to: '/admin/settings', label: 'Company Settings', icon: FiSettings },
+    ]
+  }
 ]
 
 const pmNav = [
-  { group: 'PM Control Deck', items: [
-    { to: '/manager', label: 'PM Dashboard', icon: FiHome, exact: true },
-    { to: '/manager/projects', label: 'Active Sites', icon: FiFolder },
-    { to: '/manager/work-logs', label: 'Task Panel & Assignments', icon: FiCheckSquare },
-    { to: '/manager/quotations', label: 'Auto BOQ Generator', icon: FiQuote },
-    { to: '/manager/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
-    { to: '/manager/daily-diary', label: '12-Section Daily Diary', icon: FiClipboard },
-    { to: '/manager/attendance', label: 'Attendance & Conflicts', icon: FiClipboard },
-    { to: '/manager/inventory', label: 'Site Material Stock', icon: FiLayers },
-  ]},
+  {
+    group: 'PM Operations',
+    items: [
+      { to: '/manager', label: 'PM Dashboard', icon: FiHome, exact: true },
+      { to: '/manager/projects', label: 'Active Sites', icon: FiFolder },
+      { to: '/manager/work-logs', label: 'Task Assignments', icon: FiCheckSquare },
+      { to: '/manager/quotations', label: 'Auto BOQ Generator', icon: FiQuote },
+      { to: '/manager/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
+      { to: '/manager/daily-diary', label: 'Daily Site Report (DSR)', icon: FiClipboard },
+      { to: '/manager/attendance', label: 'Attendance & Conflicts', icon: FiClipboard },
+      { to: '/manager/inventory', label: 'Site Material Stock', icon: FiLayers },
+    ]
+  }
 ]
 
 const supervisorNav = [
-  { group: 'Supervisor Action Deck', items: [
-    { to: '/supervisor', label: 'Action Cards Deck', icon: FiHome, exact: true },
-    { to: '/supervisor/work-logs', label: 'Site Task Board', icon: FiCheckSquare },
-    { to: '/supervisor/attendance', label: 'Photo & GPS Attendance', icon: FiClipboard },
-    { to: '/supervisor/daily-diary', label: 'Interactive Daily Diary', icon: FiBook },
-    { to: '/supervisor/inventory', label: 'Stock & Transfers', icon: FiLayers },
-    { to: '/supervisor/petty-cash', label: 'Site Petty Cash Log', icon: FiCreditCard },
-  ]},
+  {
+    group: 'Supervisor Operations',
+    items: [
+      { to: '/supervisor', label: 'Action Cards Deck', icon: FiHome, exact: true },
+      { to: '/supervisor/work-logs', label: 'Site Task Board', icon: FiCheckSquare },
+      { to: '/supervisor/attendance', label: 'Photo & GPS Attendance', icon: FiClipboard },
+      { to: '/supervisor/daily-diary', label: 'Daily Site Report (DSR)', icon: FiBook },
+      { to: '/supervisor/inventory', label: 'Stock & Transfers', icon: FiLayers },
+      { to: '/supervisor/petty-cash', label: 'Site Petty Cash Log', icon: FiCreditCard },
+    ]
+  }
 ]
 
 const accountantNav = [
-  { group: 'Finance Deck', items: [
-    { to: '/accountant', label: 'Payroll & GRN Deck', icon: FiHome, exact: true },
-    { to: '/accountant/payroll', label: '3-Min Automated Payroll', icon: FiDollarSign },
-    { to: '/accountant/inventory', label: 'GRN Variance Warnings', icon: FiShield },
-    { to: '/accountant/price-index', label: 'Supplier Price Alerts', icon: FiTrendingUp },
-    { to: '/accountant/petty-cash', label: 'Petty Cash Audits', icon: FiCreditCard },
-  ]},
+  {
+    group: 'Finance & Accounts Deck',
+    items: [
+      { to: '/accountant', label: 'Payroll & Finance Deck', icon: FiHome, exact: true },
+      { to: '/accountant/payroll', label: '3-Min Automated Payroll', icon: FiDollarSign },
+      { to: '/accountant/inventory', label: 'GRN Variance Warnings', icon: FiShield },
+      { to: '/accountant/price-index', label: 'Supplier Price Alerts', icon: FiTrendingUp },
+      { to: '/accountant/petty-cash', label: 'Petty Cash Audits', icon: FiCreditCard },
+    ]
+  }
 ]
 
 const workerNav = [
-  { group: 'Worker Portal', items: [
-    { to: '/worker', label: 'My Wage & Heatmap', icon: FiHome, exact: true },
-    { to: '/worker/work-logs', label: 'My Task Panel', icon: FiCheckSquare },
-    { to: '/worker/advances', label: 'Advances & Receipts', icon: FiCreditCard },
-    { to: '/worker/attendance', label: 'My Attendance', icon: FiClipboard },
-  ]},
+  {
+    group: 'Worker Portal',
+    items: [
+      { to: '/worker', label: 'My Wage & Heatmap', icon: FiHome, exact: true },
+      { to: '/worker/work-logs', label: 'My Task Panel', icon: FiCheckSquare },
+      { to: '/worker/advances', label: 'Advances & Receipts', icon: FiCreditCard },
+      { to: '/worker/attendance', label: 'My Attendance', icon: FiClipboard },
+    ]
+  }
 ]
 
 const subcontractorNav = [
-  { group: 'Sub-Contractor Deck', items: [
-    { to: '/subcontractor', label: 'Claim Progress Pipeline', icon: FiHome, exact: true },
-    { to: '/subcontractor/agreements', label: 'SBD-03 Court Agreements', icon: FiShield },
-  ]},
+  {
+    group: 'Sub-Contractor Deck',
+    items: [
+      { to: '/subcontractor', label: 'Claim Progress Pipeline', icon: FiHome, exact: true },
+      { to: '/subcontractor/agreements', label: 'SBD-03 Court Agreements', icon: FiShield },
+    ]
+  }
 ]
 
 const supplierNav = [
-  { group: 'Supplier Deck', items: [
-    { to: '/supplier', label: 'Digital GRN & PO Tracker', icon: FiHome, exact: true },
-  ]},
+  {
+    group: 'Supplier Deck',
+    items: [
+      { to: '/supplier', label: 'Digital GRN & PO Tracker', icon: FiHome, exact: true },
+    ]
+  }
 ]
 
 const clientNav = [
-  { group: 'Client Owner Deck', items: [
-    { to: '/client', label: 'Live Progress Tracker', icon: FiHome, exact: true },
-    { to: '/client/escrow', label: 'Escrow & Variations', icon: FiDollarSign },
-  ]},
+  {
+    group: 'Client Owner Deck',
+    items: [
+      { to: '/client', label: 'Live Progress Tracker', icon: FiHome, exact: true },
+      { to: '/client/escrow', label: 'Escrow & Variations', icon: FiDollarSign },
+    ]
+  }
 ]
 
 const navMap = {
@@ -155,6 +199,27 @@ export default function DashboardLayout({ role }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearchBox, setShowSearchBox] = useState(false)
   const searchBoxRef = useRef(null)
+
+  // Accordion state for collapsible main categories
+  const [openCategories, setOpenCategories] = useState({
+    'Overview & Analytics': true,
+    'Construction & Site Operations': true,
+    'Human Resources & Payroll': true,
+    'Finance & Accounts': true,
+    'Machinery & Equipment': true,
+    'Approvals & Documents': true,
+    'CRM & System Settings': true,
+    'PM Operations': true,
+    'Supervisor Operations': true,
+    'Finance & Accounts Deck': true,
+  })
+
+  const toggleCategory = (groupName) => {
+    setOpenCategories(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }))
+  }
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
@@ -205,97 +270,71 @@ export default function DashboardLayout({ role }) {
     return baseNavGroups
   }, [user, role, baseNavGroups])
 
-  const searchResults = useMemo(() => {
-    if (!searchQuery) return []
-    const q = searchQuery.toLowerCase()
-    const results = []
-    navGroups.forEach(group => {
-      group.items.forEach(item => {
-        if (item.label.toLowerCase().includes(q) || group.group.toLowerCase().includes(q)) {
-          results.push({ ...item, group: group.group })
-        }
-      })
-    })
-    return results.slice(0, 8)
-  }, [searchQuery, navGroups])
-
-
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target)) {
-        // Only close if we didn't click the search toggle button (to prevent double toggle)
-        if (!e.target.closest('.search-toggle-btn')) {
-          setShowSearchBox(false)
-        }
-      }
-    }
-    if (showSearchBox) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showSearchBox])
-
-  // When mobile sidebar opens, scroll the active nav item into view so user sees their selected tab
-  useEffect(() => {
-    if (!sidebarOpen) return
-    // Small delay to let CSS transition start
-    const timer = setTimeout(() => {
-      const activeLink = document.querySelector('.lg\\:hidden aside .sidebar-link.active')
-      if (activeLink) {
-        activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-      }
-    }, 150)
-    return () => clearTimeout(timer)
-  }, [sidebarOpen])
-
   const renderSidebar = () => (
-    <div className="h-full flex flex-col bg-white border-r border-slate-200 overflow-hidden">
+    <div className="h-full flex flex-col bg-white border-r border-slate-200 overflow-hidden text-slate-800">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-200">
+      <div className="p-5 border-b border-slate-200 bg-slate-50/50">
         <div>
           <SiteLogo to="/" variant="light" />
-          <p className="text-slate-400 text-xs capitalize mt-2 pl-1">{user?.role} Portal</p>
+          <p className="text-slate-500 text-xs font-medium capitalize mt-1.5 pl-1">R A Creations | {user?.role} Portal</p>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-6">
-        {navGroups.map(group => (
-          <div key={group.group}>
-            <p className="sidebar-group-label mb-2">{group.group}</p>
-            <div className="space-y-0.5">
-              {group.items.map(item => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.exact}
-                  className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  {({ isActive }) => (
-                    <>
-                      <item.icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
-                      {item.label}
-                    </>
-                  )}
-                </NavLink>
-              ))}
+      {/* Nav with Collapsible Categories */}
+      <nav className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+        {navGroups.map(group => {
+          const isOpen = openCategories[group.group] !== false
+          return (
+            <div key={group.group} className="border-b border-slate-100 pb-2">
+              <button
+                onClick={() => toggleCategory(group.group)}
+                className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                <span>{group.group}</span>
+                {isOpen ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
+              </button>
+
+              {isOpen && (
+                <div className="mt-1 space-y-0.5 pl-1">
+                  {group.items.map(item => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.exact}
+                      className={({ isActive }) => 
+                        `flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl transition-all ${
+                          isActive 
+                            ? 'bg-orange-600 text-white shadow-sm' 
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`
+                      }
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <item.icon size={15} className={isActive ? 'text-white' : 'text-slate-400'} />
+                          <span className="truncate">{item.label}</span>
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </nav>
 
       {/* User */}
-      <div className="p-4 border-t border-slate-200">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
-          <UserAvatar user={user} className="w-9 h-9 rounded-full flex-shrink-0" imgClassName="w-full h-full object-cover" />
+      <div className="p-3 border-t border-slate-200 bg-slate-50/50">
+        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-sm">
+          <UserAvatar user={user} className="w-8 h-8 rounded-full flex-shrink-0" imgClassName="w-full h-full object-cover" />
           <div className="flex-1 min-w-0">
-            <p className="text-slate-800 text-sm font-medium truncate">{user?.name}</p>
-            <p className="text-slate-400 text-xs capitalize truncate">{user?.role}</p>
+            <p className="text-slate-900 text-xs font-bold truncate">{user?.name}</p>
+            <p className="text-slate-500 text-[10px] capitalize truncate">{user?.role}</p>
           </div>
-          <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Logout">
-            <FiLogOut size={16} />
+          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 transition-colors p-1" title="Logout">
+            <FiLogOut size={15} />
           </button>
         </div>
       </div>
@@ -303,29 +342,28 @@ export default function DashboardLayout({ role }) {
   )
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-64 flex-shrink-0 bg-white shadow-card">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">
+      {/* Desktop Widen Sidebar (w-72 / 280px) */}
+      <aside className="hidden lg:block w-72 flex-shrink-0 bg-white border-r border-slate-200 shadow-sm">
         {renderSidebar()}
       </aside>
 
-      {/* Mobile sidebar backdrop - still animated via AnimatePresence */}
+      {/* Mobile sidebar backdrop */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40"
             onClick={() => setSidebarOpen(false)}
           />
         )}
       </AnimatePresence>
 
-      {/* Mobile sidebar - ALWAYS in the DOM so nav scroll position is preserved between opens */}
+      {/* Mobile sidebar */}
       <aside
-        className={`lg:hidden fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 shadow-2xl transition-transform duration-300 ease-in-out will-change-transform ${
+        className={`lg:hidden fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 shadow-2xl transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        aria-hidden={!sidebarOpen}
       >
         {renderSidebar()}
       </aside>
@@ -333,185 +371,33 @@ export default function DashboardLayout({ role }) {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 relative z-10">
         {/* Top bar */}
-        <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between shadow-card flex-shrink-0 relative z-[220]">
-          <button className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-primary" onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs flex-shrink-0 relative z-[220]">
+          <button className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-cyan-600" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <FiMenu size={22} />
           </button>
 
-          <div className="flex-1 px-4 lg:px-8 max-w-xl flex items-center justify-end sm:justify-start">
-            {/* Mobile Search Toggle */}
-            <button 
-              className="search-toggle-btn sm:hidden p-2 text-slate-400 hover:text-primary mr-2"
-              onClick={() => setShowSearchBox(!showSearchBox)}
-            >
-              <FiSearch size={20} />
-            </button>
+          <div className="flex-1 px-4 max-w-xl flex items-center justify-end sm:justify-start">
             <div className="relative hidden sm:block w-full">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Search navigation..." 
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              <input
+                type="text"
+                placeholder="Search projects, BOQ, employees..."
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onFocus={() => setShowSearchBox(true)}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-100 border border-slate-200 text-slate-800 text-xs rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
-            
-            {/* Mobile Search Overlay */}
-            <AnimatePresence>
-              {showSearchBox && (
-                <motion.div
-                  ref={searchBoxRef}
-                  key="mobile-search-overlay"
-                  initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-full left-0 right-0 sm:mt-2 bg-white sm:rounded-xl shadow-2xl border-b sm:border border-slate-100 py-2 z-[300] max-h-[60vh] overflow-y-auto"
-                >
-                  <div className="sm:hidden px-4 pb-2 mb-2 border-b border-slate-100">
-                    <input 
-                      type="text" 
-                      placeholder="Search..." 
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                  {searchQuery && searchResults.length === 0 ? (
-                    <div className="px-4 py-3 text-sm text-slate-500">No matching pages found</div>
-                  ) : searchQuery ? (
-                    searchResults.map((res, i) => (
-                      <NavLink
-                        key={i}
-                        to={res.to}
-                        className="flex items-center gap-3 px-4 py-3 sm:py-2 hover:bg-slate-50"
-                        onClick={() => { setShowSearchBox(false); setSearchQuery(''); }}
-                      >
-                        <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500"><res.icon size={16} sm:size={14} /></div>
-                        <div>
-                          <p className="text-[15px] sm:text-sm font-medium text-slate-700">{res.label}</p>
-                          <p className="text-[11px] sm:text-[10px] text-slate-400 uppercase">{res.group}</p>
-                        </div>
-                      </NavLink>
-                    ))
-                  ) : (
-                    <div className="px-4 py-3 text-sm text-slate-400 sm:hidden">Type to search...</div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Notifications */}
-            <div className="relative z-[230]">
-              <button
-                ref={notifButtonRef}
-                onClick={() => setShowNotif(!showNotif)}
-                className="relative w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 hover:bg-gray-100 flex items-center justify-center transition-colors"
-              >
-                <FiBell size={18} className="text-gray-600" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold border-2 border-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showNotif && (
-                  <>
-                    {/* Mobile Backdrop */}
-                    <motion.div 
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="fixed inset-0 bg-black/40 z-[999] sm:hidden"
-                      onClick={() => setShowNotif(false)}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.96 }}
-                      className="absolute right-0 top-12 w-[calc(100vw-24px)] max-w-[340px] sm:w-80 bg-white rounded-2xl shadow-2xl z-[1000] border border-slate-200 origin-top-right"
-                    >
-                      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
-                        <h3 className="font-semibold text-gray-800 text-base">Notifications</h3>
-                        <span className="badge badge-blue">{unreadCount} new</span>
-                      </div>
-                      <div className="max-h-[65vh] sm:max-h-80 overflow-y-auto custom-scrollbar pb-2">
-                        {notifications.length === 0 ? (
-                          <p className="text-center text-gray-400 text-sm py-12 sm:py-8">No notifications</p>
-                        ) : notifications.slice(0, 8).map(n => (
-                          <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-4 sm:p-3.5 border-b border-slate-50 transition-all flex items-start gap-3 relative group ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-[#20b2f5]/5 hover:bg-[#20b2f5]/10'}`}>
-                            {!n.read && <div className="absolute top-1/2 -translate-y-1/2 left-0 w-1 h-0 group-hover:h-8 transition-all bg-[#20b2f5] rounded-r-md" />}
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${n.read ? 'bg-slate-100 text-slate-400' : 'bg-[#20b2f5]/20 text-[#20b2f5]'}`}>
-                              <FiBell size={16} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[15px] sm:text-sm font-semibold truncate ${n.read ? 'text-slate-600' : 'text-slate-900'}`}>{n.title}</p>
-                              <p className="text-sm sm:text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
-                              <p className="text-[11px] sm:text-[10px] text-slate-400 mt-1.5 font-medium">{new Date(n.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* User profile menu */}
-            <div className="relative z-[240]">
-              <button
-                onClick={() => setShowProfileMenu((s) => !s)}
-                className="h-10 px-2 sm:px-2.5 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center gap-2 text-secondary font-semibold text-sm hover:bg-secondary/15 transition-colors"
-              >
-                <UserAvatar user={user} className="w-7 h-7 rounded-lg bg-white" imgClassName="w-full h-full rounded-lg object-cover" />
-                <span className="hidden sm:inline max-w-[8rem] truncate">{user?.name?.split(' ')[0]}</span>
-                <FiChevronDown size={14} className="hidden sm:block" />
-              </button>
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <>
-                    <motion.div 
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-[260] sm:hidden"
-                      onClick={() => setShowProfileMenu(false)}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      className="absolute right-0 top-12 w-56 sm:w-52 p-2 z-[270] rounded-2xl border border-slate-200 bg-white shadow-2xl origin-top-right"
-                    >
-                      <div className="px-3 py-2 mb-2 border-b border-slate-100 sm:hidden flex justify-between items-start">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-800 truncate">{user?.name}</p>
-                          <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
-                        </div>
-                        <button onClick={() => setShowProfileMenu(false)} className="p-1.5 -mr-1.5 -mt-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg shrink-0">
-                          <FiX size={18} />
-                        </button>
-                      </div>
-                      <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/profile` : user?.role === 'manager' ? '/manager' : '/admin/settings'} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2">
-                        View Profile
-                      </NavLink>
-                      <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/notifications` : user?.role === 'manager' ? '/manager/profile' : '/admin/settings'} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2">
-                        Settings
-                      </NavLink>
-                      <button onClick={handleLogout} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2 text-red-500 hover:text-red-600 hover:bg-red-50">
-                        Logout
-                      </button>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+              R A Creations / R A Constructions
+            </span>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-5 relative z-0">
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-6 custom-scrollbar">
           <Outlet />
         </main>
       </div>

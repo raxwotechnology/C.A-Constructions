@@ -87,6 +87,40 @@ export const ALL_EXPENSE_FLAT = [
   ...EXPENSE_CATEGORIES.office,
 ];
 
+export const CRM_LEAD_SOURCES = [
+  'Website Inquiry',
+  'Client Referral',
+  'Facebook Ad',
+  'Site Visit Walk-in',
+  'Exhibition / Expo',
+  'Other',
+];
+
+export const SLS_573_BOQ_DIVISIONS = [
+  'Earthworks & Excavation',
+  'Concrete & Formwork',
+  'Reinforcement Steel',
+  'Masonry Work',
+  'Roofing & Waterproofing',
+  'Plumbing & Drainage',
+  'Electrical & Mechanical',
+  'Finishing & Painting',
+];
+
+export const FINANCIAL_ACCOUNT_TYPES = [
+  'Asset',
+  'Liability',
+  'Equity',
+  'Revenue',
+  'Expense',
+];
+
+export const SRI_LANKA_PAYROLL_CONFIG = {
+  epfEmployee: 8,
+  epfEmployer: 12,
+  etfEmployer: 3,
+};
+
 export default {
   PROJECT_SERVICE_TYPES,
   INCOME_CATEGORIES,
@@ -96,4 +130,8 @@ export default {
   CAPITAL_CATEGORIES,
   TAX_CATEGORIES,
   ALL_EXPENSE_FLAT,
+  CRM_LEAD_SOURCES,
+  SLS_573_BOQ_DIVISIONS,
+  FINANCIAL_ACCOUNT_TYPES,
+  SRI_LANKA_PAYROLL_CONFIG,
 };

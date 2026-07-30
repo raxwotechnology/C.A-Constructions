@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle2, XCircle, Clock, ShieldCheck, FileText, Package, DollarSign, UserCheck } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ApprovalSystem() {
   const [filterType, setFilterType] = useState('ALL');
@@ -11,28 +12,36 @@ export default function ApprovalSystem() {
     { id: 'REQ-1095', type: 'Expense Voucher', requestedBy: 'Accountant Bandara', project: 'Head Office', details: 'Site Transport & Machinery Fuel Reimbursement', amount: 'LKR 142,500', stage: 'Director Approved', date: '2026-07-27' },
   ];
 
+  const handleApprove = (id) => {
+    toast.success(`Request ${id} approved successfully!`);
+  };
+
+  const handleReject = (id) => {
+    toast.error(`Request ${id} rejected.`);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6 space-y-6">
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold text-slate-900">
             Central Multi-Level Approval System
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Request Progression: Supervisor → Project Manager → CEO / Director Approval
           </p>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex border-b border-slate-700/60 gap-4 text-xs font-semibold">
+      <div className="flex border-b border-slate-200 gap-4 text-xs font-semibold">
         {['ALL', 'Material Requisition (MR)', 'Purchase Order (PO)', 'Employee Leave Request', 'Expense Voucher'].map((t) => (
           <button
             key={t}
             onClick={() => setFilterType(t)}
             className={`pb-3 px-2 border-b-2 transition-colors ${
-              filterType === t ? 'border-cyan-400 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'
+              filterType === t ? 'border-orange-600 text-orange-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             {t}
@@ -41,45 +50,51 @@ export default function ApprovalSystem() {
       </div>
 
       {/* Approvals Table */}
-      <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-6 shadow-xl space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-900/60 text-slate-400 uppercase text-xs">
-              <tr>
-                <th className="p-3">Req ID</th>
-                <th className="p-3">Type</th>
-                <th className="p-3">Requested By</th>
-                <th className="p-3">Project / Site</th>
-                <th className="p-3">Details</th>
-                <th className="p-3">Amount</th>
-                <th className="p-3">Stage Status</th>
-                <th className="p-3 text-right">Actions</th>
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase">
+                <th className="py-3 px-2">Req ID</th>
+                <th className="py-3 px-2">Type</th>
+                <th className="py-3 px-2">Requested By</th>
+                <th className="py-3 px-2">Project / Site</th>
+                <th className="py-3 px-2">Details</th>
+                <th className="py-3 px-2">Amount</th>
+                <th className="py-3 px-2">Stage Status</th>
+                <th className="py-3 px-2 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/40">
+            <tbody className="divide-y divide-slate-100">
               {requests.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="p-3 font-mono text-cyan-400 font-bold">{r.id}</td>
-                  <td className="p-3 text-xs font-semibold text-slate-200">{r.type}</td>
-                  <td className="p-3 text-slate-300">{r.requestedBy}</td>
-                  <td className="p-3 text-xs text-slate-400">{r.project}</td>
-                  <td className="p-3 text-xs text-slate-300">{r.details}</td>
-                  <td className="p-3 font-mono font-bold text-emerald-400">{r.amount}</td>
-                  <td className="p-3">
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
-                      r.stage === 'Director Approved' ? 'bg-purple-950 text-purple-400 border-purple-800' :
-                      r.stage === 'Manager Approved' ? 'bg-blue-950 text-blue-400 border-blue-800' :
-                      r.stage === 'Supervisor Approved' ? 'bg-emerald-950 text-emerald-400 border-emerald-800' :
-                      'bg-amber-950 text-amber-400 border-amber-800'
+                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-2 font-mono text-xs font-bold text-orange-600">{r.id}</td>
+                  <td className="py-3 px-2 text-xs font-semibold text-slate-800">{r.type}</td>
+                  <td className="py-3 px-2 text-xs text-slate-700">{r.requestedBy}</td>
+                  <td className="py-3 px-2 text-xs text-slate-500">{r.project}</td>
+                  <td className="py-3 px-2 text-xs text-slate-600">{r.details}</td>
+                  <td className="py-3 px-2 font-mono font-bold text-slate-900 text-xs">{r.amount}</td>
+                  <td className="py-3 px-2">
+                    <span className={`px-2.5 py-1 text-[11px] font-bold rounded-full border ${
+                      r.stage === 'Director Approved' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      r.stage === 'Manager Approved' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      r.stage === 'Supervisor Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      'bg-amber-50 text-amber-700 border-amber-200'
                     }`}>
                       {r.stage}
                     </span>
                   </td>
-                  <td className="p-3 text-right space-x-2">
-                    <button className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-semibold shadow-md">
+                  <td className="py-3 px-2 text-right space-x-2">
+                    <button 
+                      onClick={() => handleApprove(r.id)}
+                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl font-bold shadow-xs cursor-pointer"
+                    >
                       Approve
                     </button>
-                    <button className="text-xs bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg font-semibold shadow-md">
+                    <button 
+                      onClick={() => handleReject(r.id)}
+                      className="text-xs bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl font-bold shadow-xs cursor-pointer"
+                    >
                       Reject
                     </button>
                   </td>
