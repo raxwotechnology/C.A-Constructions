@@ -253,6 +253,7 @@ export default function App() {
         <Route path="crm-leads" element={<CRMView />} />
         <Route path="boq-projects" element={<ProjectsView />} />
         <Route path="site-dsr" element={<SiteManagementView />} />
+        <Route path="daily-diary" element={<SiteManagementView />} />
         <Route path="finance-ledger" element={<FinanceView />} />
         <Route path="payroll-hr" element={<PayrollHRView />} />
         <Route path="assets-fleet" element={<AssetVehicleView />} />
@@ -332,6 +333,7 @@ export default function App() {
         <Route path="petty-cash" element={<AdminPettyCash />} />
         <Route path="advances" element={<AdminAdvances />} />
         <Route path="requests" element={<AdminRequests />} />
+        <Route path="daily-diary" element={<SiteManagementView />} />
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="tasks" element={<WorkLogs />} />
         <Route path="meetings" element={<Meetings />} />
@@ -340,6 +342,7 @@ export default function App() {
       {/* Supervisor Portal */}
       <Route path="/supervisor" element={<ProtectedRoute roles={['supervisor', 'admin']}><DashboardLayout role="supervisor" /></ProtectedRoute>}>
         <Route index element={<SupervisorActionDeck />} />
+        <Route path="daily-diary" element={<SiteManagementView />} />
         <Route path="attendance" element={<AdminAttendance />} />
         <Route path="inventory" element={<SiteInventory />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />

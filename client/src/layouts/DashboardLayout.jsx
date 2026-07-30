@@ -17,6 +17,18 @@ import {
 import toast from 'react-hot-toast'
 
 const adminNav = [
+  { group: 'Enterprise Management (A-Z)', items: [
+    { to: '/admin/enterprise-dashboard', label: 'Executive Dashboard', icon: FiHome },
+    { to: '/admin/crm-leads', label: 'CRM & SBD-03 Contracts', icon: FiUsers },
+    { to: '/admin/boq-projects', label: 'SLS 573 BOQ & Projects', icon: FiFolder },
+    { to: '/admin/daily-diary', label: 'Daily Site Report (DSR)', icon: FiClipboard },
+    { to: '/admin/finance-ledger', label: 'Double-Entry Finance & VAT', icon: FiDollarSign },
+    { to: '/admin/payroll-hr', label: 'Sri Lanka Payroll (EPF/ETF)', icon: FiCreditCard },
+    { to: '/admin/assets-fleet', label: 'Heavy Plant & Vehicles', icon: FiServer },
+    { to: '/admin/approval-system', label: 'Central Approval Deck', icon: FiShield },
+    { to: '/admin/document-manager', label: 'CAD & Legal Documents', icon: FiBook },
+    { to: '/admin/reports-export', label: '1-Click Reports Export', icon: FiDownload },
+  ]},
   { group: 'Overview', items: [
     { to: '/admin', label: '10-Sec Pulse Dashboard', icon: FiHome, exact: true },
     { to: '/admin/analytics', label: 'Analytics & Pulse', icon: FiBarChart2 },
@@ -26,7 +38,6 @@ const adminNav = [
     { to: '/admin/projects', label: 'Construction Sites', icon: FiFolder },
     { to: '/admin/work-logs', label: 'Task Panel & Work Logs', icon: FiCheckSquare },
     { to: '/admin/inventory', label: 'Warehouse & Site Stock', icon: FiLayers },
-    { to: '/admin/daily-diary', label: '12-Section Daily Diary', icon: FiClipboard },
     { to: '/admin/agreements', label: 'SBD-03 Legal Contracts', icon: FiShield },
     { to: '/admin/quotations', label: 'SLS 573 Auto BOQ', icon: FiQuote },
     { to: '/admin/invoices', label: 'Site Invoices & Billing', icon: FiCreditCard },
