@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const DailyWageLog = require('../models/DailyWageLog');
 const Project = require('../models/Project');
 const Advance = require('../models/Advance');
@@ -33,10 +34,12 @@ exports.createDailyWageLog = async (req, res, next) => {
       notes,
     } = req.body;
 
-    if (!workerName || !project) {
+    const isValidId = (v) => v && mongoose.Types.ObjectId.isValid(v) && String(new mongoose.Types.ObjectId(v)) === String(v);
+
+    if (!workerName || !project || !isValidId(project)) {
       return res.status(400).json({
         success: false,
-        message: 'Worker name and project site are required.',
+        message: 'Worker name and a valid project site are required.',
       });
     }
 
@@ -45,7 +48,7 @@ exports.createDailyWageLog = async (req, res, next) => {
     const newLog = new DailyWageLog({
       logCode,
       workerName,
-      employee: employee || null,
+      employee: isValidId(employee) ? employee : null,
       project,
       date: date || new Date(),
       workType: workType || 'Daily Wage',
@@ -60,7 +63,7 @@ exports.createDailyWageLog = async (req, res, next) => {
         nightOutstation: Number(allowances?.nightOutstation) || 0,
       },
       advanceDeductions: Number(advanceDeductions) || 0,
-      linkedAdvance: linkedAdvance || null,
+      linkedAdvance: isValidId(linkedAdvance) ? linkedAdvance : null,
       subContractDetails: {
         workCategory: subContractDetails?.workCategory || 'Tiling',
         measuredSqft: Number(subContractDetails?.measuredSqft) || 0,
@@ -69,7 +72,7 @@ exports.createDailyWageLog = async (req, res, next) => {
       },
       mealExpenseAutoLogged: Boolean(mealExpenseAutoLogged),
       notes: notes || '',
-      createdBy: req.user?._id || req.user?.id,
+      createdBy: isValidId(req.user?._id || req.user?.id) ? (req.user?._id || req.user?.id) : null,
     });
 
     await newLog.save();
@@ -105,7 +108,7 @@ exports.createDailyWageLog = async (req, res, next) => {
         payeeOrPayer: newLog.workerName,
         description: `Daily Worker Meals & Refreshments Allowance (${newLog.logCode})`,
         status: 'Approved',
-        createdBy: req.user?._id || req.user?.id,
+        createdBy: isValidId(req.user?._id || req.user?.id) ? (req.user?._id || req.user?.id) : null,
       });
       await financeEntry.save();
       newLog.financeEntryRef = financeEntry._id;

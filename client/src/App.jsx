@@ -334,6 +334,7 @@ export default function App() {
         <Route path="agreements" element={<Agreements />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
         <Route path="advances" element={<AdminAdvances />} />
+        <Route path="daily-wages" element={<DailyWageSubContractView />} />
         <Route path="requests" element={<AdminRequests />} />
         <Route path="daily-diary" element={<SiteManagementView />} />
         <Route path="work-logs" element={<WorkLogs />} />
@@ -345,20 +346,24 @@ export default function App() {
       <Route path="/supervisor" element={<ProtectedRoute roles={['supervisor', 'admin']}><DashboardLayout role="supervisor" /></ProtectedRoute>}>
         <Route index element={<SupervisorActionDeck />} />
         <Route path="daily-diary" element={<SiteManagementView />} />
+        <Route path="daily-wages" element={<DailyWageSubContractView />} />
         <Route path="attendance" element={<AdminAttendance />} />
         <Route path="inventory" element={<SiteInventory />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="tasks" element={<WorkLogs />} />
+        <Route path="settings" element={<AdminSettings />} />
       </Route>
 
       {/* Accountant Portal */}
       <Route path="/accountant" element={<ProtectedRoute roles={['accountant', 'admin']}><DashboardLayout role="accountant" /></ProtectedRoute>}>
         <Route index element={<AccountantDashboard />} />
         <Route path="payroll" element={<AdminPayroll />} />
+        <Route path="daily-wages" element={<DailyWageSubContractView />} />
         <Route path="inventory" element={<SiteInventory />} />
         <Route path="price-index" element={<AccountantDashboard />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
+        <Route path="settings" element={<AdminSettings />} />
       </Route>
 
       {/* Worker Portal */}
@@ -368,12 +373,14 @@ export default function App() {
         <Route path="attendance" element={<DeveloperAttendance />} />
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="tasks" element={<WorkLogs />} />
+        <Route path="daily-wages" element={<DailyWageSubContractView />} />
       </Route>
 
       {/* Subcontractor Portal */}
       <Route path="/subcontractor" element={<ProtectedRoute roles={['subcontractor', 'admin']}><DashboardLayout role="subcontractor" /></ProtectedRoute>}>
         <Route index element={<SubcontractorPortal />} />
         <Route path="agreements" element={<Agreements />} />
+        <Route path="daily-wages" element={<DailyWageSubContractView />} />
       </Route>
 
       {/* Supplier Portal */}

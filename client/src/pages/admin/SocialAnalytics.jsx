@@ -96,7 +96,6 @@ export default function SocialAnalytics() {
     queryFn: () => api.get('/platform-assignments/my-platforms').then(r => r.data.platforms),
     enabled: !isAdmin,
   });
-  const myPlatforms = myPlatformsData || [];
 
   const assignMut = useMutation({
     mutationFn: (body) => api.post('/platform-assignments', body),
@@ -109,8 +108,9 @@ export default function SocialAnalytics() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['social-assignments'] }); toast.success('Assignment removed'); },
   });
 
-  const assignments = assignData || [];
-  const employees = empData?.employees || [];
+  const myPlatforms = Array.isArray(myPlatformsData) ? myPlatformsData : [];
+  const assignments = Array.isArray(assignData) ? assignData : [];
+  const employees = Array.isArray(empData?.employees) ? empData.employees : [];
 
   // For non-admin: filter visible platforms
   const visiblePlatforms = isAdmin

@@ -46,7 +46,7 @@ export default function DailyWageSubContractView() {
     queryKey: ['projects-list'],
     queryFn: async () => {
       const res = await api.get('/projects')
-      return res.data?.data || res.data || []
+      return res.data?.projects || res.data?.data || res.data || []
     },
   })
 
@@ -55,9 +55,26 @@ export default function DailyWageSubContractView() {
     queryKey: ['advances-active'],
     queryFn: async () => {
       const res = await api.get('/advances?status=active')
-      return res.data?.data || res.data || []
+      return res.data?.advances || res.data?.data || res.data || []
     },
   })
+
+  // Safe Array Extractors
+  const projectsList = Array.isArray(projectsData?.projects)
+    ? projectsData.projects
+    : Array.isArray(projectsData?.data)
+    ? projectsData.data
+    : Array.isArray(projectsData)
+    ? projectsData
+    : []
+
+  const advancesList = Array.isArray(advancesData?.advances)
+    ? advancesData.advances
+    : Array.isArray(advancesData?.data)
+    ? advancesData.data
+    : Array.isArray(advancesData)
+    ? advancesData
+    : []
 
   // Fetch Daily Wage Logs & Aggregates
   const { data: logsData, isLoading } = useQuery({
@@ -74,7 +91,11 @@ export default function DailyWageSubContractView() {
     },
   })
 
-  const logs = logsData?.data || []
+  const logs = Array.isArray(logsData?.data)
+    ? logsData.data
+    : Array.isArray(logsData)
+    ? logsData
+    : []
   const summary = logsData?.summary || {
     totalNetDailyPay: 0,
     totalSubContractPay: 0,
@@ -155,6 +176,19 @@ export default function DailyWageSubContractView() {
   const computedSubTotalPay = Number(subForm.measuredSqft || 0) * Number(subForm.ratePerSqft || 0)
   const computedSubNetPay = Math.max(0, computedSubTotalPay - Number(subForm.advanceDeductions || 0))
 
+  // Auto-select first project when projects list loads
+  useEffect(() => {
+    if (projectsList && projectsList.length > 0) {
+      const defaultProjId = projectsList[0]._id || projectsList[0].id
+      if (!wageForm.project && defaultProjId) {
+        setWageForm((prev) => ({ ...prev, project: defaultProjId }))
+      }
+      if (!subForm.project && defaultProjId) {
+        setSubForm((prev) => ({ ...prev, project: defaultProjId }))
+      }
+    }
+  }, [projectsList])
+
   // ---------------------------------------------------------
   // MUTATIONS
   // ---------------------------------------------------------
@@ -165,7 +199,11 @@ export default function DailyWageSubContractView() {
     },
     onSuccess: (data) => {
       toast.success(data.message || 'Work log created successfully!')
-      queryClient.invalidateQueries(['daily-wage-logs'])
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
       // Reset forms partially
       setWageForm((prev) => ({
         ...prev,
@@ -194,7 +232,8 @@ export default function DailyWageSubContractView() {
     },
     onSuccess: () => {
       toast.success('Log entry removed successfully.')
-      queryClient.invalidateQueries(['daily-wage-logs'])
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
     },
   })
 
@@ -205,7 +244,8 @@ export default function DailyWageSubContractView() {
     },
     onSuccess: () => {
       toast.success('Status updated!')
-      queryClient.invalidateQueries(['daily-wage-logs'])
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
     },
   })
 
@@ -530,9 +570,9 @@ export default function DailyWageSubContractView() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                 >
                   <option value="">-- Select Project --</option>
-                  {projectsData?.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.name} ({p.location || 'Site'})
+                  {projectsList.map((p) => (
+                    <option key={p._id || p.id} value={p._id || p.id}>
+                      {p.name || p.title || 'Untitled Project'} ({p.location || 'Site'})
                     </option>
                   ))}
                 </select>
@@ -691,7 +731,7 @@ export default function DailyWageSubContractView() {
                   <select
                     value={wageForm.linkedAdvance}
                     onChange={(e) => {
-                      const selected = advancesData?.find((a) => a._id === e.target.value)
+                      const selected = advancesList.find((a) => a._id === e.target.value)
                       setWageForm({
                         ...wageForm,
                         linkedAdvance: e.target.value,
@@ -701,7 +741,7 @@ export default function DailyWageSubContractView() {
                     className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm"
                   >
                     <option value="">-- No Linked Advance --</option>
-                    {advancesData?.map((a) => (
+                    {advancesList.map((a) => (
                       <option key={a._id} value={a._id}>
                         {a.employee?.fullName || 'Worker'} (Outstanding: Rs. {a.outstandingBalance})
                       </option>
@@ -831,9 +871,9 @@ export default function DailyWageSubContractView() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                 >
                   <option value="">-- Select Project --</option>
-                  {projectsData?.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.name} ({p.location || 'Site'})
+                  {projectsList.map((p) => (
+                    <option key={p._id || p.id} value={p._id || p.id}>
+                      {p.name || p.title || 'Untitled Project'} ({p.location || 'Site'})
                     </option>
                   ))}
                 </select>
@@ -1013,9 +1053,9 @@ export default function DailyWageSubContractView() {
                 className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none"
               >
                 <option value="">All Projects</option>
-                {projectsData?.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name}
+                {projectsList.map((p) => (
+                  <option key={p._id || p.id} value={p._id || p.id}>
+                    {p.name || p.title || 'Untitled Project'}
                   </option>
                 ))}
               </select>
@@ -1088,7 +1128,7 @@ export default function DailyWageSubContractView() {
                           {log.workerName}
                         </td>
                         <td className="py-3.5 px-4 text-slate-700 font-medium">
-                          {log.project?.name || 'Site'}
+                          {log.project?.name || log.project?.title || 'Site'}
                         </td>
                         <td className="py-3.5 px-4">
                           <span

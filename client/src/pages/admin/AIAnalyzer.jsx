@@ -161,7 +161,7 @@ export default function AdminAIAnalyzer() {
     onError: (e) => toast.error(e.response?.data?.message || 'Assignment failed'),
   });
 
-  const employees = empData?.employees || [];
+  const employees = Array.isArray(empData?.employees) ? empData.employees : [];
 
   const openApiSettings = (platform) => {
     setApiSettingsPlatform(platform)

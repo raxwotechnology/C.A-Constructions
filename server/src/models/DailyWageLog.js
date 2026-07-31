@@ -18,7 +18,6 @@ const dailyWageLogSchema = new mongoose.Schema(
     // Daily Wage Details
     skillLevel: {
       type: String,
-      enum: ['Skilled Labour / Baas', 'Unskilled Labour / Helper', 'Custom'],
       default: 'Skilled Labour / Baas',
     },
     skillRate: { type: Number, default: 5000 },
@@ -48,7 +47,6 @@ const dailyWageLogSchema = new mongoose.Schema(
     subContractDetails: {
       workCategory: {
         type: String,
-        enum: ['Tiling', 'Brickwork', 'Painting', 'Plastering', 'Piece-rate', 'Other'],
         default: 'Tiling',
       },
       measuredSqft: { type: Number, default: 0 },

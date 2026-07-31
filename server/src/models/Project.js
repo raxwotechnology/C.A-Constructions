@@ -7,14 +7,14 @@ const projectSchema = new mongoose.Schema(
     code: { type: String, required: true, unique: true, uppercase: true },
     serviceType: {
       type: String,
-      enum: PROJECT_SERVICE_TYPES.map(t => t.labelEn),
-      required: true
+      required: true,
+      default: 'Residential Construction'
     },
     client: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    clientName: { type: String, required: true },
+    clientName: { type: String, required: true, default: 'Client' },
     projectManager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     siteSupervisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    location: { type: String, required: true },
+    location: { type: String, required: true, default: 'Site' },
     contractStandard: { type: String, default: 'SBD-03' },
     
     // Financial Tracking (Budget vs Actual)
@@ -37,13 +37,13 @@ const projectSchema = new mongoose.Schema(
     netProfitLoss: { type: Number, default: 0 },
 
     // Timeline & Progress
-    startDate: { type: Date, required: true },
-    expectedCompletionDate: { type: Date, required: true },
+    startDate: { type: Date, required: true, default: Date.now },
+    expectedCompletionDate: { type: Date, required: true, default: () => new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) },
     actualCompletionDate: { type: Date },
     progressPercentage: { type: Number, min: 0, max: 100, default: 0 },
     status: {
       type: String,
-      enum: ['Planning', 'Active', 'On Hold', 'Completed', 'Handover'],
+      enum: ['Planning', 'Active', 'On Hold', 'Completed', 'Handover', 'planning', 'active', 'on_hold', 'on hold', 'completed', 'handover'],
       default: 'Planning'
     },
 
@@ -68,5 +68,17 @@ const projectSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+projectSchema.pre('validate', function (next) {
+  if (!this.name || !String(this.name).trim()) {
+    this.name = 'New Project';
+  }
+  if (!this.code || !String(this.code).trim()) {
+    const prefix = String(this.name || 'PRJ').slice(0, 3).toUpperCase().replace(/[^A-Z]/g, 'PRJ') || 'PRJ';
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    this.code = `${prefix}-${Date.now().toString().slice(-4)}${suffix.toString().slice(-2)}`;
+  }
+  next();
+});
 
 module.exports = mongoose.model('Project', projectSchema);

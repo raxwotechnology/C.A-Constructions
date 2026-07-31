@@ -106,12 +106,14 @@ const pmNav = [
     items: [
       { to: '/manager', label: 'PM Dashboard', icon: FiHome, exact: true },
       { to: '/manager/projects', label: 'Active Projects', icon: FiFolder },
+      { to: '/manager/daily-wages', label: 'Daily Wages & Sub-Contracts', icon: FiDollarSign },
       { to: '/manager/work-logs', label: 'Task Assignments', icon: FiCheckSquare },
       { to: '/manager/quotations', label: 'Quotations & BOQ', icon: FiQuote },
       { to: '/manager/agreements', label: 'Contracts', icon: FiShield },
       { to: '/manager/daily-diary', label: 'Daily Site Reports', icon: FiClipboard },
       { to: '/manager/attendance', label: 'Attendance', icon: FiClipboard },
       { to: '/manager/inventory', label: 'Material Stock', icon: FiLayers },
+      { to: '/manager/settings', label: 'Settings', icon: FiSettings },
     ]
   }
 ]
@@ -121,11 +123,13 @@ const supervisorNav = [
     group: 'Site Operations',
     items: [
       { to: '/supervisor', label: 'Supervisor Dashboard', icon: FiHome, exact: true },
+      { to: '/supervisor/daily-wages', label: 'Daily Wages & Sub-Contracts', icon: FiDollarSign },
       { to: '/supervisor/work-logs', label: 'Site Tasks', icon: FiCheckSquare },
       { to: '/supervisor/attendance', label: 'Attendance', icon: FiClipboard },
       { to: '/supervisor/daily-diary', label: 'Daily Site Report', icon: FiBook },
       { to: '/supervisor/inventory', label: 'Stock & Transfers', icon: FiLayers },
       { to: '/supervisor/petty-cash', label: 'Petty Cash Log', icon: FiCreditCard },
+      { to: '/supervisor/settings', label: 'Settings', icon: FiSettings },
     ]
   }
 ]
@@ -136,9 +140,11 @@ const accountantNav = [
     items: [
       { to: '/accountant', label: 'Accounts Dashboard', icon: FiHome, exact: true },
       { to: '/accountant/payroll', label: 'Payroll Engine', icon: FiDollarSign },
+      { to: '/accountant/daily-wages', label: 'Daily Wages & Sub-Contracts', icon: FiDollarSign },
       { to: '/accountant/inventory', label: 'Stock Audit', icon: FiShield },
       { to: '/accountant/price-index', label: 'Supplier Prices', icon: FiTrendingUp },
       { to: '/accountant/petty-cash', label: 'Petty Cash Audits', icon: FiCreditCard },
+      { to: '/accountant/settings', label: 'Settings', icon: FiSettings },
     ]
   }
 ]
@@ -148,6 +154,7 @@ const workerNav = [
     group: 'My Worker Portal',
     items: [
       { to: '/worker', label: 'My Wages', icon: FiHome, exact: true },
+      { to: '/worker/daily-wages', label: 'Daily Wages Log', icon: FiDollarSign },
       { to: '/worker/work-logs', label: 'My Tasks', icon: FiCheckSquare },
       { to: '/worker/advances', label: 'Salary Advances', icon: FiCreditCard },
       { to: '/worker/attendance', label: 'My Attendance', icon: FiClipboard },
@@ -160,6 +167,7 @@ const subcontractorNav = [
     group: 'Subcontractor Portal',
     items: [
       { to: '/subcontractor', label: 'Payment Claims', icon: FiHome, exact: true },
+      { to: '/subcontractor/daily-wages', label: 'Sub-Contracts & Wages', icon: FiDollarSign },
       { to: '/subcontractor/agreements', label: 'Contracts', icon: FiShield },
     ]
   }

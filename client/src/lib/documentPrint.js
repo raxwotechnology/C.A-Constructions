@@ -1,7 +1,7 @@
 /**
  * Shared professional letterhead & print styles for quotations, invoices, exports.
  */
-import { buildCompanyFromSettings, companyContactLines, companyLogoHtml, contactBlockHtml } from './companyBranding'
+import { buildCompanyFromSettings, companyContactLines, companyLogoHtml, contactBlockHtml, letterheadHtml } from './companyBranding'
 import { absoluteMediaUrl, mediaUrl } from './media'
 
 function esc(s) {
