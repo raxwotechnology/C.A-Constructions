@@ -15,15 +15,15 @@ import {
   FiServer, FiZap, FiShield, FiFileText as FiQuote, FiTarget, FiVideo
 } from 'react-icons/fi'
 
-// Distinct Color Styles for Main Categories to give high visual clarity
+// Distinct Color Styles for Main Categories to give high visual clarity (Light Theme)
 const categoryStyles = [
-  { bgOpen: 'bg-gradient-to-r from-orange-600 to-amber-600 text-white', bgClosed: 'bg-orange-950/40 hover:bg-orange-950/70 text-orange-200 border-l-4 border-orange-500', dot: 'bg-orange-400' },
-  { bgOpen: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white', bgClosed: 'bg-blue-950/40 hover:bg-blue-950/70 text-blue-200 border-l-4 border-blue-500', dot: 'bg-blue-400' },
-  { bgOpen: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white', bgClosed: 'bg-emerald-950/40 hover:bg-emerald-950/70 text-emerald-200 border-l-4 border-emerald-500', dot: 'bg-emerald-400' },
-  { bgOpen: 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white', bgClosed: 'bg-purple-950/40 hover:bg-purple-950/70 text-purple-200 border-l-4 border-purple-500', dot: 'bg-purple-400' },
-  { bgOpen: 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white', bgClosed: 'bg-amber-950/40 hover:bg-amber-950/70 text-amber-200 border-l-4 border-amber-500', dot: 'bg-amber-400' },
-  { bgOpen: 'bg-gradient-to-r from-cyan-600 to-sky-600 text-white', bgClosed: 'bg-cyan-950/40 hover:bg-cyan-950/70 text-cyan-200 border-l-4 border-cyan-500', dot: 'bg-cyan-400' },
-  { bgOpen: 'bg-gradient-to-r from-rose-600 to-pink-600 text-white', bgClosed: 'bg-rose-950/40 hover:bg-rose-950/70 text-rose-200 border-l-4 border-rose-500', dot: 'bg-rose-400' },
+  { bgOpen: 'bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-xs', bgClosed: 'bg-orange-50/80 hover:bg-orange-100/90 text-slate-800 border-l-4 border-orange-500', dot: 'bg-orange-500' },
+  { bgOpen: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs', bgClosed: 'bg-blue-50/80 hover:bg-blue-100/90 text-slate-800 border-l-4 border-blue-500', dot: 'bg-blue-500' },
+  { bgOpen: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs', bgClosed: 'bg-emerald-50/80 hover:bg-emerald-100/90 text-slate-800 border-l-4 border-emerald-500', dot: 'bg-emerald-500' },
+  { bgOpen: 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs', bgClosed: 'bg-purple-50/80 hover:bg-purple-100/90 text-slate-800 border-l-4 border-purple-500', dot: 'bg-purple-500' },
+  { bgOpen: 'bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-xs', bgClosed: 'bg-amber-50/80 hover:bg-amber-100/90 text-slate-800 border-l-4 border-amber-500', dot: 'bg-amber-500' },
+  { bgOpen: 'bg-gradient-to-r from-cyan-600 to-sky-600 text-white shadow-xs', bgClosed: 'bg-cyan-50/80 hover:bg-cyan-100/90 text-slate-800 border-l-4 border-cyan-500', dot: 'bg-cyan-500' },
+  { bgOpen: 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-xs', bgClosed: 'bg-rose-50/80 hover:bg-rose-100/90 text-slate-800 border-l-4 border-rose-500', dot: 'bg-rose-500' },
 ]
 
 const adminNav = [
@@ -256,12 +256,12 @@ export default function DashboardLayout({ role }) {
   }
 
   const renderSidebar = () => (
-    <div className="h-full flex flex-col bg-slate-950 border-r border-slate-800 overflow-hidden text-slate-100">
+    <div className="h-full flex flex-col bg-white border-r border-slate-200 overflow-hidden text-slate-800">
       {/* Logo */}
-      <div className="p-4 border-b border-slate-800 bg-slate-900/80">
+      <div className="p-4 border-b border-slate-200 bg-slate-50/70">
         <div>
-          <SiteLogo to="/" variant="dark" />
-          <p className="text-orange-400 text-xs font-semibold capitalize mt-1 pl-0.5">R A Creations | {user?.role || 'Admin'} Portal</p>
+          <SiteLogo to="/" variant="light" />
+          <p className="text-orange-600 text-xs font-semibold capitalize mt-1 pl-0.5">R A Creations | {user?.role || 'Admin'} Portal</p>
         </div>
       </div>
 
@@ -272,7 +272,7 @@ export default function DashboardLayout({ role }) {
           const style = categoryStyles[idx % categoryStyles.length]
 
           return (
-            <div key={group.group} className="rounded-xl overflow-hidden border border-slate-800 shadow-xs">
+            <div key={group.group} className="rounded-xl overflow-hidden border border-slate-200 shadow-2xs bg-white">
               {/* Main Category Header with Distinct Visual Color */}
               <button
                 onClick={() => toggleCategory(group.group)}
@@ -281,11 +281,11 @@ export default function DashboardLayout({ role }) {
                 }`}
               >
                 <div className="flex items-center gap-2.5 truncate">
-                  <span className={`w-2 h-2 rounded-full ${isOpen ? 'bg-white' : style.dot} shrink-0 shadow-xs`}></span>
+                  <span className={`w-2 h-2 rounded-full ${isOpen ? 'bg-white' : style.dot} shrink-0 shadow-2xs`}></span>
                   <span className="truncate uppercase tracking-wider">{group.group}</span>
                 </div>
-                <span className="ml-2 shrink-0 p-1 bg-black/20 rounded-md">
-                  {isOpen ? <FiChevronDown size={14} className="text-white" /> : <FiChevronRight size={14} className="text-slate-300" />}
+                <span className={`ml-2 shrink-0 p-1 rounded-md ${isOpen ? 'bg-black/20' : 'bg-slate-200/70'}`}>
+                  {isOpen ? <FiChevronDown size={14} className="text-white" /> : <FiChevronRight size={14} className="text-slate-600" />}
                 </span>
               </button>
 
@@ -297,7 +297,7 @@ export default function DashboardLayout({ role }) {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="bg-slate-900/90 p-1.5 space-y-1 border-t border-slate-800/80"
+                    className="bg-slate-50/90 p-1.5 space-y-1 border-t border-slate-200/80"
                   >
                     {group.items.map(item => (
                       <NavLink
@@ -307,15 +307,15 @@ export default function DashboardLayout({ role }) {
                         className={({ isActive }) => 
                           `flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
                             isActive 
-                              ? 'bg-orange-500/20 text-orange-400 font-bold border border-orange-500/40 shadow-xs' 
-                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                              ? 'bg-orange-500/10 text-orange-700 font-bold border border-orange-200 shadow-2xs' 
+                              : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-2xs'
                           }`
                         }
                         onClick={() => setSidebarOpen(false)}
                       >
                         {({ isActive }) => (
                           <>
-                            <item.icon size={15} className={isActive ? 'text-orange-400' : 'text-slate-400'} />
+                            <item.icon size={15} className={isActive ? 'text-orange-600' : 'text-slate-400'} />
                             <span className="truncate">{item.label}</span>
                           </>
                         )}
@@ -330,14 +330,14 @@ export default function DashboardLayout({ role }) {
       </nav>
 
       {/* User Footer */}
-      <div className="p-3 border-t border-slate-800 bg-slate-900/90">
-        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-950 border border-slate-800 shadow-sm">
+      <div className="p-3 border-t border-slate-200 bg-slate-50/80">
+        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
           <UserAvatar user={user} className="w-8 h-8 rounded-full flex-shrink-0" imgClassName="w-full h-full object-cover" />
           <div className="flex-1 min-w-0">
-            <p className="text-slate-100 text-xs font-bold truncate">{user?.name || 'Admin User'}</p>
-            <p className="text-orange-400 text-[10px] capitalize font-semibold truncate">{user?.role || 'administrator'}</p>
+            <p className="text-slate-800 text-xs font-bold truncate">{user?.name || 'Admin User'}</p>
+            <p className="text-orange-600 text-[10px] capitalize font-semibold truncate">{user?.role || 'administrator'}</p>
           </div>
-          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-400 transition-colors p-1" title="Logout">
+          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600 transition-colors p-1" title="Logout">
             <FiLogOut size={16} />
           </button>
         </div>
@@ -348,7 +348,7 @@ export default function DashboardLayout({ role }) {
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans text-slate-800">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:block w-72 flex-shrink-0 bg-slate-950 border-r border-slate-800 shadow-xl">
+      <aside className="hidden lg:block w-72 flex-shrink-0 bg-white border-r border-slate-200 shadow-sm">
         {renderSidebar()}
       </aside>
 
@@ -357,7 +357,7 @@ export default function DashboardLayout({ role }) {
         {sidebarOpen && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40"
+            className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -365,7 +365,7 @@ export default function DashboardLayout({ role }) {
 
       {/* Mobile sidebar */}
       <aside
-        className={`lg:hidden fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`lg:hidden fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
