@@ -52,6 +52,7 @@ const toolAssignmentRoutes = require('./routes/toolAssignmentRoutes');
 const smsRoutes = require('./routes/smsRoutes');
 const emailLogRoutes = require('./routes/emailLogRoutes');
 const meetingRoutes = require('./routes/meetingRoutes');
+const dailyWageRoutes = require('./routes/dailyWageRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -195,6 +196,7 @@ app.use('/api/sms', smsRoutes);
 app.use('/api/email-logs', emailLogRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/leaders', require('./routes/leaderRoutes'));
+app.use('/api/daily-wages', dailyWageRoutes);
 
 ensureDefaultRules().catch(() => {});
 

@@ -13,33 +13,13 @@ function esc(s) {
     .replace(/"/g, '&quot;')
 }
 
-/** Letterhead: logo + name + tagline left; contact right */
-export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTagline } = {}) {
+/** Letterhead banner: logo + name + tagline left; contact right; optional metadata */
+export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTagline, metadata = {} } = {}) {
   const company = buildCompanyFromSettings(settings)
-  
-  const tagline =
-    showTagline !== undefined
-      ? showTagline
-      : settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Construction & Home Designs'
-  
-  // Use absolute URLs for logo to ensure cross-origin compatibility on print/PDF
-  const logo = companyLogoHtml(company, { forPrint, maxHeight: 64 })
-  const contactHtml = contactBlockHtml(company)
-
-  return `
-    <header class="doc-letterhead" style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #ea580c;margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:16px;">
-        <div style="flex-shrink:0">${logo}</div>
-        <div>
-          <h1 style="margin:0;font-size:24px;font-weight:900;color:#1e293b;letter-spacing:-0.02em;line-height:1.2;word-break:break-word">${esc(company.name)}</h1>
-          ${tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:600;color:#ea580c;letter-spacing:0.04em">${esc(tagline)}</p>` : ''}
-          <div style="height:3px;width:100%;max-width:240px;background:#f59e0b;border-radius:9999px;margin-top:8px"></div>
-        </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;">
-        ${contactHtml}
-      </div>
-    </header>`
+  if (showTagline) {
+    company.tagline = showTagline
+  }
+  return letterheadHtml(company, { forPrint, metadata })
 }
 
 export function documentPrintStyles() {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Layers, Calendar, CheckSquare, Camera, FileCheck, Plus, X } from 'lucide-react';
-import { PROJECT_SERVICE_TYPES } from '../config/categories';
+import { PROJECT_SERVICE_TYPES, PROJECT_TRACKING_CATEGORIES } from '../constants/masterCategories';
 import toast from 'react-hot-toast';
 
 export default function ProjectsView() {
@@ -12,6 +12,8 @@ export default function ProjectsView() {
     serviceType: 'Residential Construction',
     contractValue: '',
     location: '',
+    sqftArea: '',
+    cubicFeetArea: '',
   });
 
   const boqItems = [

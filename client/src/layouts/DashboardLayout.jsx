@@ -54,6 +54,7 @@ const adminNav = [
     items: [
       { to: '/admin/employees', label: 'Employees & Staff', icon: FiUsers },
       { to: '/admin/payroll-hr', label: 'Payroll Summary', icon: FiDollarSign },
+      { to: '/admin/daily-wages', label: 'Daily Wages & Sub-Contracts', icon: FiDollarSign },
       { to: '/admin/attendance', label: 'Daily Attendance', icon: FiClipboard },
       { to: '/admin/leaves', label: 'Leave Requests', icon: FiCalendar },
       { to: '/admin/payroll', label: 'Calculate Payroll', icon: FiCreditCard },

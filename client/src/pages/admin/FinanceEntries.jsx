@@ -9,14 +9,22 @@ import { mediaUrl } from '../../lib/media'
 import { paymentPillClass, PaymentTypeIcon } from '../../lib/financeDisplay'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 
+import {
+  EXPENSE_CATEGORIES as MASTER_EXPENSES,
+  INCOME_CATEGORIES as MASTER_INCOMES,
+  ASSET_CATEGORIES as MASTER_ASSETS,
+  LIABILITY_CATEGORIES as MASTER_LIABILITIES,
+  CAPITAL_CATEGORIES as MASTER_CAPITAL,
+  TAX_CATEGORIES as MASTER_TAXES,
+  ALL_EXPENSE_FLAT,
+} from '../../constants/masterCategories'
+
 const EXPENSE_CATEGORIES = [
-  'Cement (Material)', 'Steel (Material)', 'Sand (Material)', 'Metal (Material)', 'Blocks (Material)', 'Tiles (Material)',
-  'Electrical Items', 'Plumbing Items', 'Daily Labour', 'Skilled Labour', 'Sub Contractor Payment',
-  'Transport', 'Machinery Rent', 'Fuel', 'Site Meals & Welfare', 'Safety Tools & Equipment',
-  'Office Rent', 'Salary', 'Utilities', 'Stationery', 'Other Expense'
+  ...ALL_EXPENSE_FLAT,
+  'Other Expense',
 ]
-const INCOME_CATEGORIES  = [
-  'Client Payment', 'Advance Payment', 'Variation / Extra Work Income', 'Retention Release', 'Other Income'
+const INCOME_CATEGORIES = [
+  ...MASTER_INCOMES,
 ]
 
 const now = new Date()

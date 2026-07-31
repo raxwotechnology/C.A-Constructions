@@ -27,6 +27,15 @@ const projectSchema = new mongoose.Schema(
     totalBilled: { type: Number, default: 0 },
     totalCollected: { type: Number, default: 0 },
 
+    // Sqft & Cubic Feet Measurements
+    sqftArea: { type: Number, default: 0 },
+    cubicFeetArea: { type: Number, default: 0 },
+
+    // Income vs Expense Tracking & Net Profit/Loss
+    totalIncome: { type: Number, default: 0 },
+    totalExpense: { type: Number, default: 0 },
+    netProfitLoss: { type: Number, default: 0 },
+
     // Timeline & Progress
     startDate: { type: Date, required: true },
     expectedCompletionDate: { type: Date, required: true },

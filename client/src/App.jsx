@@ -119,6 +119,7 @@ import SupervisorActionDeck from './pages/supervisor/SupervisorActionDeck'
 import AccountantDashboard from './pages/accountant/AccountantDashboard'
 import WorkerPortal from './pages/worker/WorkerPortal'
 import SubcontractorPortal from './pages/subcontractor/SubcontractorPortal'
+import DailyWageSubContractView from './pages/subcontractor/DailyWageSubContractView'
 import SupplierPortal from './pages/supplier/SupplierPortal'
 import ClientPortal from './pages/client/ClientPortal'
 
@@ -254,6 +255,7 @@ export default function App() {
         <Route path="boq-projects" element={<ProjectsView />} />
         <Route path="site-dsr" element={<SiteManagementView />} />
         <Route path="daily-diary" element={<SiteManagementView />} />
+        <Route path="daily-wages" element={<DailyWageSubContractView />} />
         <Route path="finance-ledger" element={<FinanceView />} />
         <Route path="payroll-hr" element={<PayrollHRView />} />
         <Route path="assets-fleet" element={<AssetVehicleView />} />
