@@ -12,6 +12,15 @@ const branchSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   openedAt: { type: Date },
   description: { type: String, default: '' },
+  /** Letterhead customization overrides for branch documents */
+  letterheadName: { type: String, default: '' },
+  letterheadTagline: { type: String, default: '' },
+  letterheadAddress: { type: String, default: '' },
+  letterheadPhone: { type: String, default: '' },
+  letterheadEmail: { type: String, default: '' },
+  letterheadWebsite: { type: String, default: '' },
+  letterheadLogoUrl: { type: String, default: '' },
+  letterheadFooter: { type: String, default: '' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Branch', branchSchema);

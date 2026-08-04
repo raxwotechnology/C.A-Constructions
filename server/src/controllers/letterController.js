@@ -2,6 +2,7 @@ const Letter = require('../models/Letter');
 const LetterTemplate = require('../models/LetterTemplate');
 const Employee = require('../models/Employee');
 const SiteSetting = require('../models/SiteSetting');
+const Branch = require('../models/Branch');
 const { buildLetterBodyHtml } = require('../lib/letterTemplatesHtml');
 const { createAuditLog } = require('./auditController');
 const { createNotification } = require('../services/notificationService');
@@ -22,21 +23,28 @@ function letterAuditSnapshot(doc) {
   };
 }
 
-async function getCompany() {
+async function getCompany(branchId = null) {
   const s = await SiteSetting.findOne().lean();
-  const logo = s?.logoUrl ? toRelativeUploadUrl(s.logoUrl) : '';
+  let branch = null;
+  if (branchId) {
+    branch = await Branch.findById(branchId).lean();
+  }
+  const logo = branch?.letterheadLogoUrl
+    ? toRelativeUploadUrl(branch.letterheadLogoUrl)
+    : (s?.logoUrl ? toRelativeUploadUrl(s.logoUrl) : '');
+
   return {
-    name: s?.siteName || 'R A Creations & Home Designs',
+    name: branch?.letterheadName?.trim() || s?.siteName || 'R A Creations & Home Designs',
     logo,
-    address: s?.contactAddress || 'Weliweriya, Sri Lanka',
-    branchDetails: s?.branchDetails || '',
-    email: s?.adminEmail || s?.contactEmail || 'hello@raxwo.com',
-    adminEmail: s?.adminEmail || s?.contactEmail || '',
-    contactEmail: s?.contactEmail || '',
-    phone: s?.contactPhone || '',
-    website: s?.websiteUrl || '',
-    tagline: s?.siteDescription || '',
-    footer: s?.footerText || '',
+    address: branch?.letterheadAddress?.trim() || branch?.address?.trim() || s?.contactAddress || 'Weliweriya, Sri Lanka',
+    branchDetails: branch ? `${branch.name}${branch.code ? ` (${branch.code})` : ''}` : (s?.branchDetails || ''),
+    email: branch?.letterheadEmail?.trim() || branch?.email?.trim() || s?.adminEmail || s?.contactEmail || 'hello@raxwo.com',
+    adminEmail: branch?.letterheadEmail?.trim() || branch?.email?.trim() || s?.adminEmail || s?.contactEmail || '',
+    contactEmail: branch?.letterheadEmail?.trim() || branch?.email?.trim() || s?.contactEmail || '',
+    phone: branch?.letterheadPhone?.trim() || branch?.phone?.trim() || s?.contactPhone || '',
+    website: branch?.letterheadWebsite?.trim() || s?.websiteUrl || '',
+    tagline: branch?.letterheadTagline?.trim() || s?.letterheadTagline || s?.siteDescription || '',
+    footer: branch?.letterheadFooter?.trim() || s?.footerText || '',
     seal: s?.sealUrl || '',
     signatures: s?.signatures || {},
   };

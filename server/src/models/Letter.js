@@ -4,6 +4,7 @@ const letterSchema = new mongoose.Schema({
   recipientType: { type: String, enum: ['employee', 'client'], default: 'employee' },
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   type: {
     type: String,
     enum: ['offer', 'appointment', 'confirmation', 'experience', 'salary', 'service_agreement', 'epf_confirmation', 'warning', 'termination', 'internship', 'contract', 'part_time', 'resignation', 'custom', 'quotation_cover', 'welcome', 'thank_you', 'overdue_notice', 'renewal_notice'],

@@ -17,7 +17,7 @@ const POPULATE_INVOICE = [
   { path: 'client',       select: 'name email phone' },
   { path: 'project',      select: 'title' },
   { path: 'quotationRef', select: 'quotationNo title' },
-  { path: 'branch',       select: 'name' },
+  { path: 'branch',       select: 'name code address city phone email letterheadName letterheadTagline letterheadAddress letterheadPhone letterheadEmail letterheadWebsite letterheadLogoUrl letterheadFooter' },
   { path: 'createdBy',    select: 'name' },
   { path: 'payments.recordedBy', select: 'name' },
   { path: 'bankAccount',  select: 'bankName accountNumber branchName' },

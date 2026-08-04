@@ -2,27 +2,61 @@ import { mediaUrl, absoluteMediaUrl } from './media'
 import { siteLogoSrc } from '../hooks/useSiteBranding'
 
 /** Build company info object for letters, agreements, invoices, BOQs */
-export function buildCompanyFromSettings(settings = {}) {
-  const logo = siteLogoSrc(settings)
+export function buildCompanyFromSettings(settings = {}, branch = null) {
+  const logo = branch?.letterheadLogoUrl
+    ? mediaUrl(branch.letterheadLogoUrl)
+    : siteLogoSrc(settings)
+
   const email =
+    branch?.letterheadEmail?.trim() ||
+    branch?.email?.trim() ||
     settings.adminEmail?.trim() ||
     settings.contactEmail?.trim() ||
     'racreationshd@gmail.com'
+
+  const address =
+    branch?.letterheadAddress?.trim() ||
+    branch?.address?.trim() ||
+    settings.contactAddress?.trim() ||
+    'Sri Lanka / Kossinna'
+
+  const phone =
+    branch?.letterheadPhone?.trim() ||
+    branch?.phone?.trim() ||
+    settings.contactPhone?.trim() ||
+    '0770749690'
+
+  const website =
+    branch?.letterheadWebsite?.trim() ||
+    settings.websiteUrl?.trim() ||
+    'www.rac.lk'
+
+  const name =
+    branch?.letterheadName?.trim() ||
+    settings.siteName?.trim() ||
+    'R.A CREATIONS & HOME DESIGNS (PVT) LTD'
+
+  const tagline =
+    branch?.letterheadTagline?.trim() ||
+    settings.letterheadTagline?.trim() ||
+    settings.siteDescription?.trim() ||
+    'Construction & Home Designs'
+
   return {
-    name: settings.siteName?.trim() || 'R.A CREATIONS & HOME DESIGNS (PVT) LTD',
-    tagline: settings.letterheadTagline?.trim() || settings.siteDescription?.trim() || 'Construction & Home Designs',
+    name,
+    tagline,
     logo,
-    logoPath: settings.logoUrl?.trim() || '',
-    address: settings.contactAddress?.trim() || 'Sri Lanka / Kossinna',
-    phone: settings.contactPhone?.trim() || '0770749690',
+    logoPath: branch?.letterheadLogoUrl?.trim() || settings.logoUrl?.trim() || '',
+    address,
+    phone,
     email,
-    contactEmail: settings.contactEmail?.trim() || 'racreationshd@gmail.com',
-    adminEmail: settings.adminEmail?.trim() || settings.contactEmail?.trim() || 'racreationshd@gmail.com',
-    website: settings.websiteUrl?.trim() || 'www.rac.lk',
-    branchDetails: settings.branchDetails?.trim() || '',
-    footer: settings.footerText?.trim() || '© R.A CREATIONS & HOME DESIGNS (PVT) LTD. All rights reserved.',
+    contactEmail: email,
+    adminEmail: email,
+    website,
+    branchDetails: branch?.name ? `${branch.name}${branch.code ? ` (${branch.code})` : ''}` : (settings.branchDetails?.trim() || ''),
+    footer: branch?.letterheadFooter?.trim() || settings.footerText?.trim() || '© R.A CREATIONS & HOME DESIGNS (PVT) LTD. All rights reserved.',
     seal: settings.sealUrl ? mediaUrl(settings.sealUrl) : '',
-    letterhead: settings.letterheadUrl ? mediaUrl(settings.letterheadUrl) : '',
+    letterhead: branch?.letterheadUrl ? mediaUrl(branch.letterheadUrl) : (settings.letterheadUrl ? mediaUrl(settings.letterheadUrl) : ''),
     signatures: settings.signatures || {},
   }
 }
@@ -116,7 +150,7 @@ export function letterheadHtml(company, { forPrint = false, metadata = {} } = {}
 
 /** Build agreement print options from site settings */
 export function buildAgreementPrintOpts(settings, agr, bodyHtml, signatures) {
-  const co = buildCompanyFromSettings(settings)
+  const co = buildCompanyFromSettings(settings, agr?.branch)
   return {
     company: co,
     siteName: co.name,

@@ -56,6 +56,7 @@ export default function InvoicePrintBody({
               __html: buildDocumentLetterheadHtml(siteSettings, {
                 forPrint,
                 showTagline: siteSettings.letterheadTagline || 'Next Level Tech',
+                branch: inv.branch,
               }),
             }}
           />

@@ -12,7 +12,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiBook, FiChevronDown, FiChevronRight,
   FiDownload, FiSearch,
-  FiServer, FiZap, FiShield, FiFileText as FiQuote, FiTarget, FiVideo
+  FiServer, FiZap, FiShield, FiFileText as FiQuote, FiTarget, FiVideo, FiMapPin
 } from 'react-icons/fi'
 
 // Distinct Color Styles for Main Categories to give high visual clarity (Light Theme)
@@ -92,6 +92,7 @@ const adminNav = [
     group: 'Leads & Settings',
     items: [
       { to: '/admin/crm-leads', label: 'Customer Leads', icon: FiUsers },
+      { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
       { to: '/admin/log-centre', label: 'System Logs', icon: FiShield },
       { to: '/admin/meetings', label: 'Site Meetings', icon: FiVideo },
       { to: '/admin/requests', label: 'User Requests', icon: FiClipboard },

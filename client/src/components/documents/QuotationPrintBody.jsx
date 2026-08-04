@@ -61,6 +61,7 @@ export default function QuotationPrintBody({
               __html: buildDocumentLetterheadHtml(siteSettings, {
                 forPrint: false,
                 showTagline: siteSettings.letterheadTagline || 'Next Level Tech',
+                branch: q.branch,
               }),
             }}
           />

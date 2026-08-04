@@ -64,7 +64,7 @@ exports.getQuotations = async (req, res, next) => {
       .populate('client', 'name email phone')
       .populate('booking', 'projectTitle')
       .populate('generatedBy', 'name')
-      .populate('branch', 'name')
+      .populate('branch', 'name code address city phone email letterheadName letterheadTagline letterheadAddress letterheadPhone letterheadEmail letterheadWebsite letterheadLogoUrl letterheadFooter')
       .populate('project', 'title deadline')
       .populate('bankAccount', 'bankName accountNumber branchName')
       .sort({ createdAt: -1 });
@@ -80,6 +80,7 @@ exports.getQuotation = async (req, res, next) => {
       .populate('client', 'name email phone')
       .populate('generatedBy', 'name')
       .populate('confirmedBy', 'name')
+      .populate('branch', 'name code address city phone email letterheadName letterheadTagline letterheadAddress letterheadPhone letterheadEmail letterheadWebsite letterheadLogoUrl letterheadFooter')
       .populate('bankAccount', 'bankName accountNumber branchName')
       .populate('convertedToInvoice', 'invoiceNo total status');
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });

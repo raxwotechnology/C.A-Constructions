@@ -20,6 +20,7 @@ const agreementSchema = new mongoose.Schema({
   project:      { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
   invoice:      { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
   subscription: { type: mongoose.Schema.Types.ObjectId, ref: 'Subscription' },
+  branch:       { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
 
   // ── Content ───────────────────────────────────────────────────────────────
   content: { type: String, default: '' },   // rich HTML content

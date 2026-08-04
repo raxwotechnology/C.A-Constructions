@@ -14,9 +14,9 @@ function esc(s) {
 }
 
 /** Letterhead banner: logo + name + tagline left; contact right; optional metadata */
-export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTagline, metadata = {} } = {}) {
-  const company = buildCompanyFromSettings(settings)
-  if (showTagline) {
+export function buildDocumentLetterheadHtml(settings, { forPrint = true, showTagline, metadata = {}, branch = null } = {}) {
+  const company = buildCompanyFromSettings(settings, branch)
+  if (showTagline && !branch?.letterheadTagline) {
     company.tagline = showTagline
   }
   return letterheadHtml(company, { forPrint, metadata })

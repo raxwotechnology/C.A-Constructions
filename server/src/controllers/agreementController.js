@@ -11,6 +11,7 @@ const POPULATE = [
   { path: 'project', select: 'title serviceType budget' },
   { path: 'invoice', select: 'invoiceNo total remainingBalance' },
   { path: 'subscription', select: 'name plan' },
+  { path: 'branch', select: 'name code address city phone email letterheadName letterheadTagline letterheadAddress letterheadPhone letterheadEmail letterheadWebsite letterheadLogoUrl letterheadFooter' },
   { path: 'createdBy', select: 'name' },
   { path: 'approvedBy', select: 'name' },
 ];
