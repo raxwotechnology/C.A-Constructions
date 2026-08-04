@@ -55,9 +55,11 @@ export function buildCompanyFromSettings(settings = {}, branch = null) {
     website,
     branchDetails: branch?.name ? `${branch.name}${branch.code ? ` (${branch.code})` : ''}` : (settings.branchDetails?.trim() || ''),
     footer: branch?.letterheadFooter?.trim() || settings.footerText?.trim() || '© R.A CREATIONS & HOME DESIGNS (PVT) LTD. All rights reserved.',
-    seal: settings.sealUrl ? mediaUrl(settings.sealUrl) : '',
+    seal: branch?.sealUrl ? mediaUrl(branch.sealUrl) : (settings.sealUrl ? mediaUrl(settings.sealUrl) : ''),
     letterhead: branch?.letterheadUrl ? mediaUrl(branch.letterheadUrl) : (settings.letterheadUrl ? mediaUrl(settings.letterheadUrl) : ''),
-    signatures: settings.signatures || {},
+    signatures: (branch?.signatures?.director?.url || branch?.signatures?.manager?.url)
+      ? { ...settings.signatures, ...branch.signatures }
+      : (settings.signatures || {}),
   }
 }
 
@@ -135,9 +137,8 @@ export function letterheadHtml(company, { forPrint = false, metadata = {} } = {}
             ${logo}
           </div>
           <div>
-            <h1 style="margin:0;font-size:18px;font-weight:900;color:#ffffff;letter-spacing:0.02em;line-height:1.2">${escapeHtml(company.name)}</h1>
-            <p style="margin:4px 0 0;font-size:11pt;font-weight:700;color:#06b6d4;letter-spacing:0.04em">${escapeHtml(company.tagline)}</p>
-            <div style="height:3px;width:180px;background:linear-gradient(90deg, #f59e0b, #06b6d4);border-radius:9999px;margin-top:6px"></div>
+            <h1 style="margin:0;font-size:16px;font-weight:900;color:#ffffff;letter-spacing:0.02em;line-height:1.3;max-width:420px;word-break:break-word">${escapeHtml(company.name)}</h1>
+            <div style="height:3px;max-width:240px;background:linear-gradient(90deg, #f59e0b, #06b6d4);border-radius:9999px;margin-top:6px"></div>
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0">

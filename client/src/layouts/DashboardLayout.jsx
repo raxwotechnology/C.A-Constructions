@@ -44,6 +44,7 @@ const adminNav = [
       { to: '/admin/daily-diary', label: 'Daily Site Reports', icon: FiClipboard },
       { to: '/admin/work-logs', label: 'Task Board', icon: FiCheckSquare },
       { to: '/admin/inventory', label: 'Material & Stock', icon: FiLayers },
+      { to: '/admin/crm-leads', label: 'Customer Leads', icon: FiUsers },
       { to: '/admin/agreements', label: 'Contracts & Agreements', icon: FiShield },
       { to: '/admin/quotations', label: 'Quotations', icon: FiQuote },
       { to: '/admin/invoices', label: 'Invoices & Billing', icon: FiCreditCard },
@@ -89,9 +90,8 @@ const adminNav = [
     ]
   },
   {
-    group: 'Leads & Settings',
+    group: 'Settings & Administration',
     items: [
-      { to: '/admin/crm-leads', label: 'Customer Leads', icon: FiUsers },
       { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
       { to: '/admin/log-centre', label: 'System Logs', icon: FiShield },
       { to: '/admin/meetings', label: 'Site Meetings', icon: FiVideo },

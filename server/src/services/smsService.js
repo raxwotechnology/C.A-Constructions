@@ -10,7 +10,7 @@ const Employee = require('../models/Employee');
 const SMSLENZ_URL = 'https://www.smslenz.lk/api';
 const SMSLENZ_USER_ID = process.env.SMSLENZ_USER_ID || '2191';
 const SMSLENZ_API_KEY = process.env.SMSLENZ_API_KEY || '80daf790-82c7-4611-827b-d759354513f8';
-const SMSLENZ_SENDER_ID = process.env.SMSLENZ_SENDER_ID || 'SMSlenzDEMO';
+const SMSLENZ_SENDER_ID = process.env.SMSLENZ_SENDER_ID || 'RA Creation';
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;

@@ -4,14 +4,15 @@ import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiMail, FiLock, FiArrowLeft, FiArrowRight } from 'react-icons/fi'
+import { FiMail, FiPhone, FiLock, FiArrowLeft, FiArrowRight, FiCheckCircle } from 'react-icons/fi'
 import { validateStrongPassword, passwordStrengthHints } from '../../lib/passwordValidation'
 
-const STEPS = { EMAIL: 1, OTP: 2, RESET: 3 }
+const STEPS = { IDENTIFIER: 1, OTP: 2, RESET: 3 }
 
 export default function ForgotPassword() {
-  const [step, setStep] = useState(STEPS.EMAIL)
-  const [email, setEmail] = useState('')
+  const [step, setStep] = useState(STEPS.IDENTIFIER)
+  const [identifier, setIdentifier] = useState('')
+  const [channel, setChannel] = useState('email') // 'email' | 'sms'
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const { register, handleSubmit, watch, formState: { errors } } = useForm()
@@ -20,13 +21,16 @@ export default function ForgotPassword() {
   const sendOtp = async (data) => {
     setLoading(true)
     try {
-      const res = await api.post('/auth/forgot-password/otp', { email: data.email })
-      setEmail(data.email.trim().toLowerCase())
+      const res = await api.post('/auth/forgot-password/otp', {
+        identifier: data.identifier,
+        channel,
+      })
+      setIdentifier(data.identifier.trim())
       if (res.data.devOtp) toast.success(`Dev OTP: ${res.data.devOtp}`, { duration: 12000 })
       else toast.success(res.data.message || 'Verification code sent')
       setStep(STEPS.OTP)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Could not send code')
+      toast.error(err.response?.data?.message || 'Could not send verification code')
     } finally {
       setLoading(false)
     }
@@ -34,12 +38,12 @@ export default function ForgotPassword() {
 
   const verifyOtp = async () => {
     if (!otp || otp.length < 6) {
-      toast.error('Enter the 6-digit code from your email')
+      toast.error('Enter the 6-digit code sent to you')
       return
     }
     setLoading(true)
     try {
-      await api.post('/auth/forgot-password/verify-otp', { email, otp })
+      await api.post('/auth/forgot-password/verify-otp', { identifier, otp })
       toast.success('Code verified')
       setStep(STEPS.RESET)
     } catch (err) {
@@ -61,8 +65,8 @@ export default function ForgotPassword() {
     }
     setLoading(true)
     try {
-      await api.post('/auth/forgot-password/reset', { email, otp, password: data.password })
-      toast.success('Password reset. You can sign in now.')
+      await api.post('/auth/forgot-password/reset', { identifier, otp, password: data.password })
+      toast.success('Password reset successfully. You can sign in now.')
       window.location.href = '/login'
     } catch (err) {
       toast.error(err.response?.data?.message || 'Reset failed')
@@ -83,29 +87,64 @@ export default function ForgotPassword() {
         </Link>
 
         <h1 className="text-2xl font-bold text-primary font-heading mb-1">Forgot password</h1>
-        <p className="text-gray-500 text-sm mb-8">
-          {step === STEPS.EMAIL && 'Enter your client account email to receive a verification code.'}
-          {step === STEPS.OTP && `We sent a code to ${email}`}
+        <p className="text-gray-500 text-sm mb-6">
+          {step === STEPS.IDENTIFIER && 'Enter your Email Address or Phone Number and select how to receive your verification OTP code.'}
+          {step === STEPS.OTP && `We sent a 6-digit code via ${channel === 'sms' ? 'SMS' : 'Email'} to ${identifier}`}
           {step === STEPS.RESET && 'Choose a new password for your account.'}
         </p>
 
-        {step === STEPS.EMAIL && (
+        {step === STEPS.IDENTIFIER && (
           <form onSubmit={handleSubmit(sendOtp)} className="space-y-5">
             <div>
-              <label className="form-label">Email address</label>
-              <motion.div className="relative">
+              <label className="form-label">Email Address or Phone Number</label>
+              <div className="relative">
                 <FiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
-                  {...register('email', { required: 'Email is required' })}
-                  type="email"
-                  placeholder="you@example.com"
+                  {...register('identifier', { required: 'Email address or Phone number is required' })}
+                  type="text"
+                  placeholder="e.g. user@example.com or 077XXXXXXX"
                   className="form-input !pl-10"
                 />
-              </motion.div>
-              {errors.email && <p className="form-error">{errors.email.message}</p>}
+              </div>
+              {errors.identifier && <p className="form-error">{errors.identifier.message}</p>}
             </div>
+
+            {/* OTP Channel Choice */}
+            <div>
+              <label className="form-label mb-2 block font-semibold text-slate-700">Receive Verification Code via:</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setChannel('email')}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-semibold transition-all ${
+                    channel === 'email'
+                      ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <FiMail size={16} className={channel === 'email' ? 'text-amber-600' : 'text-slate-400'} />
+                  <span>Email</span>
+                  {channel === 'email' && <FiCheckCircle size={14} className="text-amber-600 ml-auto" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setChannel('sms')}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-semibold transition-all ${
+                    channel === 'sms'
+                      ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <FiPhone size={16} className={channel === 'sms' ? 'text-amber-600' : 'text-slate-400'} />
+                  <span>Phone SMS</span>
+                  {channel === 'sms' && <FiCheckCircle size={14} className="text-amber-600 ml-auto" />}
+                </button>
+              </div>
+            </div>
+
             <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">
-              {loading ? <span className="spinner" /> : <>Send code <FiArrowRight size={16} /></>}
+              {loading ? <span className="spinner" /> : <>Send Verification Code <FiArrowRight size={16} /></>}
             </button>
           </form>
         )}
@@ -113,7 +152,7 @@ export default function ForgotPassword() {
         {step === STEPS.OTP && (
           <div className="space-y-5">
             <div>
-              <label className="form-label">Verification code</label>
+              <label className="form-label">6-Digit Verification Code</label>
               <input
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -124,10 +163,10 @@ export default function ForgotPassword() {
               />
             </div>
             <button type="button" onClick={verifyOtp} disabled={loading} className="btn-primary w-full justify-center py-3">
-              {loading ? <span className="spinner" /> : 'Verify code'}
+              {loading ? <span className="spinner" /> : 'Verify Code'}
             </button>
-            <button type="button" onClick={() => setStep(STEPS.EMAIL)} className="btn-ghost w-full justify-center text-sm">
-              Use a different email
+            <button type="button" onClick={() => setStep(STEPS.IDENTIFIER)} className="btn-ghost w-full justify-center text-sm">
+              Use a different contact method
             </button>
           </div>
         )}
@@ -135,7 +174,7 @@ export default function ForgotPassword() {
         {step === STEPS.RESET && (
           <form onSubmit={handleSubmit(resetPassword)} className="space-y-5">
             <div>
-              <label className="form-label">New password</label>
+              <label className="form-label">New Password</label>
               <div className="relative">
                 <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
@@ -148,7 +187,7 @@ export default function ForgotPassword() {
               <p className="text-xs text-gray-400 mt-1">{passwordStrengthHints()}</p>
             </div>
             <div>
-              <label className="form-label">Confirm password</label>
+              <label className="form-label">Confirm New Password</label>
               <input
                 {...register('confirmPassword', { required: 'Please confirm your password' })}
                 type="password"
@@ -157,7 +196,7 @@ export default function ForgotPassword() {
               />
             </div>
             <button type="submit" disabled={loading || !newPassword} className="btn-primary w-full justify-center py-3">
-              {loading ? <span className="spinner" /> : 'Reset password'}
+              {loading ? <span className="spinner" /> : 'Reset Password'}
             </button>
           </form>
         )}

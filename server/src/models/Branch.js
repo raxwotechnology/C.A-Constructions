@@ -21,6 +21,14 @@ const branchSchema = new mongoose.Schema({
   letterheadWebsite: { type: String, default: '' },
   letterheadLogoUrl: { type: String, default: '' },
   letterheadFooter: { type: String, default: '' },
+  letterheadUrl: { type: String, default: '' },
+  sealUrl: { type: String, default: '' },
+  signatures: {
+    director: { url: { type: String, default: '' }, label: { type: String, default: 'Managing Director' } },
+    manager: { url: { type: String, default: '' }, label: { type: String, default: 'Branch Manager' } },
+    admin: { url: { type: String, default: '' }, label: { type: String, default: 'Admin' } },
+    hr: { url: { type: String, default: '' }, label: { type: String, default: 'HR Manager' } },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Branch', branchSchema);

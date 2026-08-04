@@ -6,10 +6,8 @@ const Project = require('../models/Project');
 // Get all inventory items (Central Warehouse & per-site)
 exports.getInventory = async (req, res) => {
   try {
-    const { siteId } = req.query;
-    const filter = siteId ? { site: siteId } : {};
-    const stock = await SiteStock.find(filter).populate('site', 'title description');
-    const warehouseStock = await SiteStock.find({ isCentralWarehouse: true });
+    const stock = await SiteStock.find().populate('siteStockQty.project', 'name location');
+    const warehouseStock = stock.filter(s => (s.centralStockQty || 0) > 0);
     
     res.json({ success: true, stock, warehouseStock });
   } catch (error) {
@@ -244,17 +242,43 @@ exports.createGRN = async (req, res) => {
       }
     }
 
+    // Auto-link GRN expense to Project & Finance Entry
+    if (totalAmount > 0 && site) {
+      try {
+        const FinanceEntry = require('../models/FinanceEntry');
+        const Project = require('../models/Project');
+        await FinanceEntry.create({
+          entryNo: 'EXP-GRN-' + Date.now().toString().slice(-6),
+          type: 'expense',
+          category: 'Material & Inventory',
+          amount: totalAmount,
+          date: new Date(),
+          description: `GRN Material Purchase (${grn.grnNo}) for ${siteName || 'Site'}`,
+          project: site,
+          createdBy: req.user._id,
+        });
+        const proj = await Project.findById(site);
+        if (proj) {
+          proj.expenses = Number(proj.expenses || 0) + totalAmount;
+          await proj.save();
+        }
+      } catch (expErr) {
+        console.warn('[createGRN] Project expense linking warning:', expErr.message);
+      }
+    }
+
     res.json({ success: true, grn });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get GRN records
+// Get GRN records (with optional site filter)
 exports.getGRNs = async (req, res) => {
   try {
-    const grns = await GRN.find()
-      .populate('site', 'title')
+    const query = req.query.site ? { site: req.query.site } : {};
+    const grns = await GRN.find(query)
+      .populate('site', 'name')
       .populate('receivedBy', 'name')
       .sort({ createdAt: -1 });
 

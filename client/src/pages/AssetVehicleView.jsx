@@ -137,6 +137,16 @@ export default function AssetVehicleView() {
                   onChange={(e) => setAssetForm({ ...assetForm, site: e.target.value })}
                 />
               </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Asset Value / Amount (LKR) *</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 18500000"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  value={assetForm.amount || ''}
+                  onChange={(e) => setAssetForm({ ...assetForm, amount: e.target.value })}
+                />
+              </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"

@@ -67,7 +67,7 @@ export default function LogCentre() {
               transition={{ duration: 0.25, ease: 'easeOut' }}
             >
               {/* Hide only the titles of the imported components so action buttons remain visible */}
-              <div className="[&_.page-title]:hidden [&_.page-subtitle]:hidden [&_.page-header]:!mb-0 [&_.page-header]:!pb-0 [&_.page-header]:border-0 bg-white rounded-2xl shadow-sm border border-slate-200 p-1 sm:p-4">
+              <div className="[&_.page-title]:hidden [&_.page-subtitle]:hidden [&_.page-header]:!mb-0 [&_.page-header]:!pb-0 [&_.page-header]:border-0 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 sm:p-4 overflow-x-auto max-w-full">
                 {tab.id === 'audit' && <AdminAuditLogs />}
                 {tab.id === 'email' && <AdminEmailLogs />}
                 {tab.id === 'sms' && <AdminSmsLogs />}

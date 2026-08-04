@@ -13,8 +13,8 @@ import React from 'react'
  */
 export default function LetterheadHeader({
   logoUrl,
-  companyTitle = 'R.A CREATIONS & HOME DESIGNS (PVT) LTD',
-  tagline = 'Construction & Home Designs',
+  companyTitle = 'R A CREATIONS & HOME DESIGNS (PVT) LTD',
+  tagline = '',
   address = 'Sri Lanka / Kossinna',
   phone = '0770749690',
   email = 'racreationshd@gmail.com',
@@ -24,6 +24,7 @@ export default function LetterheadHeader({
   siteLocation,
   date,
   className = '',
+  showTagline = false,
 }) {
   return (
     <header className={`rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-5 shadow-lg border-b-4 border-amber-500 mb-6 ${className}`}>
@@ -45,13 +46,15 @@ export default function LetterheadHeader({
             )}
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-black tracking-wide text-white uppercase leading-tight">
+            <h1 className="text-base sm:text-lg md:text-xl font-black tracking-wide text-white uppercase leading-tight max-w-lg break-words">
               {companyTitle}
             </h1>
-            <p className="text-sm font-bold text-cyan-400 tracking-wider mt-0.5">
-              {tagline}
-            </p>
-            <div className="h-1 w-44 bg-gradient-to-r from-amber-500 to-cyan-400 rounded-full mt-1.5" />
+            {showTagline && tagline && (
+              <p className="text-xs font-bold text-cyan-400 tracking-wider mt-0.5">
+                {tagline}
+              </p>
+            )}
+            <div className="h-1 w-full max-w-[260px] bg-gradient-to-r from-amber-500 via-orange-400 to-cyan-400 rounded-full mt-2" />
           </div>
         </div>
 

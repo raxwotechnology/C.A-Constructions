@@ -9,7 +9,7 @@ const userRoles = [
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: { type: String, required: false, sparse: true, lowercase: true, trim: true },
     password: { type: String, required: true, select: false },
     role: {
       type: String,
@@ -23,7 +23,10 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date },
-    company: { type: String, default: 'R A Creations / R A Constructions' }
+    company: { type: String, default: 'R A Creations / R A Constructions' },
+    otpCode: { type: String, select: false },
+    otpExpire: { type: Date, select: false },
+    branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }
   },
   { timestamps: true }
 );

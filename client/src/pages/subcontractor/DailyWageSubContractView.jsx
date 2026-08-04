@@ -34,12 +34,22 @@ export default function DailyWageSubContractView() {
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState('')
   const [selectedProject, setSelectedProject] = useState('')
   const [selectedWorkType, setSelectedWorkType] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('')
 
   // Print Payout Slip Modal State
   const [printLog, setPrintLog] = useState(null)
+
+  // Fetch Branches for Branch-Wise Filtering
+  const { data: branchesData } = useQuery({
+    queryKey: ['branches-list-dailywage'],
+    queryFn: async () => {
+      const res = await api.get('/branches')
+      return res.data?.branches || res.data?.data || res.data || []
+    },
+  })
 
   // Fetch Projects for dropdown
   const { data: projectsData } = useQuery({
@@ -1047,6 +1057,19 @@ export default function DailyWageSubContractView() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none bg-amber-50 text-amber-900 border-amber-300"
+              >
+                <option value="">All Branches</option>
+                {(branchesData || []).map((b) => (
+                  <option key={b._id || b.id} value={b._id || b.id}>
+                    {b.name} ({b.code || 'Branch'})
+                  </option>
+                ))}
+              </select>
+
               <select
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}

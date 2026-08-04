@@ -2,16 +2,17 @@
 import { calcDocumentTotals } from './documentTotals'
 
 export function buildQuotationDraft(form, { clients = [], editing = null, user } = {}) {
-  const clientId = form?.client
-  const clientRow = clients.find((c) => String(c._id) === String(clientId))
+  const clientId = typeof form?.client === 'object' ? form?.client?._id : form?.client
+  const clientRow = clients.find((c) => String(c._id) === String(clientId) || String(c.id) === String(clientId))
+  const fallbackName = form?.customerName || form?.clientName || (typeof form?.client === 'object' ? form?.client?.name : '')
   const client = clientRow
     ? {
         _id: clientRow._id,
-        name: clientRow.name,
-        email: clientRow.email,
-        phone: clientRow.phone,
+        name: clientRow.name || fallbackName,
+        email: clientRow.email || '',
+        phone: clientRow.phone || '',
       }
-    : editing?.client || null
+    : (fallbackName ? { name: fallbackName, email: form?.clientEmail || '', phone: form?.clientPhone || '' } : (editing?.client || null))
 
   const totals = calcDocumentTotals(form?.items || [], {
     taxRate: form?.taxRate || 0,

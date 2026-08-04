@@ -55,16 +55,27 @@ exports.register = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Login user
+// @desc    Login user (via Email or Phone Number)
 // @route   POST /api/auth/login
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ success: false, message: 'Please provide email and password' });
+    const { email, identifier, password } = req.body;
+    const inputVal = String(identifier || email || '').trim();
+    if (!inputVal || !password) return res.status(400).json({ success: false, message: 'Please provide email or phone number and password' });
 
-    const user = await User.findOne({ email: String(email).trim().toLowerCase() }).select('+password');
+    const cleanInput = inputVal.toLowerCase();
+    const digitsOnly = inputVal.replace(/[^0-9]/g, '');
+
+    const user = await User.findOne({
+      $or: [
+        { email: cleanInput },
+        { phone: inputVal },
+        ...(digitsOnly.length >= 7 ? [{ phone: new RegExp(digitsOnly.slice(-9) + '$') }] : [])
+      ]
+    }).select('+password');
+
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, message: 'Invalid email/phone or password' });
     }
 
     let isMatch = false;
@@ -334,15 +345,18 @@ exports.deleteUserByAdmin = async (req, res, next) => {
 exports.createClient = async (req, res, next) => {
   try {
     const { name, email, phone, password, referralCode, branch } = req.body;
-    if (!name || !email) {
-      return res.status(400).json({ success: false, message: 'Name and email are required' });
+    if (!name || !phone || !password) {
+      return res.status(400).json({ success: false, message: 'Client name, phone number, and temporary password are required' });
     }
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
+    const cleanEmail = email ? String(email).trim().toLowerCase() : undefined;
+    if (cleanEmail) {
+      const existing = await User.findOne({ email: cleanEmail });
+      if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
     const user = await User.create({
       name,
-      email,
-      phone: phone || '',
+      email: cleanEmail || undefined,
+      phone: String(phone).trim(),
       password: password || 'Client@2026',
       role: 'client',
       branch: branch || null,
@@ -411,15 +425,26 @@ exports.resetPassword = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Forgot password — send OTP to email (works for all roles)
+// @desc    Forgot password — send OTP to email or phone SMS (works for all roles)
 // @route   POST /api/auth/forgot-password/otp
 exports.sendForgotPasswordOtp = async (req, res, next) => {
   try {
-    const email = String(req.body.email || '').toLowerCase().trim();
-    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+    const { email, identifier, channel = 'email' } = req.body;
+    const inputVal = String(identifier || email || '').trim();
+    if (!inputVal) return res.status(400).json({ success: false, message: 'Email address or Phone number is required' });
 
-    const user = await User.findOne({ email }).select('+otpCode +otpExpire');
-    const genericMsg = 'If that email is registered, a verification code has been sent.';
+    const cleanInput = inputVal.toLowerCase();
+    const digitsOnly = inputVal.replace(/[^0-9]/g, '');
+
+    const user = await User.findOne({
+      $or: [
+        { email: cleanInput },
+        { phone: inputVal },
+        ...(digitsOnly.length >= 7 ? [{ phone: new RegExp(digitsOnly.slice(-9) + '$') }] : [])
+      ]
+    }).select('+otpCode +otpExpire');
+
+    const genericMsg = 'If that account is registered, a verification code has been sent.';
 
     if (!user || !user.isActive) {
       return res.json({ success: true, message: genericMsg });
@@ -430,25 +455,42 @@ exports.sendForgotPasswordOtp = async (req, res, next) => {
     user.otpExpire = Date.now() + 15 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
-    let mailResult = { sent: false, reason: 'not attempted' };
-    try {
-      mailResult = await sendMail({
-        to: user.email,
-        subject: 'R A Creations — Password reset verification code',
-        html: `<p>Hi ${user.name},</p><p>Your password reset code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in 15 minutes. If you did not request this, ignore this email.</p>`,
-        text: `Your R A Creations password reset code is ${otp}. It expires in 15 minutes.`,
-      });
-    } catch (mailErr) {
-      console.error('[sendForgotPasswordOtp] SMTP error:', mailErr.message);
-      mailResult = { sent: false, reason: mailErr.message };
+    let sent = false;
+    let failReason = '';
+
+    if (channel === 'sms' || channel === 'phone') {
+      if (!user.phone) {
+        return res.status(400).json({ success: false, message: 'No phone number associated with this account. Please select Email.' });
+      }
+      const { sendSms } = require('../services/smsService');
+      const smsMsg = `Your R A Creations password reset OTP code is ${otp}. Valid for 15 minutes.`;
+      sent = await sendSms(user.phone, smsMsg, user.name, 'auth');
+      if (!sent) failReason = 'SMS gateway could not send the message';
+    } else {
+      if (!user.email) {
+        return res.status(400).json({ success: false, message: 'No email address associated with this account. Please select Phone SMS.' });
+      }
+      try {
+        const mailResult = await sendMail({
+          to: user.email,
+          subject: 'R A Creations — Password reset verification code',
+          html: `<p>Hi ${user.name},</p><p>Your password reset code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in 15 minutes. If you did not request this, ignore this email.</p>`,
+          text: `Your R A Creations password reset code is ${otp}. It expires in 15 minutes.`,
+        });
+        sent = mailResult.sent;
+        if (!sent) failReason = mailResult.reason || 'SMTP failure';
+      } catch (mailErr) {
+        console.error('[sendForgotPasswordOtp] SMTP error:', mailErr.message);
+        failReason = mailErr.message;
+      }
     }
 
-    const payload = { success: true, message: genericMsg };
-    if (!mailResult.sent) {
+    const payload = { success: true, message: `Verification OTP code sent via ${channel === 'sms' || channel === 'phone' ? 'SMS' : 'Email'}.` };
+    if (!sent) {
       if (process.env.NODE_ENV !== 'production') {
         payload.devOtp = otp;
       }
-      payload.mailNote = mailResult.reason;
+      payload.mailNote = failReason;
     }
     res.json(payload);
   } catch (err) { next(err); }
@@ -458,15 +500,23 @@ exports.sendForgotPasswordOtp = async (req, res, next) => {
 // @route   POST /api/auth/forgot-password/verify-otp
 exports.verifyForgotPasswordOtp = async (req, res, next) => {
   try {
-    const email = String(req.body.email || '').toLowerCase().trim();
-    const otp = String(req.body.otp || '').trim();
-    if (!email || !otp) {
-      return res.status(400).json({ success: false, message: 'Email and verification code are required' });
+    const { email, identifier, otp } = req.body;
+    const inputVal = String(identifier || email || '').trim();
+    const otpCode = String(otp || '').trim();
+    if (!inputVal || !otpCode) {
+      return res.status(400).json({ success: false, message: 'Identifier and verification code are required' });
     }
 
-    const hashed = crypto.createHash('sha256').update(otp).digest('hex');
+    const hashed = crypto.createHash('sha256').update(otpCode).digest('hex');
+    const cleanInput = inputVal.toLowerCase();
+    const digitsOnly = inputVal.replace(/[^0-9]/g, '');
+
     const user = await User.findOne({
-      email,
+      $or: [
+        { email: cleanInput },
+        { phone: inputVal },
+        ...(digitsOnly.length >= 7 ? [{ phone: new RegExp(digitsOnly.slice(-9) + '$') }] : [])
+      ],
       otpCode: hashed,
       otpExpire: { $gt: Date.now() },
     }).select('+otpCode +otpExpire');
@@ -483,19 +533,26 @@ exports.verifyForgotPasswordOtp = async (req, res, next) => {
 // @route   POST /api/auth/forgot-password/reset
 exports.resetPasswordWithOtp = async (req, res, next) => {
   try {
-    const email = String(req.body.email || '').toLowerCase().trim();
-    const otp = String(req.body.otp || '').trim();
-    const password = req.body.password;
-    if (!email || !otp || !password) {
-      return res.status(400).json({ success: false, message: 'Email, verification code, and new password are required' });
+    const { email, identifier, otp, password } = req.body;
+    const inputVal = String(identifier || email || '').trim();
+    const otpCode = String(otp || '').trim();
+    if (!inputVal || !otpCode || !password) {
+      return res.status(400).json({ success: false, message: 'Identifier, verification code, and new password are required' });
     }
 
     const strengthErr = validateStrongPassword(password);
     if (strengthErr) return res.status(400).json({ success: false, message: strengthErr });
 
-    const hashed = crypto.createHash('sha256').update(otp).digest('hex');
+    const hashed = crypto.createHash('sha256').update(otpCode).digest('hex');
+    const cleanInput = inputVal.toLowerCase();
+    const digitsOnly = inputVal.replace(/[^0-9]/g, '');
+
     const user = await User.findOne({
-      email,
+      $or: [
+        { email: cleanInput },
+        { phone: inputVal },
+        ...(digitsOnly.length >= 7 ? [{ phone: new RegExp(digitsOnly.slice(-9) + '$') }] : [])
+      ],
       otpCode: hashed,
       otpExpire: { $gt: Date.now() },
     }).select('+password +otpCode +otpExpire');
@@ -509,15 +566,17 @@ exports.resetPasswordWithOtp = async (req, res, next) => {
     user.otpExpire = undefined;
     await user.save();
 
-    try {
-      await sendMail({
-        to: user.email,
-        subject: 'Your R A Creations password was reset',
-        html: `<p>Hi ${user.name},</p><p>Your password was reset successfully. You can sign in with your new password.</p>`,
-        text: `Hi ${user.name}, your R A Creations password was reset successfully.`,
-      });
-    } catch (mailErr) {
-      console.warn('[resetPasswordWithOtp] email notification failed:', mailErr.message);
+    if (user.email) {
+      try {
+        await sendMail({
+          to: user.email,
+          subject: 'Your R A Creations password was reset',
+          html: `<p>Hi ${user.name},</p><p>Your password was reset successfully. You can sign in with your new password.</p>`,
+          text: `Hi ${user.name}, your R A Creations password was reset successfully.`,
+        });
+      } catch (mailErr) {
+        console.warn('[resetPasswordWithOtp] email notification failed:', mailErr.message);
+      }
     }
 
     res.json({ success: true, message: 'Password reset successfully. You can sign in now.' });

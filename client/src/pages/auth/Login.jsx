@@ -177,16 +177,16 @@ export default function Login() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Email Address
+                Email Address or Phone Number
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-amber-600 transition-colors">
                   <FiMail size={16} />
                 </div>
                 <input
-                  {...register('email', { required: 'Email is required' })}
-                  type="email"
-                  placeholder="racreationshd@gmail.com"
+                  {...register('email', { required: 'Email address or Phone number is required' })}
+                  type="text"
+                  placeholder="Email address or Phone number (077XXXXXXX)"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all font-medium"
                 />
               </div>

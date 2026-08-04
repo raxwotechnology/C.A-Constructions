@@ -420,12 +420,12 @@ export default function AdminAttendance() {
       {showModal && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h3 className="font-bold text-primary font-heading">{editingRecord ? 'Edit Attendance Record' : 'Add Attendance Record'}</h3>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b shrink-0 bg-white sticky top-0 z-10">
+              <h3 className="font-bold text-primary font-heading text-base">{editingRecord ? 'Edit Attendance Record' : 'Add Attendance Record'}</h3>
+              <button onClick={closeModal} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"><FiX size={20} /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               {!editingRecord && (
                 <div>
                   <label className="form-label">Employee *</label>

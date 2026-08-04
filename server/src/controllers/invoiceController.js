@@ -379,7 +379,7 @@ exports.recordPayment = async (req, res, next) => {
       });
     }
 
-    // Notify client
+    // Notify client in app, email, and SMS
     await createNotification({
       recipient: invoice.client,
       title: invoice.remainingBalance === 0 ? 'Invoice Fully Paid ✅' : 'Payment Received',
@@ -389,6 +389,30 @@ exports.recordPayment = async (req, res, next) => {
       type: 'payment',
       link: '/invoices',
     });
+
+    // Auto-send SMS & Email confirmation to Client
+    try {
+      const clientUser = await User.findById(invoice.client);
+      if (clientUser) {
+        const payTitle = invoice.remainingBalance === 0 ? 'Invoice Fully Paid' : 'Payment Received';
+        const payMsg = `Dear ${clientUser.name}, your payment of LKR ${payAmt.toLocaleString()} for Invoice ${invoice.invoiceNo} has been received. Remaining balance: LKR ${Number(invoice.remainingBalance || 0).toLocaleString()}. Thank you!`;
+        
+        if (clientUser.phone) {
+          const { sendSms } = require('../services/smsService');
+          await sendSms(clientUser.phone, payMsg, clientUser.name, 'invoice');
+        }
+        if (clientUser.email) {
+          await sendMail({
+            to: clientUser.email,
+            subject: `${payTitle} Confirmation — ${invoice.invoiceNo}`,
+            html: `<div style="font-family:sans-serif;padding:20px;color:#333;"><h2>Payment Confirmation</h2><p>Dear ${clientUser.name},</p><p>We have successfully received your payment of <strong>LKR ${payAmt.toLocaleString()}</strong> for invoice <strong>${invoice.invoiceNo}</strong>.</p><p>Remaining Balance: <strong>LKR ${Number(invoice.remainingBalance || 0).toLocaleString()}</strong></p><p>Thank you for choosing R A Creations & Home Designs!</p></div>`,
+            text: payMsg,
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('[invoice/recordPayment] Automatic SMS/Email notification failed:', notifyErr.message);
+    }
 
     if (invoice.status === 'paid') {
       await awardPoints({ userId: invoice.client, action: 'complete_invoice_payment', sourceKey: `inv-paid:${invoice._id}`, note: 'Invoice paid' });
@@ -451,6 +475,28 @@ exports.recordAdvance = async (req, res, next) => {
       type: 'payment',
       link: '/invoices',
     });
+
+    // Auto-send SMS & Email confirmation for Advance Payment
+    try {
+      const clientUser = await User.findById(invoice.client);
+      if (clientUser) {
+        const advMsg = `Dear ${clientUser.name}, advance payment of LKR ${payAmt.toLocaleString()} for Invoice ${invoice.invoiceNo} has been successfully received. Thank you!`;
+        if (clientUser.phone) {
+          const { sendSms } = require('../services/smsService');
+          await sendSms(clientUser.phone, advMsg, clientUser.name, 'invoice');
+        }
+        if (clientUser.email) {
+          await sendMail({
+            to: clientUser.email,
+            subject: `Advance Payment Confirmation — ${invoice.invoiceNo}`,
+            html: `<div style="font-family:sans-serif;padding:20px;color:#333;"><h2>Advance Payment Received</h2><p>Dear ${clientUser.name},</p><p>We have successfully received your advance payment of <strong>LKR ${payAmt.toLocaleString()}</strong> for invoice <strong>${invoice.invoiceNo}</strong>.</p><p>Thank you for choosing R A Creations & Home Designs!</p></div>`,
+            text: advMsg,
+          });
+        }
+      }
+    } catch (advNotifyErr) {
+      console.warn('[invoice/recordAdvance] Automatic SMS/Email notification failed:', advNotifyErr.message);
+    }
 
     await syncProjectsForInvoice(invoice._id);
 

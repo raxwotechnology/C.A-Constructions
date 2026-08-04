@@ -13,6 +13,8 @@ const assetSchema = new mongoose.Schema(
     registrationNumber: { type: String }, // e.g. "WP LA-4589" or "JCB-892"
     assignedDriverOrOperator: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     assignedProject: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+    assetValue: { type: Number, default: 0 },
+    amount: { type: Number, default: 0 },
     
     // Status & Meter Readings
     status: { type: String, enum: ['Operational', 'Under Service', 'Breakdown', 'Idle'], default: 'Operational' },
