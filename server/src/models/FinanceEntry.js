@@ -41,6 +41,8 @@ const financeEntrySchema = new mongoose.Schema(
     description: { type: String },
     referenceDoc: { type: String }, // e.g. receipt or invoice URL
     status: { type: String, enum: ['Draft', 'Approved', 'Paid', 'Reconciled'], default: 'Approved' },
+    bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
+    branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   },
   { timestamps: true }

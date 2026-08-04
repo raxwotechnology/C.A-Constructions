@@ -10,13 +10,13 @@ export default function UserAvatar({ user, className = '', imgClassName = 'w-ful
 
   const src = avatarPath && !broken 
     ? mediaUrl(normalizeUploadPath(avatarPath) || avatarPath) 
-    : (user?.email && !broken ? `https://unavatar.io/${user.email}?fallback=false` : '')
+    : (user?.email && !broken ? `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=ea580c&color=fff&size=128` : '')
     
   const initial = user?.name?.charAt(0)?.toUpperCase() || '?'
 
-  if (!src) {
+  if (!src || broken) {
     return (
-      <div className={`flex items-center justify-center bg-secondary/10 text-secondary font-semibold ${className}`}>
+      <div className={`flex items-center justify-center bg-orange-100 text-orange-700 font-bold uppercase ${className}`}>
         {initial}
       </div>
     )

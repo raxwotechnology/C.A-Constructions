@@ -12,7 +12,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiBook, FiChevronDown, FiChevronRight,
   FiDownload, FiSearch,
-  FiServer, FiZap, FiShield, FiFileText as FiQuote, FiTarget, FiVideo, FiMapPin
+  FiServer, FiZap, FiShield, FiFileText as FiQuote, FiTarget, FiVideo, FiMapPin, FiTrash2
 } from 'react-icons/fi'
 
 // Distinct Color Styles for Main Categories to give high visual clarity (Light Theme)

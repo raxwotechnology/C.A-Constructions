@@ -42,10 +42,11 @@ function sanitizeEmployeePayload(payload) {
 
   // 3 & 4. Department payload sanitization
   if (payload.department === 'active' || payload.department === 'Active') {
-    payload.department = 'Site Operations';
+    payload.department = 'Civil & Structural Engineering';
     if (!payload.status) payload.status = 'Active';
-  } else if (payload.department === 'Finance & Accounting') {
-    payload.department = 'Finance & Accounting';
+  } else if (payload.department) {
+    // Keep specialized departments like 'Civil & Structural Engineering', 'Finance & Accounting', etc.
+    payload.department = payload.department.trim();
   }
 
   // 5. Status payload sanitization
@@ -117,24 +118,35 @@ exports.getEmployees = async (req, res, next) => {
     }
 
     let employees = await Employee.find(query)
+      .populate('user', 'name email phone avatar role')
       .populate('userId', 'name email phone avatar role')
       .populate('manager', 'name email')
       .sort({ createdAt: -1 });
+
+    // Normalize user / userId references
+    employees = employees.map(e => {
+      const eObj = e.toObject ? e.toObject() : e;
+      if (!eObj.userId && eObj.user) eObj.userId = eObj.user;
+      if (!eObj.user && eObj.userId) eObj.user = eObj.userId;
+      return eObj;
+    });
 
     if (search) {
       const s = search.toLowerCase();
       employees = employees.filter(e =>
         e.userId?.name?.toLowerCase().includes(s) ||
+        e.user?.name?.toLowerCase().includes(s) ||
         e.employeeNo?.toLowerCase().includes(s) ||
+        e.employeeId?.toLowerCase().includes(s) ||
         e.department?.toLowerCase().includes(s) ||
         e.designation?.toLowerCase().includes(s)
       );
     }
 
-    employees = employees.filter((e) => e.userId);
+    employees = employees.filter((e) => e.userId || e.user || e.fullName);
     const seenUsers = new Set();
     employees = employees.filter((e) => {
-      const uid = String(e.userId?._id || e.userId);
+      const uid = String(e.userId?._id || e.user?._id || e._id);
       if (seenUsers.has(uid)) return false;
       seenUsers.add(uid);
       return true;
@@ -223,11 +235,13 @@ exports.createEmployee = async (req, res, next) => {
     }
 
     const employeeCount = await Employee.countDocuments();
-    const employeeNo = `EMP${String(employeeCount + 1).padStart(4, '0')}`;
+    const autoEmpId = `EMP${String(employeeCount + 1).padStart(4, '0')}`;
+    const employeeNo = req.body.employeeNo || req.body.employeeId || autoEmpId;
+    const employeeId = employeeNo;
 
     const status = statusBody || (employmentType === 'intern' ? 'internship' : employmentType === 'contract' ? 'contract' : 'active');
     const createPayload = {
-      userId: user._id, employeeNo, department, designation,
+      userId: user._id, user: user._id, employeeId, employeeNo, department, designation,
       basicSalary: Number(basicSalary) || 0, allowances: Number(allowances) || 0,
       joinedDate,
       status,
