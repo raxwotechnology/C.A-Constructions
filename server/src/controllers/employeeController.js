@@ -26,9 +26,38 @@ function isValidObjectId(v) {
 
 function sanitizeEmployeePayload(payload) {
   delete payload._id;
+
+  // 1. Path 'fullName' is required -> Preserve payload.name if fullName is missing
+  if (!payload.fullName && (payload.name || payload.employeeName || payload.first_name)) {
+    payload.fullName = payload.name || payload.employeeName || payload.first_name;
+  }
   delete payload.name;
   delete payload.email;
   delete payload.password;
+
+  // 2. Path 'employeeId' is required -> Auto-generate if missing
+  if (!payload.employeeId && !payload.employeeNo) {
+    payload.employeeId = 'EMP-' + Date.now().toString().slice(-6);
+  }
+
+  // 3 & 4. Department payload sanitization
+  if (payload.department === 'active' || payload.department === 'Active') {
+    payload.department = 'Site Operations';
+    if (!payload.status) payload.status = 'Active';
+  } else if (payload.department === 'Finance & Accounting') {
+    payload.department = 'Finance & Accounting';
+  }
+
+  // 5. Status payload sanitization
+  if (payload.status) {
+    const s = String(payload.status).toLowerCase();
+    if (s === 'active') payload.status = 'Active';
+    else if (s === 'resigned') payload.status = 'Resigned';
+    else if (s === 'terminated') payload.status = 'Terminated';
+    else if (s === 'on_leave' || s === 'on leave') payload.status = 'On Leave';
+  } else {
+    payload.status = 'Active';
+  }
 
   ['branch', 'manager'].forEach((key) => {
     if (payload[key] === '' || payload[key] == null) delete payload[key];
