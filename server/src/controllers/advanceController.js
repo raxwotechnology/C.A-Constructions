@@ -71,12 +71,18 @@ exports.getEmployeeAdvanceSummary = async (req, res, next) => {
 exports.createAdvance = async (req, res, next) => {
   try {
     const {
+      recipientCategory, workerName, project,
       employeeId, amount, date, reason, repaymentType, installments,
       paymentMethod, bankAccount, paymentReference, chequeNumber,
     } = req.body;
     const amt = Number(amount);
-    if (!employeeId || !amt || amt <= 0) {
-      return res.status(400).json({ success: false, message: 'Employee and valid amount are required' });
+    const cat = recipientCategory || 'office_employee';
+
+    if (cat === 'office_employee' && !employeeId) {
+      return res.status(400).json({ success: false, message: 'Employee is required for Office Staff advances' });
+    }
+    if (!amt || amt <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid advance amount is required' });
     }
 
     const method = paymentMethod || 'cash';
@@ -90,7 +96,10 @@ exports.createAdvance = async (req, res, next) => {
     const inst = Number(installments) || 1;
     const payDate = parseLedgerDate(date);
     const advance = await Advance.create({
-      employee: employeeId,
+      recipientCategory: cat,
+      employee: employeeId || undefined,
+      workerName: workerName || '',
+      project: project || undefined,
       amount: amt,
       outstandingBalance: amt,
       date: payDate,
@@ -105,11 +114,32 @@ exports.createAdvance = async (req, res, next) => {
       recordedBy: req.user._id,
     });
 
-    const emp = await Employee.findByIdAndUpdate(
-      employeeId,
-      { $inc: { advanceBalance: amt } },
-      { new: true }
-    ).populate('userId', 'name _id');
+    // Auto-link Baas Worker Advances to Site Expense
+    if (cat === 'baas_worker' && project) {
+      const FinanceEntry = require('../models/FinanceEntry');
+      await FinanceEntry.create({
+        transactionNo: 'ADV-W-' + Date.now().toString().slice(-6),
+        project: project,
+        title: `Worker Advance: ${workerName || 'Baas Worker'} (${reason || 'Site Advance'})`,
+        amount: amt,
+        type: 'expense',
+        transactionType: 'Expense',
+        masterCategory: 'Direct Construction Expenses',
+        category: 'Daily Wages',
+        payeeOrPayer: workerName || 'Baas Worker',
+        paymentMethod: method === 'cash' ? 'Cash' : 'Bank Transfer',
+        date: payDate,
+      }).catch(e => console.warn('Failed to auto-create Site FinanceEntry for worker advance:', e.message));
+    }
+
+    let emp = null;
+    if (employeeId) {
+      emp = await Employee.findByIdAndUpdate(
+        employeeId,
+        { $inc: { advanceBalance: amt } },
+        { new: true }
+      ).populate('userId', 'name _id');
+    }
 
     if (postsToBankLedger(method) && bankAccount) {
       const empName = emp?.userId?.name || 'Employee';

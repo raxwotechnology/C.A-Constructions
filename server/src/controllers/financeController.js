@@ -378,7 +378,8 @@ exports.getEntries = async (req, res, next) => {
 
 exports.getOverview = async (req, res, next) => {
   try {
-    const { branch, from, to } = req.query;
+    const { branch, from, to, site, siteId, project, projectId } = req.query;
+    const targetSite = site || siteId || project || projectId;
     const now = new Date();
     
     let range;
@@ -397,20 +398,24 @@ exports.getOverview = async (req, res, next) => {
     const yearEnd = new Date(yearForChart, 11, 31, 23, 59, 59, 999);
 
     const branchMatch = branch ? { branch } : {};
+    const siteMatch = targetSite ? { project: targetSite } : {};
+    const queryMatch = { ...branchMatch, ...siteMatch };
+
     const empIds = await getEmpIds(branch);
     const empMatch = empIds ? { employee: { $in: empIds } } : {};
 
     const [paidInvoices, paidPayrolls, rawEntries, revenueByMonth, paymentRevenueAgg, incomeExpenseByCategory, pettyCashEntries, subIncome, invIncome, chequeTx, advanceExp, loanTx, bankLedger, cashAgg] = await Promise.all([
-      Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
+      Invoice.find({ ...queryMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'name title'),
       Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year'),
-      FinanceEntry.find({ ...branchMatch, date: range })
+      FinanceEntry.find({ ...queryMatch, date: range })
         .sort({ date: -1 })
         .populate('bankAccount', 'bankName accountNumber')
-        .populate('branch', 'name'),
-      aggregateInvoicePaymentRevenueByMonth(branchMatch, yearStart, yearEnd),
-      aggregateInvoicePaymentRevenue(branchMatch, range),
+        .populate('branch', 'name')
+        .populate('project', 'name location'),
+      aggregateInvoicePaymentRevenueByMonth(queryMatch, yearStart, yearEnd),
+      aggregateInvoicePaymentRevenue(queryMatch, range),
       FinanceEntry.aggregate([
-        { $match: { ...branchMatch, date: range } },
+        { $match: { ...queryMatch, date: range } },
         { $group: { _id: { category: '$category', type: '$type' }, total: { $sum: '$amount' } } },
         { $sort: { total: -1 } },
       ]),
@@ -1110,4 +1115,51 @@ exports.getProfitLoss = async (req, res, next) => {
       expenseCategoryBreakdown: Object.entries(expenseCategoryMap).map(([cat, amt]) => ({ category: cat, amount: amt })).sort((a, b) => b.amount - a.amount),
     });
   } catch (err) { next(err); }
+};
+
+// Group by Site P&L Summary API
+exports.getSitePnlSummary = async (req, res, next) => {
+  try {
+    const Project = require('../models/Project');
+    const Invoice = require('../models/Invoice');
+    const FinanceEntry = require('../models/FinanceEntry');
+
+    const projects = await Project.find().sort({ name: 1 });
+    const siteSummaries = await Promise.all(
+      projects.map(async (p) => {
+        const pId = p._id;
+
+        // 1. Invoices & Income linked to this site
+        const invoices = await Invoice.find({ project: pId, status: 'paid' });
+        const invoiceIncome = invoices.reduce((s, i) => s + Number(i.total || 0), 0);
+
+        const finEntries = await FinanceEntry.find({ project: pId });
+        const finIncome = finEntries.filter(f => f.type === 'income').reduce((s, f) => s + Number(f.amount || 0), 0);
+        const finExpense = finEntries.filter(f => f.type === 'expense').reduce((s, f) => s + Number(f.amount || 0), 0);
+
+        // Worker payments linked to this site
+        const workerPayments = finEntries.filter(f => f.category === 'Daily Wages' || f.category === 'Labor' || f.category === 'Sub-Contract').reduce((s, f) => s + Number(f.amount || 0), 0);
+
+        const totalIncome = invoiceIncome + finIncome;
+        const totalExpenses = finExpense;
+        const netProfitLoss = totalIncome - totalExpenses;
+
+        return {
+          siteId: pId,
+          siteName: p.name || p.title || 'Site',
+          location: p.location || 'Site Location',
+          clientName: p.clientName || 'Client',
+          contractValue: p.contractValue || p.contractSum || 0,
+          totalIncome,
+          totalExpenses,
+          workerPayments,
+          netProfitLoss,
+        };
+      })
+    );
+
+    res.json({ success: true, siteSummaries });
+  } catch (err) {
+    next(err);
+  }
 };

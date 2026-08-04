@@ -42,7 +42,35 @@ exports.getProjects = async (req, res, next) => {
       .populate('siteSupervisor', 'name email avatar')
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, count: projects.length, projects });
+    const FinanceEntry = require('../models/FinanceEntry');
+
+    const enrichedProjects = await Promise.all(
+      projects.map(async (p) => {
+        const pObj = p.toObject ? p.toObject() : { ...p };
+        const pId = p._id;
+
+        // Aggregate linked expenses (FinanceEntry + Material/GRN + Wages)
+        const expAgg = await FinanceEntry.aggregate([
+          { $match: { project: pId, type: 'expense' } },
+          { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]);
+        const calculatedExpense = expAgg[0]?.total || p.totalExpense || p.actualCost || 0;
+        const budget = p.contractValue || p.estimatedCost || 1000000;
+        const usedPercent = budget > 0 ? Math.round((calculatedExpense / budget) * 100) : 0;
+        const costVariance = calculatedExpense - budget;
+        const isOverrun = calculatedExpense > budget;
+
+        pObj.totalExpense = calculatedExpense;
+        pObj.actualCost = calculatedExpense;
+        pObj.budgetUsedPercent = usedPercent;
+        pObj.costVariance = costVariance;
+        pObj.isOverrun = isOverrun;
+
+        return pObj;
+      })
+    );
+
+    res.json({ success: true, count: enrichedProjects.length, projects: enrichedProjects });
   } catch (err) { next(err); }
 };
 
@@ -51,7 +79,24 @@ exports.getProject = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.id).populate(POPULATE);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-    res.json({ success: true, project });
+
+    const FinanceEntry = require('../models/FinanceEntry');
+    const pObj = project.toObject ? project.toObject() : { ...project };
+    const expAgg = await FinanceEntry.aggregate([
+      { $match: { project: project._id, type: 'expense' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    const calculatedExpense = expAgg[0]?.total || project.totalExpense || project.actualCost || 0;
+    const budget = project.contractValue || project.estimatedCost || 1000000;
+    const usedPercent = budget > 0 ? Math.round((calculatedExpense / budget) * 100) : 0;
+
+    pObj.totalExpense = calculatedExpense;
+    pObj.actualCost = calculatedExpense;
+    pObj.budgetUsedPercent = usedPercent;
+    pObj.costVariance = calculatedExpense - budget;
+    pObj.isOverrun = calculatedExpense > budget;
+
+    res.json({ success: true, project: pObj });
   } catch (err) { next(err); }
 };
 

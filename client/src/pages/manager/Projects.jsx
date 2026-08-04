@@ -47,17 +47,76 @@ function ProjectCard({ p, expanded, onToggle }) {
 
             {p.description && <p className="text-sm text-slate-500 mt-2 line-clamp-2">{p.description}</p>}
 
-            {/* Progress */}
+            {/* Physical Progress */}
             <div className="mt-3">
               <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span className="flex items-center gap-1"><FiTrendingUp size={11} /> Progress</span>
-                <span className="font-semibold">{p.progress || 0}%</span>
+                <span className="flex items-center gap-1 font-semibold text-slate-700"><FiTrendingUp size={11} /> Physical Work Progress</span>
+                <span className="font-bold text-slate-900">{p.progress || 0}%</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div className={`h-full rounded-full transition-all ${(p.progress || 0) >= 100 ? 'bg-emerald-500' : (p.progress || 0) >= 70 ? 'bg-blue-500' : (p.progress || 0) >= 40 ? 'bg-amber-500' : 'bg-slate-400'}`}
                   style={{ width: `${p.progress || 0}%` }} />
               </div>
             </div>
+
+            {/* Financial Budget vs Expense & Overrun Alert */}
+            {(() => {
+              const budget = Number(p.contractValue || p.contractSum || p.estimatedCost || p.budget || 1000000);
+              const totalExpenses = Number(p.totalExpense || p.actualCost || 0);
+              const usedPercent = p.budgetUsedPercent || (budget > 0 ? Math.round((totalExpenses / budget) * 100) : 0);
+              const costVariance = p.costVariance !== undefined ? p.costVariance : (totalExpenses - budget);
+              const isOverrun = p.isOverrun !== undefined ? p.isOverrun : (totalExpenses > budget);
+
+              return (
+                <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2 text-xs">
+                  <div className="flex justify-between items-center font-semibold">
+                    <span className="text-slate-600 font-sans">Budget vs Expense Usage</span>
+                    <span className={`font-bold ${isOverrun ? 'text-rose-600 font-black' : 'text-slate-800'}`}>
+                      {usedPercent}% Used
+                    </span>
+                  </div>
+
+                  {/* Budget Usage Dynamic Progress Bar */}
+                  <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        isOverrun
+                          ? 'bg-rose-600 animate-pulse'
+                          : usedPercent >= 85
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(usedPercent, 100)}%` }}
+                    />
+                  </div>
+
+                  <div className="flex justify-between text-[11px] font-mono text-slate-600">
+                    <span>Budget: LKR {budget.toLocaleString()}</span>
+                    <span>Expenses: LKR {totalExpenses.toLocaleString()}</span>
+                  </div>
+
+                  {/* Overrun Alert & Variance Summary Highlight */}
+                  {isOverrun ? (
+                    <div className="bg-rose-50 border border-rose-200 p-2 rounded-lg text-rose-700 flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1">
+                        <FiAlertTriangle className="text-rose-600 shrink-0" size={13} />
+                        COST OVERRUN ALERT!
+                      </span>
+                      <span className="font-mono text-rose-800">
+                        + LKR {costVariance.toLocaleString()} Wastage
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50 border border-emerald-200 p-1.5 rounded-lg text-emerald-800 flex items-center justify-between text-[11px] font-semibold">
+                      <span>✓ Within Budget</span>
+                      <span className="font-mono">
+                        LKR {Math.abs(costVariance).toLocaleString()} Remaining
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Footer meta */}
             <div className="flex flex-wrap gap-3 mt-3 text-xs text-slate-400">

@@ -35,6 +35,9 @@ const projectSchema = new mongoose.Schema(
     totalIncome: { type: Number, default: 0 },
     totalExpense: { type: Number, default: 0 },
     netProfitLoss: { type: Number, default: 0 },
+    budgetUsedPercent: { type: Number, default: 0 },
+    costVariance: { type: Number, default: 0 },
+    isOverrun: { type: Boolean, default: false },
 
     // Timeline & Progress
     startDate: { type: Date, required: true, default: Date.now },

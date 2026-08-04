@@ -238,15 +238,57 @@ export default function AdminAdvances() {
               <button type="button" onClick={() => { setShowCreate(false); setEmpSummary(null) }} className="p-2 hover:bg-gray-100 rounded-lg"><FiX size={16} /></button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Category Dropdown */}
               <div>
-                <label className="form-label">Employee *</label>
-                <SearchableSelect
-                  value={form.employeeId}
-                  onChange={(v) => { setForm(s => ({ ...s, employeeId: v })); loadEmployeeSummary(v) }}
-                  loadOptions={lookupLoaders.employees({ branch: branchFilter })}
-                  placeholder="Search employee…"
-                />
+                <label className="form-label font-bold text-slate-800">Select Recipient Category *</label>
+                <select
+                  value={form.recipientCategory || 'office_employee'}
+                  onChange={(e) => setForm(s => ({ ...s, recipientCategory: e.target.value }))}
+                  className="form-input font-semibold bg-amber-50/50 border-amber-200"
+                >
+                  <option value="office_employee">Office Employees (PMs, Accountants, Office Staff)</option>
+                  <option value="baas_worker">Baas / Site Workers (Baasla & Site Labourers)</option>
+                </select>
               </div>
+
+              {form.recipientCategory === 'baas_worker' ? (
+                <div className="space-y-3 bg-amber-50 border border-amber-200 p-4 rounded-xl">
+                  <span className="text-[11px] font-bold text-amber-900 uppercase">BAAS & SITE WORKER DETAILS</span>
+                  <div>
+                    <label className="form-label text-slate-700">Worker / Baas Name *</label>
+                    <input
+                      type="text"
+                      className="form-input bg-white"
+                      placeholder="e.g. Sunil Baas / K. Kamal"
+                      value={form.workerName || ''}
+                      onChange={(e) => setForm(s => ({ ...s, workerName: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label text-slate-700">Construction Site / Project *</label>
+                    <SearchableSelect
+                      value={form.project || ''}
+                      onChange={(v) => setForm(s => ({ ...s, project: v }))}
+                      loadOptions={lookupLoaders.projects()}
+                      placeholder="Search Construction Site..."
+                    />
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-amber-200 text-[11px] text-amber-800 font-semibold flex items-center gap-1.5">
+                    <FiCheck className="text-amber-600 shrink-0" size={14} />
+                    Auto-deducts from Worker Pay Sheet & links to Site Expenses!
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="form-label">Employee *</label>
+                  <SearchableSelect
+                    value={form.employeeId}
+                    onChange={(v) => { setForm(s => ({ ...s, employeeId: v })); loadEmployeeSummary(v) }}
+                    loadOptions={lookupLoaders.employees({ branch: branchFilter })}
+                    placeholder="Search employee…"
+                  />
+                </div>
+              )}
 
               {loadingSummary && <p className="text-sm text-slate-400 text-center py-2">Loading balance info…</p>}
               {empSummary && (

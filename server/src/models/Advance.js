@@ -8,7 +8,14 @@ const repaymentSchema = new mongoose.Schema({
 });
 
 const advanceSchema = new mongoose.Schema({
-  employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+  recipientCategory: {
+    type: String,
+    enum: ['office_employee', 'baas_worker'],
+    default: 'office_employee',
+  },
+  employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+  workerName: { type: String, default: '' },
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
   amount: { type: Number, required: true },
   date: { type: Date, default: Date.now },
   reason: { type: String, default: '' },

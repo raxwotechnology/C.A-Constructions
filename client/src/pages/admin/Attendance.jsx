@@ -86,15 +86,31 @@ export default function AdminAttendance() {
     queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data),
   })
 
+  const [personnelCategory, setPersonnelCategory] = useState('all') // 'all' | 'office' | 'workers'
+
   const records = useMemo(() => {
-    const all = attData?.records || []
+    let all = attData?.records || []
+    if (personnelCategory === 'office') {
+      all = all.filter(r => {
+        const dept = (r.employee?.department || '').toLowerCase();
+        const desig = (r.employee?.designation || '').toLowerCase();
+        return dept.includes('hr') || dept.includes('finance') || dept.includes('executive') || dept.includes('management') || desig.includes('manager') || desig.includes('accountant') || desig.includes('staff');
+      });
+    } else if (personnelCategory === 'workers') {
+      all = all.filter(r => {
+        const dept = (r.employee?.department || '').toLowerCase();
+        const desig = (r.employee?.designation || '').toLowerCase();
+        return dept.includes('site') || dept.includes('operation') || desig.includes('baas') || desig.includes('worker') || desig.includes('labour');
+      });
+    }
+
     if (!search) return all
     const s = search.toLowerCase()
     return all.filter(r =>
       r.employee?.userId?.name?.toLowerCase().includes(s) ||
       r.employee?.employeeNo?.toLowerCase().includes(s)
     )
-  }, [attData, search])
+  }, [attData, search, personnelCategory])
 
   const employees = empData?.employees || []
   const analytics = analyticsData || {}
@@ -342,6 +358,28 @@ export default function AdminAttendance() {
               <input type="date" className="form-input py-1.5 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
             </div>
           )}
+
+          {/* Personnel Category Split Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-xl gap-1 text-xs font-bold border border-slate-200">
+            <button
+              onClick={() => setPersonnelCategory('all')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${personnelCategory === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              👥 All Personnel
+            </button>
+            <button
+              onClick={() => setPersonnelCategory('office')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${personnelCategory === 'office' ? 'bg-orange-600 text-white shadow-sm font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              👔 Office Staff (PMs, Staff, Accountants)
+            </button>
+            <button
+              onClick={() => setPersonnelCategory('workers')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${personnelCategory === 'workers' ? 'bg-amber-600 text-white shadow-sm font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              🏗️ Baas & Site Workers
+            </button>
+          </div>
 
           <FilterBar
             search={search} onSearchChange={setSearch}
