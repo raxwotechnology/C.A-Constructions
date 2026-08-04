@@ -62,6 +62,7 @@ import AdminPortfolio from './pages/admin/Portfolio'
 import AdminRewards from './pages/admin/Rewards'
 import AdminAIAnalyzer from './pages/admin/AIAnalyzer'
 import AdminBranches from './pages/admin/Branches'
+import DeleteRequestsView from './pages/admin/DeleteRequestsView'
 import Meetings from './pages/shared/Meetings'
 import AdminQuotations from './pages/admin/Quotations'
 
@@ -293,6 +294,7 @@ export default function App() {
         <Route path="rewards" element={<AdminRewards />} />
         <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
         <Route path="branches" element={<AdminBranches />} />
+        <Route path="delete-requests" element={<DeleteRequestsView />} />
         <Route path="log-centre" element={<LogCentre />} />
         <Route path="leaders" element={<AdminLeaders />} />
         <Route path="quotations" element={<AdminQuotations />} />

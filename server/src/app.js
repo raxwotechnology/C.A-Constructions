@@ -197,6 +197,7 @@ app.use('/api/email-logs', emailLogRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/leaders', require('./routes/leaderRoutes'));
 app.use('/api/daily-wages', dailyWageRoutes);
+app.use('/api/deletion-requests', require('./routes/deletionRequestRoutes'));
 
 ensureDefaultRules().catch(() => {});
 

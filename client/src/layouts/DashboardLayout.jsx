@@ -93,6 +93,7 @@ const adminNav = [
     group: 'Settings & Administration',
     items: [
       { to: '/admin/branches', label: 'Branch Management', icon: FiMapPin },
+      { to: '/admin/delete-requests', label: 'Delete Requests', icon: FiTrash2 },
       { to: '/admin/log-centre', label: 'System Logs', icon: FiShield },
       { to: '/admin/meetings', label: 'Site Meetings', icon: FiVideo },
       { to: '/admin/requests', label: 'User Requests', icon: FiClipboard },
