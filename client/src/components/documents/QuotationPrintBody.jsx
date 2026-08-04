@@ -60,7 +60,7 @@ export default function QuotationPrintBody({
             dangerouslySetInnerHTML={{
               __html: buildDocumentLetterheadHtml(siteSettings, {
                 forPrint: false,
-                showTagline: siteSettings.letterheadTagline || 'Next Level Tech',
+                showTagline: siteSettings.letterheadTagline || '',
                 branch: q.branch,
               }),
             }}

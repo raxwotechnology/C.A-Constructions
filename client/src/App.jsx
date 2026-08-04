@@ -65,6 +65,8 @@ import AdminBranches from './pages/admin/Branches'
 import DeleteRequestsView from './pages/admin/DeleteRequestsView'
 import Meetings from './pages/shared/Meetings'
 import AdminQuotations from './pages/admin/Quotations'
+import HardwareSuppliersView from './pages/admin/HardwareSuppliersView'
+import MealsCateringView from './pages/admin/MealsCateringView'
 
 // Enterprise Construction Management Views
 import EnterpriseDashboard from './pages/Dashboard'
@@ -258,6 +260,8 @@ export default function App() {
         <Route path="daily-diary" element={<SiteManagementView />} />
         <Route path="daily-wages" element={<DailyWageSubContractView />} />
         <Route path="finance-ledger" element={<FinanceView />} />
+        <Route path="financial-reports" element={<FinanceView defaultTab="statements" />} />
+        <Route path="profit-loss" element={<FinanceView defaultTab="statements" />} />
         <Route path="payroll-hr" element={<PayrollHRView />} />
         <Route path="assets-fleet" element={<AssetVehicleView />} />
         <Route path="reports-export" element={<ReportsExportView />} />
@@ -265,6 +269,8 @@ export default function App() {
         <Route path="document-manager" element={<DocumentManager />} />
         <Route path="legacy-dashboard" element={<AdminDashboard />} />
         <Route path="inventory" element={<SiteInventory />} />
+        <Route path="hardware-suppliers" element={<HardwareSuppliersView />} />
+        <Route path="meals-catering" element={<MealsCateringView />} />
         <Route path="employees" element={<AdminEmployees />} />
         <Route path="leaves" element={<AdminLeaves />} />
         <Route path="payroll" element={<AdminPayroll />} />

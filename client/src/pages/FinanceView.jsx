@@ -5,8 +5,8 @@ import FinancialStatements from '../components/finance/FinancialStatements';
 import TaxCalculator from '../components/finance/TaxCalculator';
 import toast from 'react-hot-toast';
 
-export default function FinanceView() {
-  const [activeTab, setActiveTab] = useState('ledger');
+export default function FinanceView({ defaultTab = 'ledger' }) {
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [showJournalModal, setShowJournalModal] = useState(false);
 
   const [journalForm, setJournalForm] = useState({

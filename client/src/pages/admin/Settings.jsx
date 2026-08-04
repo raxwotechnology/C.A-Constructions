@@ -353,7 +353,7 @@ export default function AdminSettings() {
           <div><label className="form-label">Email (letterhead — Agreements & Letters)</label><input {...reg3('adminEmail')} className="form-input" placeholder="notifications@company.com" /></div>
           <div><label className="form-label">Branch / location details</label><textarea {...reg3('branchDetails')} className="form-input min-h-16" /></div>
           <div><label className="form-label">Website URL</label><input {...reg3('websiteUrl')} className="form-input" placeholder="https://www.example.com" /></div>
-          <div><label className="form-label">Letterhead tagline</label><input {...reg3('letterheadTagline')} className="form-input" placeholder="Next Level Tech" /></div>
+          <div><label className="form-label">Letterhead tagline</label><input {...reg3('letterheadTagline')} className="form-input" placeholder="Construction & Home Designs" /></div>
           <div className="border-t border-slate-100 pt-4 mt-2 space-y-3">
             <h4 className="font-bold text-sm text-slate-800">Quotation defaults</h4>
             <div><label className="form-label">Thank you message (printed)</label><textarea {...reg3('quotationThankYouMessage')} className="form-input min-h-16" rows={2} /></div>

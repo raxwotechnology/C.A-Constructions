@@ -352,23 +352,99 @@ export default function AdminPettyCash() {
                 <div><label className="form-label">Category</label>
                   <select className="form-select" disabled={modalMode==='view'} value={form.category} onChange={e=>setForm(s=>({...s,category:e.target.value}))}>
                     {CATEGORIES.map(c=><option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+                    <option value="tea_expense">Tea Expense</option>
+                    <option value="refreshments">Refreshments</option>
+                    <option value="stationery">Stationery</option>
+                    <option value="site_misc">Site Misc</option>
                   </select></div>
                 <div><label className="form-label">Payment Method</label>
-                  <select className="form-select" disabled={modalMode==='view'} value={form.paymentType} onChange={e=>setForm(s=>({...s,paymentType:e.target.value}))}>
+                  <select className="form-select font-semibold" disabled={modalMode==='view'} value={form.paymentType} onChange={e=>setForm(s=>({...s,paymentType:e.target.value, isCashCheque: e.target.value==='cheque'}))}>
                     <option value="cash">Cash</option>
+                    <option value="cheque">Cash Cheque (Auto Bank Deduct)</option>
                     <option value="card">Card</option>
                     <option value="bank_transfer">Bank Transfer</option>
                   </select>
                 </div>
               </div>
               
-              {['bank_transfer', 'card'].includes(form.paymentType) && (
-                <div>
-                  <label className="form-label text-blue-600">Paying From Bank Account</label>
-                  <select className="form-select border-blue-200" disabled={modalMode==='view'} value={form.bankAccount || ''} onChange={e=>setForm(s=>({...s,bankAccount:e.target.value}))}>
-                    <option value="">Select Bank Account</option>
-                    {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} — {b.accountNumber}</option>)}
-                  </select>
+              {(['bank_transfer', 'card', 'cheque'].includes(form.paymentType) || form.isCashCheque) && (
+                <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-2">
+                  <label className="form-label text-blue-700 font-semibold mb-0">Bank Account & Cheque Details</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <select className="form-select text-xs border-blue-200" disabled={modalMode==='view'} value={form.bankAccount || ''} onChange={e=>setForm(s=>({...s,bankAccount:e.target.value}))}>
+                        <option value="">-- Select Bank Account --</option>
+                        {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} — {b.accountNumber}</option>)}
+                      </select>
+                    </div>
+                    {form.paymentType === 'cheque' && (
+                      <div>
+                        <input className="form-input text-xs" disabled={modalMode==='view'} placeholder="Cash Cheque Number (e.g. CHQ-8091)" value={form.chequeNumber || ''} onChange={e=>setForm(s=>({...s,chequeNumber:e.target.value}))}/>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Expense Category Breakdown Builder */}
+              {form.type === 'out' && (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="form-label font-bold text-slate-700 mb-0">Categorized Expense Breakdown</label>
+                    <button
+                      type="button"
+                      onClick={() => setForm(s => ({
+                        ...s,
+                        expenseBreakdown: [...(s.expenseBreakdown || []), { category: 'Tea Expense', description: '', amount: '' }]
+                      }))}
+                      className="text-xs text-secondary font-bold hover:underline"
+                    >
+                      + Add Item
+                    </button>
+                  </div>
+
+                  {(form.expenseBreakdown || []).map((item, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-lg border border-slate-200 text-xs">
+                      <select
+                        value={item.category}
+                        onChange={(e) => {
+                          const newB = [...form.expenseBreakdown]
+                          newB[idx].category = e.target.value
+                          setForm(s => ({ ...s, expenseBreakdown: newB }))
+                        }}
+                        className="col-span-4 form-select text-xs p-1"
+                      >
+                        <option value="Tea Expense">Tea Expense</option>
+                        <option value="Refreshments">Refreshments</option>
+                        <option value="Stationery">Stationery</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Site Misc">Site Misc</option>
+                        <option value="Other">Other</option>
+                      </select>
+
+                      <input
+                        type="text" placeholder="Description"
+                        value={item.description}
+                        onChange={(e) => {
+                          const newB = [...form.expenseBreakdown]
+                          newB[idx].description = e.target.value
+                          setForm(s => ({ ...s, expenseBreakdown: newB }))
+                        }}
+                        className="col-span-5 form-input text-xs p-1"
+                      />
+
+                      <input
+                        type="number" placeholder="LKR Amount"
+                        value={item.amount}
+                        onChange={(e) => {
+                          const newB = [...form.expenseBreakdown]
+                          newB[idx].amount = e.target.value
+                          setForm(s => ({ ...s, expenseBreakdown: newB }))
+                        }}
+                        className="col-span-3 form-input text-xs p-1 font-bold text-right"
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">

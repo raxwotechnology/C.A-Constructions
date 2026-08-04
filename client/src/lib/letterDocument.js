@@ -31,13 +31,13 @@ export function buildLetterheadHtml(company, { forPrint = true, siteSettings } =
   if (siteSettings && Object.keys(siteSettings).length) {
     return buildDocumentLetterheadHtml(siteSettings, {
       forPrint,
-      showTagline: company?.tagline || siteSettings.letterheadTagline || 'Next Level Tech',
+      showTagline: company?.tagline || siteSettings.letterheadTagline || '',
     })
   }
   const logoHtml = companyLogoHtml(company, { forPrint, maxHeight: LOGO_MAX_HEIGHT })
 
-  const tagline = company.tagline || 'Next Level Tech'
-  const taglineHtml = `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#0284c7;letter-spacing:0.01em;">${esc(tagline)}</p>`
+  const tagline = company.tagline || ''
+  const taglineHtml = tagline ? `<p style="margin:4px 0 0;font-size:11pt;font-weight:500;color:#0284c7;letter-spacing:0.01em;">${esc(tagline)}</p>` : ''
 
   const contactHtml = contactBlockHtml(company)
 

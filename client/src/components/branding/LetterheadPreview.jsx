@@ -15,7 +15,7 @@ export default function LetterheadPreview({ settings }) {
           dangerouslySetInnerHTML={{
             __html: buildDocumentLetterheadHtml(merged, {
               forPrint: false,
-              showTagline: merged.letterheadTagline || merged.siteDescription || 'Next Level Tech',
+              showTagline: merged.letterheadTagline || merged.siteDescription || '',
             }),
           }}
         />

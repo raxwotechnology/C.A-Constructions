@@ -110,7 +110,7 @@ exports.getEmployees = async (req, res, next) => {
     if (department) query.department = department;
     if (branch) query.branch = branch;
     if (employmentType) query.employmentType = employmentType;
-    if (status) query.status = status;
+    if (status) query.status = new RegExp(`^${status}$`, 'i');
     else if (assignable === '1' || assignable === 'true') {
       query.status = { $in: ASSIGNED_STATUSES };
     } else if (!includeFormer) {
@@ -295,7 +295,7 @@ exports.createEmployee = async (req, res, next) => {
     // Send welcome email and SMS to new employee
     try {
       const loginPassword = password || 'RA@2026';
-      const loginUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '') + '/login';
+      const loginUrl = (process.env.CLIENT_URL || 'https://rach-lk.netlify.app').replace(/\/$/, '') + '/login';
       await sendLoggedMail({
         to: email,
         subject: 'Welcome to R A Creations ERP — Your Account Details',

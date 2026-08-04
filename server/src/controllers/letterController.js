@@ -147,7 +147,7 @@ exports.duplicateLetterTemplate = async (req, res, next) => {
 // @route   POST /api/letters/generate
 exports.generateLetter = async (req, res, next) => {
   try {
-    const { employeeId, clientId, recipientType, type, data = {}, approvalStatus } = req.body;
+    const { employeeId, clientId, recipientType = 'employee', type, data = {}, approvalStatus, recipientName, recipientDetails } = req.body;
     let employee = null;
     let client = null;
     
@@ -156,7 +156,7 @@ exports.generateLetter = async (req, res, next) => {
         client = await require('../models/User').findById(clientId).select('name email phone');
         if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
       }
-    } else {
+    } else if (recipientType === 'employee') {
       if (employeeId && employeeId !== 'custom') {
         employee = await Employee.findById(employeeId)
           .populate('userId', 'name email')
@@ -179,16 +179,20 @@ exports.generateLetter = async (req, res, next) => {
       salary: 'Salary Confirmation',
       confirmation: 'Employment Confirmation',
       service_agreement: 'Service Agreement',
-      custom: data.title || data.letterTitle || 'Custom',
+      custom: data.title || data.letterTitle || 'Custom Letter',
     };
-    const title = data.title || `${typeLabels[type] || type}${employee ? ` — ${employee.userId.name}` : client ? ` — ${client.name}` : ''}`;
+    
+    const displayRecipient = employee?.userId?.name || client?.name || recipientName || data.recipientName || 'Recipient';
+    const title = data.title || `${typeLabels[type] || type} — ${displayRecipient}`;
 
-    const content = data.content ? data.content : buildLetterBodyHtml(type, employee || client || {}, data, company);
+    const content = data.content ? data.content : buildLetterBodyHtml(type, employee || client || { name: displayRecipient }, data, company);
 
     const letter = await Letter.create({
       recipientType: recipientType || 'employee',
       employee: employee ? employee._id : undefined,
       client: client ? client._id : undefined,
+      recipientName: recipientName || data.recipientName || '',
+      recipientDetails: recipientDetails || data.recipientDetails || '',
       type,
       title,
       content,

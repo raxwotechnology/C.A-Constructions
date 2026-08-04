@@ -81,13 +81,13 @@ exports.sendProjectAssignedEmployeeSms = async (phone, name, title) => {
 };
 
 exports.sendInvoiceSms = async (phone, name, invoiceNo, amount, dueDate, invoiceId) => {
-  const link = `${process.env.CLIENT_URL || 'http://localhost:5173'}/payments?invoice=${invoiceId}`;
+  const link = `${process.env.CLIENT_URL || 'https://rach-lk.netlify.app'}/payments?invoice=${invoiceId}`;
   const msg = `Hi ${name}, invoice ${invoiceNo} for LKR ${Number(amount).toLocaleString()} has been generated. Due by ${new Date(dueDate).toLocaleDateString()}. View: ${link}`;
   return sendSms(phone, msg, name, 'invoice');
 };
 
 exports.sendQuotationSms = async (phone, name, quotationNo, amount, quotationId) => {
-  const link = `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-account?quotation=${quotationId}`;
+  const link = `${process.env.CLIENT_URL || 'https://rach-lk.netlify.app'}/my-account?quotation=${quotationId}`;
   const msg = `Hi ${name}, quotation ${quotationNo} for LKR ${Number(amount).toLocaleString()} is ready for your review. View: ${link}`;
   return sendSms(phone, msg, name, 'quotation');
 };
@@ -98,7 +98,7 @@ exports.sendQuotationLinkSms = async (phone, name, quotationNo, shareLink) => {
 };
 
 exports.sendPayslipSms = async (phone, name, monthName, netSalary, billUrl) => {
-  const link = billUrl || `${process.env.APP_URL || 'http://localhost:5173'}/developer/payslips`;
+  const link = billUrl || `${process.env.APP_URL || process.env.CLIENT_URL || 'https://rach-lk.netlify.app'}/developer/payslips`;
   const msg = `Hi ${name}, your salary for ${monthName} (LKR ${Number(netSalary).toLocaleString()}) has been processed. View your payment bill: ${link}`;
   return sendSms(phone, msg, name, 'payroll');
 };

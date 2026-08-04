@@ -1,9 +1,11 @@
 const mongoose = require('mongoose');
 
 const letterSchema = new mongoose.Schema({
-  recipientType: { type: String, enum: ['employee', 'client'], default: 'employee' },
+  recipientType: { type: String, enum: ['employee', 'client', 'worker', 'custom', 'other'], default: 'employee' },
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  recipientName: { type: String, default: '' },
+  recipientDetails: { type: String, default: '' },
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   type: {
     type: String,

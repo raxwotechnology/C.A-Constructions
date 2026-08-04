@@ -53,6 +53,9 @@ const smsRoutes = require('./routes/smsRoutes');
 const emailLogRoutes = require('./routes/emailLogRoutes');
 const meetingRoutes = require('./routes/meetingRoutes');
 const dailyWageRoutes = require('./routes/dailyWageRoutes');
+const supplierRoutes = require('./routes/supplierRoutes');
+const mealRoutes = require('./routes/mealRoutes');
+const materialRequestRoutes = require('./routes/materialRequestRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
 
 const app = express();
@@ -198,6 +201,9 @@ app.use('/api/meetings', meetingRoutes);
 app.use('/api/leaders', require('./routes/leaderRoutes'));
 app.use('/api/daily-wages', dailyWageRoutes);
 app.use('/api/deletion-requests', require('./routes/deletionRequestRoutes'));
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/meals', mealRoutes);
+app.use('/api/material-requests', materialRequestRoutes);
 
 ensureDefaultRules().catch(() => {});
 
