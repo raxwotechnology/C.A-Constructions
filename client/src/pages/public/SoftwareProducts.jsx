@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { FiLayers, FiPackage, FiTruck, FiShield, FiFileText } from 'react-icons/fi'
@@ -14,7 +14,7 @@ export default function SoftwareProducts() {
   return (
     <div className="space-y-12 pb-16">
       {/* Header */}
-      <section className="bg-slate-900 section-padding pt-32 text-center relative overflow-hidden text-white">
+      <section className="bg-white section-padding pt-32 text-center relative overflow-hidden text-slate-900">
         <div className="container-max relative">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="flex flex-col items-center">
             <span className="bg-amber-500/20 text-amber-300 text-xs font-bold px-4 py-1.5 rounded-full border border-amber-400/30 mb-4">
@@ -23,7 +23,7 @@ export default function SoftwareProducts() {
             <h1 className="text-3xl lg:text-5xl font-black mb-4">
               C.A-Constructions <span className="text-amber-400">Engineering Solutions</span>
             </h1>
-            <p className="text-slate-300 max-w-2xl mx-auto text-base">
+            <p className="text-slate-600 max-w-2xl mx-auto text-base">
               SLS 573 BOQ Generator, SBD-03 Legal Contracts Engine, Stock Transfers, and Heavy Machinery Supply.
             </p>
           </motion.div>

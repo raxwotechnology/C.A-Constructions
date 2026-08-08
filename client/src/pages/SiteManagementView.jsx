@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { HardHat, ClipboardList, Truck, ShieldAlert, Sun, Plus, CheckCircle2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -88,7 +88,7 @@ export default function SiteManagementView() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-slate-400">Work Completed Summary:</label>
+              <label className="text-xs font-bold uppercase text-slate-500">Work Completed Summary:</label>
               <p className="text-sm bg-slate-50 p-4 rounded-xl text-slate-700 leading-relaxed border border-slate-200">
                 Completed Grade 30 concrete pouring for 1st floor beam section B2-B5 (Total 18m3 poured). Installed column shuttering for 2nd floor columns C1-C6. Received 150 bags of Tokyo Super Cement via GRN-489.
               </p>
@@ -101,7 +101,7 @@ export default function SiteManagementView() {
                   <div key={i} className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
                     <div className="text-2xl font-bold text-orange-600">{a.count}</div>
                     <div className="text-xs font-semibold text-slate-700 mt-0.5">{a.type}</div>
-                    <div className="text-[10px] text-slate-400 mt-1">OT: {a.otHours} hrs</div>
+                    <div className="text-[10px] text-slate-500 mt-1">OT: {a.otHours} hrs</div>
                   </div>
                 ))}
               </div>
@@ -125,11 +125,11 @@ export default function SiteManagementView() {
 
       {/* Interactive DSR Modal */}
       {showDsrModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">Submit Daily Site Report (DSR)</h3>
-              <button onClick={() => setShowDsrModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowDsrModal(false)} className="text-slate-500 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -122,7 +122,7 @@ export default function SupervisorActionDeck() {
       <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-900 p-6 rounded-2xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+            <span className="bg-white/20 text-slate-900 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
               {isOnline ? <FiWifi className="text-emerald-300" /> : <FiWifiOff className="text-rose-300 animate-pulse" />}
               {isOnline ? 'LIVE SYNC ONLINE' : 'OFFLINE MODE ACTIVE'}
             </span>
@@ -140,7 +140,7 @@ export default function SupervisorActionDeck() {
           <select
             value={siteId}
             onChange={(e) => setSiteId(e.target.value)}
-            className="w-full bg-slate-900 text-white font-bold text-sm px-3 py-2 rounded-lg border border-amber-400 focus:outline-none"
+            className="w-full bg-white text-slate-900 font-bold text-sm px-3 py-2 rounded-lg border border-amber-400 focus:outline-none"
           >
             <option value="">-- Select Active Site --</option>
             {sites.map(s => <option key={s._id} value={s._id}>{s.title}</option>)}
@@ -153,7 +153,7 @@ export default function SupervisorActionDeck() {
         {/* Card 1: Attendance Photo & GPS */}
         <button
           onClick={() => { acquireGPS(); setActiveModal('attendance'); }}
-          className="p-6 bg-gradient-to-br from-emerald-600 to-emerald-800 text-white rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-emerald-400/40"
+          className="p-6 bg-gradient-to-br from-emerald-600 to-emerald-800 text-slate-900 rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-emerald-400/40"
         >
           <div className="flex justify-between items-start">
             <span className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-3xl font-black">
@@ -170,7 +170,7 @@ export default function SupervisorActionDeck() {
         {/* Card 2: 12-Section Daily Diary */}
         <button
           onClick={() => setActiveModal('diary')}
-          className="p-6 bg-gradient-to-br from-indigo-700 to-indigo-900 text-white rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-indigo-400/40"
+          className="p-6 bg-gradient-to-br from-indigo-700 to-indigo-900 text-slate-900 rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-indigo-400/40"
         >
           <div className="flex justify-between items-start">
             <span className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-3xl font-black">
@@ -204,7 +204,7 @@ export default function SupervisorActionDeck() {
         {/* Card 4: Material Transfer Request */}
         <button
           onClick={() => setActiveModal('transfer')}
-          className="p-6 bg-gradient-to-br from-blue-700 to-blue-900 text-white rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-blue-400/40"
+          className="p-6 bg-gradient-to-br from-blue-700 to-blue-900 text-slate-900 rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-blue-400/40"
         >
           <div className="flex justify-between items-start">
             <span className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-3xl font-black">
@@ -221,7 +221,7 @@ export default function SupervisorActionDeck() {
         {/* Card 5: Incident & Safety Log */}
         <button
           onClick={() => setActiveModal('incident')}
-          className="p-6 bg-gradient-to-br from-rose-700 to-rose-900 text-white rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-rose-400/40"
+          className="p-6 bg-gradient-to-br from-rose-700 to-rose-900 text-slate-900 rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-rose-400/40"
         >
           <div className="flex justify-between items-start">
             <span className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-3xl font-black">
@@ -238,7 +238,7 @@ export default function SupervisorActionDeck() {
         {/* Card 6: Site Petty Cash Log */}
         <button
           onClick={() => setActiveModal('pettycash')}
-          className="p-6 bg-gradient-to-br from-purple-700 to-purple-900 text-white rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-purple-400/40"
+          className="p-6 bg-gradient-to-br from-purple-700 to-purple-900 text-slate-900 rounded-3xl shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between h-56 text-left border-4 border-purple-400/40"
         >
           <div className="flex justify-between items-start">
             <span className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-3xl font-black">
@@ -255,15 +255,15 @@ export default function SupervisorActionDeck() {
 
       {/* MODALS */}
       {activeModal === 'attendance' && (
-        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-50/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-black text-slate-900">📸 Photo & GPS Attendance</h3>
-              <button onClick={() => setActiveModal(null)} className="p-2 text-slate-400"><FiX /></button>
+              <button onClick={() => setActiveModal(null)} className="p-2 text-slate-500"><FiX /></button>
             </div>
             <div className="p-4 bg-slate-100 rounded-2xl text-center">
               <p className="text-xs text-slate-600 mb-2">Simulated Live Camera Capture Tap</p>
-              <div className="w-32 h-32 bg-slate-800 rounded-full mx-auto flex items-center justify-center text-4xl text-white">
+              <div className="w-32 h-32 bg-slate-100 rounded-full mx-auto flex items-center justify-center text-4xl text-slate-900">
                 👤
               </div>
             </div>
@@ -280,11 +280,11 @@ export default function SupervisorActionDeck() {
       )}
 
       {activeModal === 'grn' && (
-        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-50/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-black text-slate-900">📦 Verify GRN Goods Delivery</h3>
-              <button onClick={() => setActiveModal(null)} className="p-2 text-slate-400"><FiX /></button>
+              <button onClick={() => setActiveModal(null)} className="p-2 text-slate-500"><FiX /></button>
             </div>
             <input
               type="text" placeholder="Item Name (e.g. Tokyo Cement 50kg)"
@@ -317,11 +317,11 @@ export default function SupervisorActionDeck() {
       )}
 
       {activeModal === 'diary' && (
-        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-50/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-black text-slate-900">📔 12-Section Daily Diary</h3>
-              <button onClick={() => setActiveModal(null)} className="p-2 text-slate-400"><FiX /></button>
+              <button onClick={() => setActiveModal(null)} className="p-2 text-slate-500"><FiX /></button>
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-500">WEATHER CONDITION</label>

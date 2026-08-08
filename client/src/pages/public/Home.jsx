@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -117,14 +117,14 @@ function HomeNav() {
       <div className="hidden md:flex items-center gap-2">
         <a
           href="https://raxwo.net/"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-slate-900/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
         >
           <FiHome size={16} /> raxwo.net
         </a>
         
         {/* Services dropdown */}
         <div className="group" ref={servicesRef}>
-          <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${servicesDropdownOpen ? 'text-white bg-white/15' : 'text-white/80 hover:text-[#20b2f5] hover:bg-white/10'}`}>
+          <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${servicesDropdownOpen ? 'text-slate-900 bg-white/15' : 'text-slate-900/80 hover:text-[#20b2f5] hover:bg-white/10'}`}>
             <FiLayers size={16} /> Services <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
           </button>
           <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
@@ -149,7 +149,7 @@ function HomeNav() {
 
         {/* Software Products dropdown */}
         <div className="group" ref={productsRef}>
-          <button onClick={() => setProductsDropdownOpen(!productsDropdownOpen)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${productsDropdownOpen ? 'text-white bg-white/15' : 'text-white/80 hover:text-[#20b2f5] hover:bg-white/10'}`}>
+          <button onClick={() => setProductsDropdownOpen(!productsDropdownOpen)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${productsDropdownOpen ? 'text-slate-900 bg-white/15' : 'text-slate-900/80 hover:text-[#20b2f5] hover:bg-white/10'}`}>
             <FiPackage size={16} /> Software Products <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
           </button>
           <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
@@ -174,20 +174,20 @@ function HomeNav() {
 
         <a
           href="https://raxwo.net/lets-talk/"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-slate-900/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
         >
           <FiMessageSquare size={16} /> Let's Talk
         </a>
         <Link
           to="/careers"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-slate-900/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
         >
           <FiBriefcase size={16} /> Careers
         </Link>
 
         {isAuthenticated && (
           <>
-            <Link to={user?.role === 'admin' ? '/admin' : '/my-dashboard'} className="px-4 py-2 rounded-xl text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-all">Portal</Link>
+            <Link to={user?.role === 'admin' ? '/admin' : '/my-dashboard'} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-900/80 hover:text-slate-900 hover:bg-white/10 transition-all">Portal</Link>
             <button onClick={handleLogout} className="px-4 py-2 rounded-xl text-sm font-semibold text-red-300 hover:text-red-200 hover:bg-red-500/10 transition-all">Sign Out</button>
           </>
         )}
@@ -195,7 +195,7 @@ function HomeNav() {
 
       {/* Mobile toggle */}
       <button
-        className="md:hidden p-2 rounded-xl text-white hover:bg-white/10 transition-all"
+        className="md:hidden p-2 rounded-xl text-slate-900 hover:bg-white/10 transition-all"
         onClick={() => setMobileOpen(v => !v)}
       >
         {mobileOpen ? <FiX size={22} /> : <FiMenu size={22} />}
@@ -213,7 +213,7 @@ function HomeNav() {
           >
             <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
               <SiteLogo to="/" variant="dark" className="scale-90 origin-left" />
-              <button className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-all border border-white/10" onClick={() => setMobileOpen(false)}>
+              <button className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-900 transition-all border border-white/10" onClick={() => setMobileOpen(false)}>
                 <FiX size={20} />
               </button>
             </div>
@@ -222,15 +222,15 @@ function HomeNav() {
               
               {/* Main Links */}
               <div className="space-y-2.5">
-                <a href="https://raxwo.net/" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-all bg-white/5 border border-white/5">
-                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/60"><FiHome size={18} /></div>
+                <a href="https://raxwo.net/" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-slate-900/80 hover:bg-white/10 hover:text-slate-900 transition-all bg-white/5 border border-white/5">
+                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-900/60"><FiHome size={18} /></div>
                   Back to raxwo.net
                 </a>
                 {/* Services Accordion */}
                 <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
-                  <button onClick={() => setMobileServicesOpen(!mobileServicesOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-white/80 hover:bg-white/5 transition-all">
+                  <button onClick={() => setMobileServicesOpen(!mobileServicesOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-slate-900/80 hover:bg-white/5 transition-all">
                     <div className="flex items-center gap-4">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname.startsWith('/services') ? 'bg-[#20b2f5]/20 text-[#20b2f5]' : 'bg-white/5 text-white/60'}`}><FiLayers size={18} /></div>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname.startsWith('/services') ? 'bg-[#20b2f5]/20 text-[#20b2f5]' : 'bg-white/5 text-slate-900/60'}`}><FiLayers size={18} /></div>
                       Services
                     </div>
                     <FiChevronDown size={18} className={`transition-transform duration-300 ${mobileServicesOpen ? 'rotate-180' : ''}`} />
@@ -240,7 +240,7 @@ function HomeNav() {
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-[#20b2f5]/5">
                         <div className="px-4 py-3 flex flex-col gap-2">
                           {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => (
-                            <Link key={s._id} to={`/services`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-white/70 hover:text-[#20b2f5] transition-colors relative">
+                            <Link key={s._id} to={`/services`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-slate-900/70 hover:text-[#20b2f5] transition-colors relative">
                               <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
                               {s.title}
                             </Link>
@@ -256,7 +256,7 @@ function HomeNav() {
 
                 {/* Software Products Accordion */}
                 <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
-                  <button onClick={() => setMobileProductsOpen(!mobileProductsOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-white/80 hover:bg-white/5 transition-all">
+                  <button onClick={() => setMobileProductsOpen(!mobileProductsOpen)} className="w-full flex items-center justify-between px-4 py-3.5 text-[15px] font-semibold text-slate-900/80 hover:bg-white/5 transition-all">
                     <div className="flex items-center gap-4">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname.startsWith('/software-products') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/60'}`}><FiPackage size={18} /></div>
                       Software Products
@@ -268,7 +268,7 @@ function HomeNav() {
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-emerald-500/5">
                         <div className="px-4 py-3 flex flex-col gap-2">
                           {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
-                            <Link key={s._id} to={`/software-products`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-white/70 hover:text-emerald-400 transition-colors relative">
+                            <Link key={s._id} to={`/software-products`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-slate-900/70 hover:text-emerald-400 transition-colors relative">
                               <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
                               {s.title}
                             </Link>
@@ -281,8 +281,8 @@ function HomeNav() {
                     )}
                   </AnimatePresence>
                 </div>
-                <Link to="/careers" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-all bg-white/5 border border-white/5" onClick={() => setMobileOpen(false)}>
-                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/60"><FiBriefcase size={18} /></div>
+                <Link to="/careers" className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-slate-900/80 hover:bg-white/10 hover:text-slate-900 transition-all bg-white/5 border border-white/5" onClick={() => setMobileOpen(false)}>
+                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-900/60"><FiBriefcase size={18} /></div>
                   Careers
                 </Link>
               </div>
@@ -290,53 +290,53 @@ function HomeNav() {
               {/* Dashboard / Auth Links */}
               {isAuthenticated ? (
                 <div>
-                  <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em] px-2 mb-4">Portal Access</h3>
+                  <h3 className="text-[11px] font-bold text-slate-900/40 uppercase tracking-[0.2em] px-2 mb-4">Portal Access</h3>
                   <div className="grid grid-cols-2 gap-3">
-                    <Link to="/my-dashboard" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/my-dashboard" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-[#20b2f5]/20 text-[#20b2f5]"><FiHome size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Dashboard</span>
                     </Link>
-                    <Link to="/my-projects" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/my-projects" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-amber-400/20 text-amber-400"><FiFolder size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">My Projects</span>
                     </Link>
-                    <Link to="/our-services" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/our-services" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-indigo-400/20 text-indigo-400"><FiLayers size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Services</span>
                     </Link>
-                    <Link to="/my-subscriptions" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/my-subscriptions" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-emerald-400/20 text-emerald-400"><FiServer size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Subscriptions</span>
                     </Link>
-                    <Link to="/payments" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/payments" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-rose-400/20 text-rose-400"><FiCreditCard size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Payments</span>
                     </Link>
-                    <Link to="/booking" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/booking" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-cyan-400/20 text-cyan-400"><FiCalendar size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Booking</span>
                     </Link>
-                    <Link to="/messages" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/messages" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-blue-400/20 text-blue-400"><FiMessageSquare size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Messages</span>
                     </Link>
-                    <Link to="/meetings" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/meetings" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-fuchsia-400/20 text-fuchsia-400"><FiVideo size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Meetings</span>
                     </Link>
-                    <Link to="/rewards" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
+                    <Link to="/rewards" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg">
                       <div className="p-3 rounded-2xl bg-yellow-400/20 text-yellow-400"><FiGift size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Rewards</span>
                     </Link>
-                    <Link to="/notifications" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-white/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg relative">
+                    <Link to="/notifications" onClick={() => setMobileOpen(false)} className="flex flex-col items-center justify-center gap-3 p-5 rounded-3xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 text-slate-900/90 hover:from-white/15 hover:to-white/10 transition-all text-center shadow-lg relative">
                       <div className="p-3 rounded-2xl bg-orange-400/20 text-orange-400"><FiBell size={22} /></div>
                       <span className="text-[12px] font-extrabold tracking-wide">Notifications</span>
                     </Link>
                   </div>
 
                   <div className="mt-6 space-y-3">
-                    <Link to="/my-account" onClick={() => setMobileOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-2xl bg-white/5 border border-white/10 text-[15px] font-bold text-white/90 hover:bg-white/10 transition-all">
-                      <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-slate-300"><FiUsers size={18} /></div>
+                    <Link to="/my-account" onClick={() => setMobileOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-2xl bg-white/5 border border-white/10 text-[15px] font-bold text-slate-900/90 hover:bg-white/10 transition-all">
+                      <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-slate-600"><FiUsers size={18} /></div>
                       Account Settings
                     </Link>
                     <button onClick={() => { setMobileOpen(false); handleLogout(); }} className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-[15px] font-bold text-red-400 hover:bg-red-500/20 transition-all">
@@ -347,7 +347,7 @@ function HomeNav() {
                 </div>
               ) : (
                 <div className="pt-6 mt-4 border-t border-white/10">
-                  <a href="https://raxwo.net/lets-talk/" className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-[#20b2f5] text-white text-[16px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]">
+                  <a href="https://raxwo.net/lets-talk/" className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-[#20b2f5] text-slate-900 text-[16px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]">
                     Let's Talk <FiMessageSquare size={18} />
                   </a>
                 </div>
@@ -398,18 +398,18 @@ export default function Home() {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             {/* Left — headline */}
             <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.15 } } }}>
-              <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-sm mb-6">
+              <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-slate-900/80 text-sm mb-6">
                 <span className="w-2 h-2 bg-[#20b2f5] rounded-full animate-pulse" />
                 <span className="text-[#20b2f5] font-semibold">Based in Sri Lanka</span> — Serving Globally
               </motion.div>
 
-              <motion.h1 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-white font-heading leading-tight mb-6">
+              <motion.h1 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-slate-900 font-heading leading-tight mb-6">
                 <span className="text-[#20b2f5]">Innovative</span><br />
                 Software Solutions<br />
                 in Sri Lanka
               </motion.h1>
 
-              <motion.p variants={fadeUp} className="text-white/70 text-lg md:text-xl leading-relaxed mb-10 max-w-xl font-normal">
+              <motion.p variants={fadeUp} className="text-slate-900/70 text-lg md:text-xl leading-relaxed mb-10 max-w-xl font-normal">
                 We build powerful, scalable web & mobile applications that transform businesses. From startups to enterprise — we deliver results that matter.
               </motion.p>
 
@@ -420,7 +420,7 @@ export default function Home() {
                 <a href="https://raxwo.net/lets-talk/" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 !rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto transition-all">
                   Get a Free Quote
                 </a>
-                <Link to="/services" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10 hover:text-white !rounded-xl flex items-center justify-center w-full sm:w-auto">
+                <Link to="/services" className="btn-outline btn-lg border-white/30 text-slate-900 hover:bg-white/10 hover:text-slate-900 !rounded-xl flex items-center justify-center w-full sm:w-auto">
                   View Our Services
                 </Link>
               </motion.div>
@@ -464,7 +464,7 @@ export default function Home() {
 
       {/* ── Tech Stack ────────────────────────────────────────── */}
       <section className="bg-white border-y border-slate-100 py-8">
-        <p className="text-center text-xs font-semibold text-slate-400 uppercase tracking-widest mb-6">
+        <p className="text-center text-xs font-semibold text-slate-500 uppercase tracking-widest mb-6">
           Built With Modern, Battle-Tested Technologies & Tools
         </p>
         <div className="flex flex-wrap justify-center gap-3 px-6">
@@ -562,7 +562,7 @@ export default function Home() {
       {/* ── Start Your Business CTA ──────────────────────────────────────── */}
       <section className="bg-slate-50 section-padding pb-24">
         <div className="container-max">
-          <div className="bg-[#0C0227] rounded-3xl relative overflow-hidden py-24 px-8 shadow-2xl border border-slate-800">
+          <div className="bg-[#0C0227] rounded-3xl relative overflow-hidden py-24 px-8 shadow-2xl border border-slate-200">
             <div className="relative z-10 text-center max-w-4xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -570,11 +570,11 @@ export default function Home() {
                 viewport={{ once: true }}
                 transition={{ type: 'spring', stiffness: 100 }}
               >
-                <h2 className="text-3xl lg:text-4xl font-bold text-white font-heading mb-3 leading-tight">
+                <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 font-heading mb-3 leading-tight">
                   Start your business with <br />
                   <span className="text-[#20b2f5] mt-2 block">Raxwo</span>
                 </h2>
-                <p className="text-white/80 max-w-2xl mx-auto text-base md:text-lg leading-relaxed mt-4 font-normal">
+                <p className="text-slate-900/80 max-w-2xl mx-auto text-base md:text-lg leading-relaxed mt-4 font-normal">
                   Raxwo Pvt Ltd delivers custom software, web development, and marketing solutions tailored to help businesses grow locally and globally.
                 </p>
                 <div className="mt-10">

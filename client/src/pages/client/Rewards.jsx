@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -93,7 +93,7 @@ export default function ClientRewards() {
                         </button>
                       </div>
                     ))}
-                    {templates.length === 0 ? <p className="text-sm text-slate-400">No active reward vouchers.</p> : null}
+                    {templates.length === 0 ? <p className="text-sm text-slate-500">No active reward vouchers.</p> : null}
                   </div>
                 </div>
 
@@ -110,7 +110,7 @@ export default function ClientRewards() {
                         <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><FiClock size={12} /> Expires {new Date(v.expiryDate).toLocaleDateString()}</p>
                       </div>
                     ))}
-                    {vouchers.length === 0 ? <p className="text-sm text-slate-400">No redeemed vouchers yet.</p> : null}
+                    {vouchers.length === 0 ? <p className="text-sm text-slate-500">No redeemed vouchers yet.</p> : null}
                   </div>
                 </div>
               </div>

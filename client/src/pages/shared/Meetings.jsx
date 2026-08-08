@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -207,7 +207,7 @@ export default function Meetings() {
           <div className="col-span-full py-10 text-center"><span className="spinner" /></div>
         ) : meetings.length === 0 ? (
           <div className="col-span-full text-center py-10 bg-white rounded-2xl border border-slate-100">
-            <FiVideo size={48} className="mx-auto text-slate-300 mb-3" />
+            <FiVideo size={48} className="mx-auto text-slate-600 mb-3" />
             <h3 className="text-lg font-bold text-slate-700">No {activeTab === 'client' ? 'Client ' : 'Internal '}Meetings</h3>
             <p className="text-slate-500">There are no upcoming or active meetings at the moment.</p>
           </div>
@@ -285,7 +285,7 @@ export default function Meetings() {
           <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-fade-in shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold font-heading">Schedule Meeting</h3>
-              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-red-500">
+              <button onClick={() => setShowCreate(false)} className="text-slate-500 hover:text-red-500">
                 <FiX size={24} />
               </button>
             </div>
@@ -301,7 +301,7 @@ export default function Meetings() {
 
               {watchMeetingType === 'client' && (
                 <div className="animate-fade-in">
-                  <label className="form-label">Select Client <span className="text-xs text-slate-400 font-normal">(Optional)</span></label>
+                  <label className="form-label">Select Client <span className="text-xs text-slate-500 font-normal">(Optional)</span></label>
                   <SearchableSelect
                     value={watch('client')}
                     onChange={(v) => setValue('client', v)}
@@ -355,7 +355,7 @@ export default function Meetings() {
                 <h3 className="text-xl font-bold font-heading">Meeting Attendees</h3>
                 <p className="text-sm text-slate-500 mt-1">Total count: {attendees?.length || 0}</p>
               </div>
-              <button onClick={() => { setShowAttendees(false); setSelectedMeeting(null); }} className="text-gray-400 hover:text-red-500">
+              <button onClick={() => { setShowAttendees(false); setSelectedMeeting(null); }} className="text-slate-500 hover:text-red-500">
                 <FiX size={24} />
               </button>
             </div>
@@ -364,7 +364,7 @@ export default function Meetings() {
               {isLoadingAttendees ? (
                 <div className="flex justify-center py-10"><span className="spinner"/></div>
               ) : attendees.length === 0 ? (
-                <div className="text-center py-10 text-slate-400">
+                <div className="text-center py-10 text-slate-500">
                   <FiUsers size={48} className="mx-auto mb-3 opacity-30" />
                   <p>No attendees recorded yet.</p>
                   <p className="text-xs mt-1">Participants only appear here after they join.</p>
@@ -408,7 +408,7 @@ export default function Meetings() {
                   <p className="text-xs text-slate-500">Send meeting invite to selected users</p>
                 </div>
               </div>
-              <button onClick={() => setShareMeeting(null)} className="text-gray-400 hover:text-red-500">
+              <button onClick={() => setShareMeeting(null)} className="text-slate-500 hover:text-red-500">
                 <FiX size={24} />
               </button>
             </div>
@@ -416,7 +416,7 @@ export default function Meetings() {
             {/* Quick copy link (only for existing meetings) */}
             {!shareMeeting.isCustom && (
               <div className="flex items-center gap-2 p-3 mb-4 bg-slate-50 rounded-xl border border-slate-200">
-                <FiLink className="text-slate-400 shrink-0" />
+                <FiLink className="text-slate-500 shrink-0" />
                 <span className="text-xs text-slate-600 truncate flex-1 font-mono">{shareMeeting.joinUrl}</span>
                 <button onClick={() => copyLink(shareMeeting.joinUrl)} className="text-blue-600 text-xs font-semibold hover:underline shrink-0">Copy</button>
               </div>
@@ -461,7 +461,7 @@ export default function Meetings() {
                     }} />
                   </div>
 
-                  <button type="button" className="w-full py-2.5 mt-2 bg-slate-800 text-white font-semibold text-sm rounded-xl hover:bg-slate-700 shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2" onClick={() => {
+                  <button type="button" className="w-full py-2.5 mt-2 bg-slate-100 text-slate-900 font-semibold text-sm rounded-xl hover:bg-slate-200 shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2" onClick={() => {
                     setShareMessage(`🎥 Join my Meeting!\n\n📌 Topic: ${shareMeeting.topic || 'Quick Sync'}\n📅 Date: ${shareMeeting.date || 'TBD'}\n🕐 Time: ${shareMeeting.time || 'TBD'}\n\n🔗 Join Link: ${shareMeeting.joinUrl || 'Link will be provided'}`)
                   }}>
                     <FiShare2 size={14} /> Auto-Generate Message
@@ -498,7 +498,7 @@ export default function Meetings() {
                 </label>
                 
                 <div className="relative mb-2">
-                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
                   <input 
                     type="text" 
                     placeholder="Search name or email..." 
@@ -586,8 +586,8 @@ export default function Meetings() {
 
       {/* Embedded Meeting Room iframe */}
       {activeMeetingRoom && createPortal(
-        <div className="fixed inset-0 z-[100000] bg-slate-900 flex flex-col">
-          <div className="bg-slate-800 text-white p-3 flex items-center justify-between shadow-md z-10">
+        <div className="fixed inset-0 z-[100000] bg-white flex flex-col">
+          <div className="bg-slate-100 text-slate-900 p-3 flex items-center justify-between shadow-md z-10">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center animate-pulse shadow-[0_0_15px_rgba(37,99,235,0.5)]">
                 <FiVideo size={16} />
@@ -600,7 +600,7 @@ export default function Meetings() {
                 target="_blank" 
                 rel="noreferrer"
                 title="Open in new tab"
-                className="text-xs text-blue-400 font-mono hidden sm:block bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-950 hover:text-blue-300 transition-colors"
+                className="text-xs text-blue-400 font-mono hidden sm:block bg-white px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 hover:text-blue-300 transition-colors"
               >
                 {activeMeetingRoom.url}
               </a>

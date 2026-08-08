@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Truck, Fuel, AlertCircle, Wrench, Shield, Plus, X } from 'lucide-react';
 import { ASSET_CATEGORIES } from '../config/categories';
 import toast from 'react-hot-toast';
@@ -61,7 +61,7 @@ export default function AssetVehicleView() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase">
+              <tr className="border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase">
                 <th className="py-3 px-2">Asset Code</th>
                 <th className="py-3 px-2">Name & Model</th>
                 <th className="py-3 px-2">Category</th>
@@ -96,11 +96,11 @@ export default function AssetVehicleView() {
 
       {/* Asset Registration Modal */}
       {showAssetModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">Register New Asset / Vehicle</h3>
-              <button onClick={() => setShowAssetModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAssetModal(false)} className="text-slate-500 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>

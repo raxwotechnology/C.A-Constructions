@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -412,7 +412,7 @@ export default function AdminAIAnalyzer() {
       <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 overflow-x-auto flex-nowrap md:flex-wrap shadow-sm scrollbar-none">
         {TABS.map(t => (
           <button key={t.id} onClick={() => { setActiveTab(t.id); if (t.id === 'suggestions') loadAiSuggestions() }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 ${activeTab === t.id ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 ${activeTab === t.id ? 'bg-gradient-to-r from-secondary to-blue-600 text-slate-900 shadow' : 'text-slate-500 hover:bg-slate-50'}`}>
             {t.label}
           </button>
         ))}
@@ -454,7 +454,7 @@ export default function AdminAIAnalyzer() {
             {suggestions.length > 0 && (
               <div className="card card-body">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center"><FiZap className="text-white" size={14}/></div>
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center"><FiZap className="text-slate-900" size={14}/></div>
                   <h3 className="font-bold text-primary">AI Insights & Recommendations</h3>
                 </div>
                 <div className="space-y-3">
@@ -469,7 +469,7 @@ export default function AdminAIAnalyzer() {
             )}
             <div className="card card-body">
               <h3 className="font-bold text-primary mb-1">Revenue Trend & Prediction</h3>
-              <p className="text-xs text-slate-400 mb-4">Blue = actual · Purple dashed = AI prediction</p>
+              <p className="text-xs text-slate-500 mb-4">Blue = actual · Purple dashed = AI prediction</p>
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={revChartData}>
                   <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f97316" stopOpacity={0.2}/><stop offset="95%" stopColor="#f97316" stopOpacity={0}/></linearGradient></defs>
@@ -503,7 +503,7 @@ export default function AdminAIAnalyzer() {
             <div className="card card-body text-center py-12">
               <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"/>
               <p className="font-semibold text-primary">Scanning website...</p>
-              <p className="text-sm text-slate-400 mt-1">Checking SEO, performance, security & more</p>
+              <p className="text-sm text-slate-500 mt-1">Checking SEO, performance, security & more</p>
             </div>
           )}
 
@@ -592,7 +592,7 @@ export default function AdminAIAnalyzer() {
                   <div key={c.label} className={`kpi-card ${c.color}`}>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{c.label}</p>
                     <p className="text-2xl font-bold text-primary mt-1">{c.val}</p>
-                    <p className="text-xs text-slate-400 mt-1">{c.sub}</p>
+                    <p className="text-xs text-slate-500 mt-1">{c.sub}</p>
                   </div>
                 ))}
               </div>
@@ -655,7 +655,7 @@ export default function AdminAIAnalyzer() {
                     <div className="text-3xl mb-3">{item.icon}</div>
                     <h3 className="font-bold text-primary mb-1">{item.title}</h3>
                     <p className="text-sm text-slate-500 mb-4">{item.desc}</p>
-                    <button className="btn-outline btn-sm text-xs gap-1 group-hover:bg-secondary group-hover:text-white group-hover:border-secondary transition-colors">
+                    <button className="btn-outline btn-sm text-xs gap-1 group-hover:bg-secondary group-hover:text-slate-900 group-hover:border-secondary transition-colors">
                       <FiZap size={11}/> Run Analysis
                     </button>
                   </div>
@@ -699,7 +699,7 @@ export default function AdminAIAnalyzer() {
                 <div className="card card-body text-center py-16">
                   <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"/>
                   <p className="font-semibold text-primary">Analyzing {mktgPlatform}...</p>
-                  <p className="text-xs text-slate-400 mt-1">Fetching live data from API</p>
+                  <p className="text-xs text-slate-500 mt-1">Fetching live data from API</p>
                 </div>
               )}
 
@@ -807,7 +807,7 @@ export default function AdminAIAnalyzer() {
                       {mktgData.strategies.map((s,i) => (
                         <motion.div key={i} initial={{opacity:0,scale:0.9}} animate={{opacity:1,scale:1}} transition={{delay:i*0.1}}
                           className="flex items-start gap-2 p-3 bg-white/80 backdrop-blur rounded-xl border border-white shadow-sm">
-                          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-secondary to-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">{i+1}</span>
+                          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-secondary to-blue-600 text-slate-900 flex items-center justify-center text-xs font-bold shrink-0">{i+1}</span>
                           <p className="text-sm text-slate-700">{s}</p>
                         </motion.div>
                       ))}
@@ -832,7 +832,7 @@ export default function AdminAIAnalyzer() {
         <div className="space-y-4">
           <div className="card card-body bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center"><FiZap className="text-white" size={18}/></div>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center"><FiZap className="text-slate-900" size={18}/></div>
               <div>
                 <h3 className="font-bold text-primary">AI-Powered Recommendations</h3>
                 <p className="text-xs text-slate-500">Based on your real social media data and performance insights</p>
@@ -865,7 +865,7 @@ export default function AdminAIAnalyzer() {
           ))}
           {!suggestionsLoading && !suggestionsData && (
             <div className="card card-body text-center py-12">
-              <p className="text-slate-400 text-sm">Click the tab to load personalized recommendations</p>
+              <p className="text-slate-500 text-sm">Click the tab to load personalized recommendations</p>
             </div>
           )}
         </div>
@@ -874,7 +874,7 @@ export default function AdminAIAnalyzer() {
       {/* Assignment Modal */}
       <AnimatePresence>
         {showAssignModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm p-4">
             <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:0.95}}
               className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -904,7 +904,7 @@ export default function AdminAIAnalyzer() {
       </AnimatePresence>
 
       {showApiSettings && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2"><FiSettings/> Add API — {PLATFORM_CONFIG[apiSettingsPlatform]?.label || apiSettingsPlatform}</h3>
             <p className="text-sm text-slate-500 mb-4">Keys are saved in your browser and sent securely to the backend when fetching data. Works on localhost and Hostinger without server env vars.</p>

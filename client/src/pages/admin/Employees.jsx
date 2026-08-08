@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -357,7 +357,7 @@ export default function AdminEmployees() {
 
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 w-full sm:w-auto">
-          <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+          <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"/>
           <input 
             value={search} 
             onChange={e=>setSearch(e.target.value)} 
@@ -415,7 +415,7 @@ export default function AdminEmployees() {
                         }
                         <div>
                           <p className="font-medium text-gray-800">{emp.userId?.name}</p>
-                          <p className="text-xs text-gray-400">{emp.userId?.email}</p>
+                          <p className="text-xs text-slate-500">{emp.userId?.email}</p>
                         </div>
                       </div>
                     </td>
@@ -426,7 +426,7 @@ export default function AdminEmployees() {
                           {EMPLOYMENT_TYPE_META[emp.employmentType]?.label || 'Permanent'}
                         </span>
                         {emp.employmentType === 'intern' && emp.internshipDaysRemaining !== null && (
-                          <span className={`text-[10px] font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-400'}`}>
+                          <span className={`text-[10px] font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-500'}`}>
                             {emp.internshipDaysRemaining <= 14 && <FiAlertCircle size={10} />}
                             {emp.internshipDaysRemaining}d left
                           </span>
@@ -441,34 +441,34 @@ export default function AdminEmployees() {
                     <td>
                       <div className="flex gap-1">
                         <button type="button" onClick={() => setViewEmp(emp)}
-                          className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
+                          className="p-1.5 text-slate-500 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
                           <FiEye size={14}/>
                         </button>
                         <button
                           onClick={() => navigate(`/admin/work-logs?employee=${emp._id}`)}
-                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
                           title="Work Logs" type="button">
                           <FiClock size={14}/>
                         </button>
                         <button
                           onClick={() => setActivityEmp(emp)}
-                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
                           title="View activity" type="button">
                           <FiActivity size={14}/>
                         </button>
-                        <button type="button" onClick={()=>openEdit(emp)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
-                        <button type="button" onClick={() => { setDeletePendingEmp(emp); setDeletePassword('') }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove employee"><FiTrash2 size={14}/></button>
+                        <button type="button" onClick={()=>openEdit(emp)} className="p-1.5 text-slate-500 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
+                        <button type="button" onClick={() => { setDeletePendingEmp(emp); setDeletePassword('') }} className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove employee"><FiTrash2 size={14}/></button>
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">
+                <tr><td colSpan={8} className="text-center py-12 text-slate-500">
                   <FiUser size={36} className="mx-auto mb-2 opacity-30"/>No employees found
                 </td></tr>
               )
             ) : (
-              <tr><td colSpan={8} className="text-center py-12 text-gray-400">Failed to load data</td></tr>
+              <tr><td colSpan={8} className="text-center py-12 text-slate-500">Failed to load data</td></tr>
             )}
           </tbody>
         </table>
@@ -481,7 +481,7 @@ export default function AdminEmployees() {
             <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
           </div>
         ) : data && employees.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-slate-200">
+          <div className="text-center py-12 text-slate-500 bg-white rounded-2xl border border-slate-200">
             <FiUser size={32} className="mx-auto mb-2 opacity-30"/>
             <p>No employees found</p>
           </div>
@@ -501,31 +501,31 @@ export default function AdminEmployees() {
                     <p className="font-bold text-slate-800 text-sm truncate">{emp.userId?.name}</p>
                     <span className={`badge text-[10px] ${statusColor[emp.status]||'badge-gray'}`}>{EMPLOYEE_STATUSES.find(s => s.value === emp.status)?.label || emp.status}</span>
                   </div>
-                  <p className="text-xs text-slate-400 truncate">{emp.userId?.email}</p>
+                  <p className="text-xs text-slate-500 truncate">{emp.userId?.email}</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-2">
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Designation</span>
+                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">Designation</span>
                   <p className="font-medium text-slate-700">{emp.designation || '—'}</p>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Department</span>
+                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">Department</span>
                   <p className="font-medium text-slate-700">{emp.department || '—'}</p>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">ID / Type</span>
+                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">ID / Type</span>
                   <p className="font-medium text-slate-700">{emp.employeeNo || '—'} · <span className="capitalize">{emp.employmentType?.replace('_', ' ')}</span></p>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Basic Salary</span>
+                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">Basic Salary</span>
                   <p className="font-semibold text-slate-800">LKR {emp.basicSalary?.toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="flex justify-between items-center pt-1">
-                <span className="text-[11px] text-slate-400 font-mono">EPF: {emp.epfNumber || '—'}</span>
+                <span className="text-[11px] text-slate-500 font-mono">EPF: {emp.epfNumber || '—'}</span>
                 <div className="flex gap-1">
                   <button type="button" onClick={() => setViewEmp(emp)}
                     className="p-2 text-gray-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-colors" title="View Details">
@@ -667,7 +667,7 @@ export default function AdminEmployees() {
                               </div>
                             </div>
                           ))}
-                          {(activityData?.projects || []).length === 0 ? <p className="text-sm text-slate-400">No assigned projects.</p> : null}
+                          {(activityData?.projects || []).length === 0 ? <p className="text-sm text-slate-500">No assigned projects.</p> : null}
                         </div>
                       </div>
 
@@ -685,7 +685,7 @@ export default function AdminEmployees() {
                               </p>
                             </div>
                           ))}
-                          {(activityData?.leaves || []).length === 0 ? <p className="text-sm text-slate-400">No leaves yet.</p> : null}
+                          {(activityData?.leaves || []).length === 0 ? <p className="text-sm text-slate-500">No leaves yet.</p> : null}
                         </div>
                       </div>
                     </div>
@@ -706,7 +706,7 @@ export default function AdminEmployees() {
       )}
       {/* Delete Confirmation Modal */}
       {deletePendingEmp && createPortal(
-        <div className="fixed inset-0 bg-slate-900/30 flex items-center justify-center z-[100001] p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 bg-white/30 flex items-center justify-center z-[100001] p-4 backdrop-blur-[2px]">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><FiAlertCircle size={24} /></div>

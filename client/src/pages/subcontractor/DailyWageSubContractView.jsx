@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Users,
@@ -507,7 +507,7 @@ export default function DailyWageSubContractView() {
           onClick={() => setActiveTab('wages')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
             activeTab === 'wages'
-              ? 'bg-slate-900 text-amber-400 shadow'
+              ? 'bg-white text-amber-400 shadow'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -517,7 +517,7 @@ export default function DailyWageSubContractView() {
           onClick={() => setActiveTab('subcontract')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
             activeTab === 'subcontract'
-              ? 'bg-slate-900 text-amber-400 shadow'
+              ? 'bg-white text-amber-400 shadow'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -527,7 +527,7 @@ export default function DailyWageSubContractView() {
           onClick={() => setActiveTab('logs')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
             activeTab === 'logs'
-              ? 'bg-slate-900 text-amber-400 shadow'
+              ? 'bg-white text-amber-400 shadow'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -785,7 +785,7 @@ export default function DailyWageSubContractView() {
             <button
               type="submit"
               disabled={createLogMutation.isPending}
-              className="w-full py-3 bg-slate-900 text-amber-400 hover:bg-slate-800 font-extrabold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 bg-white text-amber-400 hover:bg-slate-100 font-extrabold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Save Daily Wage Work Log
             </button>
@@ -793,18 +793,18 @@ export default function DailyWageSubContractView() {
 
           {/* Live Pay Calculator Summary Card */}
           <div className="space-y-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white border-2 border-amber-500/40 shadow-xl space-y-5 sticky top-6">
-              <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-slate-900 border-2 border-amber-500/40 shadow-xl space-y-5 sticky top-6">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <span className="text-xs font-black uppercase text-amber-400 tracking-wider">Live Pay Calculator</span>
                 <span className="text-xs bg-cyan-500/20 text-cyan-300 px-2.5 py-1 rounded-full font-bold">
                   Daily Wage
                 </span>
               </div>
 
-              <div className="space-y-2 text-sm text-slate-300">
+              <div className="space-y-2 text-sm text-slate-600">
                 <div className="flex justify-between">
                   <span>Base Wage Pay:</span>
-                  <span className="font-bold text-white">
+                  <span className="font-bold text-slate-900">
                     Rs. {(Number(wageForm.daysWorked || 0) * Number(wageForm.skillRate || 0)).toLocaleString()}
                   </span>
                 </div>
@@ -816,7 +816,7 @@ export default function DailyWageSubContractView() {
                   <span>Daily Allowances:</span>
                   <span className="font-bold text-cyan-400">+ Rs. {computedTotalAllowances.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t border-slate-700 font-bold text-white">
+                <div className="flex justify-between pt-2 border-t border-slate-200 font-bold text-slate-900">
                   <span>Gross Daily Pay:</span>
                   <span>Rs. {computedGrossDailyPay.toLocaleString()}</span>
                 </div>
@@ -827,7 +827,7 @@ export default function DailyWageSubContractView() {
               </div>
 
               <div className="pt-4 border-t-2 border-amber-500/50 text-center">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">NET PAYABLE DAILY WAGE</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">NET PAYABLE DAILY WAGE</p>
                 <h2 className="text-3xl font-black text-emerald-400 mt-1">
                   Rs. {computedNetDailyPay.toLocaleString()}
                 </h2>
@@ -1000,24 +1000,24 @@ export default function DailyWageSubContractView() {
 
           {/* Sub-Contract Live Summary Card */}
           <div className="space-y-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white border-2 border-emerald-500/40 shadow-xl space-y-5 sticky top-6">
-              <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-slate-900 border-2 border-emerald-500/40 shadow-xl space-y-5 sticky top-6">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <span className="text-xs font-black uppercase text-emerald-400 tracking-wider">Sub-Contract Calculator</span>
                 <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full font-bold">
                   {subForm.workCategory}
                 </span>
               </div>
 
-              <div className="space-y-2 text-sm text-slate-300">
+              <div className="space-y-2 text-sm text-slate-600">
                 <div className="flex justify-between">
                   <span>Measured Sqft:</span>
-                  <span className="font-bold text-white">{subForm.measuredSqft || 0} Sqft</span>
+                  <span className="font-bold text-slate-900">{subForm.measuredSqft || 0} Sqft</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Rate Per Sqft:</span>
-                  <span className="font-bold text-white">Rs. {subForm.ratePerSqft || 0} / Sqft</span>
+                  <span className="font-bold text-slate-900">Rs. {subForm.ratePerSqft || 0} / Sqft</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t border-slate-700 font-bold text-white">
+                <div className="flex justify-between pt-2 border-t border-slate-200 font-bold text-slate-900">
                   <span>Total Measured Pay:</span>
                   <span>Rs. {computedSubTotalPay.toLocaleString()}</span>
                 </div>
@@ -1028,7 +1028,7 @@ export default function DailyWageSubContractView() {
               </div>
 
               <div className="pt-4 border-t-2 border-emerald-500/50 text-center">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">NET SUB-CONTRACT PAYOUT</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">NET SUB-CONTRACT PAYOUT</p>
                 <h2 className="text-3xl font-black text-emerald-400 mt-1">
                   Rs. {computedSubNetPay.toLocaleString()}
                 </h2>
@@ -1046,7 +1046,7 @@ export default function DailyWageSubContractView() {
           {/* Table Filters */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="relative w-full md:w-72">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
               <input
                 type="text"
                 placeholder="Search worker or log ref..."
@@ -1124,13 +1124,13 @@ export default function DailyWageSubContractView() {
               <tbody className="divide-y divide-slate-100 text-sm">
                 {isLoading ? (
                   <tr>
-                    <td colSpan="8" className="py-8 text-center text-slate-400 font-medium">
+                    <td colSpan="8" className="py-8 text-center text-slate-500 font-medium">
                       Loading work logs...
                     </td>
                   </tr>
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="py-8 text-center text-slate-400 font-medium">
+                    <td colSpan="8" className="py-8 text-center text-slate-500 font-medium">
                       No daily wage or sub-contract logs found.
                     </td>
                   </tr>

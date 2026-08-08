@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   CheckCircle2, XCircle, Clock, ShieldCheck, FileText, Package, DollarSign,
   UserCheck, ArrowRight, Eye, MessageSquare, AlertCircle, Filter, Search, Check, X, Send, ChevronRight
@@ -248,7 +248,7 @@ export default function ApprovalSystem() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 rounded-3xl text-white shadow-xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 rounded-3xl text-slate-900 shadow-xl">
         <div>
           <div className="flex items-center gap-3">
             <span className="p-2.5 bg-orange-600/30 border border-orange-500/40 rounded-2xl text-orange-400">
@@ -256,15 +256,15 @@ export default function ApprovalSystem() {
             </span>
             <div>
               <h1 className="text-2xl font-black tracking-tight">Central Multi-Level Approval System</h1>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 Structured 3-Stage Workflow: Supervisor Review → Project Manager Approval → Director Sign-Off
               </p>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-slate-800/80 border border-slate-700/80 px-4 py-2 rounded-2xl text-right">
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Value</div>
+          <div className="bg-slate-100/80 border border-slate-200/80 px-4 py-2 rounded-2xl text-right">
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Value</div>
             <div className="text-sm font-mono font-extrabold text-orange-400">LKR {totalValueLKR.toLocaleString()}</div>
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function ApprovalSystem() {
             <span className="p-1.5 bg-slate-100 rounded-lg text-slate-600"><FileText size={16} /></span>
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2">{totalCount}</div>
-          <div className="text-[10px] text-slate-400 mt-1">All active & past</div>
+          <div className="text-[10px] text-slate-500 mt-1">All active & past</div>
         </div>
 
         <div className="bg-white border border-amber-200 bg-amber-50/30 p-4 rounded-2xl shadow-xs">
@@ -340,7 +340,7 @@ export default function ApprovalSystem() {
 
           {/* Search Box */}
           <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
             <input
               type="text"
               placeholder="Search REQ ID, Project..."
@@ -353,7 +353,7 @@ export default function ApprovalSystem() {
 
         {/* Stage Filter Buttons */}
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-slate-400 font-bold flex items-center gap-1"><Filter size={13} /> Filter Stage:</span>
+          <span className="text-slate-500 font-bold flex items-center gap-1"><Filter size={13} /> Filter Stage:</span>
           {[
             { id: 'ALL', label: 'All Stages' },
             { id: 'PENDING_SUPERVISOR', label: 'Stage 1: Supervisor' },
@@ -367,7 +367,7 @@ export default function ApprovalSystem() {
               onClick={() => setFilterStage(stg.id)}
               className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 filterStage === stg.id 
-                  ? 'bg-slate-800 text-white font-bold' 
+                  ? 'bg-slate-100 text-slate-900 font-bold' 
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -395,7 +395,7 @@ export default function ApprovalSystem() {
             <tbody className="divide-y divide-slate-100">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
                     <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
                     No approval requests found matching your filters.
                   </td>
@@ -417,7 +417,7 @@ export default function ApprovalSystem() {
                       {/* Requested By */}
                       <td className="py-4 px-4 align-top">
                         <div className="font-semibold text-slate-800">{r.requestedBy}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{r.date}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{r.date}</div>
                       </td>
 
                       {/* Project */}
@@ -435,8 +435,8 @@ export default function ApprovalSystem() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-1.5">
                             {r.stages.map((stg, sIdx) => {
-                              let badgeStyle = 'bg-slate-100 border-slate-200 text-slate-400'
-                              let icon = <span className="w-3.5 h-3.5 rounded-full bg-slate-300 text-white flex items-center justify-center text-[9px] font-bold">{sIdx + 1}</span>
+                              let badgeStyle = 'bg-slate-100 border-slate-200 text-slate-500'
+                              let icon = <span className="w-3.5 h-3.5 rounded-full bg-slate-300 text-slate-900 flex items-center justify-center text-[9px] font-bold">{sIdx + 1}</span>
 
                               if (isRejected) {
                                 if (sIdx === r.currentStepIndex) {
@@ -461,7 +461,7 @@ export default function ApprovalSystem() {
                                     <span>{sIdx === 0 ? 'Supervisor' : sIdx === 1 ? 'PM' : 'Director'}</span>
                                   </div>
                                   {sIdx < r.stages.length - 1 && (
-                                    <ChevronRight size={12} className="text-slate-300 shrink-0" />
+                                    <ChevronRight size={12} className="text-slate-600 shrink-0" />
                                   )}
                                 </React.Fragment>
                               )
@@ -526,7 +526,7 @@ export default function ApprovalSystem() {
 
       {/* Details & History Modal */}
       {selectedReq && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-white/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-5 border border-slate-200 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
@@ -538,7 +538,7 @@ export default function ApprovalSystem() {
               </div>
               <button
                 onClick={() => setSelectedReq(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1 text-slate-500 hover:text-slate-600 rounded-lg"
               >
                 <X size={20} />
               </button>
@@ -550,7 +550,7 @@ export default function ApprovalSystem() {
               <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden p-3">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="text-slate-400 font-bold border-b border-slate-200 pb-2">
+                    <tr className="text-slate-500 font-bold border-b border-slate-200 pb-2">
                       <th className="py-1">Description</th>
                       <th className="py-1">Quantity</th>
                       <th className="py-1">Rate</th>
@@ -598,7 +598,7 @@ export default function ApprovalSystem() {
                         <div className="text-[11px] text-slate-500 mt-1 italic">"{stg.note}"</div>
                       </div>
                     </div>
-                    {stg.date && <div className="text-[10px] text-slate-400 font-mono">{stg.date}</div>}
+                    {stg.date && <div className="text-[10px] text-slate-500 font-mono">{stg.date}</div>}
                   </div>
                 ))}
               </div>
@@ -641,7 +641,7 @@ export default function ApprovalSystem() {
 
       {/* Rejection Modal */}
       {rejectModalReq && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-white/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-slate-200 shadow-2xl">
             <div className="flex items-center gap-3 text-rose-600">
               <XCircle size={24} />

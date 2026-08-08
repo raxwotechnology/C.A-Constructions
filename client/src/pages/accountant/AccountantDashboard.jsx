@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -39,11 +39,11 @@ export default function AccountantDashboard() {
   return (
     <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-6 rounded-2xl text-white shadow-xl">
+      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-6 rounded-2xl text-slate-900 shadow-xl">
         <span className="bg-emerald-500/20 text-emerald-300 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-400/30">
           Accountant & Finance Manager Portal
         </span>
-        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-white">Automated Payroll & Audit Control Matrix</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-slate-900">Automated Payroll & Audit Control Matrix</h1>
         <p className="text-emerald-200 text-sm mt-1">3-Minute Payroll Calculator, GRN Variance Protection & Supplier Price Alerts.</p>
       </div>
 
@@ -124,7 +124,7 @@ export default function AccountantDashboard() {
                   <p className="text-xs text-slate-600 mt-0.5">{a.item}</p>
                   <p className="text-[11px] text-slate-500 mt-1">Previous: LKR {a.oldPrice} ➔ Current: LKR {a.newPrice}</p>
                 </div>
-                <button className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg">
+                <button className="px-3 py-1.5 bg-white text-slate-900 text-xs font-bold rounded-lg">
                   Audit Price
                 </button>
               </div>

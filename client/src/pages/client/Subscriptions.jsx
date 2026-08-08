@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
@@ -104,7 +104,7 @@ export default function ClientSubscriptions() {
               <div className="absolute -right-4 -top-4 w-16 h-16 bg-indigo-50 rounded-full group-hover:scale-150 transition-transform duration-500 ease-out" />
               <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-500 relative z-10">Total Due</p>
               <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-1 relative z-10 truncate" title={`LKR ${(summary.totalDue || 0).toLocaleString()}`}>
-                <span className="text-sm font-medium text-slate-400 mr-1">LKR</span>
+                <span className="text-sm font-medium text-slate-500 mr-1">LKR</span>
                 {(summary.totalDue || 0).toLocaleString()}
               </p>
             </div>
@@ -145,7 +145,7 @@ export default function ClientSubscriptions() {
                           <span className="text-[10px] font-bold text-secondary uppercase tracking-widest bg-secondary/10 px-2 py-0.5 rounded-full shrink-0">
                             {sub.typeLabel}
                           </span>
-                          <span className="text-xs text-slate-400 truncate">#{sub.subscriptionNo}</span>
+                          <span className="text-xs text-slate-500 truncate">#{sub.subscriptionNo}</span>
                         </div>
                         <h3 className="text-lg sm:text-xl font-bold text-slate-800 font-heading leading-tight truncate" title={sub.title}>
                           {sub.title}
@@ -204,9 +204,9 @@ export default function ClientSubscriptions() {
                             Hosting &amp; Domain
                           </p>
                           <div className="text-slate-600 text-xs space-y-1.5 pl-8">
-                            <p className="flex justify-between"><span className="text-slate-400">Domain</span> <span className="font-medium text-slate-800 truncate pl-2">{sub.hostingDetails.domainName}</span></p>
-                            {sub.hostingDetails.provider && <p className="flex justify-between"><span className="text-slate-400">Provider</span> <span className="font-medium text-slate-800 truncate pl-2">{sub.hostingDetails.provider}</span></p>}
-                            {sub.hostingDetails.expiryDate && <p className="flex justify-between"><span className="text-slate-400">Expiry</span> <span className="font-medium text-slate-800 pl-2">{new Date(sub.hostingDetails.expiryDate).toLocaleDateString()}</span></p>}
+                            <p className="flex justify-between"><span className="text-slate-500">Domain</span> <span className="font-medium text-slate-800 truncate pl-2">{sub.hostingDetails.domainName}</span></p>
+                            {sub.hostingDetails.provider && <p className="flex justify-between"><span className="text-slate-500">Provider</span> <span className="font-medium text-slate-800 truncate pl-2">{sub.hostingDetails.provider}</span></p>}
+                            {sub.hostingDetails.expiryDate && <p className="flex justify-between"><span className="text-slate-500">Expiry</span> <span className="font-medium text-slate-800 pl-2">{new Date(sub.hostingDetails.expiryDate).toLocaleDateString()}</span></p>}
                             {sub.hostingDetails.hostingUrl && (
                               <a href={sub.hostingDetails.hostingUrl} target="_blank" rel="noreferrer" className="inline-block mt-1 text-primary hover:text-indigo-600 font-medium hover:underline">
                                 Manage Panel &rarr;
@@ -258,7 +258,7 @@ export default function ClientSubscriptions() {
                   <div className="p-4 sm:p-5 bg-white border-t border-slate-100 shrink-0">
                     {hasBalance ? (
                       <button 
-                        className="w-full relative group overflow-hidden rounded-xl font-bold text-white shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                        className="w-full relative group overflow-hidden rounded-xl font-bold text-slate-900 shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
                         style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
                         onClick={() => handlePay(sub)}
                       >
@@ -285,7 +285,7 @@ export default function ClientSubscriptions() {
               className="py-16 sm:py-24 px-4 text-center bg-white rounded-3xl border border-slate-100 shadow-sm max-w-2xl mx-auto"
             >
               <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FiServer size={32} className="text-slate-300" />
+                <FiServer size={32} className="text-slate-600" />
               </div>
               <h3 className="text-xl font-bold text-slate-800 mb-2">No Active Subscriptions</h3>
               <p className="text-slate-500 max-w-md mx-auto text-sm">
@@ -297,7 +297,7 @@ export default function ClientSubscriptions() {
           {/* Payment Modal */}
           <AnimatePresence>
             {showPaymentForm && selectedSub && createPortal(
-              <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm z-[9999]">
+              <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 bg-white/60 backdrop-blur-sm z-[9999]">
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95, y: 20 }} 
                   animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -317,7 +317,7 @@ export default function ClientSubscriptions() {
                     <div className="text-center">
                       <p className="text-sm font-medium text-slate-500 mb-2">Amount Due for {selectedSub.title}</p>
                       <p className="text-4xl font-black text-slate-800 tracking-tight">
-                        <span className="text-xl text-slate-400 font-bold mr-1">LKR</span>
+                        <span className="text-xl text-slate-500 font-bold mr-1">LKR</span>
                         {selectedSub.remainingBalance?.toLocaleString()}
                       </p>
                     </div>
@@ -333,7 +333,7 @@ export default function ClientSubscriptions() {
 
                     <div className="pt-2 flex flex-col gap-3">
                       <button 
-                        className="w-full py-3.5 rounded-xl text-white font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/40 active:translate-y-0"
+                        className="w-full py-3.5 rounded-xl text-slate-900 font-bold text-sm shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/40 active:translate-y-0"
                         style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' }}
                         onClick={handlePayHereCheckout}
                       >

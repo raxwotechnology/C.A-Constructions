@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -41,7 +41,7 @@ function FeedbackModal({ service, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-white/40 backdrop-blur-md">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -55,7 +55,7 @@ function FeedbackModal({ service, onClose }) {
               For: <span className="font-semibold text-secondary">{service.title}</span>
             </p>
           </div>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white rounded-full bg-white/50 border border-slate-200 transition-all shadow-sm">
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-white rounded-full bg-white/50 border border-slate-200 transition-all shadow-sm">
             <FiX size={18} />
           </button>
         </div>
@@ -79,7 +79,7 @@ function FeedbackModal({ service, onClose }) {
                 {[1, 2, 3, 4, 5].map(s => (
                   <button type="button" key={s} onClick={() => setRating(s)}
                     className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                      rating >= s ? 'bg-amber-400 text-white shadow-lg shadow-amber-400/30 scale-110 -translate-y-1' : 'bg-slate-100 text-slate-300 hover:bg-amber-50 hover:text-amber-300 hover:-translate-y-1'
+                      rating >= s ? 'bg-amber-400 text-white shadow-lg shadow-amber-400/30 scale-110 -translate-y-1' : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-300 hover:-translate-y-1'
                     }`}
                   >
                     <FiStar size={20} className={rating >= s ? 'fill-current' : ''} />
@@ -93,7 +93,7 @@ function FeedbackModal({ service, onClose }) {
               <textarea {...register('message', { required: 'Please write your feedback' })} className="form-input bg-slate-50 border-slate-200 focus:bg-white resize-none" rows={4} placeholder="Tell us what you think..." />
               {errors.message && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.message.message}</p>}
             </div>
-            <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-md shadow-primary/20 transition-all mt-4">
+            <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-primary hover:bg-primary/90 text-slate-900 font-semibold rounded-xl shadow-md shadow-primary/20 transition-all mt-4">
               {loading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Submit Feedback'}
             </button>
           </form>
@@ -123,11 +123,11 @@ function PackageCard({ pkg, delay = 0 }) {
         
         <h3 className="font-bold text-primary text-xl mb-1.5">{pkg.name}</h3>
         <div className="mb-6 pb-6 border-b border-slate-100">
-          {pkg.discount > 0 && <p className="text-xs font-medium text-slate-400 line-through mb-1">{pkg.currency} {Number(pkg.price / (1 - pkg.discount / 100)).toLocaleString()}</p>}
+          {pkg.discount > 0 && <p className="text-xs font-medium text-slate-500 line-through mb-1">{pkg.currency} {Number(pkg.price / (1 - pkg.discount / 100)).toLocaleString()}</p>}
           <div className="flex items-end gap-1.5">
             <span className="text-base font-semibold text-slate-500 mb-1.5">{pkg.currency}</span>
             <span className="text-4xl font-black text-primary tracking-tight">{Number(pkg.price).toLocaleString()}</span>
-            <span className="text-sm font-medium text-slate-400 mb-1.5">{BILLING_LABEL[pkg.billingCycle] || ''}</span>
+            <span className="text-sm font-medium text-slate-500 mb-1.5">{BILLING_LABEL[pkg.billingCycle] || ''}</span>
           </div>
           <div className="flex items-center gap-2 mt-2">
             {pkg.discount > 0 && <span className="inline-block text-[10px] uppercase tracking-wider bg-emerald-100/80 text-emerald-700 font-bold px-2.5 py-1 rounded-full">{pkg.discount}% off</span>}
@@ -145,7 +145,7 @@ function PackageCard({ pkg, delay = 0 }) {
           ))}
         </ul>
         <a href="mailto:info@raxwo.com" className={`w-full py-3.5 rounded-xl text-sm font-bold text-center transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden ${
-          pkg.isPopular ? 'bg-primary text-white shadow-md hover:bg-primary/90' : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+          pkg.isPopular ? 'bg-primary text-slate-900 shadow-md hover:bg-primary/90' : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 hover:border-slate-300'
         }`}>
           <span className="relative z-10 flex items-center gap-2">Get Started <FiArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" /></span>
         </a>
@@ -190,7 +190,7 @@ function ServiceCard({ service, onFeedback }) {
                 </li>
               ))}
               {service.features.length > 3 && (
-                <li className="text-[11px] font-semibold text-slate-400 pl-5">+{service.features.length - 3} more</li>
+                <li className="text-[11px] font-semibold text-slate-500 pl-5">+{service.features.length - 3} more</li>
               )}
             </ul>
           </div>
@@ -204,7 +204,7 @@ function ServiceCard({ service, onFeedback }) {
             <button onClick={() => onFeedback(service)} className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-50 text-amber-500 hover:bg-amber-400 hover:text-white transition-all shadow-sm">
               <FiStar size={14} />
             </button>
-            <a href="mailto:info@raxwo.com" className="h-9 px-4 rounded-xl flex items-center justify-center bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all shadow-md">
+            <a href="mailto:info@raxwo.com" className="h-9 px-4 rounded-xl flex items-center justify-center bg-primary text-slate-900 text-xs font-bold hover:bg-primary/90 transition-all shadow-md">
               Enquire
             </a>
           </div>
@@ -247,10 +247,10 @@ export default function ClientServices() {
         rightContent={
           hasCategories ? (
             <div className="bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 flex items-center shadow-lg">
-              <button onClick={() => setViewMode('category')} className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${viewMode === 'category' ? 'bg-white text-primary shadow-md' : 'text-white/80 hover:text-white hover:bg-white/5'}`}>
+              <button onClick={() => setViewMode('category')} className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${viewMode === 'category' ? 'bg-white text-primary shadow-md' : 'text-slate-900/80 hover:text-slate-900 hover:bg-white/5'}`}>
                 <FiList size={16} /> Categories
               </button>
-              <button onClick={() => setViewMode('grid')} className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${viewMode === 'grid' ? 'bg-white text-primary shadow-md' : 'text-white/80 hover:text-white hover:bg-white/5'}`}>
+              <button onClick={() => setViewMode('grid')} className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${viewMode === 'grid' ? 'bg-white text-primary shadow-md' : 'text-slate-900/80 hover:text-slate-900 hover:bg-white/5'}`}>
                 <FiGrid size={16} /> Grid
               </button>
             </div>
@@ -268,10 +268,10 @@ export default function ClientServices() {
       ) : services.length === 0 ? (
         <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FiLayers size={32} className="text-slate-300" />
+            <FiLayers size={32} className="text-slate-600" />
           </div>
           <p className="text-slate-500 font-medium text-lg">Services catalogue is empty.</p>
-          <p className="text-slate-400 text-sm mt-1">Please check back later.</p>
+          <p className="text-slate-500 text-sm mt-1">Please check back later.</p>
         </div>
       ) : (
         <>
@@ -279,7 +279,7 @@ export default function ClientServices() {
           {hasCategories && (
             <div className="sticky top-20 z-40 bg-slate-50/80 backdrop-blur-xl py-3 border-b border-slate-200/60 shadow-sm rounded-2xl px-4">
               <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 shadow-sm text-slate-400 mr-2">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 shadow-sm text-slate-500 mr-2">
                   <FiFilter size={14} />
                 </div>
                 {categories.map(cat => (
@@ -288,7 +288,7 @@ export default function ClientServices() {
                     onClick={() => setActiveCategory(cat)}
                     className={`px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-300 ${
                       activeCategory === cat
-                        ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
+                        ? 'bg-primary text-slate-900 shadow-md shadow-primary/20 scale-105'
                         : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-800 hover:bg-slate-50'
                     }`}
                   >
@@ -318,7 +318,7 @@ export default function ClientServices() {
                         <p className="text-slate-500 max-w-2xl mx-auto text-base leading-relaxed relative z-10">{service.description}</p>
                         
                         <div className="mt-5 relative z-10">
-                          <button onClick={() => setFeedbackService(service)} className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-500 hover:text-white px-4 py-2 rounded-full bg-amber-50 hover:bg-amber-400 border border-amber-200/50 transition-all shadow-sm">
+                          <button onClick={() => setFeedbackService(service)} className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-500 hover:text-slate-900 px-4 py-2 rounded-full bg-amber-50 hover:bg-amber-400 border border-amber-200/50 transition-all shadow-sm">
                             <FiStar size={14} className="fill-current" /> Give Feedback
                           </button>
                         </div>
@@ -368,7 +368,7 @@ export default function ClientServices() {
               {filtered.length === 0 && (
                 <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 shadow-sm mt-4">
                   <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <FiLayers size={32} className="text-slate-300" />
+                    <FiLayers size={32} className="text-slate-600" />
                   </div>
                   <p className="text-slate-500 font-medium text-lg">No services found in this category.</p>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+﻿import React, { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import {
@@ -133,15 +133,15 @@ export default function MealsCateringView() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-slate-950 text-slate-100 min-h-screen">
+    <div className="p-6 space-y-6 bg-slate-50 text-slate-800 min-h-screen">
       {/* Top Banner Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
         <div>
           <div className="flex items-center gap-3">
             <FiCoffee className="w-8 h-8 text-amber-500" />
-            <h1 className="text-2xl font-bold text-white tracking-tight">Meals & Catering Ledger</h1>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Meals & Catering Ledger</h1>
           </div>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1">
             Daily meal logging, weekly settlement auto-calculations, instant SMS alerts, and printable invoices.
           </p>
         </div>
@@ -166,11 +166,11 @@ export default function MealsCateringView() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-4">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-4">
         <button
           onClick={() => setActiveTab('daily-entries')}
           className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-            activeTab === 'daily-entries' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-slate-900 text-slate-400 border border-slate-800'
+            activeTab === 'daily-entries' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-white text-slate-500 border border-slate-200'
           }`}
         >
           Daily Meal Logs ({entries.length})
@@ -179,7 +179,7 @@ export default function MealsCateringView() {
         <button
           onClick={() => setActiveTab('settlements')}
           className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-            activeTab === 'settlements' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-slate-900 text-slate-400 border border-slate-800'
+            activeTab === 'settlements' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-white text-slate-500 border border-slate-200'
           }`}
         >
           Weekly Settlements ({settlements.length})
@@ -188,7 +188,7 @@ export default function MealsCateringView() {
         <button
           onClick={() => setActiveTab('vendors')}
           className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-            activeTab === 'vendors' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-slate-900 text-slate-400 border border-slate-800'
+            activeTab === 'vendors' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-white text-slate-500 border border-slate-200'
           }`}
         >
           Catering Vendors ({vendors.length})
@@ -197,9 +197,9 @@ export default function MealsCateringView() {
 
       {/* TAB 1: Daily Meal Logs */}
       {activeTab === 'daily-entries' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-lg">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
               <tr>
                 <th className="p-4">Date</th>
                 <th className="p-4">Shift</th>
@@ -211,9 +211,9 @@ export default function MealsCateringView() {
                 <th className="p-4">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200">
               {entries.map((entry) => (
-                <tr key={entry._id} className="hover:bg-slate-800/40 transition">
+                <tr key={entry._id} className="hover:bg-slate-100/40 transition">
                   <td className="p-4 font-mono">{new Date(entry.date).toLocaleDateString()}</td>
                   <td className="p-4 font-semibold">
                     <span className={`px-2.5 py-1 rounded-full text-xs ${
@@ -222,9 +222,9 @@ export default function MealsCateringView() {
                       {entry.shift} Shift
                     </span>
                   </td>
-                  <td className="p-4 font-medium text-white">{entry.vendor?.name || 'N/A'}</td>
-                  <td className="p-4 text-slate-300">{entry.siteName || entry.project?.name || 'Head Office'}</td>
-                  <td className="p-4 font-mono text-white font-bold">{entry.mealCount} meals</td>
+                  <td className="p-4 font-medium text-slate-900">{entry.vendor?.name || 'N/A'}</td>
+                  <td className="p-4 text-slate-600">{entry.siteName || entry.project?.name || 'Head Office'}</td>
+                  <td className="p-4 font-mono text-slate-900 font-bold">{entry.mealCount} meals</td>
                   <td className="p-4">LKR {entry.unitPrice}</td>
                   <td className="p-4 font-bold text-amber-400">LKR {(entry.totalCost || 0).toLocaleString()}</td>
                   <td className="p-4">
@@ -243,9 +243,9 @@ export default function MealsCateringView() {
 
       {/* TAB 2: Settlements & Printable Invoices */}
       {activeTab === 'settlements' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-lg">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
               <tr>
                 <th className="p-4">Settlement #</th>
                 <th className="p-4">Vendor</th>
@@ -258,14 +258,14 @@ export default function MealsCateringView() {
                 <th className="p-4 text-right">Invoice</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200">
               {settlements.map((s) => (
-                <tr key={s._id} className="hover:bg-slate-800/40 transition">
+                <tr key={s._id} className="hover:bg-slate-100/40 transition">
                   <td className="p-4 font-mono font-bold text-amber-400">{s.settlementNo}</td>
-                  <td className="p-4 font-medium text-white">{s.vendor?.name || 'N/A'}</td>
-                  <td className="p-4 text-xs text-slate-400">{new Date(s.paymentDate).toLocaleDateString()}</td>
+                  <td className="p-4 font-medium text-slate-900">{s.vendor?.name || 'N/A'}</td>
+                  <td className="p-4 text-xs text-slate-500">{new Date(s.paymentDate).toLocaleDateString()}</td>
                   <td className="p-4 font-mono">{s.totalMealCount} meals</td>
-                  <td className="p-4 font-bold text-white">LKR {(s.totalBillAmount || 0).toLocaleString()}</td>
+                  <td className="p-4 font-bold text-slate-900">LKR {(s.totalBillAmount || 0).toLocaleString()}</td>
                   <td className="p-4 font-bold text-emerald-400">LKR {(s.paidAmount || 0).toLocaleString()}</td>
                   <td className="p-4 font-bold text-amber-400">LKR {(s.remainingOutstanding || 0).toLocaleString()}</td>
                   <td className="p-4">
@@ -276,7 +276,7 @@ export default function MealsCateringView() {
                   <td className="p-4 text-right">
                     <button
                       onClick={() => handlePrint(s._id)}
-                      className="inline-flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow transition"
+                      className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-900 px-3 py-1.5 rounded-lg text-xs font-semibold shadow transition"
                     >
                       <FiPrinter className="w-4 h-4" /> Print Bill
                     </button>
@@ -302,12 +302,12 @@ export default function MealsCateringView() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {vendors.map((v) => (
-              <div key={v._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
-                <h3 className="text-lg font-bold text-white">{v.name}</h3>
-                <p className="text-xs text-slate-400">Contact: {v.contactPerson || 'N/A'} ({v.phone})</p>
-                <p className="text-xs text-slate-400">Default Rate: LKR {v.defaultMealRate} / meal</p>
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs flex justify-between font-bold">
-                  <span className="text-slate-400">Outstanding:</span>
+              <div key={v._id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-3">
+                <h3 className="text-lg font-bold text-slate-900">{v.name}</h3>
+                <p className="text-xs text-slate-500">Contact: {v.contactPerson || 'N/A'} ({v.phone})</p>
+                <p className="text-xs text-slate-500">Default Rate: LKR {v.defaultMealRate} / meal</p>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs flex justify-between font-bold">
+                  <span className="text-slate-500">Outstanding:</span>
                   <span className="text-amber-400">LKR {(v.outstandingBalance || 0).toLocaleString()}</span>
                 </div>
               </div>
@@ -319,10 +319,10 @@ export default function MealsCateringView() {
       {/* DAILY MEAL LOG MODAL */}
       {showMealModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white">Daily Meal Entry</h3>
-              <button onClick={() => setShowMealModal(false)} className="text-slate-400 hover:text-white">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">Daily Meal Entry</h3>
+              <button onClick={() => setShowMealModal(false)} className="text-slate-500 hover:text-slate-900">
                 <FiX className="w-6 h-6" />
               </button>
             </div>
@@ -335,7 +335,7 @@ export default function MealsCateringView() {
               className="space-y-4"
             >
               <div>
-                <label className="text-xs font-medium text-slate-300">Catering Vendor *</label>
+                <label className="text-xs font-medium text-slate-600">Catering Vendor *</label>
                 <select
                   required
                   value={mealForm.vendorId}
@@ -344,7 +344,7 @@ export default function MealsCateringView() {
                     const v = vendors.find(x => x._id === vId)
                     setMealForm({ ...mealForm, vendorId: vId, unitPrice: v ? v.defaultMealRate : 250 })
                   }}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                 >
                   <option value="">-- Select Catering Supplier --</option>
                   {vendors.map(v => (
@@ -355,11 +355,11 @@ export default function MealsCateringView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Shift</label>
+                  <label className="text-xs font-medium text-slate-600">Shift</label>
                   <select
                     value={mealForm.shift}
                     onChange={(e) => setMealForm({ ...mealForm, shift: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   >
                     <option value="Day">Day Shift</option>
                     <option value="Night">Night Shift</option>
@@ -367,33 +367,33 @@ export default function MealsCateringView() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Meal Count (Qty) *</label>
+                  <label className="text-xs font-medium text-slate-600">Meal Count (Qty) *</label>
                   <input
                     type="number" required min="1" placeholder="e.g. 150, 200, 300"
                     value={mealForm.mealCount}
                     onChange={(e) => setMealForm({ ...mealForm, mealCount: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Unit Price (LKR) *</label>
+                  <label className="text-xs font-medium text-slate-600">Unit Price (LKR) *</label>
                   <input
                     type="number" required min="0"
                     value={mealForm.unitPrice}
                     onChange={(e) => setMealForm({ ...mealForm, unitPrice: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Site / Project</label>
+                  <label className="text-xs font-medium text-slate-600">Site / Project</label>
                   <select
                     value={mealForm.projectId}
                     onChange={(e) => setMealForm({ ...mealForm, projectId: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Head Office / Default</option>
                     {projects.map(p => (
@@ -403,12 +403,12 @@ export default function MealsCateringView() {
                 </div>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-right font-bold text-amber-400 text-sm">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-right font-bold text-amber-400 text-sm">
                 Total Cost: LKR {(Number(mealForm.mealCount || 0) * Number(mealForm.unitPrice || 0)).toLocaleString()}
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
-                <button type="button" onClick={() => setShowMealModal(false)} className="px-4 py-2 text-sm rounded-xl text-slate-400">Cancel</button>
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-200">
+                <button type="button" onClick={() => setShowMealModal(false)} className="px-4 py-2 text-sm rounded-xl text-slate-500">Cancel</button>
                 <button type="submit" className="px-5 py-2 text-sm font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 shadow">
                   Record Meal Entry
                 </button>
@@ -421,10 +421,10 @@ export default function MealsCateringView() {
       {/* WEEKLY SETTLEMENT MODAL */}
       {showSettlementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white">Weekly Settlement System</h3>
-              <button onClick={() => setShowSettlementModal(false)} className="text-slate-400 hover:text-white">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">Weekly Settlement System</h3>
+              <button onClick={() => setShowSettlementModal(false)} className="text-slate-500 hover:text-slate-900">
                 <FiX className="w-6 h-6" />
               </button>
             </div>
@@ -437,12 +437,12 @@ export default function MealsCateringView() {
               className="space-y-4"
             >
               <div>
-                <label className="text-xs font-medium text-slate-300">Catering Vendor *</label>
+                <label className="text-xs font-medium text-slate-600">Catering Vendor *</label>
                 <select
                   required
                   value={settlementForm.vendorId}
                   onChange={(e) => handleVendorForSettlement(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                 >
                   <option value="">-- Select Vendor --</option>
                   {vendors.map(v => (
@@ -452,36 +452,36 @@ export default function MealsCateringView() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300">Total Accumulated Bill (LKR)</label>
+                <label className="text-xs font-medium text-slate-600">Total Accumulated Bill (LKR)</label>
                 <input
                   type="number" required
                   value={settlementForm.totalBillAmount}
                   onChange={(e) => setSettlementForm({ ...settlementForm, totalBillAmount: Number(e.target.value) })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none font-bold"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300">Paid Amount (LKR) *</label>
+                <label className="text-xs font-medium text-slate-600">Paid Amount (LKR) *</label>
                 <input
                   type="number" required min="0"
                   value={settlementForm.paidAmount}
                   onChange={(e) => setSettlementForm({ ...settlementForm, paidAmount: Number(e.target.value) })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none font-bold text-emerald-400"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none font-bold text-emerald-400"
                 />
               </div>
 
               {/* Auto Calculated Remaining Outstanding */}
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Total Bill:</span>
-                  <span className="text-white font-bold">LKR {(settlementForm.totalBillAmount || 0).toLocaleString()}</span>
+                  <span className="text-slate-500">Total Bill:</span>
+                  <span className="text-slate-900 font-bold">LKR {(settlementForm.totalBillAmount || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Paid Amount:</span>
+                  <span className="text-slate-500">Paid Amount:</span>
                   <span className="text-emerald-400 font-bold">- LKR {(settlementForm.paidAmount || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm font-bold border-t border-slate-800 pt-1">
+                <div className="flex justify-between text-sm font-bold border-t border-slate-200 pt-1">
                   <span className="text-amber-400">Remaining Balance:</span>
                   <span className="text-amber-400">LKR {(Number(settlementForm.totalBillAmount || 0) - Number(settlementForm.paidAmount || 0)).toLocaleString()}</span>
                 </div>
@@ -492,8 +492,8 @@ export default function MealsCateringView() {
                 <span>Instant SMS Alert will be sent to vendor on payment submission.</span>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
-                <button type="button" onClick={() => setShowSettlementModal(false)} className="px-4 py-2 text-sm rounded-xl text-slate-400">Cancel</button>
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-200">
+                <button type="button" onClick={() => setShowSettlementModal(false)} className="px-4 py-2 text-sm rounded-xl text-slate-500">Cancel</button>
                 <button type="submit" className="px-5 py-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow">
                   Process Settlement & Send SMS
                 </button>
@@ -524,12 +524,12 @@ export default function MealsCateringView() {
 
             <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl">
               <div>
-                <p className="text-slate-400 uppercase font-semibold">Vendor Details:</p>
+                <p className="text-slate-500 uppercase font-semibold">Vendor Details:</p>
                 <p className="font-bold text-slate-800 text-sm mt-0.5">{selectedPrintData.settlement?.vendor?.name}</p>
                 <p className="text-slate-600">Contact: {selectedPrintData.settlement?.vendor?.phone}</p>
               </div>
               <div className="text-right">
-                <p className="text-slate-400 uppercase font-semibold">Payment Status:</p>
+                <p className="text-slate-500 uppercase font-semibold">Payment Status:</p>
                 <p className="font-bold text-emerald-600 text-sm mt-0.5">SETTLEMENT RECORDED</p>
                 <p className="text-slate-600">SMS Alert Status: Verified</p>
               </div>

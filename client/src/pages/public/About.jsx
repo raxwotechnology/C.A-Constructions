@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { FiArrowRight, FiAward, FiUsers, FiTarget, FiGlobe, FiHeart, FiZap, FiShield, FiTrendingUp } from 'react-icons/fi'
 import { useQuery } from '@tanstack/react-query'
@@ -48,12 +48,12 @@ export default function About() {
       <section className="relative bg-[#0C0227] pt-32 pb-24 overflow-hidden">
         <div className="container-max relative z-10 text-center">
           <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.2, delayChildren: 0.1 } } }}>
-            <motion.h1 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-white font-heading leading-tight mb-4 tracking-tight">
+            <motion.h1 variants={fadeUp} className="text-4xl lg:text-5xl font-bold text-slate-900 font-heading leading-tight mb-4 tracking-tight">
               Who We Are
             </motion.h1>
-            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 text-white/80 text-sm font-medium">
+            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 text-slate-900/80 text-sm font-medium">
               <Link to="/" className="flex items-center gap-1 hover:text-[#20b2f5] transition-colors"><FiGlobe className="text-[#20b2f5]" /> Home</Link>
-              <span className="text-white/40">|</span>
+              <span className="text-slate-900/40">|</span>
               <span className="flex items-center gap-1"><FiUsers className="text-[#20b2f5]" /> Who We Are</span>
             </motion.div>
           </motion.div>
@@ -76,7 +76,7 @@ export default function About() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <div className="inline-block px-4 py-1.5 bg-[#0C0227] text-white text-xs font-bold rounded-lg mb-6 tracking-wide">
+              <div className="inline-block px-4 py-1.5 bg-[#0C0227] text-slate-900 text-xs font-bold rounded-lg mb-6 tracking-wide">
                 Our Company
               </div>
               <h2 className="text-3xl lg:text-4xl font-bold text-[#0C0227] font-heading mb-2">
@@ -188,7 +188,7 @@ export default function About() {
                     className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 shadow-lg group-hover:scale-105 transition-transform"
                   />
                 ) : (
-                  <div className={`w-20 h-20 ${member.color} rounded-2xl flex items-center justify-center text-white font-bold text-2xl font-heading mx-auto mb-4 group-hover:scale-105 transition-transform shadow-lg`}>
+                  <div className={`w-20 h-20 ${member.color} rounded-2xl flex items-center justify-center text-slate-900 font-bold text-2xl font-heading mx-auto mb-4 group-hover:scale-105 transition-transform shadow-lg`}>
                     {member.initials}
                   </div>
                 )}
@@ -205,13 +205,13 @@ export default function About() {
       <section className="section-padding bg-gradient-hero">
         <div className="container-max text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <h2 className="text-4xl font-bold text-white font-heading mb-6">Ready to Work With Us?</h2>
-            <p className="text-white/70 text-lg max-w-xl mx-auto mb-10">
+            <h2 className="text-4xl font-bold text-slate-900 font-heading mb-6">Ready to Work With Us?</h2>
+            <p className="text-slate-900/70 text-lg max-w-xl mx-auto mb-10">
               Whether you need a new system built from scratch or want to modernize your existing platform, let's talk.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               <Link to="/contact" className="btn-primary btn-lg">Start a Project <FiArrowRight /></Link>
-              <Link to="/careers" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10">Join Our Team</Link>
+              <Link to="/careers" className="btn-outline btn-lg border-white/30 text-slate-900 hover:bg-white/10">Join Our Team</Link>
             </div>
           </motion.div>
         </div>

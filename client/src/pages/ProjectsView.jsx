@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Layers, Calendar, CheckSquare, Camera, FileCheck, Plus, X } from 'lucide-react';
 import { PROJECT_SERVICE_TYPES, PROJECT_TRACKING_CATEGORIES } from '../constants/masterCategories';
 import toast from 'react-hot-toast';
@@ -88,7 +88,7 @@ export default function ProjectsView() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase">
+                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase">
                   <th className="py-3 px-2">Code</th>
                   <th className="py-3 px-2">SLS 573 Division</th>
                   <th className="py-3 px-2">Description</th>
@@ -118,11 +118,11 @@ export default function ProjectsView() {
 
       {/* Project Modal */}
       {showProjectModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">Create New Project</h3>
-              <button onClick={() => setShowProjectModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowProjectModal(false)} className="text-slate-500 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>

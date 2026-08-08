@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -232,7 +232,7 @@ export default function SiteInventory() {
           </button>
           <button 
             onClick={() => setShowTransferModal(true)} 
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            className="px-4 py-2.5 bg-slate-100 hover:bg-white text-slate-900 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
           >
             <FiTruck size={16} /> Transfer Material
           </button>
@@ -400,7 +400,7 @@ export default function SiteInventory() {
                   <div className="p-4 overflow-x-auto">
                     <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="text-slate-400 font-semibold border-b border-slate-200 pb-2 uppercase">
+                        <tr className="text-slate-500 font-semibold border-b border-slate-200 pb-2 uppercase">
                           <th className="pb-2">Product / Material</th>
                           <th className="pb-2 text-right">Ordered</th>
                           <th className="pb-2 text-right">Received</th>
@@ -438,11 +438,11 @@ export default function SiteInventory() {
 
       {/* Add Stock Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">Add Inventory Stock Item</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-slate-600">
                 <FiX size={20} />
               </button>
             </div>
@@ -509,11 +509,11 @@ export default function SiteInventory() {
 
       {/* Transfer Material Modal */}
       {showTransferModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">Transfer Material between Sites</h3>
-              <button onClick={() => setShowTransferModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowTransferModal(false)} className="text-slate-500 hover:text-slate-600">
                 <FiX size={20} />
               </button>
             </div>
@@ -587,14 +587,14 @@ export default function SiteInventory() {
 
       {/* Professional Multi-Item GRN Creation Modal */}
       {showGrnModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-3xl w-full space-y-4 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Create Professional Goods Received Note (GRN)</h3>
                 <p className="text-xs text-slate-500">Record multi-product site deliveries from a single supplier delivery ticket.</p>
               </div>
-              <button onClick={() => setShowGrnModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowGrnModal(false)} className="text-slate-500 hover:text-slate-600">
                 <FiX size={20} />
               </button>
             </div>

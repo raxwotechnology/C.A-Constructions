@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import {
@@ -180,15 +180,15 @@ export default function HardwareSuppliersView() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-slate-950 text-slate-100 min-h-screen">
+    <div className="p-6 space-y-6 bg-slate-50 text-slate-800 min-h-screen">
       {/* Top Banner Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
         <div>
           <div className="flex items-center gap-3">
             <FiBriefcase className="w-8 h-8 text-amber-500" />
-            <h1 className="text-2xl font-bold text-white tracking-tight">Hardware Suppliers Module</h1>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Hardware Suppliers Module</h1>
           </div>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1">
             Supplier registration, Purchase Order tracking (Pending/Delivered), and Supplier Ledgers.
           </p>
         </div>
@@ -213,12 +213,12 @@ export default function HardwareSuppliersView() {
       </div>
 
       {/* Tabs & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-        <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200">
           <button
             onClick={() => setActiveTab('suppliers')}
             className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-              activeTab === 'suppliers' ? 'bg-amber-500 text-slate-950 font-bold shadow' : 'text-slate-400 hover:text-white'
+              activeTab === 'suppliers' ? 'bg-amber-500 text-slate-950 font-bold shadow' : 'text-slate-500 hover:text-white'
             }`}
           >
             Suppliers & Ledgers ({suppliers.length})
@@ -227,7 +227,7 @@ export default function HardwareSuppliersView() {
           <button
             onClick={() => setActiveTab('pos')}
             className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-              activeTab === 'pos' ? 'bg-amber-500 text-slate-950 font-bold shadow' : 'text-slate-400 hover:text-white'
+              activeTab === 'pos' ? 'bg-amber-500 text-slate-950 font-bold shadow' : 'text-slate-500 hover:text-white'
             }`}
           >
             Purchase Orders ({pos.length})
@@ -235,13 +235,13 @@ export default function HardwareSuppliersView() {
         </div>
 
         <div className="relative w-full sm:w-72">
-          <FiSearch className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
+          <FiSearch className="w-5 h-5 absolute left-3 top-2.5 text-slate-500" />
           <input
             type="text"
             placeholder="Search suppliers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 text-slate-200 pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+            className="w-full bg-white border border-slate-200 text-slate-700 pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:border-amber-500"
           />
         </div>
       </div>
@@ -250,9 +250,9 @@ export default function HardwareSuppliersView() {
       {activeTab === 'suppliers' && (
         <div className="space-y-4">
           {suppliersLoading ? (
-            <div className="text-center py-12 text-slate-400">Loading hardware suppliers...</div>
+            <div className="text-center py-12 text-slate-500">Loading hardware suppliers...</div>
           ) : filteredSuppliers.length === 0 ? (
-            <div className="text-center py-12 bg-slate-900 rounded-2xl border border-slate-800 text-slate-400">
+            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500">
               No suppliers found. Click "Register Supplier" to add one.
             </div>
           ) : (
@@ -260,7 +260,7 @@ export default function HardwareSuppliersView() {
               {filteredSuppliers.map((supplier) => (
                 <div
                   key={supplier._id}
-                  className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all"
+                  className="bg-white border border-slate-200 hover:border-slate-200 rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all"
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between">
@@ -268,43 +268,43 @@ export default function HardwareSuppliersView() {
                         <span className="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
                           {supplier.code}
                         </span>
-                        <h3 className="text-lg font-bold text-white mt-1">{supplier.name}</h3>
+                        <h3 className="text-lg font-bold text-slate-900 mt-1">{supplier.name}</h3>
                       </div>
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                         {supplier.category || 'Hardware'}
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-400 space-y-1">
+                    <div className="text-xs text-slate-500 space-y-1">
                       <p><span className="text-slate-500">Contact:</span> {supplier.contactPerson || 'N/A'} ({supplier.phone})</p>
                       <p><span className="text-slate-500">Email:</span> {supplier.email || 'N/A'}</p>
                       <p><span className="text-slate-500">Address:</span> {supplier.address || 'N/A'}</p>
                     </div>
 
                     {/* Ledger Summary */}
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5">
                       <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">Total Billed:</span>
-                        <span className="text-white font-medium">LKR {(supplier.totalBilled || 0).toLocaleString()}</span>
+                        <span className="text-slate-500">Total Billed:</span>
+                        <span className="text-slate-900 font-medium">LKR {(supplier.totalBilled || 0).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">Total Paid:</span>
+                        <span className="text-slate-500">Total Paid:</span>
                         <span className="text-emerald-400 font-medium">LKR {(supplier.totalPaid || 0).toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between text-sm font-bold border-t border-slate-800 pt-1.5">
+                      <div className="flex justify-between text-sm font-bold border-t border-slate-200 pt-1.5">
                         <span className="text-amber-400">Outstanding:</span>
                         <span className="text-amber-400">LKR {(supplier.outstandingBalance || 0).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-5 pt-3 border-t border-slate-800">
+                  <div className="flex items-center gap-2 mt-5 pt-3 border-t border-slate-200">
                     <button
                       onClick={() => {
                         setSelectedSupplier(supplier)
                         setShowLedgerModal(true)
                       }}
-                      className="flex-1 text-center py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+                      className="flex-1 text-center py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
                     >
                       View Ledger
                     </button>
@@ -329,15 +329,15 @@ export default function HardwareSuppliersView() {
       {activeTab === 'pos' && (
         <div className="space-y-4">
           {posLoading ? (
-            <div className="text-center py-12 text-slate-400">Loading Purchase Orders...</div>
+            <div className="text-center py-12 text-slate-500">Loading Purchase Orders...</div>
           ) : pos.length === 0 ? (
-            <div className="text-center py-12 bg-slate-900 rounded-2xl border border-slate-800 text-slate-400">
+            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500">
               No Purchase Orders found. Click "New Purchase Order" to issue orders to suppliers.
             </div>
           ) : (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-lg">
+              <table className="w-full text-left text-sm text-slate-600">
+                <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="p-4">PO Number</th>
                     <th className="p-4">Supplier</th>
@@ -348,14 +348,14 @@ export default function HardwareSuppliersView() {
                     <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-slate-200">
                   {pos.map((po) => (
-                    <tr key={po._id} className="hover:bg-slate-800/40 transition">
+                    <tr key={po._id} className="hover:bg-slate-100/40 transition">
                       <td className="p-4 font-mono font-bold text-amber-400">{po.poNumber}</td>
-                      <td className="p-4 font-medium text-white">{po.supplier?.name || 'N/A'}</td>
-                      <td className="p-4 text-slate-300">{po.siteName || po.project?.name || 'Central Warehouse'}</td>
+                      <td className="p-4 font-medium text-slate-900">{po.supplier?.name || 'N/A'}</td>
+                      <td className="p-4 text-slate-600">{po.siteName || po.project?.name || 'Central Warehouse'}</td>
                       <td className="p-4">{po.items?.length || 0} items</td>
-                      <td className="p-4 font-bold text-white">LKR {(po.totalAmount || 0).toLocaleString()}</td>
+                      <td className="p-4 font-bold text-slate-900">LKR {(po.totalAmount || 0).toLocaleString()}</td>
                       <td className="p-4">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${
@@ -395,10 +395,10 @@ export default function HardwareSuppliersView() {
       {/* REGISTER SUPPLIER MODAL */}
       {showSupplierModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white">Register Hardware Supplier</h3>
-              <button onClick={() => setShowSupplierModal(false)} className="text-slate-400 hover:text-white">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">Register Hardware Supplier</h3>
+              <button onClick={() => setShowSupplierModal(false)} className="text-slate-500 hover:text-slate-900">
                 <FiX className="w-6 h-6" />
               </button>
             </div>
@@ -411,53 +411,53 @@ export default function HardwareSuppliersView() {
               className="space-y-4"
             >
               <div>
-                <label className="text-xs font-medium text-slate-300">Supplier / Business Name *</label>
+                <label className="text-xs font-medium text-slate-600">Supplier / Business Name *</label>
                 <input
                   type="text" required
                   value={supplierForm.name}
                   onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
                   placeholder="e.g. Lanka Hardware Supplies"
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Contact Person</label>
+                  <label className="text-xs font-medium text-slate-600">Contact Person</label>
                   <input
                     type="text"
                     value={supplierForm.contactPerson}
                     onChange={(e) => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Phone Number *</label>
+                  <label className="text-xs font-medium text-slate-600">Phone Number *</label>
                   <input
                     type="text" required
                     value={supplierForm.phone}
                     onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Email Address</label>
+                  <label className="text-xs font-medium text-slate-600">Email Address</label>
                   <input
                     type="email"
                     value={supplierForm.email}
                     onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Category</label>
+                  <label className="text-xs font-medium text-slate-600">Category</label>
                   <select
                     value={supplierForm.category}
                     onChange={(e) => setSupplierForm({ ...supplierForm, category: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   >
                     <option value="Hardware">Hardware</option>
                     <option value="Materials">Materials</option>
@@ -470,20 +470,20 @@ export default function HardwareSuppliersView() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300">Address</label>
+                <label className="text-xs font-medium text-slate-600">Address</label>
                 <input
                   type="text"
                   value={supplierForm.address}
                   onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowSupplierModal(false)}
-                  className="px-4 py-2 text-sm rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-sm rounded-xl text-slate-500 hover:text-slate-900"
                 >
                   Cancel
                 </button>
@@ -503,10 +503,10 @@ export default function HardwareSuppliersView() {
       {/* NEW PURCHASE ORDER MODAL */}
       {showPOModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white">Create Purchase Order (PO)</h3>
-              <button onClick={() => setShowPOModal(false)} className="text-slate-400 hover:text-white">
+          <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">Create Purchase Order (PO)</h3>
+              <button onClick={() => setShowPOModal(false)} className="text-slate-500 hover:text-slate-900">
                 <FiX className="w-6 h-6" />
               </button>
             </div>
@@ -520,12 +520,12 @@ export default function HardwareSuppliersView() {
             >
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Select Supplier *</label>
+                  <label className="text-xs font-medium text-slate-600">Select Supplier *</label>
                   <select
                     required
                     value={poForm.supplierId}
                     onChange={(e) => setPOForm({ ...poForm, supplierId: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">-- Choose Supplier --</option>
                     {suppliers.map(s => (
@@ -535,11 +535,11 @@ export default function HardwareSuppliersView() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-300">Delivery Site / Project</label>
+                  <label className="text-xs font-medium text-slate-600">Delivery Site / Project</label>
                   <select
                     value={poForm.projectId}
                     onChange={(e) => setPOForm({ ...poForm, projectId: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Central Warehouse</option>
                     {projects.map(p => (
@@ -552,7 +552,7 @@ export default function HardwareSuppliersView() {
               {/* Items Table */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-slate-300">Order Items</label>
+                  <label className="text-xs font-medium text-slate-600">Order Items</label>
                   <button
                     type="button"
                     onClick={handleAddItemRow}
@@ -563,24 +563,24 @@ export default function HardwareSuppliersView() {
                 </div>
 
                 {poForm.items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 items-center">
+                  <div key={idx} className="grid grid-cols-12 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 items-center">
                     <input
                       type="text" required placeholder="Item Description"
                       value={item.itemName}
                       onChange={(e) => handleItemChange(idx, 'itemName', e.target.value)}
-                      className="col-span-5 bg-slate-900 border border-slate-800 text-white p-2 text-xs rounded-lg focus:outline-none"
+                      className="col-span-5 bg-white border border-slate-200 text-slate-900 p-2 text-xs rounded-lg focus:outline-none"
                     />
                     <input
                       type="number" required min="1" placeholder="Qty"
                       value={item.quantity}
                       onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                      className="col-span-2 bg-slate-900 border border-slate-800 text-white p-2 text-xs rounded-lg focus:outline-none"
+                      className="col-span-2 bg-white border border-slate-200 text-slate-900 p-2 text-xs rounded-lg focus:outline-none"
                     />
                     <input
                       type="number" required min="0" placeholder="Unit Price"
                       value={item.unitPrice}
                       onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
-                      className="col-span-3 bg-slate-900 border border-slate-800 text-white p-2 text-xs rounded-lg focus:outline-none"
+                      className="col-span-3 bg-white border border-slate-200 text-slate-900 p-2 text-xs rounded-lg focus:outline-none"
                     />
                     <div className="col-span-2 text-right text-xs font-bold text-amber-400">
                       LKR {(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toLocaleString()}
@@ -588,16 +588,16 @@ export default function HardwareSuppliersView() {
                   </div>
                 ))}
 
-                <div className="text-right text-sm font-bold text-white pt-2">
+                <div className="text-right text-sm font-bold text-slate-900 pt-2">
                   Total Amount: <span className="text-amber-400 font-mono text-base">LKR {calculatePOTotal().toLocaleString()}</span>
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowPOModal(false)}
-                  className="px-4 py-2 text-sm rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-sm rounded-xl text-slate-500 hover:text-slate-900"
                 >
                   Cancel
                 </button>
@@ -617,41 +617,41 @@ export default function HardwareSuppliersView() {
       {/* SUPPLIER LEDGER MODAL */}
       {showLedgerModal && selectedSupplier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-white">{selectedSupplier.name} — Supplier Ledger</h3>
-                <p className="text-xs text-slate-400">Code: {selectedSupplier.code} | Contact: {selectedSupplier.phone}</p>
+                <h3 className="text-lg font-bold text-slate-900">{selectedSupplier.name} — Supplier Ledger</h3>
+                <p className="text-xs text-slate-500">Code: {selectedSupplier.code} | Contact: {selectedSupplier.phone}</p>
               </div>
-              <button onClick={() => setShowLedgerModal(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setShowLedgerModal(false)} className="text-slate-500 hover:text-slate-900">
                 <FiX className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+            <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
               <div>
-                <span className="text-xs text-slate-400">Total Billed</span>
-                <p className="text-base font-bold text-white">LKR {(selectedSupplier.totalBilled || 0).toLocaleString()}</p>
+                <span className="text-xs text-slate-500">Total Billed</span>
+                <p className="text-base font-bold text-slate-900">LKR {(selectedSupplier.totalBilled || 0).toLocaleString()}</p>
               </div>
               <div>
-                <span className="text-xs text-slate-400">Total Paid</span>
+                <span className="text-xs text-slate-500">Total Paid</span>
                 <p className="text-base font-bold text-emerald-400">LKR {(selectedSupplier.totalPaid || 0).toLocaleString()}</p>
               </div>
               <div>
-                <span className="text-xs text-slate-400">Net Outstanding</span>
+                <span className="text-xs text-slate-500">Net Outstanding</span>
                 <p className="text-base font-bold text-amber-400">LKR {(selectedSupplier.outstandingBalance || 0).toLocaleString()}</p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-slate-300">Transaction History</h4>
+              <h4 className="text-sm font-semibold text-slate-600">Transaction History</h4>
               {ledgerLoading ? (
-                <div className="text-center py-6 text-slate-400">Loading ledger history...</div>
+                <div className="text-center py-6 text-slate-500">Loading ledger history...</div>
               ) : !ledgerData?.ledger || ledgerData.ledger.length === 0 ? (
-                <div className="text-center py-6 bg-slate-950 rounded-xl text-slate-500 text-xs">No transactions recorded in ledger yet.</div>
+                <div className="text-center py-6 bg-slate-50 rounded-xl text-slate-500 text-xs">No transactions recorded in ledger yet.</div>
               ) : (
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
                     <tr>
                       <th className="p-3">Date</th>
                       <th className="p-3">Type</th>
@@ -661,7 +661,7 @@ export default function HardwareSuppliersView() {
                       <th className="p-3 text-right">Running Balance</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody className="divide-y divide-slate-200">
                     {ledgerData.ledger.map((entry) => (
                       <tr key={entry._id}>
                         <td className="p-3">{new Date(entry.date).toLocaleDateString()}</td>
@@ -673,11 +673,11 @@ export default function HardwareSuppliersView() {
                           </span>
                         </td>
                         <td className="p-3 font-mono">{entry.referenceNumber || entry.referencePO?.poNumber || '-'}</td>
-                        <td className="p-3 text-slate-400">{entry.notes}</td>
+                        <td className="p-3 text-slate-500">{entry.notes}</td>
                         <td className={`p-3 text-right font-bold ${entry.transactionType === 'payment' ? 'text-emerald-400' : 'text-amber-400'}`}>
                           {entry.transactionType === 'payment' ? '-' : '+'} LKR {(entry.amount || 0).toLocaleString()}
                         </td>
-                        <td className="p-3 text-right font-mono font-bold text-white">
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">
                           LKR {(entry.runningBalance || 0).toLocaleString()}
                         </td>
                       </tr>
@@ -693,17 +693,17 @@ export default function HardwareSuppliersView() {
       {/* RECORD PAYMENT MODAL */}
       {showPaymentModal && selectedSupplier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white">Record Payment to Supplier</h3>
-              <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-white">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">Record Payment to Supplier</h3>
+              <button onClick={() => setShowPaymentModal(false)} className="text-slate-500 hover:text-slate-900">
                 <FiX className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
-              <p><span className="text-slate-400">Supplier:</span> <strong className="text-white">{selectedSupplier.name}</strong></p>
-              <p><span className="text-slate-400">Current Outstanding:</span> <strong className="text-amber-400">LKR {(selectedSupplier.outstandingBalance || 0).toLocaleString()}</strong></p>
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+              <p><span className="text-slate-500">Supplier:</span> <strong className="text-slate-900">{selectedSupplier.name}</strong></p>
+              <p><span className="text-slate-500">Current Outstanding:</span> <strong className="text-amber-400">LKR {(selectedSupplier.outstandingBalance || 0).toLocaleString()}</strong></p>
             </div>
 
             <form
@@ -714,21 +714,21 @@ export default function HardwareSuppliersView() {
               className="space-y-4"
             >
               <div>
-                <label className="text-xs font-medium text-slate-300">Payment Amount (LKR) *</label>
+                <label className="text-xs font-medium text-slate-600">Payment Amount (LKR) *</label>
                 <input
                   type="number" required min="1"
                   value={paymentForm.amount}
                   onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300">Payment Method</label>
+                <label className="text-xs font-medium text-slate-600">Payment Method</label>
                 <select
                   value={paymentForm.paymentMethod}
                   onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
                 >
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="cash">Cash</option>
@@ -737,20 +737,20 @@ export default function HardwareSuppliersView() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300">Reference / Cheque Number</label>
+                <label className="text-xs font-medium text-slate-600">Reference / Cheque Number</label>
                 <input
                   type="text"
                   value={paymentForm.referenceNumber}
                   onChange={(e) => setPaymentForm({ ...paymentForm, referenceNumber: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 text-sm rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-sm rounded-xl text-slate-500 hover:text-slate-900"
                 >
                   Cancel
                 </button>

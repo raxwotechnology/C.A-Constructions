@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import {
   FileText, Download, Upload, ShieldCheck, Eye, Plus, Folder, Search, Filter, Trash2,
   Maximize2, Minimize2, ZoomIn, ZoomOut, Layers, CheckCircle2, AlertCircle, X, Check, Grid, RefreshCw
@@ -208,7 +208,7 @@ export default function DocumentManager() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 rounded-3xl text-white shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 rounded-3xl text-slate-900 shadow-xl">
         <div>
           <div className="flex items-center gap-3">
             <span className="p-2.5 bg-orange-600/30 border border-orange-500/40 rounded-2xl text-orange-400">
@@ -216,7 +216,7 @@ export default function DocumentManager() {
             </span>
             <div>
               <h1 className="text-2xl font-black tracking-tight">CAD Drawing & Document Repository</h1>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 SBD-03 Legal Contracts, Architectural CAD Drawings (DWG), Municipal Clearances & Structural Plans
               </p>
             </div>
@@ -255,7 +255,7 @@ export default function DocumentManager() {
                 <IconComponent size={20} />
               </span>
               <div className="min-w-0">
-                <div className={`text-xs font-extrabold truncate ${isActive ? 'text-white' : 'text-slate-900'}`}>
+                <div className={`text-xs font-extrabold truncate ${isActive ? 'text-slate-900' : 'text-slate-900'}`}>
                   {folder.title}
                 </div>
                 <div className={`text-[10px] mt-0.5 font-medium ${isActive ? 'text-orange-100' : 'text-slate-500'}`}>
@@ -270,7 +270,7 @@ export default function DocumentManager() {
       {/* Search & Action Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
           <input
             type="text"
             placeholder="Search drawings, DWG, contracts..."
@@ -303,7 +303,7 @@ export default function DocumentManager() {
             <tbody className="divide-y divide-slate-100">
               {filteredDocuments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
                     <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
                     No files found in this category.
                   </td>
@@ -340,7 +340,7 @@ export default function DocumentManager() {
                       </button>
                       <button
                         onClick={() => handleDeleteDoc(doc.id, doc.name)}
-                        className="text-xs bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 p-1.5 rounded-xl border border-slate-200 transition-colors cursor-pointer inline-flex items-center"
+                        className="text-xs bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 p-1.5 rounded-xl border border-slate-200 transition-colors cursor-pointer inline-flex items-center"
                         title="Delete Document"
                       >
                         <Trash2 size={14} />
@@ -356,22 +356,22 @@ export default function DocumentManager() {
 
       {/* CAD Drawing & Document Viewer Modal */}
       {selectedDoc && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-5xl h-[85vh] flex flex-col text-slate-100 shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 bg-slate-50/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-5xl h-[85vh] flex flex-col text-slate-800 shadow-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className={`p-2 rounded-xl ${selectedDoc.type === 'cad' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-rose-500/20 text-rose-400'}`}>
                   {selectedDoc.type === 'cad' ? <Grid size={20} /> : <FileText size={20} />}
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     {selectedDoc.name}
                     <span className="text-xs font-mono bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-md border border-orange-500/30">
                       {selectedDoc.version}
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">{selectedDoc.project} • {selectedDoc.category}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{selectedDoc.project} • {selectedDoc.category}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -383,7 +383,7 @@ export default function DocumentManager() {
                 </button>
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+                  className="p-1.5 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors"
                 >
                   <X size={20} />
                 </button>
@@ -393,10 +393,10 @@ export default function DocumentManager() {
             {/* Modal Content - CAD Blueprint Interactive Canvas / PDF Preview */}
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               {/* Main Viewer Area */}
-              <div className="flex-1 bg-slate-950 relative overflow-hidden flex flex-col justify-between p-6">
+              <div className="flex-1 bg-slate-50 relative overflow-hidden flex flex-col justify-between p-6">
                 {selectedDoc.type === 'cad' ? (
                   /* Interactive CAD Blueprint Viewer */
-                  <div className="flex-1 flex flex-col items-center justify-center relative border border-slate-800 rounded-2xl bg-[#090d16] p-4 overflow-hidden">
+                  <div className="flex-1 flex flex-col items-center justify-center relative border border-slate-200 rounded-2xl bg-[#090d16] p-4 overflow-hidden">
                     {/* CAD Grid Background */}
                     <div
                       className="absolute inset-0 opacity-20 pointer-events-none"
@@ -451,7 +451,7 @@ export default function DocumentManager() {
                         )}
 
                         {/* Blueprint Title Box */}
-                        <div className="self-end bg-slate-900/90 border border-cyan-500/40 p-2 rounded text-[9px] font-mono text-cyan-300 space-y-0.5">
+                        <div className="self-end bg-white/90 border border-cyan-500/40 p-2 rounded text-[9px] font-mono text-cyan-300 space-y-0.5">
                           <div className="font-bold">RA CONSTRUCTIONS CAD</div>
                           <div>PROJ: {selectedDoc.project}</div>
                           <div>DWG: {selectedDoc.id} | SCALE 1:50</div>
@@ -460,10 +460,10 @@ export default function DocumentManager() {
                     </div>
 
                     {/* Canvas Floating Toolbar */}
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-slate-700/80 px-4 py-2 rounded-2xl flex items-center gap-3 backdrop-blur-md text-xs font-mono">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 border border-slate-200/80 px-4 py-2 rounded-2xl flex items-center gap-3 backdrop-blur-md text-xs font-mono">
                       <button
                         onClick={() => setZoomLevel((z) => Math.max(50, z - 25))}
-                        className="p-1 text-slate-300 hover:text-white"
+                        className="p-1 text-slate-600 hover:text-slate-900"
                         title="Zoom Out"
                       >
                         <ZoomOut size={16} />
@@ -471,15 +471,15 @@ export default function DocumentManager() {
                       <span className="text-orange-400 font-bold">{zoomLevel}%</span>
                       <button
                         onClick={() => setZoomLevel((z) => Math.min(200, z + 25))}
-                        className="p-1 text-slate-300 hover:text-white"
+                        className="p-1 text-slate-600 hover:text-slate-900"
                         title="Zoom In"
                       >
                         <ZoomIn size={16} />
                       </button>
-                      <span className="w-px h-4 bg-slate-700"></span>
+                      <span className="w-px h-4 bg-slate-200"></span>
                       <button
                         onClick={() => setZoomLevel(100)}
-                        className="text-[10px] text-slate-400 hover:text-white font-sans"
+                        className="text-[10px] text-slate-500 hover:text-slate-900 font-sans"
                       >
                         Reset Zoom
                       </button>
@@ -487,7 +487,7 @@ export default function DocumentManager() {
                   </div>
                 ) : (
                   /* Standard PDF / Document Preview Reader */
-                  <div className="flex-1 flex flex-col items-center justify-center border border-slate-800 rounded-2xl bg-slate-900 p-6 overflow-y-auto">
+                  <div className="flex-1 flex flex-col items-center justify-center border border-slate-200 rounded-2xl bg-white p-6 overflow-y-auto">
                     <div className="w-full max-w-lg bg-white text-slate-900 p-8 rounded-2xl shadow-2xl space-y-4 text-xs">
                       <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                         <div className="font-bold text-slate-900 text-sm">RA CREATIONS / CONSTRUCTIONS</div>
@@ -512,17 +512,17 @@ export default function DocumentManager() {
               </div>
 
               {/* Sidebar Settings & Info */}
-              <div className="w-full md:w-72 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 p-5 space-y-5 flex-shrink-0 text-xs">
+              <div className="w-full md:w-72 bg-white border-t md:border-t-0 md:border-l border-slate-200 p-5 space-y-5 flex-shrink-0 text-xs">
                 <div>
-                  <h4 className="font-bold text-white uppercase text-[11px] tracking-wider mb-2">Document Details</h4>
-                  <div className="space-y-2 text-slate-400">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider mb-2">Document Details</h4>
+                  <div className="space-y-2 text-slate-500">
                     <div>
                       <div className="text-[10px] text-slate-500">File Name</div>
-                      <div className="font-semibold text-slate-200 break-words">{selectedDoc.name}</div>
+                      <div className="font-semibold text-slate-700 break-words">{selectedDoc.name}</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500">Associated Project</div>
-                      <div className="font-semibold text-slate-200">{selectedDoc.project}</div>
+                      <div className="font-semibold text-slate-700">{selectedDoc.project}</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500">Version History</div>
@@ -530,14 +530,14 @@ export default function DocumentManager() {
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500">Size</div>
-                      <div className="font-mono text-slate-300">{selectedDoc.size}</div>
+                      <div className="font-mono text-slate-600">{selectedDoc.size}</div>
                     </div>
                   </div>
                 </div>
 
                 {selectedDoc.type === 'cad' && (
-                  <div className="border-t border-slate-800 pt-4 space-y-3">
-                    <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-1.5">
+                  <div className="border-t border-slate-200 pt-4 space-y-3">
+                    <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-1.5">
                       <Layers size={14} className="text-cyan-400" /> CAD Layer Toggles
                     </h4>
                     <div className="space-y-2">
@@ -547,7 +547,7 @@ export default function DocumentManager() {
                         { key: 'wiring', label: 'Electrical & Conduit Lines' },
                         { key: 'dimensions', label: 'Dimension Annotations' }
                       ].map((lyr) => (
-                        <label key={lyr.key} className="flex items-center justify-between text-slate-300 hover:text-white cursor-pointer p-1.5 rounded-lg bg-slate-950/50">
+                        <label key={lyr.key} className="flex items-center justify-between text-slate-600 hover:text-slate-900 cursor-pointer p-1.5 rounded-lg bg-slate-50/50">
                           <span>{lyr.label}</span>
                           <input
                             type="checkbox"
@@ -568,7 +568,7 @@ export default function DocumentManager() {
 
       {/* Upload Document Modal */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-50/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 border border-slate-200 shadow-2xl text-slate-800">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 text-orange-600">
@@ -577,7 +577,7 @@ export default function DocumentManager() {
               </div>
               <button
                 onClick={() => setUploadModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1 text-slate-500 hover:text-slate-600 rounded-lg"
               >
                 <X size={20} />
               </button>

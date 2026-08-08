@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 import { Link } from 'react-router-dom'
 import { FiFolder, FiFileText, FiShield, FiAlertTriangle, FiBook, FiCheckCircle, FiUsers } from 'react-icons/fi'
@@ -21,11 +21,11 @@ export default function PMDashboard() {
   return (
     <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-2xl text-white shadow-xl">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-2xl text-slate-900 shadow-xl">
         <span className="bg-indigo-500/20 text-indigo-300 text-xs font-semibold px-3 py-1 rounded-full border border-indigo-400/30">
           Project Manager (PM) Control Portal
         </span>
-        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-white">PM Site Engineering Deck</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-slate-900">PM Site Engineering Deck</h1>
         <p className="text-indigo-200 text-sm mt-1">SLS 573 BOQ Generator, SBD-03 Contracts, Daily Diary & Conflict Detection Engine.</p>
       </div>
 
@@ -107,7 +107,7 @@ export default function PMDashboard() {
                   <h4 className="text-sm font-bold text-slate-900">{s.title}</h4>
                   <p className="text-xs text-slate-500 mt-0.5">Budget: LKR {s.budget?.toLocaleString() || '15,000,000'}</p>
                 </div>
-                <Link to={`/manager/projects`} className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg">
+                <Link to={`/manager/projects`} className="px-3 py-1.5 bg-white text-slate-900 text-xs font-bold rounded-lg">
                   Manage Site
                 </Link>
               </div>

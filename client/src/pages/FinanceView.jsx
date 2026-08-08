@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { DollarSign, BookOpen, Receipt, Scale, TrendingUp, Plus, X, Calendar, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { FINANCIAL_ACCOUNT_TYPES } from '../config/categories';
 import FinancialStatements from '../components/finance/FinancialStatements';
@@ -93,7 +93,7 @@ export default function FinanceView({ defaultTab = 'ledger' }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase">
+                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase">
                   <th className="py-3 px-2">Voucher ID</th>
                   <th className="py-3 px-2">Date</th>
                   <th className="py-3 px-2">Debit Account (Dr)</th>
@@ -132,7 +132,7 @@ export default function FinanceView({ defaultTab = 'ledger' }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase">
+                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase">
                   <th className="py-3 px-2">Date</th>
                   <th className="py-3 px-2 text-right">Daily Income (LKR)</th>
                   <th className="py-3 px-2 text-right">Daily Expenses (LKR)</th>
@@ -164,11 +164,11 @@ export default function FinanceView({ defaultTab = 'ledger' }) {
 
       {/* Journal Modal */}
       {showJournalModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">Record Journal Entry</h3>
-              <button onClick={() => setShowJournalModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowJournalModal(false)} className="text-slate-500 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>

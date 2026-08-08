@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { UserCheck, FileText, Send, CheckCircle, Clock, XCircle, Plus, Search, Filter, X } from 'lucide-react';
 import { CRM_LEAD_SOURCES } from '../config/categories';
 import toast from 'react-hot-toast';
@@ -76,7 +76,7 @@ export default function CRM() {
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
               <input
                 type="text"
                 placeholder="Search leads by client name, project..."
@@ -84,7 +84,7 @@ export default function CRM() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Filter size={16} className="text-slate-400" />
+              <Filter size={16} className="text-slate-500" />
               <select className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl px-3 py-2">
                 <option value="">All Sources</option>
                 {CRM_LEAD_SOURCES.map((s) => (
@@ -97,7 +97,7 @@ export default function CRM() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase">
+                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase">
                   <th className="py-3 px-2">Lead ID</th>
                   <th className="py-3 px-2">Client Name</th>
                   <th className="py-3 px-2">Project Scope</th>
@@ -112,7 +112,7 @@ export default function CRM() {
                     <td className="py-3 px-2 font-mono text-xs font-bold text-orange-600">{l.id}</td>
                     <td className="py-3 px-2">
                       <div className="font-semibold text-slate-800">{l.name}</div>
-                      <div className="text-xs text-slate-400">{l.phone}</div>
+                      <div className="text-xs text-slate-500">{l.phone}</div>
                     </td>
                     <td className="py-3 px-2 text-xs text-slate-600">{l.project}</td>
                     <td className="py-3 px-2 text-xs font-semibold text-slate-700">{l.budget}</td>
@@ -132,11 +132,11 @@ export default function CRM() {
 
       {/* Lead Modal */}
       {showLeadModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">New Customer Lead</h3>
-              <button onClick={() => setShowLeadModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowLeadModal(false)} className="text-slate-500 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
