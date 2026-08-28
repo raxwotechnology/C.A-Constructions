@@ -1,0 +1,259 @@
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config();
+
+const errorHandler = require('./middleware/errorHandler');
+
+// Route imports
+const authRoutes = require('./routes/authRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
+const leaveRoutes = require('./routes/leaveRoutes');
+const payrollRoutes = require('./routes/payrollRoutes');
+const recruitmentRoutes = require('./routes/recruitmentRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const invoiceRoutes = require('./routes/invoiceRoutes');
+const letterRoutes = require('./routes/letterRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
+const socialRoutes = require('./routes/socialRoutes');
+const socialAssignmentRoutes = require('./routes/socialAssignmentRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+const siteSettingRoutes = require('./routes/siteSettingRoutes');
+const performanceRoutes = require('./routes/performanceRoutes');
+const exportRoutes = require('./routes/exportRoutes');
+const financeRoutes = require('./routes/financeRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const contentRoutes = require('./routes/contentRoutes');
+const rewardRoutes = require('./routes/rewardRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const auditRoutes = require('./routes/auditRoutes');
+const branchRoutes = require('./routes/branchRoutes');
+const quotationRoutes = require('./routes/quotationRoutes');
+const advanceRoutes = require('./routes/advanceRoutes');
+const loanRoutes = require('./routes/loanRoutes');
+const pettyCashRoutes = require('./routes/pettyCashRoutes');
+const clientRoutes = require('./routes/clientRoutes');
+const workLogRoutes = require('./routes/workLogRoutes');
+const bonusRoutes = require('./routes/bonusRoutes');
+const agreementRoutes = require('./routes/agreementRoutes');
+const epfRecordRoutes = require('./routes/epfRecordRoutes');
+const targetRoutes = require('./routes/targetRoutes');
+const attendancePolicyRoutes = require('./routes/attendancePolicyRoutes');
+const requestRoutes = require('./routes/requestRoutes');
+const toolAssignmentRoutes = require('./routes/toolAssignmentRoutes');
+const smsRoutes = require('./routes/smsRoutes');
+const emailLogRoutes = require('./routes/emailLogRoutes');
+const meetingRoutes = require('./routes/meetingRoutes');
+const dailyWageRoutes = require('./routes/dailyWageRoutes');
+const supplierRoutes = require('./routes/supplierRoutes');
+const mealRoutes = require('./routes/mealRoutes');
+const materialRequestRoutes = require('./routes/materialRequestRoutes');
+const boqRoutes = require('./routes/boqRoutes');
+const { ensureDefaultRules } = require('./services/rewardService');
+
+const app = express();
+app.set('trust proxy', 1);
+
+// Security middleware
+app.use(helmet({ crossOriginResourcePolicy: false }));
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'https://c-a-constructions-2.onrender.com',
+  'https://c-a-constructions.onrender.com',
+  'https://c-a-constructions-2.onrender.com',
+  'https://rach-lk.netlify.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, '') : '';
+    if (
+      process.env.CLIENT_URL === '*' ||
+      origin === clientUrl ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.netlify.app') ||
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.vercel.app')
+    ) {
+      return callback(null, true);
+    }
+    // Default safe fallback for deployment environments
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300,
+  message: { success: false, message: 'Too many requests, please try again later.' }
+});
+app.use('/api/', limiter);
+
+// Body parsers
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Logging
+if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
+
+// ── Ensure upload directories exist ──────────────────────────────────────────
+const { ensureUploadSubdirs, getUploadsRoot } = require('./utils/uploadsPath');
+const UPLOADS_ROOT = ensureUploadSubdirs();
+console.log(`📁 Uploads directory: ${UPLOADS_ROOT}`);
+
+// Static files — serve /uploads/** from the server uploads folder
+// Use etag + short max-age with must-revalidate so images recover after temporary failures
+app.use('/uploads', express.static(UPLOADS_ROOT, {
+  maxAge: '1h',
+  etag: true,
+  lastModified: true,
+  fallthrough: true,
+}));
+
+// If an upload is missing, return 404 with no-cache so it can recover when re-uploaded
+app.use('/uploads', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.status(404).send(`
+    <html>
+      <head><title>File Not Found</title></head>
+      <body style="font-family: system-ui, sans-serif; text-align: center; padding: 50px;">
+        <h2>File Not Found</h2>
+        <p>The requested file could not be found on the server. It may have been removed or not uploaded correctly.</p>
+      </body>
+    </html>
+  `);
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/leaves', leaveRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/recruitment', recruitmentRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/sites', projectRoutes); // Alias for Construction Sites
+app.use('/api/inventory', require('./routes/inventoryRoutes'));
+app.use('/api/daily-diary', require('./routes/dailyDiaryRoutes'));
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/letters', letterRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/system-metrics', analyticsRoutes); // Alias for Adblocker
+app.use('/api/social', socialRoutes);
+app.use('/api/platform-data', socialRoutes); // Alias for Adblocker
+app.use('/api/social-assignments', socialAssignmentRoutes);
+app.use('/api/platform-assignments', socialAssignmentRoutes); // Alias for Adblocker
+app.use('/api/payments', paymentRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/contact', require('./routes/contactRoutes'));
+app.use('/api/site-settings', siteSettingRoutes);
+app.use('/api/performance', performanceRoutes);
+app.use('/api/exports', exportRoutes);
+app.use('/api/backup', require('./routes/backupRoutes'));
+app.use('/api/approvals', require('./routes/approvalRoutes'));
+app.use('/api/assets', require('./routes/assetRoutes'));
+app.use('/api/finance', financeRoutes);
+app.use('/api/uploads', uploadRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/rewards', rewardRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/branches', branchRoutes);
+app.use('/api/quotations', quotationRoutes);
+app.use('/api/advances', advanceRoutes);
+app.use('/api/lookups', require('./routes/lookupRoutes'));
+app.use('/api/loans', loanRoutes);
+app.use('/api/petty-cash', pettyCashRoutes);
+app.use('/api/clients', clientRoutes);
+app.use('/api/work-logs', workLogRoutes);
+app.use('/api/bonuses', bonusRoutes);
+app.use('/api/agreements', agreementRoutes);
+app.use('/api/epf-records', epfRecordRoutes);
+app.use('/api/bank-accounts', require('./routes/bankAccountRoutes'));
+app.use('/api/cheques', require('./routes/chequeRoutes'));
+app.use('/api/income-tax', require('./routes/incomeTaxRoutes'));
+app.use('/api/targets', targetRoutes);
+app.use('/api/attendance-policies', attendancePolicyRoutes);
+app.use('/api/requests', requestRoutes);
+app.use('/api/tool-assignments', toolAssignmentRoutes);
+app.use('/api/sms', smsRoutes);
+app.use('/api/email-logs', emailLogRoutes);
+app.use('/api/meetings', meetingRoutes);
+app.use('/api/leaders', require('./routes/leaderRoutes'));
+app.use('/api/daily-wages', dailyWageRoutes);
+app.use('/api/deletion-requests', require('./routes/deletionRequestRoutes'));
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/meals', mealRoutes);
+app.use('/api/material-requests', materialRequestRoutes);
+app.use('/api/boqs', boqRoutes);
+
+ensureDefaultRules().catch(() => {});
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, message: 'R A Creations API is running', timestamp: new Date().toISOString() });
+});
+
+// Serve client build if available (for single-domain or proxy deployments)
+const possibleDistPaths = [
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(__dirname, '../client/dist'),
+  path.resolve(__dirname, '../../../client/dist'),
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(process.cwd(), '../client/dist'),
+  path.resolve(process.cwd(), 'dist'),
+];
+
+let distDir = possibleDistPaths.find(p => fs.existsSync(path.join(p, 'index.html')));
+
+if (distDir) {
+  console.log(`🎨 Serving React Frontend static build from: ${distDir}`);
+  app.use(express.static(distDir));
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
+      return next();
+    }
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+} else {
+  console.log(`⚠️ React Frontend dist directory not found in: ${possibleDistPaths.join(', ')}`);
+  app.get('/', (req, res) => {
+    res.json({ success: true, message: 'R A Creations API Server is running', timestamp: new Date().toISOString() });
+  });
+}
+
+// 404 handler for API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
+
+// Fallback 404 handler
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
+
+// Error handler
+app.use(errorHandler);
+
+module.exports = app;
