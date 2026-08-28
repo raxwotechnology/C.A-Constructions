@@ -1,12 +1,36 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) {
+    return;
+  }
+
   const primaryUri = process.env.MONGO_URI;
   const fallbackUri = process.env.MONGO_URI_FALLBACK;
   let uri = primaryUri;
   if (!uri) {
     console.error('❌ MongoDB Error: MONGO_URI is not set');
     return;
+  }
+
+  if (process.env.VERCEL) {
+    try {
+      const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+      console.log(`✅ MongoDB Connected (Vercel): ${conn.connection.host}`);
+      return;
+    } catch (error) {
+      if (fallbackUri) {
+        try {
+          const conn = await mongoose.connect(fallbackUri, { serverSelectionTimeoutMS: 5000 });
+          console.log(`✅ MongoDB Connected via Fallback (Vercel): ${conn.connection.host}`);
+          return;
+        } catch (fErr) {
+          console.error('❌ MongoDB Serverless connection error:', fErr.message);
+        }
+      }
+      console.error('❌ MongoDB Serverless connection error:', error.message);
+      return;
+    }
   }
 
   const maxDelayMs = 15000;

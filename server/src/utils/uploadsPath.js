@@ -1,10 +1,14 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 /** Stable uploads root (Hostinger cwd may differ from the server package). */
 function getUploadsRoot() {
   if (process.env.UPLOADS_DIR) {
     return path.resolve(process.env.UPLOADS_DIR);
+  }
+  if (process.env.VERCEL) {
+    return path.join(os.tmpdir(), 'uploads');
   }
   return path.resolve(__dirname, '../../uploads');
 }
@@ -12,7 +16,11 @@ function getUploadsRoot() {
 function ensureUploadSubdirs(subs = ['documents', 'images', 'cvs', 'agreements', 'bills', 'worklogs', 'requests']) {
   const root = getUploadsRoot();
   subs.forEach((sub) => {
-    fs.mkdirSync(path.join(root, sub), { recursive: true });
+    try {
+      fs.mkdirSync(path.join(root, sub), { recursive: true });
+    } catch {
+      /* ignore read-only fs errors on serverless */
+    }
   });
   return root;
 }
