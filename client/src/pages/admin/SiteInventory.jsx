@@ -140,7 +140,7 @@ export default function SiteInventory() {
       s => s.itemName.trim().toLowerCase() === transferForm.itemName.trim().toLowerCase()
     )
     const available = matchedStock
-      ? (matchedStock.quantity !== undefined && matchedStock.quantity !== null ? matchedStock.quantity : (matchedStock.centralStockQty || 0))
+      ? (Number(matchedStock.quantity !== undefined && matchedStock.quantity !== null ? matchedStock.quantity : (matchedStock.centralStockQty || 0)))
       : 0
 
     if (matchedStock && reqQty > available) {

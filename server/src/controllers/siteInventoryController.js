@@ -68,18 +68,21 @@ exports.createTransfer = async (req, res) => {
       });
     }
 
-    // Find matching source stock item (by site or central warehouse)
+    // Find matching source stock item (by site or central warehouse or case-insensitive name)
     let sourceStock;
     if (fromSite && mongoose.Types.ObjectId.isValid(fromSite)) {
       sourceStock = await SiteStock.findOne({ site: fromSite, itemName });
     }
     if (!sourceStock) {
-      sourceStock = await SiteStock.findOne({ itemName });
+      sourceStock = await SiteStock.findOne({
+        itemName: { $regex: new RegExp(`^${String(itemName).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      });
     }
 
-    const availableQty = sourceStock
-      ? (sourceStock.quantity !== undefined && sourceStock.quantity !== null ? sourceStock.quantity : (sourceStock.centralStockQty || 0))
-      : 0;
+    const mainQty = sourceStock ? Number(sourceStock.quantity || 0) : 0;
+    const centralQty = sourceStock ? Number(sourceStock.centralStockQty || 0) : 0;
+    const totalSiteQty = sourceStock ? (sourceStock.siteStockQty || []).reduce((sum, i) => sum + Number(i.qty || 0), 0) : 0;
+    const availableQty = sourceStock ? (Math.max(mainQty, centralQty) + totalSiteQty) : 0;
 
     if (!sourceStock || availableQty < reqQty) {
       return res.status(400).json({
@@ -92,11 +95,9 @@ exports.createTransfer = async (req, res) => {
     const transferNo = 'MT-' + Date.now().toString().slice(-6);
 
     // Deduct stock from source warehouse/site
-    const updatedQty = availableQty - reqQty;
+    const updatedQty = Math.max(0, availableQty - reqQty);
     sourceStock.quantity = updatedQty;
-    if (sourceStock.centralStockQty !== undefined && sourceStock.centralStockQty !== null) {
-      sourceStock.centralStockQty = Math.max(0, (sourceStock.centralStockQty || 0) - reqQty);
-    }
+    sourceStock.centralStockQty = updatedQty;
     await sourceStock.save();
 
     const transfer = await MaterialTransfer.create({
