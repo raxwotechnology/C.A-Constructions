@@ -129,10 +129,25 @@ export default function SiteInventory() {
 
   const handleSaveTransfer = (e) => {
     e.preventDefault()
-    if (!transferForm.itemName.trim() || Number(transferForm.quantity) <= 0) {
+    const reqQty = Number(transferForm.quantity) || 0
+    if (!transferForm.itemName.trim() || reqQty <= 0) {
       toast.error('Please enter item name and valid quantity!')
       return
     }
+
+    // Match stock item to check available stock
+    const matchedStock = stockList.find(
+      s => s.itemName.trim().toLowerCase() === transferForm.itemName.trim().toLowerCase()
+    )
+    const available = matchedStock
+      ? (matchedStock.quantity !== undefined && matchedStock.quantity !== null ? matchedStock.quantity : (matchedStock.centralStockQty || 0))
+      : 0
+
+    if (matchedStock && reqQty > available) {
+      toast.error(`ප්‍රමාණවත් stock එකක් නොමැත! Available: ${available} ${matchedStock.unit || 'units'}`)
+      return
+    }
+
     api.post('/inventory/transfers', transferForm)
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ['site-transfers'] })
@@ -141,7 +156,7 @@ export default function SiteInventory() {
         setShowTransferModal(false)
       })
       .catch((err) => {
-        toast.error(`Failed to create transfer: ${err?.response?.data?.message || 'Server error'}`)
+        toast.error(err?.response?.data?.message || 'Failed to create transfer')
       })
   }
 
@@ -480,82 +495,148 @@ export default function SiteInventory() {
       )}
 
       {/* Transfer Material Modal */}
-      {showTransferModal && (
-        <div className="fixed inset-0 bg-white/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">Transfer Material between Sites</h3>
-              <button onClick={() => setShowTransferModal(false)} className="text-slate-500 hover:text-slate-600">
-                <FiX size={20} />
-              </button>
+      {showTransferModal && (() => {
+        const matchedItem = stockList.find(
+          s => s.itemName.trim().toLowerCase() === (transferForm.itemName || '').trim().toLowerCase()
+        )
+        const availableQty = matchedItem
+          ? (matchedItem.quantity !== undefined && matchedItem.quantity !== null ? matchedItem.quantity : (matchedItem.centralStockQty || 0))
+          : null
+        const isOverTransfer = availableQty !== null && Number(transferForm.quantity) > availableQty
+        const isStockDepleted = availableQty !== null && availableQty <= 0
+
+        return (
+          <div className="fixed inset-0 bg-white/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl border border-slate-200">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Transfer Material between Sites</h3>
+                  <p className="text-[11px] text-slate-500">Dispatch stock from warehouse/site to another project location.</p>
+                </div>
+                <button onClick={() => setShowTransferModal(false)} className="text-slate-500 hover:text-slate-600">
+                  <FiX size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveTransfer} className="space-y-4 text-xs">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">Material / Item Name *</label>
+                    {availableQty !== null && (
+                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                        availableQty > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        Available: {availableQty} {transferForm.unit || matchedItem?.unit || 'units'}
+                      </span>
+                    )}
+                  </div>
+                  {stockList.length > 0 ? (
+                    <select
+                      required
+                      value={transferForm.itemName}
+                      onChange={e => {
+                        const selName = e.target.value
+                        const found = stockList.find(s => s.itemName === selName)
+                        setTransferForm({
+                          ...transferForm,
+                          itemName: selName,
+                          category: found?.category || transferForm.category,
+                          unit: found?.unit || transferForm.unit,
+                        })
+                      }}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                    >
+                      <option value="">-- Select Material from Stock --</option>
+                      {stockList.map(s => (
+                        <option key={s._id} value={s.itemName}>
+                          {s.itemName} ({s.quantity !== undefined ? s.quantity : (s.centralStockQty || 0)} {s.unit || 'units'} available)
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text" required placeholder="e.g. Tokyo Super Cement 50kg"
+                      value={transferForm.itemName} onChange={e => setTransferForm({ ...transferForm, itemName: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                    />
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">From Location</label>
+                    <input
+                      type="text" required placeholder="Central Warehouse"
+                      value={transferForm.fromSite} onChange={e => setTransferForm({ ...transferForm, fromSite: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">To Site / Project</label>
+                    <input
+                      type="text" required placeholder="Target Site Name"
+                      value={transferForm.toSite} onChange={e => setTransferForm({ ...transferForm, toSite: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Quantity to Transfer</label>
+                    <input
+                      type="number" required min="1"
+                      max={availableQty !== null ? availableQty : undefined}
+                      placeholder="50"
+                      value={transferForm.quantity}
+                      onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })}
+                      className={`w-full p-2.5 bg-slate-50 border rounded-xl text-slate-800 font-bold ${
+                        isOverTransfer || isStockDepleted ? 'border-rose-400 text-rose-700 bg-rose-50' : 'border-slate-200'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Unit</label>
+                    <input
+                      type="text" required placeholder="bags / cubes / kg"
+                      value={transferForm.unit} onChange={e => setTransferForm({ ...transferForm, unit: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Over-transfer Warning Message */}
+                {(isOverTransfer || isStockDepleted) && (
+                  <div className="p-3 bg-rose-100 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <FiAlertTriangle className="text-rose-600 shrink-0" size={16} />
+                    <span>
+                      {isStockDepleted
+                        ? `ප්‍රමාණවත් stock එකක් නොමැත! Stock එක 0 වී ඇත.`
+                        : `ප්‍රමාණවත් stock එකක් නොමැත! Available: ${availableQty} ${transferForm.unit || 'units'}`}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button" onClick={() => setShowTransferModal(false)}
+                    className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isOverTransfer || isStockDepleted || Number(transferForm.quantity) <= 0}
+                    className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    INITIATE TRANSFER
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleSaveTransfer} className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Material / Item Name</label>
-                <input
-                  type="text" required placeholder="e.g. Tokyo Super Cement 50kg"
-                  value={transferForm.itemName} onChange={e => setTransferForm({ ...transferForm, itemName: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">From Location</label>
-                  <input
-                    type="text" required placeholder="Central Warehouse"
-                    value={transferForm.fromSite} onChange={e => setTransferForm({ ...transferForm, fromSite: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">To Site / Project</label>
-                  <input
-                    type="text" required placeholder="Target Site Name"
-                    value={transferForm.toSite} onChange={e => setTransferForm({ ...transferForm, toSite: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Quantity</label>
-                  <input
-                    type="number" required placeholder="50"
-                    value={transferForm.quantity} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Unit</label>
-                  <input
-                    type="text" required placeholder="bags / cubes / kg"
-                    value={transferForm.unit} onChange={e => setTransferForm({ ...transferForm, unit: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button" onClick={() => setShowTransferModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer"
-                >
-                  INITIATE TRANSFER
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Professional Multi-Item GRN Creation Modal */}
       {showGrnModal && (

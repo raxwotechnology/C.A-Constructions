@@ -88,7 +88,7 @@ export default function DocumentTotalsSection({
         Totals summary
       </div>
       <div style={{ padding: '12px 14px' }}>
-        {row('Subtotal', formatMoney(grossSubtotal, currency))}
+        {row('Subtotal (Gross)', formatMoney(grossSubtotal, currency))}
 
         {hasAnyDiscount && (
           <>
@@ -96,12 +96,13 @@ export default function DocumentTotalsSection({
             {lineDiscAmt > 0 && row('Line discount', formatMoney(lineDiscAmt, currency), { color: CLR.discount, prefix: '-' })}
             {hasGlobalDiscount && globalAmt > 0 && row('Discount amount', formatMoney(globalAmt, currency), { color: CLR.discount, prefix: '-' })}
             {discountTotal > 0 && row('Discount total', formatMoney(discountTotal, currency), { color: CLR.discount, prefix: '-', bold: true })}
+            {row('Net Subtotal (After Discount)', formatMoney(doc.taxable !== undefined ? doc.taxable : Math.max(0, grossSubtotal - discountTotal), currency), { color: CLR.dark, bold: true })}
           </>
         )}
 
         {showTransport && transport > 0 && row('Transport charges', formatMoney(transport, currency))}
 
-        {tax > 0 && row('Tax amount', formatMoney(tax, currency))}
+        {tax > 0 && row(`Tax amount (${doc.taxRate || 0}%)`, formatMoney(tax, currency))}
 
         <div
           style={{

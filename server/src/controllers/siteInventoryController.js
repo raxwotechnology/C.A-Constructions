@@ -59,28 +59,59 @@ exports.upsertStock = async (req, res) => {
 exports.createTransfer = async (req, res) => {
   try {
     const { fromSite, toSite, itemName, category, quantity, unit } = req.body;
+    const reqQty = Number(quantity);
+
+    if (isNaN(reqQty) || reqQty <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'කරුණාකර වලංගු ප්‍රමාණයක් (Quantity) ඇතුළත් කරන්න.',
+      });
+    }
+
+    // Find matching source stock item (by site or central warehouse)
+    let sourceStock;
+    if (fromSite && mongoose.Types.ObjectId.isValid(fromSite)) {
+      sourceStock = await SiteStock.findOne({ site: fromSite, itemName });
+    }
+    if (!sourceStock) {
+      sourceStock = await SiteStock.findOne({ itemName });
+    }
+
+    const availableQty = sourceStock
+      ? (sourceStock.quantity !== undefined && sourceStock.quantity !== null ? sourceStock.quantity : (sourceStock.centralStockQty || 0))
+      : 0;
+
+    if (!sourceStock || availableQty < reqQty) {
+      return res.status(400).json({
+        success: false,
+        message: `ප්‍රමාණවත් stock එකක් නොමැත! Available: ${availableQty} ${unit || sourceStock?.unit || 'units'}`,
+        availableQuantity: availableQty,
+      });
+    }
+
     const transferNo = 'MT-' + Date.now().toString().slice(-6);
+
+    // Deduct stock from source warehouse/site
+    const updatedQty = availableQty - reqQty;
+    sourceStock.quantity = updatedQty;
+    if (sourceStock.centralStockQty !== undefined && sourceStock.centralStockQty !== null) {
+      sourceStock.centralStockQty = Math.max(0, (sourceStock.centralStockQty || 0) - reqQty);
+    }
+    await sourceStock.save();
 
     const transfer = await MaterialTransfer.create({
       transferNo,
       fromSite: fromSite || null,
       toSite,
       itemName,
-      category,
-      quantity,
-      unit,
+      category: category || sourceStock.category || 'General',
+      quantity: reqQty,
+      unit: unit || sourceStock.unit || 'units',
       dispatchedBy: req.user._id,
-      status: 'in_transit'
+      status: 'in_transit',
     });
 
-    // Deduct stock from source warehouse if present
-    const sourceStock = await SiteStock.findOne({ isCentralWarehouse: true, itemName });
-    if (sourceStock && sourceStock.quantity >= quantity) {
-      sourceStock.quantity -= Number(quantity);
-      await sourceStock.save();
-    }
-
-    res.json({ success: true, transfer });
+    res.json({ success: true, transfer, remainingStock: updatedQty });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

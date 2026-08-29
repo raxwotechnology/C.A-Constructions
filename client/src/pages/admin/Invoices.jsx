@@ -1194,14 +1194,39 @@ export default function AdminInvoices() {
                     </div>
                   </div>
 
-                  <div className="mt-4 p-4 bg-slate-800 text-white rounded-xl shadow-inner">
-                    <div className="flex justify-between text-slate-300 text-sm mb-1"><span>Subtotal:</span><span>{watchedCurrency} {grossSubtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                    {totalDiscount > 0 && <div className="flex justify-between text-red-300 text-sm mb-1"><span>Discount:</span><span>-{watchedCurrency} {totalDiscount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>}
-                    {watchedTransport > 0 && (
-                      <div className="flex justify-between text-slate-300 text-sm mb-1"><span>Transport:</span><span>{watchedCurrency} {watchedTransport.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                  <div className="mt-4 p-4 bg-slate-800 text-white rounded-xl shadow-inner space-y-1 text-sm">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Subtotal (Gross):</span>
+                      <span>{watchedCurrency} {grossSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    {totalDiscount > 0 && (
+                      <div className="flex justify-between text-red-300">
+                        <span>Total Discount:</span>
+                        <span>-{watchedCurrency} {totalDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
                     )}
-                    <div className="flex justify-between text-slate-300 text-sm mb-1"><span>Tax ({taxRate}%):</span><span>{watchedCurrency} {tax.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-600 mt-2"><span>Total:</span><span>{watchedCurrency} {total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                    {totalDiscount > 0 && (
+                      <div className="flex justify-between text-amber-300 font-semibold border-t border-slate-700/60 pt-1">
+                        <span>Intermediate Total (Net Subtotal):</span>
+                        <span>{watchedCurrency} {(grossSubtotal - totalDiscount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {watchedTransport > 0 && (
+                      <div className="flex justify-between text-slate-300">
+                        <span>Transport Charges:</span>
+                        <span>+{watchedCurrency} {watchedTransport.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {taxRate > 0 && (
+                      <div className="flex justify-between text-slate-300">
+                        <span>Tax ({taxRate}%):</span>
+                        <span>+{watchedCurrency} {tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-600 mt-2 text-white">
+                      <span>Grand Total:</span>
+                      <span className="text-emerald-400">{watchedCurrency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
                   </div>
                 </div>
 
