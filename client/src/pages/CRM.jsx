@@ -180,6 +180,13 @@ export default function CRM() {
     }
   };
 
+  const handleStatusChange = (leadId, newStatus) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, status: newStatus } : l))
+    );
+    toast.success(`Status updated to "${newStatus}"`);
+  };
+
   // Filter leads based on search query and source
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch = 
@@ -300,13 +307,25 @@ export default function CRM() {
                     <td className="py-3 px-2 text-xs font-semibold text-slate-700">{l.budget}</td>
                     <td className="py-3 px-2 text-xs text-slate-500">{l.source}</td>
                     <td className="py-3 px-2">
-                      <span className={`px-2.5 py-1 text-[11px] font-bold rounded-full border ${
-                        l.status === 'New Lead Enquiry' 
-                          ? 'bg-blue-50 text-blue-700 border-blue-200' 
-                          : 'bg-orange-50 text-orange-700 border-orange-200'
-                      }`}>
-                        {l.status}
-                      </span>
+                      <select
+                        value={l.status}
+                        onChange={(e) => handleStatusChange(l.id, e.target.value)}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-full border cursor-pointer focus:outline-none ${
+                          l.status === 'New Lead Enquiry' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          l.status === 'Site Visit Completed' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                          l.status === 'Quotation Sent' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          l.status === 'SBD-03 Contract Draft' || l.status === 'SBD3' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                          l.status === 'Contract Signed / Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <option value="New Lead Enquiry">New Lead Enquiry</option>
+                        <option value="Site Visit Completed">Site Visit Completed</option>
+                        <option value="Quotation Sent">Quotation Sent</option>
+                        <option value="SBD-03 Contract Draft">SBD-03 Contract Draft</option>
+                        <option value="Contract Signed / Active">Contract Signed / Active</option>
+                        <option value="Lost / Cancelled">Lost / Cancelled</option>
+                      </select>
                     </td>
                     <td className="py-3 px-2 text-right">
                       <button
