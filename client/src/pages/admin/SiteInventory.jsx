@@ -56,9 +56,9 @@ export default function SiteInventory() {
     queryFn: () => api.get('/inventory/grn').then(r => r.data).catch(() => ({ grns: [] })),
   })
 
-  const stockList = inventoryData?.stock || []
-  const transfersList = transfersData?.transfers || []
-  const grnList = grnsData?.grns || []
+  const stockList = Array.isArray(inventoryData?.stock) ? inventoryData.stock : []
+  const transfersList = Array.isArray(transfersData?.transfers) ? transfersData.transfers : []
+  const grnList = Array.isArray(grnsData?.grns) ? grnsData.grns : []
 
   // Filtered and Paginated stock list
   const filteredStockList = useMemo(() => {
@@ -197,7 +197,7 @@ export default function SiteInventory() {
 
     // Match stock item to check available stock
     const matchedStock = stockList.find(
-      s => s.itemName.trim().toLowerCase() === transferForm.itemName.trim().toLowerCase()
+      s => s && s.itemName && String(s.itemName).trim().toLowerCase() === String(transferForm.itemName || '').trim().toLowerCase()
     )
     const available = matchedStock
       ? (Number(matchedStock.quantity !== undefined && matchedStock.quantity !== null ? matchedStock.quantity : (matchedStock.centralStockQty || 0)))
@@ -702,7 +702,7 @@ export default function SiteInventory() {
       {/* Transfer Material Modal */}
       {showTransferModal && (() => {
         const matchedItem = stockList.find(
-          s => s.itemName.trim().toLowerCase() === (transferForm.itemName || '').trim().toLowerCase()
+          s => s && s.itemName && String(s.itemName).trim().toLowerCase() === String(transferForm.itemName || '').trim().toLowerCase()
         )
         const availableQty = matchedItem
           ? (matchedItem.quantity !== undefined && matchedItem.quantity !== null ? matchedItem.quantity : (matchedItem.centralStockQty || 0))

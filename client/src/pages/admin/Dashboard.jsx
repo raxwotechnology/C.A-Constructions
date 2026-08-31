@@ -23,10 +23,10 @@ export default function AdminDashboard() {
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['admin-dashboard', branchFilter],
     queryFn: () => api.get(`/system-metrics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
-    refetchInterval: 30000,
+    refetchInterval: 15000,
     refetchOnWindowFocus: true,
   })
 
@@ -63,6 +63,16 @@ export default function AdminDashboard() {
           <p className="page-subtitle">Complete business overview — {new Date().toLocaleDateString('en-LK', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="btn-outline btn-sm flex items-center gap-1 text-slate-700 hover:text-orange-600 cursor-pointer"
+            title="Sync Realtime Metrics"
+          >
+            <FiRefreshCw size={13} className={isRefetching ? 'animate-spin text-orange-600' : ''} />
+            <span>{isRefetching ? 'Syncing...' : 'Realtime Sync'}</span>
+          </button>
           <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="form-select w-auto h-9 py-1 text-sm mr-2">
             <option value="">All Branches</option>
             {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
