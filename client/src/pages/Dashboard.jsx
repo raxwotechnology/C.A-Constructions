@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../lib/api';
 import { 
   Building2, TrendingUp, Users, AlertTriangle, Wallet, 
   CheckCircle2, Clock, FileText, HardHat, DollarSign 
@@ -8,22 +10,32 @@ import { PROJECT_SERVICE_TYPES } from '../config/categories';
 export default function Dashboard() {
   const [selectedRole, setSelectedRole] = useState('Admin');
 
+  const { data: projectsData } = useQuery({
+    queryKey: ['dashboard-projects'],
+    queryFn: () => api.get('/projects').then(r => r.data).catch(() => ({ projects: [] })),
+  });
+
+  const { data: stockData } = useQuery({
+    queryKey: ['dashboard-stock'],
+    queryFn: () => api.get('/inventory/stock').then(r => r.data).catch(() => ({ stock: [] })),
+  });
+
+  const { data: financeData } = useQuery({
+    queryKey: ['dashboard-finance'],
+    queryFn: () => api.get('/finance/overview').then(r => r.data).catch(() => ({ totalIncome: 0, totalExpenses: 0 })),
+  });
+
+  const projectsList = Array.isArray(projectsData?.projects) ? projectsData.projects : (Array.isArray(projectsData) ? projectsData : []);
+  const stockList = Array.isArray(stockData?.stock) ? stockData.stock : [];
+
+  const activeProjects = projectsList.filter(p => p.status === 'active' || p.status === 'in-progress');
+  const lowStockItems = stockList.filter(s => (s.quantity !== undefined ? s.quantity : (s.centralStockQty || 0)) <= (s.reorderLevel || 10));
+
   const stats = [
-    { label: 'Active Projects', value: '12', icon: Building2, change: '+2 this month', color: 'from-blue-600 to-indigo-600' },
-    { label: 'Monthly Cashflow', value: 'LKR 14.5M', icon: Wallet, change: '+18.2%', color: 'from-emerald-600 to-teal-600' },
-    { label: 'Active Labour Force', value: '148', icon: HardHat, change: '94% On Site', color: 'from-amber-500 to-orange-600' },
-    { label: 'Pending Approvals', value: '7', icon: Clock, change: '3 POs, 4 Leaves', color: 'from-purple-600 to-pink-600' },
-  ];
-
-  const recentProjects = [
-    { code: 'PRJ-2026-001', name: 'Lotus Luxury Villa - Colombo 07', type: 'Residential Construction', progress: 78, status: 'Active', budget: 'LKR 45,000,000' },
-    { code: 'PRJ-2026-003', name: 'Apex Commercial Complex - Rajagiriya', type: 'Commercial Construction', progress: 42, status: 'Active', budget: 'LKR 120,000,000' },
-    { code: 'PRJ-2026-005', name: 'Heritage Boutique Hotel Fitout - Kandy', type: 'Interior Design & Fit-out', progress: 95, status: 'Handover', budget: 'LKR 28,000,000' },
-  ];
-
-  const lowStockItems = [
-    { code: 'MAT-CEM-001', item: 'Tokyo Super Cement 50kg', site: 'Colombo 07 Site', qty: 25, unit: 'Bags', min: 50 },
-    { code: 'MAT-STL-012', item: 'Tor Steel 12mm TMT', site: 'Rajagiriya Site', qty: 1.2, unit: 'Tons', min: 3.0 },
+    { label: 'Active Projects', value: String(activeProjects.length || projectsList.length || 0), icon: Building2, change: 'Realtime active', color: 'from-blue-600 to-indigo-600' },
+    { label: 'Monthly Cashflow', value: `LKR ${((financeData?.totalIncome || 0) / 1000000).toFixed(2)}M`, icon: Wallet, change: 'Net inflow', color: 'from-emerald-600 to-teal-600' },
+    { label: 'Active Labour Force', value: '0', icon: HardHat, change: '0 On Site', color: 'from-amber-500 to-orange-600' },
+    { label: 'Pending Approvals', value: '0', icon: Clock, change: '0 POs, 0 Leaves', color: 'from-purple-600 to-pink-600' },
   ];
 
   return (
@@ -83,9 +95,8 @@ export default function Dashboard() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <Building2 size={20} className="text-sky-600" />
-              Active Construction Sites
+              Active Construction Sites ({projectsList.length})
             </h2>
-            <button className="text-xs font-semibold text-sky-600 hover:underline">View All Sites →</button>
           </div>
 
           <div className="overflow-x-auto">
@@ -100,29 +111,37 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentProjects.map((p) => (
-                  <tr key={p.code} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-2">
-                      <div className="font-semibold text-slate-800">{p.name}</div>
-                      <div className="text-xs text-slate-400">{p.code}</div>
-                    </td>
-                    <td className="py-3 px-2 text-slate-600 text-xs">{p.type}</td>
-                    <td className="py-3 px-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
-                          <div className="bg-sky-600 h-full rounded-full" style={{ width: `${p.progress}%` }}></div>
-                        </div>
-                        <span className="text-xs font-bold text-slate-700">{p.progress}%</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 text-xs font-medium text-slate-700">{p.budget}</td>
-                    <td className="py-3 px-2">
-                      <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {p.status}
-                      </span>
+                {projectsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400 text-xs font-medium">
+                      No active construction sites found in database.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  projectsList.map((p) => (
+                    <tr key={p._id || p.code} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-2">
+                        <div className="font-semibold text-slate-800">{p.title || p.name}</div>
+                        <div className="text-xs text-slate-400">{p.code || p.projectCode || 'PRJ'}</div>
+                      </td>
+                      <td className="py-3 px-2 text-slate-600 text-xs">{p.serviceType || p.type || 'Construction'}</td>
+                      <td className="py-3 px-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div className="bg-sky-600 h-full rounded-full" style={{ width: `${p.progress || 0}%` }}></div>
+                          </div>
+                          <span className="text-xs font-bold text-slate-700">{p.progress || 0}%</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-2 text-xs font-medium text-slate-700">LKR {(p.budget || 0).toLocaleString()}</td>
+                      <td className="py-3 px-2">
+                        <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
+                          {p.status || 'Active'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -136,24 +155,30 @@ export default function Dashboard() {
               Low Stock Warnings
             </h2>
             <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold">
-              2 Items
+              {lowStockItems.length} Items
             </span>
           </div>
 
           <div className="space-y-3">
-            {lowStockItems.map((item) => (
-              <div key={item.code} className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-800 text-sm">{item.item}</span>
-                  <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">Reorder</span>
-                </div>
-                <div className="text-xs text-slate-500">{item.site}</div>
-                <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
-                  <span>Current: <strong className="text-slate-900">{item.qty} {item.unit}</strong></span>
-                  <span>Min Threshold: {item.min} {item.unit}</span>
-                </div>
+            {lowStockItems.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-100">
+                No low stock warnings detected.
               </div>
-            ))}
+            ) : (
+              lowStockItems.map((item) => (
+                <div key={item._id || item.code} className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-800 text-sm">{item.itemName || item.item}</span>
+                    <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">Reorder</span>
+                  </div>
+                  <div className="text-xs text-slate-500">{item.isCentralWarehouse ? 'Central Warehouse' : 'Site Stock'}</div>
+                  <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+                    <span>Current: <strong className="text-slate-900">{(item.quantity !== undefined ? item.quantity : item.centralStockQty) || 0} {item.unit || 'units'}</strong></span>
+                    <span>Min Threshold: {item.reorderLevel || 10} {item.unit || 'units'}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

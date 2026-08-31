@@ -93,7 +93,7 @@ const initialDocuments = [
 ]
 
 export default function DocumentManager() {
-  const [documents, setDocuments] = useState(initialDocuments)
+  const [documents, setDocuments] = useState([])
   const [activeFolder, setActiveFolder] = useState('all') // 'all', 'contracts', 'drawings', 'clearances', 'certificates'
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedDoc, setSelectedDoc] = useState(null)

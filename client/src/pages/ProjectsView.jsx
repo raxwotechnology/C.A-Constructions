@@ -181,35 +181,14 @@ export default function ProjectsView() {
   // Query BOQ Items from Server
   const { data: boqData } = useQuery({
     queryKey: ['boqs'],
-    queryFn: () => api.get('/boqs').then((r) => r.data),
+    queryFn: () => api.get('/boqs').then((r) => r.data).catch(() => ({ items: [] })),
   });
-
-  // Local fallback storage for BOQ items
-  const [localBoqList, setLocalBoqList] = useState(() => {
-    try {
-      const saved = localStorage.getItem('app_boq_items');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return DEFAULT_BOQ_ITEMS;
-  });
-
-  // Sync server items to local storage when available
-  useEffect(() => {
-    if (boqData?.items && Array.isArray(boqData.items) && boqData.items.length > 0) {
-      setLocalBoqList(boqData.items);
-      localStorage.setItem('app_boq_items', JSON.stringify(boqData.items));
-    }
-  }, [boqData]);
 
   const boqList = useMemo(() => {
-    if (boqData?.items && Array.isArray(boqData.items) && boqData.items.length > 0) {
-      return boqData.items;
-    }
-    return localBoqList;
-  }, [boqData, localBoqList]);
+    if (Array.isArray(boqData?.items)) return boqData.items;
+    if (Array.isArray(boqData)) return boqData;
+    return [];
+  }, [boqData]);
 
   // Project Form State
   const [projectForm, setProjectForm] = useState({
@@ -234,17 +213,7 @@ export default function ProjectsView() {
   });
 
   // Milestones (Gantt) State
-  const [milestones, setMilestones] = useState(() => {
-    try {
-      const saved = localStorage.getItem('app_project_milestones');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_MILESTONES;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('app_project_milestones', JSON.stringify(milestones));
-  }, [milestones]);
+  const [milestones, setMilestones] = useState([]);
 
   const [milestoneForm, setMilestoneForm] = useState({
     phase: '',

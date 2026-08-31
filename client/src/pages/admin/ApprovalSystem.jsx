@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import api from '../../lib/api'
 import {
   CheckCircle2, XCircle, Clock, ShieldCheck, FileText, Package, DollarSign,
   UserCheck, ArrowRight, Eye, MessageSquare, AlertCircle, Filter, Search, Check, X, Send, ChevronRight
@@ -113,7 +115,17 @@ const initialRequests = [
 ]
 
 export default function ApprovalSystem() {
-  const [requests, setRequests] = useState(initialRequests)
+  const { data: reqsData } = useQuery({
+    queryKey: ['approval-requests'],
+    queryFn: () => api.get('/requests').then(r => r.data).catch(() => ({ requests: [] })),
+  })
+  const serverRequests = Array.isArray(reqsData?.requests) ? reqsData.requests : (Array.isArray(reqsData) ? reqsData : [])
+
+  const [requests, setRequests] = useState([])
+
+  React.useEffect(() => {
+    setRequests(serverRequests)
+  }, [serverRequests])
   const [filterType, setFilterType] = useState('ALL')
   const [filterStage, setFilterStage] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')

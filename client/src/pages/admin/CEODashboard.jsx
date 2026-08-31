@@ -25,16 +25,12 @@ export default function CEODashboard() {
 
   const sites = sitesData?.projects || sitesData?.sites || []
   const activeSites = sites.filter(s => s.status === 'active')
-  const totalMoneyIn = finData?.totalIncome || 48500000
-  const totalMoneyOut = finData?.totalExpenses || 31200000
+  const totalMoneyIn = finData?.totalIncome || 0
+  const totalMoneyOut = finData?.totalExpenses || 0
   const netProfit = totalMoneyIn - totalMoneyOut
   const isProfitable = netProfit >= 0
 
-  const profitLeaks = [
-    { id: 1, title: 'Cement Loss Warning', site: 'Galle Highway Extension', details: '30% cement loss detected (Variance on GRN-9941)', severity: 'high' },
-    { id: 2, title: 'Machine Idle Time Alert', site: 'Colombo Commercial Tower', details: 'Excavator EX-04 idle for 14 hours (LKR 42,000 lost capacity)', severity: 'medium' },
-    { id: 3, title: 'GRN Shortage Hold', site: 'Kandy Residential Complex', details: '50 steel bars unfulfilled on PO-881. Payment locked.', severity: 'high' },
-  ]
+  const profitLeaks = grnData?.grnLeaks || []
 
   return (
     <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
@@ -65,8 +61,8 @@ export default function CEODashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
             <p className="text-xs text-slate-500 font-medium">Active Sites</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{activeSites.length || sites.length || 6}</p>
-            <p className="text-xs text-emerald-600 font-medium mt-1">✓ All sites active</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{activeSites.length}</p>
+            <p className="text-xs text-emerald-600 font-medium mt-1">✓ Real-time active sites</p>
           </div>
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
             <p className="text-xs text-slate-500 font-medium">Total Capital Inflow</p>
@@ -101,27 +97,33 @@ export default function CEODashboard() {
               <FiAlertTriangle className="text-amber-500" /> Forensic Profit Leak Alerts
             </h3>
             <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-bold">
-              3 Active Audits
+              {profitLeaks.length} Active Audits
             </span>
           </div>
           <div className="space-y-3">
-            {profitLeaks.map(leak => (
-              <div key={leak.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-bold text-slate-900">{leak.title}</h4>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
-                      {leak.severity.toUpperCase()}
-                    </span>
-                  </div>
-                  <p className="text-xs font-medium text-slate-600 mt-0.5">{leak.site}</p>
-                  <p className="text-xs text-slate-500 mt-1">{leak.details}</p>
-                </div>
-                <button className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 text-xs font-semibold rounded-lg whitespace-nowrap">
-                  Investigate Leak
-                </button>
+            {profitLeaks.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs font-medium bg-slate-50 rounded-xl border border-slate-100">
+                No forensic profit leaks or audit warnings detected.
               </div>
-            ))}
+            ) : (
+              profitLeaks.map(leak => (
+                <div key={leak.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-slate-900">{leak.title}</h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
+                        {leak.severity?.toUpperCase() || 'AUDIT'}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-slate-600 mt-0.5">{leak.site}</p>
+                    <p className="text-xs text-slate-500 mt-1">{leak.details}</p>
+                  </div>
+                  <button className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 text-xs font-semibold rounded-lg whitespace-nowrap">
+                    Investigate Leak
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

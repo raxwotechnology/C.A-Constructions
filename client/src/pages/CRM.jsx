@@ -6,7 +6,7 @@ import {
 import { CRM_LEAD_SOURCES } from '../config/categories';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 
 export default function CRM() {
@@ -28,71 +28,33 @@ export default function CRM() {
     source: 'Website Inquiry',
   });
 
-  const initialLeads = [
-    { id: 'LD-101', name: 'Dr. Ruwan Perera', project: 'Luxury House Construction (3-Story)', budget: 'LKR 35,000,000', status: 'Quotation Sent', source: 'Website Inquiry', phone: '0771234567' },
-    { id: 'LD-102', name: 'Nihal Jayasinghe', project: 'Commercial Showroom Renovation', budget: 'LKR 18,000,000', status: 'Site Visit Completed', source: 'Client Referral', phone: '0719876543' },
-    { id: 'LD-103', name: 'Apex Holdings (Pvt) Ltd', project: 'Warehouse & Office Complex', budget: 'LKR 85,000,000', status: 'SBD-03 Contract Draft', source: 'Facebook Ad', phone: '0112345678' },
-  ];
-
-  // Dynamic state for leads list (persisted to localStorage)
-  const [leads, setLeads] = useState(() => {
-    const saved = localStorage.getItem('crm_leads_list');
-    return saved ? JSON.parse(saved) : initialLeads;
+  const { data: clientsData } = useQuery({
+    queryKey: ['crm-clients'],
+    queryFn: () => api.get('/auth/clients').then(r => r.data).catch(() => ({ clients: [] })),
   });
 
+  const dbClientsList = Array.isArray(clientsData?.clients) ? clientsData.clients : (Array.isArray(clientsData?.users) ? clientsData.users : (Array.isArray(clientsData) ? clientsData : []));
+
+  const [leads, setLeads] = useState([]);
+
   useEffect(() => {
-    localStorage.setItem('crm_leads_list', JSON.stringify(leads));
-  }, [leads]);
-
-  // Sync leads to the MongoDB client database so they immediately show up in Quotations
-  const syncLeadsToDatabase = async (silent = false) => {
-    try {
-      setIsSyncing(true);
-      let createdCount = 0;
-      const updatedLeads = [...leads];
-
-      for (let i = 0; i < updatedLeads.length; i++) {
-        const lead = updatedLeads[i];
-        try {
-          const res = await api.post('/auth/clients', {
-            name: lead.name,
-            phone: lead.phone || '0770000000',
-            email: lead.email || undefined,
-            role: 'client',
-            password: 'Client@2026',
-          });
-          const clientId = res.data?.user?._id || res.data?.client?._id || res.data?.user?.id;
-          if (clientId) {
-            updatedLeads[i] = { ...lead, dbClientId: clientId, syncedToDb: true };
-            createdCount++;
-          }
-        } catch {
-          // Continue with next lead if one has conflict
-        }
-      }
-
-      setLeads(updatedLeads);
-      qc.invalidateQueries({ queryKey: ['clients'] });
-      qc.invalidateQueries({ queryKey: ['clients-list'] });
-      qc.invalidateQueries({ queryKey: ['lookup-clients'] });
-
-      if (!silent) {
-        toast.success(`Successfully synced ${createdCount} customer leads to the Client & Quotations database!`);
-      }
-    } catch {
-      if (!silent) toast.error('Could not complete lead sync');
-    } finally {
-      setIsSyncing(false);
+    if (dbClientsList.length > 0) {
+      setLeads(dbClientsList.map(c => ({
+        id: c._id || c.id,
+        name: c.name,
+        email: c.email || '',
+        phone: c.phone || '',
+        project: c.project || 'Customer Inquiry',
+        budget: c.budget || 'N/A',
+        status: c.status || 'New Lead',
+        source: c.source || 'Direct Contact',
+        dbClientId: c._id,
+        syncedToDb: true
+      })));
+    } else {
+      setLeads([]);
     }
-  };
-
-  // Run auto-sync on initial mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      syncLeadsToDatabase(true);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+  }, [dbClientsList]);
 
   const handleCreateLead = async (e) => {
     e.preventDefault();

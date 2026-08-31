@@ -32,17 +32,21 @@ export default function AdminDashboard() {
 
   const kpis = data?.kpis || {}
   const charts = data?.charts || {}
-  const recent = data?.recent || {}
+  const revenueDataList = Array.isArray(charts.revenueData) ? charts.revenueData : []
+  const expenseDataList = Array.isArray(charts.expenseData) ? charts.expenseData : []
+  const payrollCostList = Array.isArray(charts.payrollCost) ? charts.payrollCost : []
+  const projectStatusList = Array.isArray(charts.projectStatus) ? charts.projectStatus : []
+  const attendanceStatusList = Array.isArray(charts.attendanceByStatus) ? charts.attendanceByStatus : []
 
   // Build 12-month merged chart
   const revExpChart = M.map((m, i) => ({
     month: m,
-    revenue: (charts.revenueData || []).find(d => d._id === i+1)?.total || 0,
-    expense: (charts.expenseData || []).find(d => d._id === i+1)?.total || 0,
+    revenue: revenueDataList.find(d => d._id === i+1)?.total || 0,
+    expense: expenseDataList.find(d => d._id === i+1)?.total || 0,
   }))
-  const payrollChart = (charts.payrollCost || []).map(d => ({ month: M[d._id-1], cost: d.total }))
-  const projectPie = (charts.projectStatus || []).map(d => ({ name: d._id, value: d.count }))
-  const attChart = (charts.attendanceByStatus || []).map(d => ({ name: d._id, value: d.count }))
+  const payrollChart = payrollCostList.map(d => ({ month: M[d._id-1], cost: d.total }))
+  const projectPie = projectStatusList.map(d => ({ name: d._id, value: d.count }))
+  const attChart = attendanceStatusList.map(d => ({ name: d._id, value: d.count }))
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64">

@@ -37,8 +37,9 @@ export default function AdminAnalytics() {
 
   // Build 12-month skeleton and fill from API
   const buildMonthlyChart = (apiData, valueKey = 'total') => {
+    const list = Array.isArray(apiData) ? apiData : []
     const map = {}
-    ;(apiData || []).forEach(d => { map[d._id] = d[valueKey] })
+    list.forEach(d => { map[d._id] = d[valueKey] })
     return MONTHS_SHORT.map((m, i) => ({ month: m, value: map[i + 1] || 0 }))
   }
 
@@ -46,18 +47,24 @@ export default function AdminAnalytics() {
   const expenseChart = buildMonthlyChart(charts.expenseData)
   const payrollChart = buildMonthlyChart(charts.payrollCost)
 
+  const revenueDataList = Array.isArray(charts.revenueData) ? charts.revenueData : []
+  const expenseDataList = Array.isArray(charts.expenseData) ? charts.expenseData : []
+  const deptDistList = Array.isArray(charts.deptDist) ? charts.deptDist : []
+  const projectStatusList = Array.isArray(charts.projectStatus) ? charts.projectStatus : []
+  const attendanceStatusList = Array.isArray(charts.attendanceByStatus) ? charts.attendanceByStatus : []
+  const leaveTypeList = Array.isArray(advData?.leaveByType) ? advData.leaveByType : []
+
   // Merge revenue + expense into one chart
   const revExpChart = MONTHS_SHORT.map((m, i) => ({
     month: m,
-    revenue: (charts.revenueData || []).find(d => d._id === i + 1)?.total || 0,
-    expense: (charts.expenseData || []).find(d => d._id === i + 1)?.total || 0,
+    revenue: revenueDataList.find(d => d._id === i + 1)?.total || 0,
+    expense: expenseDataList.find(d => d._id === i + 1)?.total || 0,
   }))
 
-  const deptChart = (charts.deptDist || []).map(d => ({ dept: d._id || 'Unknown', count: d.count || 0 }))
-  const projectPie = (charts.projectStatus || []).map(d => ({ name: d._id || 'Unknown', value: d.count || 0 }))
-  const attChart = (charts.attendanceByStatus || []).map(d => ({ name: d._id || 'Unknown', value: d.count || 0 }))
-
-  const leaveChart = (advData?.leaveByType || []).map(d => ({ type: d._id || 'Unknown', count: d.count || 0, days: d.totalDays || 0 }))
+  const deptChart = deptDistList.map(d => ({ dept: d._id || 'Unknown', count: d.count || 0 }))
+  const projectPie = projectStatusList.map(d => ({ name: d._id || 'Unknown', value: d.count || 0 }))
+  const attChart = attendanceStatusList.map(d => ({ name: d._id || 'Unknown', value: d.count || 0 }))
+  const leaveChart = leaveTypeList.map(d => ({ type: d._id || 'Unknown', count: d.count || 0, days: d.totalDays || 0 }))
   const projectTypeChart = (advData?.projectsByType || []).map(d => ({ type: d._id || 'Unknown', count: d.count || 0 }))
   const attTrend = (advData?.attendanceTrend || []).map(d => ({
     month: d.month || d._id,

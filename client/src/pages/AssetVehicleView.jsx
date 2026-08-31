@@ -86,14 +86,7 @@ export default function AssetVehicleView() {
     },
   });
 
-  // Default fallback assets if backend is initializing
-  const fallbackAssets = [
-    { _id: '1', assetCode: 'AST-EXC-01', name: 'KOBELCO SK200 Excavator', category: 'Machinery & Plant', site: 'Colombo Commercial Tower', amount: 18500000, assetValue: 18500000, fuel: 'Diesel (45L today)', status: 'Operational', insuranceExpiry: '2026-11-15' },
-    { _id: '2', assetCode: 'AST-LRY-04', name: 'ISUZU 10-Wheeler Tipper Truck', category: 'Vehicles', site: 'Rajagiriya Project', amount: 12000000, assetValue: 12000000, fuel: 'Diesel (80L today)', status: 'Operational', insuranceExpiry: '2026-09-30' },
-    { _id: '3', assetCode: 'AST-CMP-02', name: 'Mikasa Plate Compactor 5.5HP', category: 'Tools & Equipment', site: 'Central Store - Wattala', amount: 450000, assetValue: 450000, fuel: 'Petrol (5L today)', status: 'In Store / Ready', insuranceExpiry: 'N/A' },
-  ];
-
-  const assetsList = apiResponse?.assets && apiResponse.assets.length > 0
+  const assetsList = apiResponse?.assets && Array.isArray(apiResponse.assets)
     ? apiResponse.assets.map(a => ({
         ...a,
         code: a.assetCode || a.code,
@@ -101,7 +94,7 @@ export default function AssetVehicleView() {
         amount: Number(a.assetValue || a.amount || 0),
         insuranceExpiry: a.insuranceExpiry ? new Date(a.insuranceExpiry).toISOString().split('T')[0] : 'N/A',
       }))
-    : fallbackAssets;
+    : [];
 
   const totalAssetValue = assetsList.reduce((sum, a) => sum + Number(a.amount || a.assetValue || 0), 0);
   const operationalCount = assetsList.filter(a => ['Operational', 'Active Site Operation', 'In Store / Ready'].includes(a.status)).length;
