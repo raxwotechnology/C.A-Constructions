@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiLayers, FiTruck, FiShield, FiAlertTriangle, FiPlus, FiCheckCircle, FiX, FiFileText, FiTrash2, FiChevronDown, FiChevronUp, FiUnlock } from 'react-icons/fi'
+import { FiLayers, FiTruck, FiShield, FiAlertTriangle, FiPlus, FiCheckCircle, FiX, FiFileText, FiTrash2, FiChevronDown, FiChevronUp, FiUnlock, FiSearch, FiEdit2, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 
 export default function SiteInventory() {
   const queryClient = useQueryClient()
@@ -16,8 +16,14 @@ export default function SiteInventory() {
   const [resolvedGrns, setResolvedGrns] = useState({})
   const [receivedTransfers, setReceivedTransfers] = useState({})
 
+  // Search & Filter & Pagination States
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25) // 10, 25, 50, 100, 9999 (All)
+
   const [stockForm, setStockForm] = useState({
-    itemName: '', category: 'Cement', quantity: 0, unit: 'bags', unitPrice: 0, reorderLevel: 10, isCentralWarehouse: true, site: ''
+    id: '', itemName: '', category: 'Cement', quantity: 0, unit: 'bags', unitPrice: 0, reorderLevel: 10, isCentralWarehouse: true, site: ''
   })
   const [transferForm, setTransferForm] = useState({
     fromSite: 'Central Warehouse', toSite: 'Colombo Commercial Tower', itemName: 'Tokyo Super Cement 50kg', category: 'Cement', quantity: 50, unit: 'bags'
@@ -51,10 +57,64 @@ export default function SiteInventory() {
   })
 
   const stockList = inventoryData?.stock || []
-
   const transfersList = transfersData?.transfers || []
-
   const grnList = grnsData?.grns || []
+
+  // Filtered and Paginated stock list
+  const filteredStockList = useMemo(() => {
+    return stockList.filter((s) => {
+      const term = searchTerm.trim().toLowerCase()
+      const matchesSearch = !term || 
+        (s.itemName && s.itemName.toLowerCase().includes(term)) ||
+        (s.category && s.category.toLowerCase().includes(term)) ||
+        (s.itemCode && s.itemCode.toLowerCase().includes(term)) ||
+        (s.site && String(s.site?.title || s.site).toLowerCase().includes(term))
+      
+      const matchesCat = !categoryFilter || s.category === categoryFilter
+      return matchesSearch && matchesCat
+    })
+  }, [stockList, searchTerm, categoryFilter])
+
+  const totalPages = Math.ceil(filteredStockList.length / pageSize) || 1
+  const paginatedStockList = useMemo(() => {
+    if (pageSize >= 9999) return filteredStockList
+    const start = (page - 1) * pageSize
+    return filteredStockList.slice(start, start + pageSize)
+  }, [filteredStockList, page, pageSize])
+
+  const handleOpenAddModal = () => {
+    setStockForm({
+      id: '', itemName: '', category: 'Cement', quantity: 0, unit: 'bags', unitPrice: 0, reorderLevel: 10, isCentralWarehouse: true, site: ''
+    })
+    setShowAddModal(true)
+  }
+
+  const handleEditStock = (item) => {
+    setStockForm({
+      id: item._id,
+      itemName: item.itemName || '',
+      category: item.category || 'Cement',
+      quantity: (item.quantity !== undefined && item.quantity !== null) ? item.quantity : (item.centralStockQty || 0),
+      unit: item.unit || 'bags',
+      unitPrice: item.unitPrice || 0,
+      reorderLevel: item.reorderLevel || 10,
+      isCentralWarehouse: !!item.isCentralWarehouse,
+      site: item.site?._id || item.site || ''
+    })
+    setShowAddModal(true)
+  }
+
+  const handleDeleteStock = (id, itemName) => {
+    if (!window.confirm(`Are you sure you want to delete "${itemName}" from stock?`)) return
+    api.delete(`/inventory/stock/${id}`)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ['site-inventory'] })
+        toast.success(`Stock item "${itemName}" deleted successfully!`)
+      })
+      .catch((err) => {
+        toast.error(`Failed to delete stock: ${err?.response?.data?.message || 'Server error'}`)
+      })
+  }
 
   // Action: Clear / Release GRN Payment Hold
   const handleResolveGrn = (grnId) => {
@@ -210,7 +270,7 @@ export default function SiteInventory() {
             <FiFileText size={16} /> Create Multi-Item GRN
           </button>
           <button 
-            onClick={() => setShowAddModal(true)} 
+            onClick={handleOpenAddModal} 
             className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
           >
             <FiPlus size={16} /> Add Stock Item
@@ -227,63 +287,187 @@ export default function SiteInventory() {
       {/* Tabs */}
       <div className="flex border-b border-slate-200 gap-6 text-sm font-medium">
         <button
-          onClick={() => setActiveTab('stock')}
+          onClick={() => { setActiveTab('stock'); setPage(1); }}
           className={`pb-3 font-bold border-b-2 transition-colors ${activeTab === 'stock' ? 'border-orange-600 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
           Central & Site Stocks ({stockList.length})
         </button>
         <button
-          onClick={() => setActiveTab('transfers')}
+          onClick={() => { setActiveTab('transfers'); setPage(1); }}
           className={`pb-3 font-bold border-b-2 transition-colors ${activeTab === 'transfers' ? 'border-orange-600 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
           Material Transfers ({transfersList.length})
         </button>
         <button
-          onClick={() => setActiveTab('grn')}
+          onClick={() => { setActiveTab('grn'); setPage(1); }}
           className={`pb-3 font-bold border-b-2 transition-colors ${activeTab === 'grn' ? 'border-orange-600 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
           GRN Delivery Log & Audit Warnings ({grnList.length})
         </button>
       </div>
 
+      {/* Search & Category Filter Control Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+        <div className="relative flex-1 w-full">
+          <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input
+            type="text"
+            placeholder="Search material stock by name, category, or location..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <FiX size={14} />
+            </button>
+          )}
+        </div>
+
+        {activeTab === 'stock' && (
+          <div className="w-full md:w-auto flex items-center gap-2">
+            <select
+              value={categoryFilter}
+              onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+              className="w-full md:w-56 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="">All Categories ({stockList.length})</option>
+              {['Cement', 'Steel', 'Sand/Soil', 'Metal', 'Bricks/Blocks', 'Tiles/Granite', 'Electrical', 'Plumbing', 'Hardware', 'Paint', 'Timber', 'Chemicals/Waterproofing', 'Ready-Mix Concrete'].map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+
+            {(searchTerm || categoryFilter) && (
+              <button
+                type="button"
+                onClick={() => { setSearchTerm(''); setCategoryFilter(''); setPage(1); }}
+                className="px-3 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl hover:bg-rose-100 whitespace-nowrap"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Tab 1: Stock List */}
       {activeTab === 'stock' && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm space-y-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-200 font-semibold">
                 <tr>
-                  <th className="p-4">Item Name</th>
+                  <th className="p-4">Item Code / Name</th>
                   <th className="p-4">Category</th>
                   <th className="p-4">Location / Site</th>
-                  <th className="p-4">Quantity</th>
-                  <th className="p-4">Unit Price (LKR)</th>
-                  <th className="p-4">Status</th>
+                  <th className="p-4 text-right">Quantity</th>
+                  <th className="p-4 text-right">Unit Price</th>
+                  <th className="p-4 text-center">Status</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {stockList.map(item => (
-                  <tr key={item._id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-4 font-bold text-slate-900">{item.itemName}</td>
-                    <td className="p-4 text-slate-600">{item.category}</td>
-                    <td className="p-4 font-semibold text-slate-700">
-                      {item.isCentralWarehouse ? '🏢 CENTRAL WAREHOUSE' : (item.site?.title || item.site || 'Site')}
-                    </td>
-                    <td className="p-4 font-bold text-orange-600">
-                      {(item.quantity !== undefined && item.quantity !== null) ? item.quantity : (item.centralStockQty || 0)} {item.unit || 'Units'}
-                    </td>
-                    <td className="p-4 font-semibold">LKR {(item.unitPrice || 0).toLocaleString()}</td>
-                    <td className="p-4">
-                      {((item.quantity !== undefined ? item.quantity : (item.centralStockQty || 0)) <= (item.reorderLevel || item.minThresholdQty || 10)) ? (
-                        <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full">REORDER WARNING</span>
-                      ) : (
-                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">IN STOCK</span>
-                      )}
+                {paginatedStockList.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
+                      No stock items found matching your filter criteria.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedStockList.map((item) => (
+                    <tr key={item._id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-slate-900">{item.itemName}</div>
+                        {item.itemCode && <span className="text-[10px] text-slate-400 font-mono">{item.itemCode}</span>}
+                      </td>
+                      <td className="p-4 text-slate-600 font-medium">{item.category}</td>
+                      <td className="p-4 font-semibold text-slate-700">
+                        {item.isCentralWarehouse ? '🏢 CENTRAL WAREHOUSE' : (item.site?.title || item.site || 'Site')}
+                      </td>
+                      <td className="p-4 text-right font-bold text-orange-600 text-sm">
+                        {(item.quantity !== undefined && item.quantity !== null) ? item.quantity : (item.centralStockQty || 0)} {item.unit || 'Units'}
+                      </td>
+                      <td className="p-4 text-right font-semibold">LKR {(item.unitPrice || 0).toLocaleString()}</td>
+                      <td className="p-4 text-center">
+                        {((item.quantity !== undefined ? item.quantity : (item.centralStockQty || 0)) <= (item.reorderLevel || item.minThresholdQty || 10)) ? (
+                          <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full">REORDER WARNING</span>
+                        ) : (
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full">IN STOCK</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleEditStock(item)}
+                            className="p-1.5 text-slate-600 hover:text-orange-600 bg-slate-100 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Stock Item"
+                          >
+                            <FiEdit2 size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStock(item._id, item.itemName)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Stock Item"
+                          >
+                            <FiTrash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="text-slate-500 font-medium">
+              Showing {filteredStockList.length === 0 ? 0 : Math.min((page - 1) * pageSize + 1, filteredStockList.length)} to {Math.min(page * pageSize, filteredStockList.length)} of {filteredStockList.length} items (Total Stock Records: {stockList.length})
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                  className="p-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-800"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={9999}>All ({stockList.length})</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 cursor-pointer"
+                >
+                  <FiChevronLeft size={16} />
+                </button>
+                <span className="font-bold text-slate-800 px-2">Page {page} of {totalPages}</span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 cursor-pointer"
+                >
+                  <FiChevronRight size={16} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -423,12 +607,14 @@ export default function SiteInventory() {
         </div>
       )}
 
-      {/* Add Stock Modal */}
+      {/* Add / Edit Stock Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-white/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">Add Inventory Stock Item</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                {stockForm.id ? 'Edit Inventory Stock Item' : 'Add Inventory Stock Item'}
+              </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-slate-600">
                 <FiX size={20} />
               </button>
@@ -436,7 +622,7 @@ export default function SiteInventory() {
 
             <form onSubmit={handleSaveStock} className="space-y-4 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Item Name</label>
+                <label className="font-bold text-slate-700 block mb-1">Item Name *</label>
                 <input
                   type="text" required placeholder="Item Name (e.g. Tokyo Super Cement 50kg)"
                   value={stockForm.itemName} onChange={e => setStockForm({ ...stockForm, itemName: e.target.value })}
@@ -447,7 +633,7 @@ export default function SiteInventory() {
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Category</label>
                 <select 
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold"
                   value={stockForm.category} onChange={e => setStockForm({ ...stockForm, category: e.target.value })}
                 >
                   {['Cement', 'Steel', 'Sand/Soil', 'Metal', 'Bricks/Blocks', 'Tiles/Granite', 'Electrical', 'Plumbing', 'Hardware', 'Paint', 'Timber', 'Chemicals/Waterproofing', 'Ready-Mix Concrete'].map(c => (
@@ -460,16 +646,35 @@ export default function SiteInventory() {
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Quantity</label>
                   <input
-                    type="number" required placeholder="Quantity"
+                    type="number" required placeholder="Quantity" min="0"
                     value={stockForm.quantity} onChange={e => setStockForm({ ...stockForm, quantity: Number(e.target.value) })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold"
                   />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Unit Price (LKR)</label>
                   <input
-                    type="number" required placeholder="Unit Price"
+                    type="number" required placeholder="Unit Price" min="0"
                     value={stockForm.unitPrice} onChange={e => setStockForm({ ...stockForm, unitPrice: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Unit (e.g. bags, kg, cubes)</label>
+                  <input
+                    type="text" required placeholder="bags"
+                    value={stockForm.unit} onChange={e => setStockForm({ ...stockForm, unit: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Reorder Level Warning</label>
+                  <input
+                    type="number" required min="1" placeholder="10"
+                    value={stockForm.reorderLevel} onChange={e => setStockForm({ ...stockForm, reorderLevel: Number(e.target.value) })}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
                   />
                 </div>
@@ -486,7 +691,7 @@ export default function SiteInventory() {
                   type="submit"
                   className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer"
                 >
-                  SAVE STOCK ITEM
+                  {stockForm.id ? 'UPDATE STOCK ITEM' : 'SAVE STOCK ITEM'}
                 </button>
               </div>
             </form>

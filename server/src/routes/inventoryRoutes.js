@@ -5,6 +5,7 @@ const { protect } = require('../middleware/auth');
 
 router.get('/stock', protect, siteInventoryController.getInventory);
 router.post('/stock', protect, siteInventoryController.upsertStock);
+router.delete('/stock/:id', protect, siteInventoryController.deleteStock);
 
 router.get('/transfers', protect, siteInventoryController.getTransfers);
 router.post('/transfers', protect, siteInventoryController.createTransfer);

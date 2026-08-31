@@ -27,29 +27,62 @@ exports.upsertStock = async (req, res) => {
   try {
     const { id, site, isCentralWarehouse, itemName, category, quantity, unit, unitPrice, reorderLevel } = req.body;
     const qtyVal = Number(quantity) || 0;
-    const itemCode = 'STK-' + Date.now().toString().slice(-6);
-    
+    const cleanName = String(itemName || '').trim();
+
+    if (!cleanName) {
+      return res.status(400).json({ success: false, message: 'Material Item Name is required' });
+    }
+
     let item;
-    if (id) {
+    if (id && mongoose.Types.ObjectId.isValid(id)) {
       item = await SiteStock.findByIdAndUpdate(id, {
         site: site || null,
-        isCentralWarehouse: !!isCentralWarehouse,
-        itemName, category, quantity: qtyVal, centralStockQty: qtyVal, unit, unitPrice, reorderLevel,
+        isCentralWarehouse: isCentralWarehouse !== undefined ? !!isCentralWarehouse : true,
+        itemName: cleanName, category, quantity: qtyVal, centralStockQty: qtyVal, unit, unitPrice: Number(unitPrice || 0), reorderLevel: Number(reorderLevel || 10),
         lastRestockedAt: new Date(),
         updatedBy: req.user?._id,
       }, { new: true });
     } else {
-      item = await SiteStock.create({
-        itemCode,
-        site: site || null,
-        isCentralWarehouse: !!isCentralWarehouse,
-        itemName, category, quantity: qtyVal, centralStockQty: qtyVal, unit, unitPrice, reorderLevel,
-        lastRestockedAt: new Date(),
-        updatedBy: req.user?._id,
+      // Check if stock item with exact same name already exists in database
+      const existing = await SiteStock.findOne({
+        itemName: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
       });
+
+      if (existing) {
+        existing.quantity = Number(existing.quantity || 0) + qtyVal;
+        existing.centralStockQty = Number(existing.centralStockQty || 0) + qtyVal;
+        if (unitPrice) existing.unitPrice = Number(unitPrice);
+        if (category) existing.category = category;
+        if (unit) existing.unit = unit;
+        existing.lastRestockedAt = new Date();
+        existing.updatedBy = req.user?._id;
+        await existing.save();
+        item = existing;
+      } else {
+        const itemCode = 'STK-' + Date.now().toString().slice(-6);
+        item = await SiteStock.create({
+          itemCode,
+          site: site || null,
+          isCentralWarehouse: isCentralWarehouse !== undefined ? !!isCentralWarehouse : true,
+          itemName: cleanName, category: category || 'General', quantity: qtyVal, centralStockQty: qtyVal, unit: unit || 'bags', unitPrice: Number(unitPrice || 0), reorderLevel: Number(reorderLevel || 10),
+          lastRestockedAt: new Date(),
+          updatedBy: req.user?._id,
+        });
+      }
     }
 
     res.json({ success: true, item });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete stock item
+exports.deleteStock = async (req, res) => {
+  try {
+    const item = await SiteStock.findByIdAndDelete(req.params.id);
+    if (!item) return res.status(404).json({ success: false, message: 'Stock item not found' });
+    res.json({ success: true, message: 'Stock item deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
