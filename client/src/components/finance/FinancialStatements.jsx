@@ -38,7 +38,7 @@ export default function FinancialStatements() {
   const siteSummaries = siteSummaryData || [];
   const fleetAssets = assetsResponse?.assets || [];
 
-  const totalAssetVal = assetsResponse?.totalValue || fleetAssets.reduce((sum, a) => sum + Number(a.assetValue || a.amount || 0), 0) || 65950000;
+  const totalAssetVal = assetsResponse?.totalValue || (Array.isArray(fleetAssets) ? fleetAssets.reduce((sum, a) => sum + Number(a.assetValue || a.amount || 0), 0) : 0);
 
   // Active Selected Site Details
   const currentSiteObj = projects.find((p) => String(p._id) === String(selectedSite) || String(p.id) === String(selectedSite));
@@ -127,37 +127,37 @@ export default function FinancialStatements() {
             <div className="flex justify-between border-b border-slate-200 pb-2">
               <span className="text-slate-800 font-sans font-bold">TOTAL REVENUE (Client Payments & Invoices)</span>
               <span className="text-emerald-700 font-bold text-sm">
-                LKR {currentSiteSummary ? currentSiteSummary.totalIncome.toLocaleString() : '68,500,000'}
+                LKR {currentSiteSummary ? currentSiteSummary.totalIncome.toLocaleString() : '0'}
               </span>
             </div>
             <div className="pl-4 space-y-1.5 text-slate-600">
               <div className="flex justify-between">
                 <span>Less: Material & Inventory Expenses (Cement, Steel, GRN)</span>
-                <span>LKR {currentSiteSummary ? Math.round(currentSiteSummary.totalExpenses * 0.55).toLocaleString() : '22,400,000'}</span>
+                <span>LKR {currentSiteSummary ? Math.round(currentSiteSummary.totalExpenses * 0.55).toLocaleString() : '0'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Less: Labour & Worker Expenses (Baasla & Daily Wages)</span>
-                <span className="text-rose-600 font-semibold">LKR {currentSiteSummary ? currentSiteSummary.workerPayments.toLocaleString() : '11,800,000'}</span>
+                <span className="text-rose-600 font-semibold">LKR {currentSiteSummary ? currentSiteSummary.workerPayments.toLocaleString() : '0'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Less: Site Machinery, Fleet Fuel & Maintenance Expenses</span>
-                <span>LKR {currentSiteSummary ? Math.round(currentSiteSummary.totalExpenses * 0.25).toLocaleString() : '4,900,000'}</span>
+                <span>LKR {currentSiteSummary ? Math.round(currentSiteSummary.totalExpenses * 0.25).toLocaleString() : '0'}</span>
               </div>
             </div>
             <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900">
               <span className="font-sans">NET OPERATING PROFIT / (LOSS)</span>
               <span className="text-orange-600 text-sm">
-                LKR {currentSiteSummary ? currentSiteSummary.netProfitLoss.toLocaleString() : '26,400,000'}
+                LKR {currentSiteSummary ? currentSiteSummary.netProfitLoss.toLocaleString() : '0'}
               </span>
             </div>
             <div className="flex justify-between text-amber-700">
               <span className="font-sans">Less: Estimated Taxes (RAMIS CIT & VAT)</span>
-              <span>LKR {currentSiteSummary ? Math.round(currentSiteSummary.netProfitLoss * 0.18).toLocaleString() : '4,752,000'}</span>
+              <span>LKR {currentSiteSummary ? Math.round(currentSiteSummary.netProfitLoss * 0.18).toLocaleString() : '0'}</span>
             </div>
             <div className="flex justify-between border-t-2 border-slate-300 pt-2 text-sm font-bold text-emerald-700">
               <span className="font-sans">NET PROFIT AFTER TAX</span>
               <span className="text-base">
-                LKR {currentSiteSummary ? Math.round(currentSiteSummary.netProfitLoss * 0.82).toLocaleString() : '21,648,000'}
+                LKR {currentSiteSummary ? Math.round(currentSiteSummary.netProfitLoss * 0.82).toLocaleString() : '0'}
               </span>
             </div>
           </div>

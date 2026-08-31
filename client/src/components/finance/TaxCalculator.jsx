@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Calculator, DollarSign, Percent, FileText } from 'lucide-react';
 
 export default function TaxCalculator() {
-  const [revenue, setRevenue] = useState(15000000);
-  const [expenses, setExpenses] = useState(10500000);
+  const [revenue, setRevenue] = useState(0);
+  const [expenses, setExpenses] = useState(0);
   const [vatRate, setVatRate] = useState(18);
   const [incomeTaxRate, setIncomeTaxRate] = useState(30);
 

@@ -1,69 +1,11 @@
 const Asset = require('../models/Asset');
 
-// Auto-seed sample assets with values if collection is empty
-const seedDefaultAssets = async () => {
-  const count = await Asset.countDocuments();
-  if (count === 0) {
-    await Asset.create([
-      {
-        assetCode: 'AST-EXC-01',
-        name: 'KOBELCO SK200 Excavator',
-        category: 'Machinery & Heavy Equipment',
-        registrationNumber: 'EXC-8890',
-        assetValue: 18500000,
-        amount: 18500000,
-        status: 'Operational',
-        insuranceExpiry: new Date('2026-11-15'),
-        currentEngineHours: 3420,
-        fuelLog: [
-          { date: new Date(), litersAdded: 45, costPerLiter: 360, totalCost: 16200, meterReading: 3420 }
-        ]
-      },
-      {
-        assetCode: 'AST-LRY-04',
-        name: 'ISUZU 10-Wheeler Tipper Truck',
-        category: 'Vehicles',
-        registrationNumber: 'WP LA-4589',
-        assetValue: 12000000,
-        amount: 12000000,
-        status: 'Operational',
-        insuranceExpiry: new Date('2026-09-30'),
-        currentOdometerKm: 64200,
-        fuelLog: [
-          { date: new Date(), litersAdded: 80, costPerLiter: 360, totalCost: 28800, meterReading: 64200 }
-        ]
-      },
-      {
-        assetCode: 'AST-CMP-02',
-        name: 'Mikasa Plate Compactor 5.5HP',
-        category: 'Power & Hand Tools',
-        registrationNumber: 'CMP-102',
-        assetValue: 450000,
-        amount: 450000,
-        status: 'Operational',
-        fuelLog: [
-          { date: new Date(), litersAdded: 5, costPerLiter: 370, totalCost: 1850, meterReading: 120 }
-        ]
-      },
-      {
-        assetCode: 'AST-CRN-01',
-        name: 'Tadano 25-Ton Mobile Crane',
-        category: 'Machinery & Heavy Equipment',
-        registrationNumber: 'CRN-5541',
-        assetValue: 35000000,
-        amount: 35000000,
-        status: 'Operational',
-        insuranceExpiry: new Date('2026-12-31'),
-        currentEngineHours: 1890,
-      }
-    ]);
-  }
-};
+// Auto-seed sample assets disabled to allow clean empty database
+const seedDefaultAssets = async () => {};
 
 // GET /api/assets
 exports.getAssets = async (req, res, next) => {
   try {
-    await seedDefaultAssets();
     const { category, status, search, project } = req.query;
     const filter = {};
 

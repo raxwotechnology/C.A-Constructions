@@ -22,148 +22,9 @@ import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 
-const DEFAULT_BOQ_ITEMS = [
-  {
-    code: 'DIV-03-01',
-    division: 'Earthworks & Excavation',
-    item: 'Site clearing, topsoil stripping & foundation trench excavation',
-    unit: 'm3',
-    qty: 450,
-    rate: 3500,
-    amount: 1575000,
-  },
-  {
-    code: 'DIV-04-02',
-    division: 'Concrete & Formwork',
-    item: 'Grade 30 ReadyMix Concrete for Columns & Beams including shuttering',
-    unit: 'm3',
-    qty: 180,
-    rate: 48000,
-    amount: 8640000,
-  },
-  {
-    code: 'DIV-05-01',
-    division: 'Reinforcement Steel',
-    item: 'High yield Tor Steel (12mm & 16mm TMT) cut, bend & place',
-    unit: 'kg',
-    qty: 12500,
-    rate: 340,
-    amount: 4250000,
-  },
-  {
-    code: 'DIV-08-03',
-    division: 'Masonry & Wall Construction',
-    item: '9 inch thick wire cut brickwork masonry in cement mortar 1:5',
-    unit: 'sqft',
-    qty: 6200,
-    rate: 420,
-    amount: 2604000,
-  },
-  {
-    code: 'DIV-12-01',
-    division: 'Finishes & Tiling',
-    item: '600x600mm homogeneous porcelain floor tiling for main hall & corridors',
-    unit: 'sqft',
-    qty: 3400,
-    rate: 650,
-    amount: 2210000,
-  },
-];
-
-const DEFAULT_MILESTONES = [
-  {
-    id: 'm1',
-    phase: 'Phase 01: Earthwork & Site Excavation (DIV-03)',
-    start: 'Month 01',
-    end: 'Month 02',
-    progress: 100,
-    status: 'Completed',
-    color: 'from-emerald-500 to-teal-500',
-  },
-  {
-    id: 'm2',
-    phase: 'Phase 02: Column Footings & Substructure Concrete (DIV-04)',
-    start: 'Month 02',
-    end: 'Month 04',
-    progress: 90,
-    status: 'Active',
-    color: 'from-orange-500 to-amber-500',
-  },
-  {
-    id: 'm3',
-    phase: 'Phase 03: Superstructure Frame & Tor Steel (DIV-05)',
-    start: 'Month 04',
-    end: 'Month 07',
-    progress: 45,
-    status: 'In Progress',
-    color: 'from-amber-500 to-orange-600',
-  },
-  {
-    id: 'm4',
-    phase: 'Phase 04: Brickwork & MEP Electrical Fit-out (DIV-08)',
-    start: 'Month 07',
-    end: 'Month 09',
-    progress: 10,
-    status: 'Upcoming',
-    color: 'from-purple-500 to-pink-500',
-  },
-  {
-    id: 'm5',
-    phase: 'Phase 05: Plastering, Porcelain Tiling & Handover (DIV-12)',
-    start: 'Month 09',
-    end: 'Month 12',
-    progress: 0,
-    status: 'Scheduled',
-    color: 'from-slate-400 to-slate-500',
-  },
-];
-
-const DEFAULT_SNAGS = [
-  {
-    id: 's1',
-    code: 'SNAG-001',
-    title: 'Plaster Hairline Crack near Living Room Column',
-    location: '1st Floor - Living Area',
-    division: 'Masonry & Plastering',
-    severity: 'Minor',
-    assignedTo: 'Nimal Perera (Supervisor)',
-    status: 'In Progress',
-    dateReported: '2026-08-05',
-  },
-  {
-    id: 's2',
-    code: 'SNAG-002',
-    title: 'Porcelain Tile Hollow Sound under Master Bedroom',
-    location: '2nd Floor - Bed 01',
-    division: 'Finishes & Tiling',
-    severity: 'Major',
-    assignedTo: 'Saman Silva (Tiling Sub-contractor)',
-    status: 'Open',
-    dateReported: '2026-08-08',
-  },
-  {
-    id: 's3',
-    code: 'SNAG-003',
-    title: 'Water Seepage Sealant Test in Ground Floor Sump',
-    location: 'Basement Sump Tank',
-    division: 'Waterproofing & Concrete',
-    severity: 'Critical',
-    assignedTo: 'Kamal Jayasinghe (Site Engineer)',
-    status: 'Open',
-    dateReported: '2026-08-10',
-  },
-  {
-    id: 's4',
-    code: 'SNAG-004',
-    title: 'Conduit Fitting Flush Box Alignment Correction',
-    location: 'Kitchen Island',
-    division: 'MEP Electrical',
-    severity: 'Minor',
-    assignedTo: 'Sunil Cooray (Electrician)',
-    status: 'Resolved',
-    dateReported: '2026-08-01',
-  },
-];
+const DEFAULT_BOQ_ITEMS = [];
+const DEFAULT_MILESTONES = [];
+const DEFAULT_SNAGS = [];
 
 export default function ProjectsView() {
   const qc = useQueryClient();
@@ -225,13 +86,7 @@ export default function ProjectsView() {
   });
 
   // Snag List & Quality Inspection State
-  const [snagList, setSnagList] = useState(() => {
-    try {
-      const saved = localStorage.getItem('app_project_snags');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_SNAGS;
-  });
+  const [snagList, setSnagList] = useState([]);
 
   useEffect(() => {
     localStorage.setItem('app_project_snags', JSON.stringify(snagList));

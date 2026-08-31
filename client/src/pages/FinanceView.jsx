@@ -44,21 +44,11 @@ export default function FinanceView({ defaultTab = 'ledger' }) {
     },
   });
 
-  const totalAssetVal = assetData?.totalValue || assetData?.assets?.reduce((s, a) => s + Number(a.assetValue || a.amount || 0), 0) || 65950000;
-  const assetCount = assetData?.count || assetData?.assets?.length || 4;
+  const totalAssetVal = assetData?.totalValue || (Array.isArray(assetData?.assets) ? assetData.assets.reduce((s, a) => s + Number(a.assetValue || a.amount || 0), 0) : 0);
+  const assetCount = assetData?.count || (Array.isArray(assetData?.assets) ? assetData.assets.length : 0);
 
-  const dailyFinancials = [
-    { date: '2026-08-04', income: 4500000, expenses: 840000, net: 3660000, notes: 'Client Advance (Kalaniya Site) - Material GRN Payments' },
-    { date: '2026-08-03', income: 1200000, expenses: 320000, net: 880000, notes: 'Quotation Payment #402 - Subcontractor Doors/Windows' },
-    { date: '2026-08-02', income: 0, expenses: 145000, net: -145000, notes: 'Worker Daily Wages & Site Petty Cash Topup' },
-    { date: '2026-08-01', income: 2800000, expenses: 510000, net: 2290000, notes: 'Progress Invoice #102 Payment' },
-  ];
-
-  const transactions = [
-    { id: 'TX-901', date: '2026-07-28', debitAccount: 'Bank - Commercial Bank', creditAccount: 'Client Advances', amount: 4500000, description: 'Lotus Villa Phase 2 Advance Payment' },
-    { id: 'TX-902', date: '2026-07-29', debitAccount: 'Material Stock (Cement)', creditAccount: 'Accounts Payable - LankaCement', amount: 352500, description: '150 Bags Tokyo Super Cement GRN-489' },
-    { id: 'TX-903', date: '2026-07-30', debitAccount: 'Site Petty Cash', creditAccount: 'Bank - Commercial Bank', amount: 50000, description: 'Site Petty Cash Top-up for Site Supervisor' },
-  ];
+  const dailyFinancials = [];
+  const transactions = [];
 
   const handleRecordJournal = (e) => {
     e.preventDefault();
