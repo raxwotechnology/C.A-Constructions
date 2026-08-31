@@ -13,6 +13,7 @@ export default function FinanceView({ defaultTab = 'ledger' }) {
   const [selectedProject, setSelectedProject] = useState('');
 
   const [journalForm, setJournalForm] = useState({
+    date: new Date().toISOString().split('T')[0],
     debitAccount: 'Bank - Commercial Bank',
     creditAccount: 'Client Advances',
     amount: '',
@@ -248,6 +249,15 @@ export default function FinanceView({ defaultTab = 'ledger' }) {
               </button>
             </div>
             <form onSubmit={handleRecordJournal} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Transaction Date</label>
+                <input
+                  type="date"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                  value={journalForm.date || new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setJournalForm({ ...journalForm, date: e.target.value })}
+                />
+              </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Debit Account (Dr)</label>
                 <input

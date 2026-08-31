@@ -28,7 +28,7 @@ const INCOME_CATEGORIES = [
 ]
 
 const now = new Date()
-const EMPTY = { type:'income', category:'', title:'', amount:0, note:'', file:null, branch:'', paymentMethod:'Bank Transfer', bankAccount:'', project:'' }
+const EMPTY = { date: new Date().toISOString().split('T')[0], type:'expense', category:'', title:'', amount:0, note:'', file:null, branch:'', paymentMethod:'Bank Transfer', bankAccount:'', project:'' }
 
 function formatLkr(amount) {
   return Number(amount || 0).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -421,10 +421,19 @@ export default function FinanceEntries() {
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="form-label">Transaction Date *</label>
+                  <input
+                    type="date"
+                    className="form-input text-xs py-1.5"
+                    value={form.date || new Date().toISOString().split('T')[0]}
+                    onChange={e => f('date', e.target.value)}
+                  />
+                </div>
                 <div>
                   <label className="form-label">Category *</label>
-                  <select className="form-select" value={form.category} onChange={e => {
+                  <select className="form-select text-xs py-1.5" value={form.category} onChange={e => {
                     const cat = e.target.value;
                     setForm(s => ({
                       ...s,
@@ -438,7 +447,7 @@ export default function FinanceEntries() {
                 </div>
                 <div>
                   <label className="form-label">Amount (LKR) *</label>
-                  <input type="number" className="form-input" value={form.amount || ''} onChange={e=>f('amount',Number(e.target.value||0))} placeholder="0.00"/>
+                  <input type="number" className="form-input font-bold text-xs py-1.5" value={form.amount || ''} onChange={e=>f('amount',Number(e.target.value||0))} placeholder="0.00"/>
                 </div>
               </div>
               {form.category==='Other' && (
