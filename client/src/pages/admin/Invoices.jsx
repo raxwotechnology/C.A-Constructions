@@ -352,6 +352,9 @@ export default function AdminInvoices() {
       const q = quotations.find(x => x._id === qId)
       if (q) {
         setValue('client', q.client?._id || q.client)
+        if (q.client?.name) {
+          setClientSelectLabel(`${q.client.name}${q.client.email ? ` (${q.client.email})` : ''}`)
+        }
         setValue('taxRate', q.taxRate || 0)
         setValue('globalDiscountType', q.globalDiscountType || 'fixed')
         setValue('globalDiscountValue', q.globalDiscountValue || 0)
@@ -366,8 +369,8 @@ export default function AdminInvoices() {
         if (q.bankAccount) setValue('bankAccount', q.bankAccount._id || q.bankAccount)
         setValue('bankBranch', q.bankBranch || '')
         
-        const lineItems = q.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount }))
-        setValue('items', lineItems)
+        const lineItems = (q.items || []).map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount || 0 }))
+        setValue('items', lineItems.length ? lineItems : [{ description: '', quantity: 1, unitPrice: 0, discount: 0 }])
         setValue('currency', q.currency || 'LKR')
         setValue('exchangeRateToLKR', suggestedExchangeToLKR(q.currency || 'LKR'))
         if (q.branch) setValue('branch', q.branch?._id || q.branch)
@@ -1138,10 +1141,17 @@ export default function AdminInvoices() {
                 </div>
 
                 <div className={`space-y-4 ${editingPaid ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">3. Line Items</h4>
-                    <button type="button" onClick={() => append({ description: '', quantity: 1, unitPrice: 0, discount: 0 })}
-                      className="btn-outline btn-sm" disabled={editingPaid}><FiPlus size={12}/> Add Item</button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">3. Line Items</h4>
+                      <p className="text-[11px] text-slate-500">BOQ items and additional / variation items</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button type="button" onClick={() => append({ description: '', quantity: 1, unitPrice: 0, discount: 0 })}
+                        className="btn-outline btn-sm" disabled={editingPaid}><FiPlus size={12}/> Add Item</button>
+                      <button type="button" onClick={() => append({ description: 'Additional Work / Variation Item: ', quantity: 1, unitPrice: 0, discount: 0 })}
+                        className="btn-outline btn-sm text-primary border-primary/40 bg-primary/5 hover:bg-primary/10" disabled={editingPaid}><FiPlus size={12}/> Add Extra Item</button>
+                    </div>
                   </div>
                   <div className="space-y-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
                     {fields.map((field, idx) => (
@@ -1517,7 +1527,14 @@ export default function AdminInvoices() {
 
       <AnimatePresence>
         {viewInvoiceId && (
-          <InvoiceDetail invoiceId={viewInvoiceId} onClose={() => setViewInvoiceId(null)} />
+          <InvoiceDetail
+            invoiceId={viewInvoiceId}
+            onClose={() => setViewInvoiceId(null)}
+            onEdit={(inv) => {
+              setViewInvoiceId(null)
+              openEdit(inv)
+            }}
+          />
         )}
       </AnimatePresence>
 

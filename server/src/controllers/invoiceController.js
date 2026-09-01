@@ -182,15 +182,18 @@ exports.createInvoice = async (req, res, next) => {
     if (quotationRef && mongoose.Types.ObjectId.isValid(quotationRef)) {
       quotationDoc = await Quotation.findById(quotationRef);
       if (quotationDoc) {
-        sourceItems = quotationDoc.items;
         quotationData = { quotationRef: quotationDoc._id };
+        // If no items were explicitly provided in req.body, use quotation's BOQ items
+        if (!sourceItems || !sourceItems.length) {
+          sourceItems = quotationDoc.items;
+        }
       }
     }
 
-    const effectiveTaxRate = quotationDoc ? (quotationDoc.taxRate || 0) : Number(taxRate || 0);
-    const globalDiscountVal = quotationDoc ? (quotationDoc.globalDiscountValue || 0) : Number(req.body.globalDiscountValue || 0);
-    const globalDiscountType = quotationDoc ? (quotationDoc.globalDiscountType || 'fixed') : (req.body.globalDiscountType || 'fixed');
-    const transportCharge = Number(req.body.transportCharge) || (quotationDoc ? Number(quotationDoc.transportCharge || 0) : 0);
+    const effectiveTaxRate = req.body.taxRate !== undefined ? Number(req.body.taxRate || 0) : (quotationDoc ? (quotationDoc.taxRate || 0) : 0);
+    const globalDiscountVal = req.body.globalDiscountValue !== undefined ? Number(req.body.globalDiscountValue || 0) : (quotationDoc ? (quotationDoc.globalDiscountValue || 0) : 0);
+    const globalDiscountType = req.body.globalDiscountType !== undefined ? req.body.globalDiscountType : (quotationDoc ? (quotationDoc.globalDiscountType || 'fixed') : 'fixed');
+    const transportCharge = req.body.transportCharge !== undefined ? Number(req.body.transportCharge || 0) : (quotationDoc ? Number(quotationDoc.transportCharge || 0) : 0);
     const { items: calcedItems, subtotal, discountTotal, tax, total: baseTotal } = calcItems(sourceItems, effectiveTaxRate, globalDiscountVal, globalDiscountType);
     const total = parseFloat((baseTotal + transportCharge).toFixed(2));
 

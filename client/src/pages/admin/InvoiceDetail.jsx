@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
-import { FiX, FiPrinter, FiDollarSign, FiCreditCard, FiCalendar, FiClock, FiCheckCircle, FiAlertTriangle, FiFileText, FiDownload } from 'react-icons/fi'
+import { FiX, FiPrinter, FiDollarSign, FiCreditCard, FiCalendar, FiClock, FiCheckCircle, FiAlertTriangle, FiFileText, FiDownload, FiEdit2, FiPlus } from 'react-icons/fi'
 import { printHtmlContent } from '../../lib/documentPrint'
 import { layoutPrintExtraCss, loadQuotationLayout } from '../../lib/quotationPrintLayout'
 import InvoicePrintBody from '../../components/documents/InvoicePrintBody'
@@ -14,7 +14,7 @@ import PaymentReceiptModal from '../../components/documents/PaymentReceiptModal'
 
 const STATUS_COLORS = { draft: 'badge-gray', unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 
-export default function InvoiceDetail({ invoiceId, onClose }) {
+export default function InvoiceDetail({ invoiceId, onClose, onEdit }) {
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('Overview')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -184,6 +184,15 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
             </div>
             {/* Desktop-only action buttons — hidden on mobile (shown in sticky footer instead) */}
             <div className="hidden sm:flex items-center gap-2 flex-wrap shrink-0">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(inv)}
+                  className="btn-outline border-blue-300/60 text-blue-100 hover:bg-blue-500/20 btn-sm shrink-0 whitespace-nowrap flex items-center gap-1.5"
+                >
+                  <FiEdit2 size={13}/> Edit / Add Items
+                </button>
+              )}
               {inv?.status !== 'cancelled' && (
                 <button
                   type="button"
@@ -266,6 +275,21 @@ export default function InvoiceDetail({ invoiceId, onClose }) {
 
           {activeTab === 'Line Items' && (
             <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+              {onEdit && (
+                <div className="p-3.5 bg-blue-50/50 border-b flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-700">BOQ Items & Additional Points</span>
+                    <p className="text-[11px] text-slate-500">{inv?.items?.length || 0} line item(s) in this invoice</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(inv)}
+                    className="btn-primary btn-sm flex items-center gap-1 text-xs"
+                  >
+                    <FiPlus size={13}/> Add / Edit Items
+                  </button>
+                </div>
+              )}
               <div className="overflow-x-auto hide-scrollbar">
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-slate-50 border-b text-slate-600">

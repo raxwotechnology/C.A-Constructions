@@ -260,6 +260,11 @@ export default function AdminFinancial() {
                       <p className="finance-tx-title text-sm sm:text-[15px]">{e.title}</p>
                       <p className="text-[11px] font-medium text-slate-500">{e.category}</p>
                       <div className="finance-tx-chips mt-1">
+                        {e.projectName || e.project ? (
+                          <span className="finance-tx-chip max-w-[220px] bg-amber-50 text-amber-900 border border-amber-200 font-semibold" title={e.projectName || e.project?.name || e.project?.title}>
+                            <span className="truncate">Site · {e.projectName || e.project?.name || e.project?.title}</span>
+                          </span>
+                        ) : null}
                         {e.bankName ? (
                           <span className="finance-tx-chip max-w-[200px]">
                             <FiLayers size={10} className="shrink-0 opacity-70" aria-hidden />
@@ -311,7 +316,7 @@ export default function AdminFinancial() {
                 <th>Category</th>
                 <th>Title</th>
                 <th>Payment</th>
-                <th>Bank / Branch</th>
+                <th>Site / Bank / Branch</th>
                 <th className="text-right">Amount (LKR)</th>
                 <th>Note</th>
               </tr>
@@ -330,8 +335,13 @@ export default function AdminFinancial() {
                     </span>
                   </td>
                   <td className="text-xs text-slate-600 align-middle">
-                    {e.bankAccount?.bankName || e.branch?.name ? (
+                    {e.project || e.bankAccount?.bankName || e.branch?.name ? (
                       <div className="space-y-1">
+                        {e.project ? (
+                          <div className="inline-flex items-center text-[10px] bg-amber-50 text-amber-900 border border-amber-200 font-bold px-1.5 py-0.5 rounded max-w-[180px] truncate" title={e.project.name || e.project.title}>
+                            Site · {e.project.name || e.project.title}
+                          </div>
+                        ) : null}
                         {e.bankAccount?.bankName ? (
                           <div className="flex items-center gap-1 min-w-0">
                             <FiLayers size={12} className="text-slate-400 shrink-0" aria-hidden />

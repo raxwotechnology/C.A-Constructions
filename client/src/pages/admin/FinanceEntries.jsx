@@ -556,8 +556,14 @@ export default function FinanceEntries() {
                 <div className="col-span-2"><p className="text-slate-400 text-xs mb-1">Title</p><p className="font-medium text-slate-800">{viewingEntry.title}</p></div>
               </div>
               
-              {(viewingEntry.bankAccount || viewingEntry.branch) && (
+              {(viewingEntry.bankAccount || viewingEntry.branch || viewingEntry.project) && (
                 <div className="bg-slate-50 p-3 rounded-xl border space-y-2">
+                  {viewingEntry.project && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-slate-500 shrink-0">Project / Site</span>
+                      <span className="font-semibold text-amber-900 text-right">{viewingEntry.project.name || viewingEntry.project.title || viewingEntry.project}</span>
+                    </div>
+                  )}
                   {viewingEntry.bankAccount && (
                     <div className="flex justify-between gap-2">
                       <span className="text-slate-500 shrink-0">Bank</span>

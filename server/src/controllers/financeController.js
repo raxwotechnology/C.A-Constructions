@@ -68,6 +68,7 @@ function financeEntrySnapshot(e) {
     paymentMethod: e.paymentMethod,
     branch: e.branch ? String(e.branch) : null,
     bankAccount: e.bankAccount ? String(e.bankAccount) : null,
+    project: e.project ? String(e.project?._id || e.project) : null,
   };
 }
 
@@ -146,7 +147,7 @@ function normalizePettyCashEntries(pettyCash = [], { type, paymentMethod } = {})
 
 exports.addEntry = async (req, res, next) => {
   try {
-    const { type, category, title, amount, date, note, branch, paymentMethod, transactionType, masterCategory, payeeOrPayer, transactionNo } = req.body;
+    const { type, category, title, amount, date, note, branch, paymentMethod, transactionType, masterCategory, payeeOrPayer, transactionNo, project } = req.body;
     const entryType = type || (transactionType ? String(transactionType).toLowerCase() : 'expense');
     const entryCategory = category || masterCategory || 'General';
     const entryTitle = title || payeeOrPayer || note || 'Finance Entry';
@@ -160,6 +161,7 @@ exports.addEntry = async (req, res, next) => {
       note: note || '',
       paymentMethod: paymentMethod || 'Cash',
       bankAccount: req.body.bankAccount || null,
+      project: project || req.body.project || null,
       createdBy: req.user._id,
       branch: branch || null,
       transactionNo: transactionNo || `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -220,16 +222,17 @@ exports.updateEntry = async (req, res, next) => {
       });
     }
 
-    const { type, category, title, amount, date, note, branch, paymentMethod, bankAccount } = req.body;
+    const { type, category, title, amount, date, note, branch, paymentMethod, bankAccount, project } = req.body;
     entry.type = type || entry.type;
     entry.category = category || entry.category;
     entry.title = title || entry.title;
     entry.amount = amount !== undefined ? Number(amount) : entry.amount;
     if (date) entry.date = new Date(date);
     entry.note = note !== undefined ? note : entry.note;
-    entry.branch = branch || null;
+    entry.branch = branch !== undefined ? (branch || null) : entry.branch;
     entry.paymentMethod = paymentMethod || entry.paymentMethod;
-    entry.bankAccount = bankAccount || null;
+    entry.bankAccount = bankAccount !== undefined ? (bankAccount || null) : entry.bankAccount;
+    if (project !== undefined) entry.project = project || null;
 
     if (req.file) {
       entry.billFile = req.file.filename.startsWith('data:') ? req.file.filename : `/uploads/bills/${req.file.filename}`;
@@ -527,6 +530,8 @@ exports.getOverview = async (req, res, next) => {
       paymentMethod: e.paymentMethod || '—',
       bankName: e.bankAccount?.bankName || '',
       branchName: e.branch?.name || '',
+      projectName: e.project?.name || e.project?.title || '',
+      project: e.project || null,
     }));
     normalizePettyCashEntries(pettyCashEntries).slice(0, 6).forEach((p) => {
       recentFinance.push({
@@ -692,7 +697,7 @@ exports.exportData = async (req, res, next) => {
           type: entryType,
           ...(category ? { category } : {}),
           ...(dateFilter ? { date: dateFilter } : {}),
-        }).sort({ date: -1 }),
+        }).populate('project', 'name title').sort({ date: -1 }),
         PettyCash.find(pcQ).sort({ date: -1 }),
         entryType === 'income' ? resolveSubscriptionIncome(branch, dateFilter, paymentMethod) : Promise.resolve({ entries: [] }),
         entryType === 'income' ? resolveInvoicePaymentIncome(branch, dateFilter, paymentMethod) : Promise.resolve({ entries: [] }),
@@ -704,7 +709,9 @@ exports.exportData = async (req, res, next) => {
       const financeRows = rawEntries
         .filter((e) => !(entryType === 'income' && (isSubscriptionIncomeEntry(e) || isInvoiceIncomeEntry(e))))
         .map((e) => ({
-          date: e.date, category: e.category, title: e.title, amount: e.amount,
+          date: e.date, category: e.category, title: e.title,
+          projectName: e.project?.name || e.project?.title || '—',
+          amount: e.amount,
           paymentMethod: e.paymentMethod || 'Cash', note: e.note || '',
         }));
       const pcRows = normalizePettyCashEntries(pettyCash, { type: entryType, paymentMethod });
@@ -719,9 +726,9 @@ exports.exportData = async (req, res, next) => {
         .filter((e) => !category || e.category === category)
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      headers = ['Date', 'Category', 'Title', 'Amount', 'Payment Method', 'Note'];
+      headers = ['Date', 'Category', 'Title', 'Project / Site', 'Amount', 'Payment Method', 'Note'];
       rows = merged.map((e) => [
-        new Date(e.date).toLocaleDateString(), e.category, e.title, e.amount, e.paymentMethod || 'Cash', e.note || '',
+        new Date(e.date).toLocaleDateString(), e.category, e.title, e.projectName || e.project?.name || e.project?.title || '—', e.amount, e.paymentMethod || 'Cash', e.note || '',
       ]);
     } else if (lowerDataset === 'attendance_reports') {
       const records = await Attendance.find({
