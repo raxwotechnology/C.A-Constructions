@@ -307,6 +307,7 @@ export default function App() {
         <Route path="agreements" element={<Agreements />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
         <Route path="advances" element={<AdminAdvances />} />
+        <Route path="daily-wages" element={<DailyWageSubContractView />} />
         <Route path="loans" element={<AdminLoans />} />
         <Route path="work-logs" element={<WorkLogs />} />
         <Route path="tasks" element={<WorkLogs />} />

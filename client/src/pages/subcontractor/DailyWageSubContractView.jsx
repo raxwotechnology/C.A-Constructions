@@ -17,6 +17,8 @@ import {
   Clock,
   Trash2,
   Edit,
+  X,
+  Save,
   Building,
   TrendingUp,
   AlertCircle,
@@ -83,6 +85,10 @@ export default function DailyWageSubContractView() {
 
   // Print Payout Slip Modal State
   const [printLog, setPrintLog] = useState(null)
+
+  // Edit Log Modal State
+  const [editLogModal, setEditLogModal] = useState(null)
+  const [showEditEmployeeSuggestions, setShowEditEmployeeSuggestions] = useState(false)
 
   // Fetch Branches for Branch-Wise Filtering
   const { data: branchesData } = useQuery({
@@ -508,6 +514,180 @@ export default function DailyWageSubContractView() {
       queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
     },
   })
+
+  const updateLogMutation = useMutation({
+    mutationFn: async ({ id, payload }) => {
+      const res = await api.put(`/daily-wages/${id}`, payload)
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Daily wage log updated successfully!')
+      setEditLogModal(null)
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to update work log.')
+    },
+  })
+
+  // Edit Modal Auto-fill & Calculations
+  const matchingEditEmployees = editLogModal?.workerName?.trim()
+    ? employeesList.filter((emp) => {
+        const s = editLogModal.workerName.toLowerCase()
+        return (
+          emp.fullName?.toLowerCase().includes(s) ||
+          emp.employeeId?.toLowerCase().includes(s) ||
+          emp.designation?.toLowerCase().includes(s) ||
+          emp.nic?.toLowerCase().includes(s)
+        )
+      })
+    : employeesList.slice(0, 30)
+
+  const handleSelectEditEmployee = (emp) => {
+    const activeAdv = advancesList.find(
+      (a) =>
+        String(a.employee?._id || a.employee || '') === String(emp._id || emp.id) ||
+        a.employee?.fullName === emp.fullName
+    )
+    setEditLogModal((prev) => ({
+      ...prev,
+      workerName: emp.fullName || emp.name,
+      employee: emp._id || emp.id,
+      otRate: emp.otRatePerHour > 0 ? emp.otRatePerHour : prev.otRate || 500,
+      linkedAdvance: activeAdv ? activeAdv._id : prev.linkedAdvance,
+      advanceDeductions: activeAdv
+        ? Math.min(activeAdv.outstandingBalance, 1000)
+        : prev.advanceDeductions,
+    }))
+    setShowEditEmployeeSuggestions(false)
+  }
+
+  const editComputedOtPay = editLogModal ? Number(editLogModal.otHours || 0) * Number(editLogModal.otRate || 0) : 0
+  const editComputedTotalAllowances = editLogModal
+    ? Number(editLogModal.foodRefreshments || 0) +
+      Number(editLogModal.travelTransport || 0) +
+      Number(editLogModal.nightOutstation || 0)
+    : 0
+  const editComputedGrossDailyPay = editLogModal
+    ? Number(editLogModal.daysWorked || 0) * Number(editLogModal.skillRate || 0) +
+      editComputedOtPay +
+      editComputedTotalAllowances
+    : 0
+  const editComputedNetDailyPay = editLogModal
+    ? Math.max(0, editComputedGrossDailyPay - Number(editLogModal.advanceDeductions || 0))
+    : 0
+
+  const editComputedSubTotalPay = editLogModal
+    ? editLogModal.pricingBasis === 'Lump-sum'
+      ? Number(editLogModal.lumpSumAmount || 0)
+      : Number(editLogModal.measuredSqft || 0) * Number(editLogModal.ratePerSqft || 0)
+    : 0
+  const editComputedSubNetPay = editLogModal
+    ? Math.max(0, editComputedSubTotalPay - Number(editLogModal.advanceDeductions || 0))
+    : 0
+
+  const handleOpenEditModal = (log) => {
+    const projId = log.project?._id || log.project?.id || log.project || ''
+    const empId = log.employee?._id || log.employee?.id || log.employee || ''
+    const advId = log.linkedAdvance?._id || log.linkedAdvance?.id || log.linkedAdvance || ''
+
+    setEditLogModal({
+      _id: log._id,
+      logCode: log.logCode,
+      workerName: log.workerName || '',
+      employee: empId,
+      project: projId,
+      date: log.date ? new Date(log.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      workType: log.workType || 'Daily Wage',
+      status: log.status || 'Pending',
+      skillLevel: log.skillLevel || 'Skilled Labour / Baas',
+      skillRate: log.skillRate ?? 5000,
+      daysWorked: log.daysWorked ?? 1.0,
+      otHours: log.otHours ?? 0,
+      otRate: log.otRate ?? 500,
+      foodRefreshments: log.allowances?.foodRefreshments ?? 0,
+      travelTransport: log.allowances?.travelTransport ?? 0,
+      nightOutstation: log.allowances?.nightOutstation ?? 0,
+      mealExpenseAutoLogged: Boolean(log.mealExpenseAutoLogged),
+      pricingBasis:
+        log.subContractDetails?.pricingBasis ||
+        (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft ? 'Lump-sum' : 'SQFT'),
+      workCategory: log.subContractDetails?.workCategory || 'Roofing',
+      measuredSqft: log.subContractDetails?.measuredSqft ?? 0,
+      measuredCubicFeet: log.subContractDetails?.measuredCubicFeet ?? 0,
+      ratePerSqft: log.subContractDetails?.ratePerSqft ?? 0,
+      lumpSumAmount: log.subContractDetails?.lumpSumAmount ?? 0,
+      advanceDeductions: log.advanceDeductions ?? 0,
+      linkedAdvance: advId,
+      notes: log.notes || '',
+    })
+  }
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault()
+    if (!editLogModal) return
+    if (!editLogModal.workerName || !editLogModal.project) {
+      toast.error('Please specify Worker Name and Project Site.')
+      return
+    }
+
+    const isDaily = editLogModal.workType === 'Daily Wage'
+    let payload = {
+      workerName: editLogModal.workerName,
+      employee: editLogModal.employee || null,
+      project: editLogModal.project,
+      date: editLogModal.date,
+      workType: editLogModal.workType,
+      status: editLogModal.status,
+      advanceDeductions: Number(editLogModal.advanceDeductions) || 0,
+      linkedAdvance: editLogModal.linkedAdvance || null,
+      notes: editLogModal.notes || '',
+    }
+
+    if (isDaily) {
+      payload = {
+        ...payload,
+        skillLevel: editLogModal.skillLevel,
+        skillRate: Number(editLogModal.skillRate) || 0,
+        daysWorked: Number(editLogModal.daysWorked) || 0,
+        otHours: Number(editLogModal.otHours) || 0,
+        otRate: Number(editLogModal.otRate) || 0,
+        allowances: {
+          foodRefreshments: Number(editLogModal.foodRefreshments) || 0,
+          travelTransport: Number(editLogModal.travelTransport) || 0,
+          nightOutstation: Number(editLogModal.nightOutstation) || 0,
+        },
+        mealExpenseAutoLogged: Boolean(editLogModal.mealExpenseAutoLogged),
+      }
+    } else {
+      const computedTotal =
+        editLogModal.pricingBasis === 'Lump-sum'
+          ? Number(editLogModal.lumpSumAmount || 0)
+          : Number(editLogModal.measuredSqft || 0) * Number(editLogModal.ratePerSqft || 0)
+
+      payload = {
+        ...payload,
+        subContractDetails: {
+          pricingBasis: editLogModal.pricingBasis,
+          workCategory: editLogModal.workCategory,
+          measuredSqft: editLogModal.pricingBasis === 'Lump-sum' ? 0 : Number(editLogModal.measuredSqft) || 0,
+          measuredCubicFeet: Number(editLogModal.measuredCubicFeet) || 0,
+          ratePerSqft: editLogModal.pricingBasis === 'Lump-sum' ? 0 : Number(editLogModal.ratePerSqft) || 0,
+          lumpSumAmount: editLogModal.pricingBasis === 'Lump-sum' ? Number(editLogModal.lumpSumAmount) || 0 : 0,
+          totalMeasuredPay: computedTotal,
+        },
+      }
+    }
+
+    updateLogMutation.mutate({ id: editLogModal._id, payload })
+  }
 
   // Submit Daily Wage Form
   const handleDailyWageSubmit = (e) => {
@@ -1954,6 +2134,13 @@ export default function DailyWageSubContractView() {
                               </button>
                             )}
                             <button
+                              onClick={() => handleOpenEditModal(log)}
+                              title="Edit Log (සංස්කරණය)"
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => handlePrintPayoutSlip(log)}
                               title="Print Letterhead Payout Slip"
                               className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
@@ -2029,6 +2216,522 @@ export default function DailyWageSubContractView() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------- */}
+      {/* EDIT WORK LOG MODAL */}
+      {/* --------------------------------------------------------- */}
+      {editLogModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 my-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700 font-bold">
+                  <Edit className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-900">Edit Work Log (වැටුප් සටහන සංස්කරණය)</h3>
+                    <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 font-bold">
+                      {editLogModal.logCode}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Modify daily wage rates, days, measurements, advances or work category.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditLogModal(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Work Type & Status Selector */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Work Type (කාර්යය වර්ගය)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditLogModal({ ...editLogModal, workType: 'Daily Wage' })}
+                      className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                        editLogModal.workType === 'Daily Wage'
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Daily Wage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditLogModal({ ...editLogModal, workType: 'Sub-Contract' })}
+                      className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                        editLogModal.workType === 'Sub-Contract'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Sub-Contract
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Payment Status (ගෙවීම් තත්ත්වය)
+                  </label>
+                  <select
+                    value={editLogModal.status}
+                    onChange={(e) => setEditLogModal({ ...editLogModal, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold bg-white focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="Pending">Pending (නොගෙවූ)</option>
+                    <option value="Approved">Approved (අනුමත කළ)</option>
+                    <option value="Paid">Paid (ගෙවා අවසන්)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* General Details (Worker, Project, Date) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Worker Name with Auto-Suggest */}
+                <div className="relative">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Worker / Subcontractor *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editLogModal.workerName}
+                    onChange={(e) => {
+                      setEditLogModal({ ...editLogModal, workerName: e.target.value })
+                      setShowEditEmployeeSuggestions(true)
+                    }}
+                    onFocus={() => setShowEditEmployeeSuggestions(true)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-amber-500"
+                    placeholder="Worker Name"
+                  />
+
+                  {showEditEmployeeSuggestions && matchingEditEmployees.length > 0 && (
+                    <div className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 py-1 text-xs">
+                      {matchingEditEmployees.map((emp) => (
+                        <div
+                          key={emp._id || emp.id}
+                          onClick={() => handleSelectEditEmployee(emp)}
+                          className="px-3 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between border-b border-slate-100 last:border-0"
+                        >
+                          <div>
+                            <span className="font-bold text-slate-900">{emp.fullName}</span>
+                            <span className="text-slate-500 ml-1.5 font-mono text-[11px]">({emp.employeeId || 'Staff'})</span>
+                          </div>
+                          <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full font-bold">
+                            {emp.designation || 'Worker'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Project Site */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Project Site *
+                  </label>
+                  <select
+                    required
+                    value={editLogModal.project}
+                    onChange={(e) => setEditLogModal({ ...editLogModal, project: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="">-- Select Project Site --</option>
+                    {projectsList.map((p) => (
+                      <option key={p._id || p.id} value={p._id || p.id}>
+                        {p.name || p.title || 'Site'} ({p.code || 'PRJ'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Log Date */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Log Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editLogModal.date}
+                    onChange={(e) => setEditLogModal({ ...editLogModal, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* DAILY WAGE SPECIFIC INPUTS */}
+              {editLogModal.workType === 'Daily Wage' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Skill Category
+                      </label>
+                      <select
+                        value={editLogModal.skillLevel}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          let newRate = editLogModal.skillRate
+                          if (val === 'Skilled Labour / Baas') newRate = 5000
+                          if (val === 'Unskilled Labour / Helper') newRate = 3500
+                          setEditLogModal({ ...editLogModal, skillLevel: val, skillRate: newRate })
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                      >
+                        <option value="Skilled Labour / Baas">Skilled Labour / Baas (Rs. 5000)</option>
+                        <option value="Unskilled Labour / Helper">Unskilled Labour / Helper (Rs. 3500)</option>
+                        <option value="Custom">Custom Rate</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Skill Rate (Rs./Day)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editLogModal.skillRate}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, skillRate: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Days Worked
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        value={editLogModal.daysWorked}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, daysWorked: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Overtime */}
+                  <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200/80">
+                    <h4 className="text-xs font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-2.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" /> Overtime (OT)
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">OT Hours</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.otHours}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, otHours: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">OT Rate / Hour (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.otRate}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, otRate: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">OT Pay</label>
+                        <div className="px-3 py-1.5 bg-amber-100/70 rounded-lg text-xs font-bold text-amber-900 border border-amber-300">
+                          Rs. {editComputedOtPay.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Daily Allowances */}
+                  <div className="bg-cyan-50/50 p-3.5 rounded-xl border border-cyan-100">
+                    <h4 className="text-xs font-bold text-cyan-900 uppercase flex items-center gap-1.5 mb-2.5">
+                      <Utensils className="w-3.5 h-3.5 text-cyan-600" /> Daily Allowances &amp; Meals
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Food &amp; Refreshments (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.foodRefreshments}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, foodRefreshments: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Travel &amp; Transport (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.travelTransport}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, travelTransport: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Night / Outstation (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.nightOutstation}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, nightOutstation: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="editMealExpenseAuto"
+                        checked={editLogModal.mealExpenseAutoLogged}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, mealExpenseAutoLogged: e.target.checked })}
+                        className="w-4 h-4 text-cyan-600 rounded border-slate-300 focus:ring-cyan-500"
+                      />
+                      <label htmlFor="editMealExpenseAuto" className="text-xs text-slate-700 font-semibold cursor-pointer">
+                        Auto-log Food &amp; Refreshment Allowance to Site Operating Expenses
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-CONTRACT SPECIFIC INPUTS */}
+              {editLogModal.workType === 'Sub-Contract' && (
+                <div className="space-y-4">
+                  {/* Pricing Model */}
+                  <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200">
+                    <label className="block text-xs font-bold text-emerald-950 uppercase mb-2">
+                      Pricing &amp; Measurement Basis
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditLogModal({ ...editLogModal, pricingBasis: 'SQFT' })}
+                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                          editLogModal.pricingBasis === 'SQFT'
+                            ? 'bg-white border-emerald-500 ring-2 ring-emerald-400/30'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-base">📐</span>
+                        <div>
+                          <div className="text-xs font-black text-slate-900">Per SQFT Basis</div>
+                          <div className="text-[10px] text-slate-500">Area × Rate/Sqft</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEditLogModal({ ...editLogModal, pricingBasis: 'Lump-sum' })}
+                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                          editLogModal.pricingBasis === 'Lump-sum'
+                            ? 'bg-white border-emerald-500 ring-2 ring-emerald-400/30'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-base">💼</span>
+                        <div>
+                          <div className="text-xs font-black text-slate-900">Fixed Lump-Sum</div>
+                          <div className="text-[10px] text-slate-500">Agreed Fixed Total</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Sub-Contract Category
+                      </label>
+                      <select
+                        value={editLogModal.workCategory}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, workCategory: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white"
+                      >
+                        <option value="Roofing">Roofing (වහල වැඩ)</option>
+                        <option value="Floor Tiling">Floor Tiling (ටයිල් වැඩ)</option>
+                        <option value="Masonry & Plastering">Masonry &amp; Plastering (බදාම සහ පෙදරේරු)</option>
+                        <option value="Painting">Painting (පේන්ට් වැඩ)</option>
+                        <option value="Plumbing">Plumbing (නල කාර්මික)</option>
+                        <option value="Electrical">Electrical (විදුලි කාර්මික)</option>
+                        <option value="Ceiling">Ceiling (සිවිලිං)</option>
+                        <option value="Carpentry">Carpentry (වඩු වැඩ)</option>
+                        <option value="Iron Work & Welding">Iron Work &amp; Welding (යකඩ වැඩ)</option>
+                        <option value="Demolition">Demolition (කඩා දැමීම)</option>
+                        <option value="Excavation & Earthwork">Excavation &amp; Earthwork (පස් වැඩ)</option>
+                        <option value="Other Sub-Contract">Other Sub-Contract (වෙනත්)</option>
+                      </select>
+                    </div>
+
+                    {editLogModal.pricingBasis === 'Lump-sum' ? (
+                      <div>
+                        <label className="block text-xs font-black text-emerald-900 uppercase mb-1">
+                          Fixed Agreed Lump-Sum (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.lumpSumAmount}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, lumpSumAmount: Number(e.target.value) })}
+                          className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-sm font-black text-emerald-800 bg-white"
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                            Measured Sqft
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editLogModal.measuredSqft}
+                            onChange={(e) => setEditLogModal({ ...editLogModal, measuredSqft: Number(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                            Rate/Sqft (Rs.)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editLogModal.ratePerSqft}
+                            onChange={(e) => setEditLogModal({ ...editLogModal, ratePerSqft: Number(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Advance Deductions */}
+              <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 space-y-3">
+                <h4 className="text-xs font-bold text-indigo-900 uppercase flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-indigo-600" /> Advance Deductions (අත්තිකාරම් අඩු කිරීම්)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Link Active Advance</label>
+                    <select
+                      value={editLogModal.linkedAdvance}
+                      onChange={(e) => setEditLogModal({ ...editLogModal, linkedAdvance: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs"
+                    >
+                      <option value="">-- No Linked Advance --</option>
+                      {advancesList.map((a) => (
+                        <option key={a._id} value={a._id}>
+                          {a.employee?.fullName || 'Worker'} (Outstanding: Rs. {a.outstandingBalance})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Advance Deduct Amount (Rs.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editLogModal.advanceDeductions}
+                      onChange={(e) => setEditLogModal({ ...editLogModal, advanceDeductions: Number(e.target.value) })}
+                      className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-bold text-rose-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Notes / Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Living room wall plastering completed"
+                  value={editLogModal.notes}
+                  onChange={(e) => setEditLogModal({ ...editLogModal, notes: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm"
+                />
+              </div>
+
+              {/* Live Summary Calculation Banner */}
+              <div className="bg-slate-900 text-white rounded-xl p-4 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-xs space-y-1 text-slate-300">
+                  <div>
+                    Gross Amount:{' '}
+                    <span className="font-bold text-white">
+                      Rs.{' '}
+                      {(editLogModal.workType === 'Daily Wage'
+                        ? editComputedGrossDailyPay
+                        : editComputedSubTotalPay
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    Advance Deducted:{' '}
+                    <span className="font-bold text-rose-400">
+                      - Rs. {Number(editLogModal.advanceDeductions || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Net Payable Amount
+                  </div>
+                  <div className="text-xl font-black text-emerald-400">
+                    Rs.{' '}
+                    {(editLogModal.workType === 'Daily Wage'
+                      ? editComputedNetDailyPay
+                      : editComputedSubNetPay
+                    ).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditLogModal(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateLogMutation.isPending}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {updateLogMutation.isPending ? 'Saving Changes...' : 'Save Changes / යාවත්කාලීන කරන්න'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
