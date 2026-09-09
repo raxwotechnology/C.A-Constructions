@@ -900,6 +900,182 @@ export default function DailyWageSubContractView() {
     toast.success(`Exporting payout voucher document for ${logItem.workerName}...`)
   }
 
+  // Export Filtered Daily Wages to Excel (.xlsx)
+  const handleExportDailyWagesExcel = async () => {
+    try {
+      const XLSX = await import('xlsx')
+      const targetLogs = filteredLogsByWorker || logs || []
+      if (targetLogs.length === 0) {
+        toast.error('No daily wage logs available to export.')
+        return
+      }
+      const exportRows = targetLogs.map((log) => {
+        const isDaily = log.workType === 'Daily Wage'
+        const dateStr = log.date ? new Date(log.date).toLocaleDateString() : ''
+        const gross = isDaily
+          ? ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0)
+          : (log.subContractDetails?.totalMeasuredPay || 0)
+        const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        return {
+          'Log Code': log.logCode || '',
+          'Date': dateStr,
+          'Worker / Baas Name': log.workerName || '',
+          'Project / Site': log.project?.name || log.project?.code || '',
+          'Work Type': log.workType || 'Daily Wage',
+          'Skill Level / Category': isDaily ? (log.skillLevel || 'Skilled Labour') : (log.subContractDetails?.workCategory || 'Sub-Contract'),
+          'Days / Output': isDaily ? `${log.daysWorked || 1} day(s)` : `${log.subContractDetails?.measuredSqft || 0} Sqft`,
+          'Daily Rate / Sqft Rate (LKR)': isDaily ? (log.skillRate || 0) : (log.subContractDetails?.ratePerSqft || 0),
+          'Overtime Pay (LKR)': log.otPay || 0,
+          'Allowances (LKR)': log.totalAllowances || 0,
+          'Gross Pay (LKR)': gross,
+          'Advance Deductions (LKR)': log.advanceDeductions || 0,
+          'Net Payable Amount (LKR)': net,
+          'Payment Status': log.status || 'Pending',
+          'Notes / Remarks': log.notes || '',
+        }
+      })
+      const ws = XLSX.utils.json_to_sheet(exportRows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Daily_Wages_Report')
+      XLSX.writeFile(wb, `Daily_Wages_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success(`Exported ${exportRows.length} daily wage logs to Excel!`)
+    } catch (err) {
+      toast.error('Failed to export daily wages to Excel.')
+    }
+  }
+
+  // Export Filtered Daily Wages to Formatted PDF Document
+  const handleExportDailyWagesPdf = async () => {
+    try {
+      const targetLogs = filteredLogsByWorker || logs || []
+      if (targetLogs.length === 0) {
+        toast.error('No daily wage logs available to export.')
+        return
+      }
+
+      const totalGross = targetLogs.reduce((acc, log) => {
+        const isDaily = log.workType === 'Daily Wage'
+        const gross = isDaily
+          ? ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0)
+          : (log.subContractDetails?.totalMeasuredPay || 0)
+        return acc + gross
+      }, 0)
+
+      const totalAdvances = targetLogs.reduce((acc, log) => acc + (log.advanceDeductions || 0), 0)
+      const totalNetPay = targetLogs.reduce((acc, log) => {
+        const net = log.workType === 'Daily Wage' ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        return acc + net
+      }, 0)
+
+      const title = selectedWorkerFilter
+        ? `Worker Wage Summary - ${selectedWorkerFilter}`
+        : 'Daily Wage & Sub-Contract Master Statement'
+
+      const rowsHtml = targetLogs.map((log) => {
+        const isDaily = log.workType === 'Daily Wage'
+        const dateStr = log.date ? new Date(log.date).toLocaleDateString('en-GB') : ''
+        const gross = isDaily
+          ? ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0)
+          : (log.subContractDetails?.totalMeasuredPay || 0)
+        const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        const statusColor = log.status === 'Paid' ? '#059669' : '#d97706'
+
+        return `
+          <tr>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;font-size:8.5pt">${log.logCode || ''}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8.5pt">${dateStr}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;font-size:8.5pt">${log.workerName || ''}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${log.project?.name || log.project?.code || '—'}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked || 1} day(s)` : `${log.subContractDetails?.measuredSqft || 0} sqft`}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-size:8.5pt">Rs. ${gross.toLocaleString()}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#dc2626;font-size:8.5pt">${log.advanceDeductions > 0 ? `- Rs. ${log.advanceDeductions.toLocaleString()}` : '—'}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-weight:700;color:#0f172a;font-size:8.5pt">Rs. ${net.toLocaleString()}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:center;font-weight:700;font-size:8pt;color:${statusColor}">${log.status || 'Pending'}</td>
+          </tr>
+        `
+      }).join('')
+
+      const bodyHtml = `
+        <div style="font-family:'Segoe UI',sans-serif;color:#0f172a;padding:10px 0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #ea580c;padding-bottom:12px;margin-bottom:14px">
+            <div>
+              <h1 style="margin:0;font-size:16pt;font-weight:900;color:#0f172a">R.A CREATIONS & HOME DESIGNS (PVT) LTD</h1>
+              <p style="margin:2px 0 0;font-size:9pt;color:#64748b">Daily Labour & Sub-Contractor Wage Statement</p>
+            </div>
+            <div style="text-align:right;font-size:8pt;color:#475569">
+              <div><strong>Generated:</strong> ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString()}</div>
+              <div><strong>Filter:</strong> ${selectedWorkerFilter ? selectedWorkerFilter : 'All Active Workers'}</div>
+              <div><strong>Total Records:</strong> ${targetLogs.length}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;margin-bottom:14px">
+            <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:#64748b;font-weight:700;text-transform:uppercase">Total Gross Pay</div>
+              <div style="font-size:12pt;font-weight:800;color:#0f172a">Rs. ${totalGross.toLocaleString()}</div>
+            </div>
+            <div style="flex:1;background:#fef2f2;border:1px solid #fee2e2;border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:#991b1b;font-weight:700;text-transform:uppercase">Total Advances Deducted</div>
+              <div style="font-size:12pt;font-weight:800;color:#dc2626">Rs. ${totalAdvances.toLocaleString()}</div>
+            </div>
+            <div style="flex:1;background:#f0fdf4;border:1px solid #dcfce7;border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:#166534;font-weight:700;text-transform:uppercase">Total Net Payable</div>
+              <div style="font-size:12pt;font-weight:900;color:#15803d">Rs. ${totalNetPay.toLocaleString()}</div>
+            </div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <thead>
+              <tr style="background:#0f172a;color:#ffffff;font-size:7.5pt;text-transform:uppercase;letter-spacing:0.04em">
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Log Code</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Date</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Worker / Baas</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Project</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Work / Area</th>
+                <th style="padding:6px;text-align:right;border:1px solid #0f172a">Gross</th>
+                <th style="padding:6px;text-align:right;border:1px solid #0f172a">Advances</th>
+                <th style="padding:6px;text-align:right;border:1px solid #0f172a">Net Pay</th>
+                <th style="padding:6px;text-align:center;border:1px solid #0f172a">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr style="background:#f1f5f9;font-weight:800;font-size:9pt">
+                <td colspan="5" style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right">GRAND TOTAL:</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right">Rs. ${totalGross.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#dc2626">- Rs. ${totalAdvances.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#15803d;font-size:10pt">Rs. ${totalNetPay.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1"></td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div style="display:flex;justify-content:space-between;margin-top:35px;padding-top:15px;border-top:1px solid #e2e8f0;font-size:8.5pt;color:#64748b">
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
+              <span>Prepared By</span>
+            </div>
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
+              <span>Site Supervisor</span>
+            </div>
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
+              <span>Approved By (Management)</span>
+            </div>
+          </div>
+        </div>
+      `
+
+      await printHtmlContent({ title, bodyHtml })
+      toast.success('PDF document ready for download / printing!')
+    } catch (err) {
+      toast.error('Failed to generate PDF report.')
+    }
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header Banner Component */}
@@ -2054,6 +2230,24 @@ export default function DailyWageSubContractView() {
                 <option value="Approved">Approved</option>
                 <option value="Paid">Paid</option>
               </select>
+
+              <button
+                type="button"
+                onClick={handleExportDailyWagesExcel}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                title="Export filtered daily wage work logs to Excel (.xlsx)"
+              >
+                <Download className="w-3.5 h-3.5" /> Export Excel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportDailyWagesPdf}
+                className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                title="Export filtered daily wage work logs as PDF Document"
+              >
+                <Printer className="w-3.5 h-3.5" /> Export PDF
+              </button>
             </div>
           </div>
 
