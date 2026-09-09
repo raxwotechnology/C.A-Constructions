@@ -195,6 +195,18 @@ export default function FinanceEntries() {
     } catch(e) { toast.error('Export failed') }
   }
 
+  const syncWagesMut = useMutation({
+    mutationFn: () => api.post('/daily-wages/sync-and-deduplicate').then(r => r.data),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey:['finance-entries'] })
+      qc.invalidateQueries({ queryKey:['finance-overview'] })
+      qc.invalidateQueries({ queryKey:['daily-wage-logs'] })
+      qc.invalidateQueries({ queryKey:['projects'] })
+      toast.success(res.message || 'Wage entries deduplicated & reconciled successfully!')
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed to deduplicate entries'),
+  })
+
   const clearFilters = () => { setTypeFilter(''); setCategoryFilter(''); setFromDate(''); setToDate(''); setBranchFilter(''); setPaymentFilter(''); setProjectFilter('') }
   const hasFilters = typeFilter || categoryFilter || fromDate || toDate || branchFilter || paymentFilter || projectFilter
 
@@ -207,6 +219,19 @@ export default function FinanceEntries() {
           <p className="page-subtitle">Track, filter and export all financial transactions by project, branch & category</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          <button 
+            type="button" 
+            disabled={syncWagesMut.isPending}
+            onClick={() => {
+              if (window.confirm('Scan and auto-fix any duplicate or overlapping wage entries in Accounts?')) {
+                syncWagesMut.mutate()
+              }
+            }}
+            className="btn-export bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            title="Scan and remove duplicate wage entries"
+          >
+            {syncWagesMut.isPending ? 'Fixing...' : '⚡ Auto-Deduplicate Wages'}
+          </button>
           <button type="button" onClick={()=>exportData('excel')} className="btn-export bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"><FiDownload size={12}/> Excel</button>
           <button type="button" onClick={()=>exportData('pdf')} className="btn-export bg-white border border-rose-200 text-rose-700 hover:bg-rose-50"><FiDownload size={12}/> PDF</button>
           <button type="button" onClick={()=>{setEditingId(null); setForm(EMPTY); setShowModal(true)}} className="btn-primary btn-sm"><FiPlus size={13}/> Add Entry</button>

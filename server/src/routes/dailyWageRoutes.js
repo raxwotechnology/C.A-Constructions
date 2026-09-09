@@ -12,6 +12,7 @@ router
 
 router.post('/calculate-preview', dailyWageController.calculatePayPreview);
 router.post('/batch-payout', dailyWageController.batchPayoutDailyWageLogs);
+router.post('/sync-and-deduplicate', dailyWageController.syncAndDeduplicateWageFinanceEntries);
 router.get('/project-summary/:projectId', dailyWageController.getProjectSqftSummary);
 
 router

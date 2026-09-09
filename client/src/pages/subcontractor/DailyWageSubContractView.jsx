@@ -285,6 +285,28 @@ export default function DailyWageSubContractView() {
       notes: '',
     })
   }
+
+  // Auto-Fix & Deduplicate Duplicate Wage Entries Mutation
+  const syncAndDeduplicateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/daily-wages/sync-and-deduplicate')
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Auto-Fix complete! Accounts & Projects reconciled.')
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to auto-fix duplicate wage entries.')
+    },
+  })
   const allUniqueWorkerNames = useMemo(() => {
     const namesSet = new Set()
     logs.forEach((l) => {
@@ -2247,6 +2269,21 @@ export default function DailyWageSubContractView() {
                 title="Export filtered daily wage work logs as PDF Document"
               >
                 <Printer className="w-3.5 h-3.5" /> Export PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Scan and auto-fix any duplicate or overlapping wage entries in Accounts & Database?')) {
+                    syncAndDeduplicateMutation.mutate();
+                  }
+                }}
+                disabled={syncAndDeduplicateMutation.isPending}
+                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                title="Scan and remove duplicate wage expense entries from Accounts"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${syncAndDeduplicateMutation.isPending ? 'animate-spin' : ''}`} />
+                {syncAndDeduplicateMutation.isPending ? 'Fixing...' : 'Auto-Fix Duplicates'}
               </button>
             </div>
           </div>

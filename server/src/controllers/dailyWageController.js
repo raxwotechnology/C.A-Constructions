@@ -721,3 +721,117 @@ exports.batchPayoutDailyWageLogs = async (req, res, next) => {
   }
 };
 
+/** AUTO-DEDUPLICATE & RECONCILE: Scan FinanceEntry & DailyWageLog to remove duplicate entries */
+exports.syncAndDeduplicateWageFinanceEntries = async (req, res, next) => {
+  try {
+    // 1. Fetch all DailyWageLog records
+    const allLogs = await DailyWageLog.find();
+    const paidLogs = allLogs.filter((l) => l.status === 'Paid');
+
+    // Map of valid paidFinanceEntryRef IDs
+    const validPaidFinanceRefs = new Set();
+    paidLogs.forEach((l) => {
+      if (l.paidFinanceEntryRef) validPaidFinanceRefs.add(String(l.paidFinanceEntryRef));
+    });
+
+    // 2. Fetch all FinanceEntry records related to Daily Wages
+    const wageEntries = await FinanceEntry.find({
+      $or: [
+        { category: 'Daily Wages' },
+        { masterCategory: 'Daily Wages' },
+        { subCategory: 'Final Wage Payout' },
+        { title: { $regex: /Final Wage Payout|Worker Salary Advance/i } },
+      ],
+    });
+
+    let deletedCount = 0;
+    let cleanedAmount = 0;
+    const deletedIds = [];
+
+    // 3. Case A: Detect exact duplicate entries (same title, amount, date, project)
+    const seenTx = new Map();
+    for (const entry of wageEntries) {
+      const key = `${entry.title}_${entry.amount}_${entry.date ? new Date(entry.date).toISOString().slice(0, 10) : ''}_${entry.project || ''}`;
+      if (seenTx.has(key)) {
+        await FinanceEntry.findByIdAndDelete(entry._id);
+        deletedCount++;
+        cleanedAmount += Number(entry.amount || 0);
+        deletedIds.push(entry._id);
+      } else {
+        seenTx.set(key, entry);
+      }
+    }
+
+    // Case B: Worker has individual daily logs (e.g. 5,000s) AND an orphan lump-sum entry (e.g. 20,000) for the exact same accumulated worker period
+    const remainingWageEntries = await FinanceEntry.find({
+      _id: { $nin: deletedIds },
+      $or: [
+        { category: 'Daily Wages' },
+        { masterCategory: 'Daily Wages' },
+        { subCategory: 'Final Wage Payout' },
+        { title: { $regex: /Final Wage Payout/i } },
+      ],
+    });
+
+    // Group logs and entries by worker
+    const workerLogsMap = new Map();
+    paidLogs.forEach((l) => {
+      const w = (l.workerName || '').trim();
+      if (!workerLogsMap.has(w)) workerLogsMap.set(w, []);
+      workerLogsMap.get(w).push(l);
+    });
+
+    for (const [workerName, logsList] of workerLogsMap.entries()) {
+      const workerEntries = remainingWageEntries.filter((e) =>
+        (e.payeeOrPayer || e.title || '').includes(workerName)
+      );
+
+      const totalLogNet = logsList.reduce((s, l) => s + (l.netDailyPay || l.subContractPay || 0), 0);
+      const totalEntryAmount = workerEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+
+      if (totalEntryAmount > totalLogNet && workerEntries.length > logsList.length) {
+        for (const entry of workerEntries) {
+          const isLumpSumOvercount = entry.amount > 0 && Math.abs(totalLogNet - entry.amount) < 1 && logsList.length > 1;
+          const individualEntriesExist = workerEntries.some(
+            (e) => e._id.toString() !== entry._id.toString() && e.amount < entry.amount
+          );
+
+          if (isLumpSumOvercount && individualEntriesExist && !validPaidFinanceRefs.has(entry._id.toString())) {
+            await FinanceEntry.findByIdAndDelete(entry._id);
+            deletedCount++;
+            cleanedAmount += Number(entry.amount || 0);
+            break;
+          }
+        }
+      }
+    }
+
+    // 4. Reconcile project costs
+    const projects = await Project.find();
+    for (const proj of projects) {
+      const projEntries = await FinanceEntry.find({ project: proj._id, type: 'expense' });
+      const realExpense = projEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+      if (proj.totalExpense !== realExpense) {
+        proj.totalExpense = realExpense;
+        proj.actualCost = realExpense;
+        proj.netProfitLoss = (proj.totalIncome || 0) - realExpense;
+        await proj.save();
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: deletedCount > 0
+        ? `Auto-Fix complete! Removed ${deletedCount} duplicate wage entries (Total Rs. ${cleanedAmount.toLocaleString()}) and reconciled Accounts & Projects.`
+        : 'All wage finance entries are already clean and in sync with Accounts.',
+      data: {
+        deletedCount,
+        cleanedAmount,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+
