@@ -80,12 +80,16 @@ exports.createDailyWageLog = async (req, res, next) => {
 
     await newLog.save();
 
+    const projDoc = await Project.findById(newLog.project);
+    const projBranch = projDoc?.branch || null;
+
     // If advance deductions entered without a pre-existing linked advance, log an Advance Expense in Finance Entries / Ledger
     if (newLog.advanceDeductions > 0 && !newLog.linkedAdvance) {
       const advTxNo = `TX-ADV-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
       const advFinanceEntry = new FinanceEntry({
         transactionNo: advTxNo,
         project: newLog.project,
+        branch: projBranch,
         transactionType: 'Expense',
         type: 'expense',
         category: 'Daily Wages',
@@ -112,6 +116,7 @@ exports.createDailyWageLog = async (req, res, next) => {
       const paidFinanceEntry = new FinanceEntry({
         transactionNo: paidTxNo,
         project: newLog.project,
+        branch: projBranch,
         transactionType: 'Expense',
         type: 'expense',
         category: 'Daily Wages',
@@ -373,10 +378,16 @@ exports.updateDailyWageLog = async (req, res, next) => {
 
     if (newStatus === 'Paid' && previousStatus !== 'Paid') {
       if (!log.paidFinanceEntryRef && netPayout > 0) {
+        let projBranch = null;
+        if (log.project) {
+          const proj = await Project.findById(log.project);
+          if (proj) projBranch = proj.branch || null;
+        }
         const paidTxNo = `TX-PAY-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
         const paidFinanceEntry = new FinanceEntry({
           transactionNo: paidTxNo,
           project: log.project,
+          branch: projBranch,
           transactionType: 'Expense',
           type: 'expense',
           category: 'Daily Wages',
@@ -633,6 +644,11 @@ exports.batchPayoutDailyWageLogs = async (req, res, next) => {
     let consolidatedFinanceEntry = null;
 
     if (totalNetPayout > 0) {
+      let projBranch = null;
+      if (projectId) {
+        const proj = await Project.findById(projectId);
+        if (proj) projBranch = proj.branch || null;
+      }
       const paidTxNo = `TX-BATCH-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
       const logCodesSummary = pendingLogs.map((l) => l.logCode).join(', ');
       const desc = notes
@@ -642,6 +658,7 @@ exports.batchPayoutDailyWageLogs = async (req, res, next) => {
       consolidatedFinanceEntry = new FinanceEntry({
         transactionNo: paidTxNo,
         project: projectId,
+        branch: projBranch,
         transactionType: 'Expense',
         type: 'expense',
         category: 'Daily Wages',
