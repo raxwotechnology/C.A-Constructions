@@ -80,8 +80,8 @@ exports.createDailyWageLog = async (req, res, next) => {
 
     await newLog.save();
 
-    // If advance deductions entered, log an Advance Expense in Finance Entries / Ledger
-    if (newLog.advanceDeductions > 0) {
+    // If advance deductions entered without a pre-existing linked advance, log an Advance Expense in Finance Entries / Ledger
+    if (newLog.advanceDeductions > 0 && !newLog.linkedAdvance) {
       const advTxNo = `TX-ADV-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
       const advFinanceEntry = new FinanceEntry({
         transactionNo: advTxNo,
@@ -579,3 +579,128 @@ exports.getProjectSqftSummary = async (req, res, next) => {
     return next(error);
   }
 };
+
+/** BATCH PAYOUT: Settle / Pay multiple pending logs in one consolidated transaction */
+exports.batchPayoutDailyWageLogs = async (req, res, next) => {
+  try {
+    const { logIds, paymentDate, paymentMethod = 'Cash', notes = '' } = req.body;
+
+    if (!Array.isArray(logIds) || logIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide at least one log ID to settle.' });
+    }
+
+    const isValidId = (v) => v && mongoose.Types.ObjectId.isValid(v) && String(new mongoose.Types.ObjectId(v)) === String(v);
+    const validLogIds = logIds.filter(isValidId);
+
+    if (validLogIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid log IDs provided.' });
+    }
+
+    const logs = await DailyWageLog.find({ _id: { $in: validLogIds } }).populate('project');
+    if (logs.length === 0) {
+      return res.status(404).json({ success: false, message: 'No matching daily wage logs found.' });
+    }
+
+    // Filter only logs that are not already Paid
+    const pendingLogs = logs.filter((l) => l.status !== 'Paid');
+    if (pendingLogs.length === 0) {
+      return res.status(400).json({ success: false, message: 'All selected work logs are already marked as Paid.' });
+    }
+
+    // Worker names involved
+    const workerNames = Array.from(new Set(pendingLogs.map((l) => l.workerName).filter(Boolean)));
+    const primaryWorkerName = workerNames.join(', ');
+    const primaryProject = pendingLogs[0].project;
+    const projectId = primaryProject?._id || primaryProject || null;
+
+    // Total net payout calculation
+    let totalNetPayout = 0;
+    let totalGrossPay = 0;
+    let totalAdvancesDeducted = 0;
+
+    pendingLogs.forEach((log) => {
+      const net = log.workType === 'Daily Wage' ? (log.netDailyPay || 0) : (log.subContractPay || 0);
+      totalNetPayout += net;
+      totalAdvancesDeducted += (log.advanceDeductions || 0);
+      if (log.workType === 'Daily Wage') {
+        const gross = ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0);
+        totalGrossPay += gross;
+      } else {
+        totalGrossPay += (log.subContractDetails?.totalMeasuredPay || 0);
+      }
+    });
+
+    let consolidatedFinanceEntry = null;
+
+    if (totalNetPayout > 0) {
+      const paidTxNo = `TX-BATCH-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+      const logCodesSummary = pendingLogs.map((l) => l.logCode).join(', ');
+      const desc = notes
+        ? `${notes} (Logs: ${logCodesSummary})`
+        : `Consolidated Final Wage Payout for ${primaryWorkerName} covering ${pendingLogs.length} work day(s) (${logCodesSummary})`;
+
+      consolidatedFinanceEntry = new FinanceEntry({
+        transactionNo: paidTxNo,
+        project: projectId,
+        transactionType: 'Expense',
+        type: 'expense',
+        category: 'Daily Wages',
+        masterCategory: 'Daily Wages',
+        subCategory: 'Final Wage Payout',
+        title: pendingLogs.length > 1
+          ? `Final Wage Payout - ${primaryWorkerName} (${pendingLogs.length} Days Consolidated)`
+          : `Final Wage Payout - ${primaryWorkerName}`,
+        amount: totalNetPayout,
+        date: paymentDate ? new Date(paymentDate) : new Date(),
+        paymentMethod: paymentMethod || 'Cash',
+        payeeOrPayer: primaryWorkerName,
+        description: desc,
+        note: desc,
+        status: 'Approved',
+        createdBy: isValidId(req.user?._id || req.user?.id) ? (req.user?._id || req.user?.id) : null,
+      });
+
+      await consolidatedFinanceEntry.save();
+    }
+
+    // Update all pending logs to 'Paid' and link the consolidated FinanceEntry
+    const updatePromises = pendingLogs.map(async (log) => {
+      log.status = 'Paid';
+      if (consolidatedFinanceEntry) {
+        log.paidFinanceEntryRef = consolidatedFinanceEntry._id;
+      }
+      if (req.user?._id || req.user?.id) {
+        log.approvedBy = req.user?._id || req.user?.id;
+      }
+      return log.save();
+    });
+
+    await Promise.all(updatePromises);
+
+    // Update Project actual costs
+    if (projectId && totalNetPayout > 0) {
+      const proj = await Project.findById(projectId);
+      if (proj) {
+        proj.actualCost = (proj.actualCost || 0) + totalNetPayout;
+        proj.totalExpense = (proj.totalExpense || 0) + totalNetPayout;
+        proj.netProfitLoss = (proj.totalIncome || 0) - proj.totalExpense;
+        await proj.save();
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Successfully processed consolidated payout of Rs. ${totalNetPayout.toLocaleString()} for ${pendingLogs.length} work log(s).`,
+      data: {
+        settledCount: pendingLogs.length,
+        totalNetPayout,
+        totalGrossPay,
+        totalAdvancesDeducted,
+        financeEntry: consolidatedFinanceEntry,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+

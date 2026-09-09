@@ -11,6 +11,7 @@ router
   .get(dailyWageController.getDailyWageLogs);
 
 router.post('/calculate-preview', dailyWageController.calculatePayPreview);
+router.post('/batch-payout', dailyWageController.batchPayoutDailyWageLogs);
 router.get('/project-summary/:projectId', dailyWageController.getProjectSqftSummary);
 
 router
