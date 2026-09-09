@@ -117,22 +117,24 @@ exports.getAgreement = async (req, res, next) => {
 exports.createAgreement = async (req, res, next) => {
   try {
     const {
-      agreementType, title, client, project, invoice, subscription, content, status,
+      agreementType, title, client, employee, project, invoice, subscription, branch, content, status,
       signatures, approvalStatus, agreementDate, hasFrame,
     } = req.body;
 
-    let finalContent = content || '';
+    let finalContent = content !== undefined ? content : '';
     if (!finalContent) {
-      finalContent = await buildTemplateContent(agreementType, { client, project, invoice, subscription });
+      finalContent = await buildTemplateContent(agreementType, { client, employee, project, invoice, subscription, agreementDate });
     }
 
     const agreement = await Agreement.create({
-      agreementType,
-      title,
+      agreementType: agreementType || 'general',
+      title: (title || 'Agreement').trim(),
       client: client || undefined,
+      employee: employee || undefined,
       project: project || undefined,
       invoice: invoice || undefined,
       subscription: subscription || undefined,
+      branch: branch || undefined,
       content: finalContent,
       status: status || 'draft',
       signatures: signatures || undefined,
@@ -172,10 +174,23 @@ exports.updateAgreement = async (req, res, next) => {
     delete updates.agreementNo;
     delete updates.createdBy;
 
-    if (!updates.client) updates.client = undefined;
-    if (!updates.project) updates.project = undefined;
-    if (!updates.invoice) updates.invoice = undefined;
-    if (!updates.subscription) updates.subscription = undefined;
+    // Clean ObjectId fields to prevent CastError when empty string or undefined is sent
+    const idFields = ['client', 'employee', 'project', 'invoice', 'subscription', 'branch'];
+    idFields.forEach((field) => {
+      if (updates[field] === '' || updates[field] === null) {
+        updates[field] = null;
+      } else if (updates[field] === undefined) {
+        delete updates[field];
+      }
+    });
+
+    if (updates.agreementDate) {
+      updates.agreementDate = new Date(updates.agreementDate);
+    }
+
+    if (!updates.title && prev.title) {
+      updates.title = prev.title;
+    }
 
     if (updates.status === 'finalised' && !updates.finalisedAt) updates.finalisedAt = new Date();
     if (updates.status === 'signed' && !updates.signedAt) updates.signedAt = new Date();

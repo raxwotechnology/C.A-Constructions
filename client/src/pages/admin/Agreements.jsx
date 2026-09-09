@@ -47,10 +47,12 @@ export default function Agreements() {
   const initialClient = searchParams.get('client') || ''
   const shouldOpenNew = searchParams.get('new') === 'true'
 
-  const { register, handleSubmit, watch, setValue, reset } = useForm({
+  const { register, handleSubmit, watch, setValue, getValues, reset } = useForm({
+    shouldUnregister: false,
     defaultValues: {
       agreementType: 'general',
       client: initialClient,
+      employee: '',
       project: initialProject,
       invoice: '',
       subscription: '',
@@ -257,6 +259,7 @@ export default function Agreements() {
     reset({
       agreementType: 'general',
       client: '',
+      employee: '',
       project: '',
       invoice: '',
       subscription: '',
@@ -268,24 +271,28 @@ export default function Agreements() {
     setSignatures(EMPTY_SIG())
     setStep(1)
     setEditing(null)
+    setLinkEntityType('client')
     setShowModal(true)
   }
 
   const openEdit = (agr) => {
     setEditing(agr)
-    setValue('agreementType', agr.agreementType)
-    setValue('title', agr.title)
-    setValue('client', agr.client?._id || '')
-    setValue('project', agr.project?._id || '')
-    setValue('invoice', agr.invoice?._id || '')
+    setLinkEntityType(agr.employee ? 'employee' : 'client')
+    setValue('agreementType', agr.agreementType || 'general')
+    setValue('title', agr.title || '')
+    setValue('client', agr.client?._id || (typeof agr.client === 'string' ? agr.client : ''))
+    setValue('employee', agr.employee?._id || (typeof agr.employee === 'string' ? agr.employee : ''))
+    setValue('project', agr.project?._id || (typeof agr.project === 'string' ? agr.project : ''))
+    setValue('invoice', agr.invoice?._id || (typeof agr.invoice === 'string' ? agr.invoice : ''))
+    setValue('subscription', agr.subscription?._id || (typeof agr.subscription === 'string' ? agr.subscription : ''))
     setValue('agreementDate', agr.agreementDate ? new Date(agr.agreementDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
-    setValue('hasFrame', agr.hasFrame || false)
+    setValue('hasFrame', !!agr.hasFrame)
     setEditorContent(agr.content || '')
     setSignatures(
       agr.signatures
         ? {
             provider: { data: agr.signatures.provider?.data || '', signerName: agr.signatures.provider?.signerName || '' },
-            client: { data: agr.signatures.client?.data || '', signerName: agr.signatures.client?.signerName || '' },
+            client: { data: agr.signatures.client?.data || '', signerName: agr.signatures.client?.signerName || '', label: agr.signatures.client?.label || 'Client / Counterparty' },
             witness: { name: agr.signatures.witness?.name || '', data: agr.signatures.witness?.data || '' },
             seal: { data: agr.signatures.seal?.data || '' },
           }
@@ -301,8 +308,29 @@ export default function Agreements() {
   }
 
   const handleSave = (data) => {
-    const payload = { ...data, content: editorContent, signatures, hasFrame: data.hasFrame }
-    editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
+    const formVals = { ...getValues(), ...data }
+    const titleVal = (formVals.title || watch('title') || editing?.title || '').trim()
+    if (!titleVal) return toast.error('Please enter an agreement title')
+
+    const payload = {
+      agreementType: formVals.agreementType || editing?.agreementType || 'general',
+      title: titleVal,
+      client: formVals.client || (editing?.client?._id || (typeof editing?.client === 'string' ? editing.client : undefined)) || undefined,
+      employee: formVals.employee || (editing?.employee?._id || (typeof editing?.employee === 'string' ? editing.employee : undefined)) || undefined,
+      project: formVals.project || (editing?.project?._id || (typeof editing?.project === 'string' ? editing.project : undefined)) || undefined,
+      invoice: formVals.invoice || (editing?.invoice?._id || (typeof editing?.invoice === 'string' ? editing.invoice : undefined)) || undefined,
+      subscription: formVals.subscription || (editing?.subscription?._id || (typeof editing?.subscription === 'string' ? editing.subscription : undefined)) || undefined,
+      agreementDate: formVals.agreementDate || (editing?.agreementDate ? new Date(editing.agreementDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+      hasFrame: formVals.hasFrame !== undefined ? formVals.hasFrame : (watch('hasFrame') ?? editing?.hasFrame ?? false),
+      content: editorContent,
+      signatures,
+    }
+
+    if (editing) {
+      updateMut.mutate({ id: editing._id, data: payload })
+    } else {
+      createMut.mutate(payload)
+    }
   }
 
   const handlePrintAgreement = async (agr) => {
@@ -831,6 +859,7 @@ export default function Agreements() {
                               {watch('title') && <h2 style={{margin:'0 0 20px',fontSize:'15pt',fontWeight:'800',color:'#0f172a',letterSpacing:'-0.01em',borderLeft:'4px solid #0ea5e9',paddingLeft:'12px'}}>{watch('title')}</h2>}
                               <div className="enterprise-quill-wrapper">
                                 <ReactQuill
+                                  key={editing?._id ? `agr-editor-${editing._id}` : 'agr-editor-new'}
                                   theme="snow"
                                   value={editorContent}
                                   onChange={setEditorContent}
