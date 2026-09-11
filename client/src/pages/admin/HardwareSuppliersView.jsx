@@ -39,6 +39,7 @@ export default function HardwareSuppliersView() {
   const [poSortOrder, setPoSortOrder] = useState('desc') // 'asc' | 'desc'
 
   const [showSupplierModal, setShowSupplierModal] = useState(false)
+  const [editingSupplierId, setEditingSupplierId] = useState(null)
   const [showPOModal, setShowPOModal] = useState(false)
   const [editingPOId, setEditingPOId] = useState(null)
   const [viewingPO, setViewingPO] = useState(null)
@@ -60,6 +61,9 @@ export default function HardwareSuppliersView() {
     bankName: '',
     accountNumber: '',
     accountName: '',
+    totalBilled: 0,
+    totalPaid: 0,
+    outstandingBalance: 0,
   })
 
   // PO Form State
@@ -130,11 +134,47 @@ export default function HardwareSuppliersView() {
       setShowSupplierModal(false)
       setSupplierForm({
         name: '', code: '', contactPerson: '', phone: '', email: '',
-        category: 'Hardware', address: '', brNumber: '', bankName: '', accountNumber: '', accountName: ''
+        category: 'Hardware', address: '', brNumber: '', bankName: '', accountNumber: '', accountName: '',
+        totalBilled: 0, totalPaid: 0, outstandingBalance: 0
       })
     },
     onError: (err) => {
       toast.error(err?.response?.data?.message || 'Failed to register supplier')
+    }
+  })
+
+  // Update Supplier Mutation
+  const updateSupplierMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      return await api.put(`/suppliers/${id}`, data)
+    },
+    onSuccess: () => {
+      toast.success('Supplier updated successfully!')
+      queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
+      setShowSupplierModal(false)
+      setEditingSupplierId(null)
+      setSupplierForm({
+        name: '', code: '', contactPerson: '', phone: '', email: '',
+        category: 'Hardware', address: '', brNumber: '', bankName: '', accountNumber: '', accountName: '',
+        totalBilled: 0, totalPaid: 0, outstandingBalance: 0
+      })
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Failed to update supplier')
+    }
+  })
+
+  // Delete Supplier Mutation
+  const deleteSupplierMutation = useMutation({
+    mutationFn: async (id) => {
+      return await api.delete(`/suppliers/${id}`)
+    },
+    onSuccess: () => {
+      toast.success('Supplier deleted successfully!')
+      queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Failed to delete supplier')
     }
   })
 
@@ -214,6 +254,43 @@ export default function HardwareSuppliersView() {
       toast.error(err?.response?.data?.message || 'Failed to update status')
     }
   })
+
+  const openCreateSupplierModal = () => {
+    setEditingSupplierId(null)
+    setSupplierForm({
+      name: '', code: '', contactPerson: '', phone: '', email: '',
+      category: 'Hardware', address: '', brNumber: '', bankName: '', accountNumber: '', accountName: '',
+      totalBilled: 0, totalPaid: 0, outstandingBalance: 0
+    })
+    setShowSupplierModal(true)
+  }
+
+  const openEditSupplierModal = (supplier) => {
+    setEditingSupplierId(supplier._id)
+    setSupplierForm({
+      name: supplier.name || '',
+      code: supplier.code || '',
+      contactPerson: supplier.contactPerson || '',
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+      category: supplier.category || 'Hardware',
+      address: supplier.address || '',
+      brNumber: supplier.brNumber || '',
+      bankName: supplier.bankName || supplier.bankDetails?.bankName || '',
+      accountNumber: supplier.accountNumber || supplier.bankDetails?.accountNumber || '',
+      accountName: supplier.accountName || supplier.bankDetails?.accountName || '',
+      totalBilled: supplier.totalBilled !== undefined ? supplier.totalBilled : 0,
+      totalPaid: supplier.totalPaid !== undefined ? supplier.totalPaid : 0,
+      outstandingBalance: supplier.outstandingBalance !== undefined ? supplier.outstandingBalance : 0,
+    })
+    setShowSupplierModal(true)
+  }
+
+  const handleDeleteSupplier = (supplier) => {
+    if (window.confirm(`Are you sure you want to delete supplier "${supplier.name}" (${supplier.code})?`)) {
+      deleteSupplierMutation.mutate(supplier._id)
+    }
+  }
 
   const openNewPOModal = () => {
     setEditingPOId(null)
@@ -483,7 +560,7 @@ export default function HardwareSuppliersView() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            onClick={() => setShowSupplierModal(true)}
+            onClick={openCreateSupplierModal}
             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-4 py-2.5 rounded-xl border border-slate-200 shadow-xs transition-all text-xs cursor-pointer"
           >
             <FiPlus className="w-4 h-4 text-slate-600" />
@@ -1030,9 +1107,27 @@ export default function HardwareSuppliersView() {
                         </span>
                         <h3 className="text-base font-bold text-slate-900 mt-1">{supplier.name}</h3>
                       </div>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-semibold">
-                        {supplier.category || 'Hardware'}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-semibold">
+                          {supplier.category || 'Hardware'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openEditSupplierModal(supplier)}
+                          title="Edit Supplier"
+                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                        >
+                          <FiEdit2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSupplier(supplier)}
+                          title="Delete Supplier"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="text-xs text-slate-500 space-y-1">
@@ -1225,8 +1320,10 @@ export default function HardwareSuppliersView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-white border border-slate-200 w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">Register Hardware Supplier</h3>
-              <button onClick={() => setShowSupplierModal(false)} className="text-slate-500 hover:text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900">
+                {editingSupplierId ? 'Edit Hardware Supplier' : 'Register Hardware Supplier'}
+              </h3>
+              <button onClick={() => setShowSupplierModal(false)} className="text-slate-500 hover:text-slate-900 cursor-pointer">
                 <FiX className="w-6 h-6" />
               </button>
             </div>
@@ -1234,7 +1331,11 @@ export default function HardwareSuppliersView() {
             <form
               onSubmit={(e) => {
                 e.preventDefault()
-                createSupplierMutation.mutate(supplierForm)
+                if (editingSupplierId) {
+                  updateSupplierMutation.mutate({ id: editingSupplierId, data: supplierForm })
+                } else {
+                  createSupplierMutation.mutate(supplierForm)
+                }
               }}
               className="space-y-4"
             >
@@ -1308,6 +1409,61 @@ export default function HardwareSuppliersView() {
                 />
               </div>
 
+              {/* Financial Balances */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+                <span className="text-xs font-bold text-slate-700 block">Financial &amp; Ledger Balances (LKR)</span>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500">Total Billed</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={supplierForm.totalBilled}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0
+                        const paid = Number(supplierForm.totalPaid) || 0
+                        setSupplierForm({
+                          ...supplierForm,
+                          totalBilled: e.target.value,
+                          outstandingBalance: val - paid,
+                        })
+                      }}
+                      className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg p-2 text-xs mt-1 focus:border-amber-500 focus:outline-none font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500">Total Paid</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={supplierForm.totalPaid}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0
+                        const billed = Number(supplierForm.totalBilled) || 0
+                        setSupplierForm({
+                          ...supplierForm,
+                          totalPaid: e.target.value,
+                          outstandingBalance: billed - val,
+                        })
+                      }}
+                      className="w-full bg-white border border-slate-200 text-emerald-600 rounded-lg p-2 text-xs mt-1 focus:border-emerald-500 focus:outline-none font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500">Outstanding Balance</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={supplierForm.outstandingBalance}
+                      onChange={(e) => setSupplierForm({ ...supplierForm, outstandingBalance: e.target.value })}
+                      className="w-full bg-white border border-slate-200 text-amber-700 rounded-lg p-2 text-xs mt-1 focus:border-amber-500 focus:outline-none font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-200">
                 <button
                   type="button"
@@ -1318,10 +1474,12 @@ export default function HardwareSuppliersView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={createSupplierMutation.isPending}
-                  className="px-5 py-2 text-sm font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 shadow"
+                  disabled={createSupplierMutation.isPending || updateSupplierMutation.isPending}
+                  className="px-5 py-2 text-sm font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 shadow cursor-pointer"
                 >
-                  {createSupplierMutation.isPending ? 'Registering...' : 'Register Supplier'}
+                  {createSupplierMutation.isPending || updateSupplierMutation.isPending
+                    ? (editingSupplierId ? 'Saving...' : 'Registering...')
+                    : (editingSupplierId ? 'Save Changes' : 'Register Supplier')}
                 </button>
               </div>
             </form>

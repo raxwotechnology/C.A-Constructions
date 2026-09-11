@@ -6,6 +6,7 @@ const { protect } = require('../middleware/auth');
 router.get('/', protect, supplierController.getSuppliers);
 router.post('/', protect, supplierController.createSupplier);
 router.put('/:id', protect, supplierController.updateSupplier);
+router.delete('/:id', protect, supplierController.deleteSupplier);
 router.get('/:id/ledger', protect, supplierController.getSupplierLedger);
 router.post('/:id/payment', protect, supplierController.recordSupplierPayment);
 router.post('/:id/payments', protect, supplierController.recordSupplierPayment);

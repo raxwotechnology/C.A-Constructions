@@ -37,6 +37,11 @@ exports.createSupplier = async (req, res) => {
       vatNumber,
       bankDetails: bankDetails || {},
       notes,
+      totalBilled: Number(req.body.totalBilled) || 0,
+      totalPaid: Number(req.body.totalPaid) || 0,
+      outstandingBalance: req.body.outstandingBalance !== undefined
+        ? (Number(req.body.outstandingBalance) || 0)
+        : ((Number(req.body.totalBilled) || 0) - (Number(req.body.totalPaid) || 0)),
       createdBy: req.user?._id,
     });
 
@@ -50,9 +55,29 @@ exports.createSupplier = async (req, res) => {
 exports.updateSupplier = async (req, res) => {
   try {
     const { id } = req.params;
-    const supplier = await Supplier.findByIdAndUpdate(id, req.body, { new: true });
+    const updateData = { ...req.body };
+    if (updateData.totalBilled !== undefined) updateData.totalBilled = Number(updateData.totalBilled) || 0;
+    if (updateData.totalPaid !== undefined) updateData.totalPaid = Number(updateData.totalPaid) || 0;
+    if (updateData.outstandingBalance !== undefined) {
+      updateData.outstandingBalance = Number(updateData.outstandingBalance) || 0;
+    }
+
+    const supplier = await Supplier.findByIdAndUpdate(id, updateData, { new: true });
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
     res.json({ success: true, message: 'Supplier updated successfully', supplier });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete supplier
+exports.deleteSupplier = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supplier = await Supplier.findByIdAndDelete(id);
+    if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
+    await SupplierLedger.deleteMany({ supplier: id });
+    res.json({ success: true, message: 'Supplier deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
