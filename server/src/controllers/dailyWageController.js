@@ -266,32 +266,79 @@ exports.getDailyWageLogs = async (req, res, next) => {
       {
         $group: {
           _id: null,
-          totalNetDailyPay: { $sum: '$netDailyPay' },
-          totalSubContractPay: { $sum: '$subContractPay' },
           totalAllowances: { $sum: '$totalAllowances' },
           totalAdvanceDeductions: { $sum: '$advanceDeductions' },
           totalSqftMeasured: { $sum: '$subContractDetails.measuredSqft' },
           totalCubicFeetMeasured: { $sum: '$subContractDetails.measuredCubicFeet' },
-          totalGrossSalary: {
-            $sum: { $add: [{ $ifNull: ['$netDailyPay', 0] }, { $ifNull: ['$subContractPay', 0] }] },
+          totalDailyGross: {
+            $sum: {
+              $cond: [
+                { $eq: ['$workType', 'Daily Wage'] },
+                {
+                  $add: [
+                    { $multiply: [{ $ifNull: ['$daysWorked', 0] }, { $ifNull: ['$skillRate', 0] }] },
+                    { $ifNull: ['$otPay', 0] },
+                    { $ifNull: ['$totalAllowances', 0] },
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+          totalDailyAdvances: {
+            $sum: {
+              $cond: [
+                { $eq: ['$workType', 'Daily Wage'] },
+                { $ifNull: ['$advanceDeductions', 0] },
+                0,
+              ],
+            },
+          },
+          totalSubContractGross: {
+            $sum: {
+              $cond: [
+                { $eq: ['$workType', 'Sub-Contract'] },
+                {
+                  $cond: [
+                    { $gt: [{ $ifNull: ['$subContractDetails.lumpSumAmount', 0] }, 0] },
+                    { $ifNull: ['$subContractDetails.lumpSumAmount', 0] },
+                    { $ifNull: ['$subContractDetails.totalMeasuredPay', 0] },
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+          totalSubContractAdvances: {
+            $sum: {
+              $cond: [
+                { $eq: ['$workType', 'Sub-Contract'] },
+                { $ifNull: ['$advanceDeductions', 0] },
+                0,
+              ],
+            },
           },
         },
       },
     ]);
 
-    const summaryData = summaryAgg[0] || {
-      totalNetDailyPay: 0,
-      totalSubContractPay: 0,
-      totalAllowances: 0,
-      totalAdvanceDeductions: 0,
-      totalSqftMeasured: 0,
-      totalCubicFeetMeasured: 0,
-      totalGrossSalary: 0,
-    };
+    const s = summaryAgg[0] || {};
+    const totalDailyGross = s.totalDailyGross || 0;
+    const totalDailyAdvances = s.totalDailyAdvances || 0;
+    const totalSubContractGross = s.totalSubContractGross || 0;
+    const totalSubContractAdvances = s.totalSubContractAdvances || 0;
+    const totalAdvanceDeductions = s.totalAdvanceDeductions || (totalDailyAdvances + totalSubContractAdvances);
+    const totalGrossSalary = totalDailyGross + totalSubContractGross;
 
     const summary = {
-      ...summaryData,
-      totalGrossSalary: summaryData.totalGrossSalary || ((summaryData.totalNetDailyPay || 0) + (summaryData.totalSubContractPay || 0)),
+      totalNetDailyPay: Math.max(0, totalDailyGross - totalDailyAdvances),
+      totalSubContractPay: Math.max(0, totalSubContractGross - totalSubContractAdvances),
+      totalAllowances: s.totalAllowances || 0,
+      totalAdvanceDeductions,
+      totalSqftMeasured: s.totalSqftMeasured || 0,
+      totalCubicFeetMeasured: s.totalCubicFeetMeasured || 0,
+      totalGrossSalary,
+      totalNetSalary: Math.max(0, totalGrossSalary - totalAdvanceDeductions),
     };
 
     return res.json({
@@ -624,22 +671,24 @@ exports.batchPayoutDailyWageLogs = async (req, res, next) => {
     const primaryProject = pendingLogs[0].project;
     const projectId = primaryProject?._id || primaryProject || null;
 
-    // Total net payout calculation
-    let totalNetPayout = 0;
+    // Total net payout calculation: Total Gross minus Total Advances
     let totalGrossPay = 0;
     let totalAdvancesDeducted = 0;
 
     pendingLogs.forEach((log) => {
-      const net = log.workType === 'Daily Wage' ? (log.netDailyPay || 0) : (log.subContractPay || 0);
-      totalNetPayout += net;
       totalAdvancesDeducted += (log.advanceDeductions || 0);
       if (log.workType === 'Daily Wage') {
-        const gross = ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0);
+        const gross = ((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0);
         totalGrossPay += gross;
       } else {
-        totalGrossPay += (log.subContractDetails?.totalMeasuredPay || 0);
+        const gross = log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+          ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+          : Number(log.subContractDetails?.totalMeasuredPay || 0);
+        totalGrossPay += gross;
       }
     });
+
+    const totalNetPayout = Math.max(0, totalGrossPay - totalAdvancesDeducted);
 
     let consolidatedFinanceEntry = null;
 

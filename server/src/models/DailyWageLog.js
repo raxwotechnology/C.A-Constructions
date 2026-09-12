@@ -89,7 +89,7 @@ dailyWageLogSchema.pre('validate', function (next) {
     const night = this.allowances?.nightOutstation || 0;
     this.totalAllowances = food + travel + night;
     const gross = (this.daysWorked || 0) * (this.skillRate || 0) + this.otPay + this.totalAllowances;
-    this.netDailyPay = Math.max(0, gross - (this.advanceDeductions || 0));
+    this.netDailyPay = gross - (this.advanceDeductions || 0);
   } else if (this.workType === 'Sub-Contract') {
     const isLumpSum = this.subContractDetails?.pricingBasis === 'Lump-sum' || (this.subContractDetails?.lumpSumAmount > 0 && !this.subContractDetails?.measuredSqft);
     let totalMeasured = 0;
@@ -103,7 +103,7 @@ dailyWageLogSchema.pre('validate', function (next) {
     if (this.subContractDetails) {
       this.subContractDetails.totalMeasuredPay = totalMeasured;
     }
-    this.subContractPay = Math.max(0, totalMeasured - (this.advanceDeductions || 0));
+    this.subContractPay = totalMeasured - (this.advanceDeductions || 0);
   }
   next();
 });

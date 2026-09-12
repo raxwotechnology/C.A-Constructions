@@ -193,17 +193,22 @@ export default function DailyWageSubContractView() {
           paidLogsCount: 0,
           totalGross: 0,
           totalAdvances: 0,
+          pendingGross: 0,
+          pendingAdvances: 0,
           pendingNetSubtotal: 0,
+          paidGross: 0,
+          paidAdvances: 0,
           paidNetTotal: 0,
           pendingLogIds: [],
         }
       }
       const isDaily = log.workType === 'Daily Wage'
-      const netAmount = isDaily ? log.netDailyPay : log.subContractPay
-      const advanceAmount = log.advanceDeductions || 0
+      const advanceAmount = Number(log.advanceDeductions || 0)
       const grossAmount = isDaily 
-        ? ((log.daysWorked || 0) * (log.skillRate || 0) + (log.otPay || 0) + (log.totalAllowances || 0))
-        : (log.subContractDetails?.totalMeasuredPay || 0)
+        ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+        : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+            ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+            : Number(log.subContractDetails?.totalMeasuredPay || 0))
 
       map[name].totalLogsCount += 1
       map[name].totalGross += grossAmount
@@ -211,13 +216,22 @@ export default function DailyWageSubContractView() {
 
       if (isPending) {
         map[name].pendingLogsCount += 1
-        map[name].pendingNetSubtotal += netAmount
+        map[name].pendingGross += grossAmount
+        map[name].pendingAdvances += advanceAmount
         map[name].pendingLogIds.push(log._id)
       } else {
         map[name].paidLogsCount += 1
-        map[name].paidNetTotal += netAmount
+        map[name].paidGross += grossAmount
+        map[name].paidAdvances += advanceAmount
       }
     })
+
+    // Subtract total advances from total gross earnings to get accurate uncleared subtotal
+    Object.values(map).forEach((w) => {
+      w.pendingNetSubtotal = Math.max(0, (w.pendingGross || 0) - (w.pendingAdvances || 0))
+      w.paidNetTotal = Math.max(0, (w.paidGross || 0) - (w.paidAdvances || 0))
+    })
+
     return map
   }, [logs])
 
@@ -277,8 +291,8 @@ export default function DailyWageSubContractView() {
       logIds: summaryItem.pendingLogIds,
       pendingLogs: workerPendingLogs,
       pendingCount: summaryItem.pendingLogsCount,
-      totalGross: summaryItem.totalGross,
-      totalAdvances: summaryItem.totalAdvances,
+      totalGross: summaryItem.pendingGross,
+      totalAdvances: summaryItem.pendingAdvances,
       totalNet: summaryItem.pendingNetSubtotal,
       paymentDate: new Date().toISOString().split('T')[0],
       paymentMethod: 'Cash',
@@ -323,24 +337,35 @@ export default function DailyWageSubContractView() {
       const workerLogs = logs.filter(
         (l) => (l.workerName || '').trim().toLowerCase() === selectedWorkerFilter.trim().toLowerCase()
       )
-      return workerLogs.reduce(
+      const raw = workerLogs.reduce(
         (acc, log) => {
-          if (log.workType === 'Daily Wage') {
-            acc.totalNetDailyPay += (log.netDailyPay || 0)
+          const isDaily = log.workType === 'Daily Wage'
+          const gross = isDaily
+            ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+            : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+                ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+                : Number(log.subContractDetails?.totalMeasuredPay || 0))
+          const adv = Number(log.advanceDeductions || 0)
+
+          if (isDaily) {
+            acc.totalDailyGross += gross
+            acc.totalDailyAdvances += adv
             acc.totalAllowances += (log.totalAllowances || 0)
           } else {
-            acc.totalSubContractPay += (log.subContractPay || 0)
+            acc.totalSubContractGross += gross
+            acc.totalSubContractAdvances += adv
             acc.totalSqftMeasured += (log.subContractDetails?.measuredSqft || 0)
             acc.totalCubicFeetMeasured += (log.subContractDetails?.measuredCubicFeet || 0)
           }
-          acc.totalAdvanceDeductions += (log.advanceDeductions || 0)
-          const gross = log.workType === 'Daily Wage'
-            ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
-            : (log.subContractDetails?.totalMeasuredPay || 0)
+          acc.totalAdvanceDeductions += adv
           acc.totalGrossSalary += gross
           return acc
         },
         {
+          totalDailyGross: 0,
+          totalDailyAdvances: 0,
+          totalSubContractGross: 0,
+          totalSubContractAdvances: 0,
           totalNetDailyPay: 0,
           totalSubContractPay: 0,
           totalAllowances: 0,
@@ -350,21 +375,62 @@ export default function DailyWageSubContractView() {
           totalGrossSalary: 0,
         }
       )
+
+      raw.totalNetDailyPay = Math.max(0, raw.totalDailyGross - raw.totalDailyAdvances)
+      raw.totalSubContractPay = Math.max(0, raw.totalSubContractGross - raw.totalSubContractAdvances)
+      raw.totalNetSalary = Math.max(0, raw.totalGrossSalary - raw.totalAdvanceDeductions)
+      return raw
     }
-    return (
-      logsData?.summary || {
-        totalNetDailyPay: 0,
-        totalSubContractPay: 0,
-        totalAllowances: 0,
-        totalAdvanceDeductions: 0,
-        totalSqftMeasured: 0,
-        totalCubicFeetMeasured: 0,
-        totalGrossSalary: 0,
+
+    const baseSummary = logsData?.summary || {
+      totalNetDailyPay: 0,
+      totalSubContractPay: 0,
+      totalAllowances: 0,
+      totalAdvanceDeductions: 0,
+      totalSqftMeasured: 0,
+      totalCubicFeetMeasured: 0,
+      totalGrossSalary: 0,
+    }
+
+    let allDailyGross = 0
+    let allDailyAdvances = 0
+    let allSubGross = 0
+    let allSubAdvances = 0
+    let allAdvances = 0
+
+    logs.forEach((log) => {
+      const isDaily = log.workType === 'Daily Wage'
+      const gross = isDaily
+        ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+        : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+            ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+            : Number(log.subContractDetails?.totalMeasuredPay || 0))
+      const adv = Number(log.advanceDeductions || 0)
+      if (isDaily) {
+        allDailyGross += gross
+        allDailyAdvances += adv
+      } else {
+        allSubGross += gross
+        allSubAdvances += adv
       }
-    )
+      allAdvances += adv
+    })
+
+    const totalGross = allDailyGross + allSubGross
+    const totalSubContractPay = Math.max(0, allSubGross - allSubAdvances)
+    const totalNetDailyPay = Math.max(0, allDailyGross - allDailyAdvances)
+
+    return {
+      ...baseSummary,
+      totalNetDailyPay: totalNetDailyPay || baseSummary.totalNetDailyPay || 0,
+      totalSubContractPay: totalSubContractPay || baseSummary.totalSubContractPay || 0,
+      totalAdvanceDeductions: allAdvances || baseSummary.totalAdvanceDeductions || 0,
+      totalGrossSalary: totalGross || baseSummary.totalGrossSalary || 0,
+      totalNetSalary: Math.max(0, totalGross - allAdvances),
+    }
   }, [logsData, logs, selectedWorkerFilter])
 
-  const totalWorkerWages = summary.totalGrossSalary || ((summary.totalNetDailyPay || 0) + (summary.totalSubContractPay || 0))
+  const totalWorkerWages = Math.max(0, (summary.totalGrossSalary || 0) - (summary.totalAdvanceDeductions || 0))
 
   // Site branding settings for letterhead print
   const { data: siteSettingsData } = useQuery({
@@ -892,7 +958,7 @@ export default function DailyWageSubContractView() {
               </tr>
               <tr style="border-top:2px solid #d97706;font-size:14pt">
                 <td style="padding:10px 0 0;font-weight:900;color:#0f172a">NET PAYABLE AMOUNT:</td>
-                <td style="padding:10px 0 0;text-align:right;font-weight:900;color:#059669">Rs. ${(logItem.workType === 'Daily Wage' ? logItem.netDailyPay : logItem.subContractPay).toLocaleString()}</td>
+                <td style="padding:10px 0 0;text-align:right;font-weight:900;color:${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)) < 0 ? '#dc2626' : '#059669'}">${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)) < 0 ? `- Rs. ${Math.abs(logItem.workType === 'Daily Wage' ? logItem.netDailyPay : logItem.subContractPay).toLocaleString()}` : `Rs. ${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)).toLocaleString()}`}</td>
               </tr>
             </table>
           </div>
@@ -935,7 +1001,7 @@ export default function DailyWageSubContractView() {
         const isDaily = log.workType === 'Daily Wage'
         const dateStr = log.date ? new Date(log.date).toLocaleDateString() : ''
         const gross = isDaily
-          ? ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0)
+          ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
           : (log.subContractDetails?.totalMeasuredPay || 0)
         const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
         return {
@@ -945,7 +1011,7 @@ export default function DailyWageSubContractView() {
           'Project / Site': log.project?.name || log.project?.code || '',
           'Work Type': log.workType || 'Daily Wage',
           'Skill Level / Category': isDaily ? (log.skillLevel || 'Skilled Labour') : (log.subContractDetails?.workCategory || 'Sub-Contract'),
-          'Days / Output': isDaily ? `${log.daysWorked || 1} day(s)` : `${log.subContractDetails?.measuredSqft || 0} Sqft`,
+          'Days / Output': isDaily ? `${log.daysWorked ?? 0} day(s)` : `${log.subContractDetails?.measuredSqft || 0} Sqft`,
           'Daily Rate / Sqft Rate (LKR)': isDaily ? (log.skillRate || 0) : (log.subContractDetails?.ratePerSqft || 0),
           'Overtime Pay (LKR)': log.otPay || 0,
           'Allowances (LKR)': log.totalAllowances || 0,
@@ -978,16 +1044,13 @@ export default function DailyWageSubContractView() {
       const totalGross = targetLogs.reduce((acc, log) => {
         const isDaily = log.workType === 'Daily Wage'
         const gross = isDaily
-          ? ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0)
+          ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
           : (log.subContractDetails?.totalMeasuredPay || 0)
         return acc + gross
       }, 0)
 
       const totalAdvances = targetLogs.reduce((acc, log) => acc + (log.advanceDeductions || 0), 0)
-      const totalNetPay = targetLogs.reduce((acc, log) => {
-        const net = log.workType === 'Daily Wage' ? (log.netDailyPay || 0) : (log.subContractPay || 0)
-        return acc + net
-      }, 0)
+      const totalNetPay = Math.max(0, totalGross - totalAdvances)
 
       const title = selectedWorkerFilter
         ? `Worker Wage Summary - ${selectedWorkerFilter}`
@@ -997,7 +1060,7 @@ export default function DailyWageSubContractView() {
         const isDaily = log.workType === 'Daily Wage'
         const dateStr = log.date ? new Date(log.date).toLocaleDateString('en-GB') : ''
         const gross = isDaily
-          ? ((log.daysWorked || 1) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0)
+          ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
           : (log.subContractDetails?.totalMeasuredPay || 0)
         const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
         const statusColor = log.status === 'Paid' ? '#059669' : '#d97706'
@@ -1008,10 +1071,10 @@ export default function DailyWageSubContractView() {
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8.5pt">${dateStr}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;font-size:8.5pt">${log.workerName || ''}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${log.project?.name || log.project?.code || '—'}</td>
-            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked || 1} day(s)` : `${log.subContractDetails?.measuredSqft || 0} sqft`}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : `${log.subContractDetails?.measuredSqft || 0} sqft`}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-size:8.5pt">Rs. ${gross.toLocaleString()}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#dc2626;font-size:8.5pt">${log.advanceDeductions > 0 ? `- Rs. ${log.advanceDeductions.toLocaleString()}` : '—'}</td>
-            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-weight:700;color:#0f172a;font-size:8.5pt">Rs. ${net.toLocaleString()}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-weight:700;color:${net < 0 ? '#dc2626' : '#0f172a'};font-size:8.5pt">${net < 0 ? `- Rs. ${Math.abs(net).toLocaleString()}` : `Rs. ${net.toLocaleString()}`}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:center;font-weight:700;font-size:8pt;color:${statusColor}">${log.status || 'Pending'}</td>
           </tr>
         `
@@ -2358,8 +2421,8 @@ export default function DailyWageSubContractView() {
                         <td className="py-3.5 px-4 text-right font-bold text-rose-600 text-sm">
                           {advanceAmount > 0 ? `Rs. ${advanceAmount.toLocaleString()}` : '-'}
                         </td>
-                        <td className="py-3.5 px-4 text-right font-black text-emerald-600 text-base">
-                          Rs. {netAmount.toLocaleString()}
+                        <td className={`py-3.5 px-4 text-right font-black text-base ${Number(netAmount) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {Number(netAmount) < 0 ? `- Rs. ${Math.abs(Number(netAmount)).toLocaleString()}` : `Rs. ${(Number(netAmount) || 0).toLocaleString()}`}
                         </td>
                         <td className="py-3.5 px-4">
                           <select
@@ -3067,7 +3130,9 @@ export default function DailyWageSubContractView() {
                             {isDaily ? `${log.daysWorked} day(s) (${log.skillLevel || 'Labour'})` : 'Sub-Contract'}
                           </span>
                         </div>
-                        <span className="font-bold text-slate-900">Rs. {Number(net || 0).toLocaleString()}</span>
+                        <span className={`font-bold ${Number(net) < 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {Number(net) < 0 ? `- Rs. ${Math.abs(Number(net)).toLocaleString()}` : `Rs. ${Number(net || 0).toLocaleString()}`}
+                        </span>
                       </div>
                     )
                   })}
