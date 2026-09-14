@@ -3,6 +3,7 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const SupplierLedger = require('../models/SupplierLedger');
 const SiteStock = require('../models/SiteStock');
 const Project = require('../models/Project');
+const FinanceEntry = require('../models/FinanceEntry');
 
 // Get all suppliers
 exports.getSuppliers = async (req, res) => {
@@ -203,6 +204,242 @@ exports.createPurchaseOrder = async (req, res) => {
   }
 };
 
+// --- Purchase Order Stock, Ledger & Finance Helpers ---
+
+const reconcileProjectExpense = async (projectId) => {
+  try {
+    if (!projectId) return;
+    const proj = await Project.findById(projectId);
+    if (!proj) return;
+    const expAgg = await FinanceEntry.aggregate([
+      { $match: { project: proj._id, type: 'expense' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    const realExpense = expAgg[0]?.total || 0;
+    proj.totalExpense = realExpense;
+    proj.actualCost = realExpense;
+    proj.netProfitLoss = (proj.totalIncome || 0) - realExpense;
+    await proj.save();
+  } catch (err) {
+    console.error('[reconcileProjectExpense] Error:', err);
+  }
+};
+
+const applyPOStockIn = async (po) => {
+  try {
+    for (const item of (po.items || [])) {
+      let stockItem = await SiteStock.findOne({ itemName: item.itemName });
+      if (stockItem) {
+        if (po.project) {
+          let siteEntry = stockItem.siteStockQty.find((s) => s.project?.toString() === po.project.toString());
+          if (siteEntry) {
+            siteEntry.qty += item.quantity;
+          } else {
+            stockItem.siteStockQty.push({ project: po.project, qty: item.quantity });
+          }
+        } else {
+          stockItem.centralStockQty += item.quantity;
+        }
+        await stockItem.save();
+      } else {
+        await SiteStock.create({
+          itemCode: item.itemCode || 'ITEM-' + Date.now().toString().slice(-4),
+          itemName: item.itemName,
+          category: item.category || 'Hardware',
+          unit: item.unit || 'Units',
+          centralStockQty: po.project ? 0 : item.quantity,
+          siteStockQty: po.project ? [{ project: po.project, qty: item.quantity }] : [],
+          unitPrice: item.unitPrice,
+          supplier: po.supplier?.name || '',
+          lastRestockedAt: new Date(),
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[applyPOStockIn] Error:', err);
+  }
+};
+
+const reversePOStock = async (po) => {
+  try {
+    for (const item of (po.items || [])) {
+      let stockItem = await SiteStock.findOne({ itemName: item.itemName });
+      if (stockItem) {
+        if (po.project) {
+          let siteEntry = stockItem.siteStockQty.find((s) => s.project?.toString() === po.project.toString());
+          if (siteEntry) {
+            siteEntry.qty = Math.max(0, siteEntry.qty - item.quantity);
+          }
+        } else {
+          stockItem.centralStockQty = Math.max(0, stockItem.centralStockQty - item.quantity);
+        }
+        await stockItem.save();
+      }
+    }
+  } catch (err) {
+    console.error('[reversePOStock] Error:', err);
+  }
+};
+
+const applyPOSupplierBilling = async (po, userId) => {
+  try {
+    const supplierId = po.supplier?._id || po.supplier;
+    if (!supplierId) return;
+    const supplier = await Supplier.findById(supplierId);
+    if (!supplier) return;
+
+    const existingLedger = await SupplierLedger.findOne({
+      supplier: supplier._id,
+      referencePO: po._id,
+      transactionType: 'bill_po',
+    });
+
+    if (!existingLedger) {
+      const newOutstanding = (supplier.outstandingBalance || 0) + po.totalAmount;
+      supplier.outstandingBalance = newOutstanding;
+      supplier.totalBilled = (supplier.totalBilled || 0) + po.totalAmount;
+      await supplier.save();
+
+      await SupplierLedger.create({
+        supplier: supplier._id,
+        transactionType: 'bill_po',
+        referencePO: po._id,
+        referenceNumber: po.poNumber,
+        amount: po.totalAmount,
+        notes: `PO Delivered: ${po.poNumber}`,
+        runningBalance: newOutstanding,
+        recordedBy: userId || po.createdBy || null,
+      });
+    }
+  } catch (err) {
+    console.error('[applyPOSupplierBilling] Error:', err);
+  }
+};
+
+const reversePOSupplierBilling = async (po) => {
+  try {
+    const supplierId = po.supplier?._id || po.supplier;
+    if (!supplierId) return;
+    const supplier = await Supplier.findById(supplierId);
+    if (!supplier) return;
+
+    const existingLedger = await SupplierLedger.findOne({
+      supplier: supplier._id,
+      referencePO: po._id,
+      transactionType: 'bill_po',
+    });
+
+    if (existingLedger) {
+      supplier.outstandingBalance = Math.max(0, (supplier.outstandingBalance || 0) - po.totalAmount);
+      supplier.totalBilled = Math.max(0, (supplier.totalBilled || 0) - po.totalAmount);
+      await supplier.save();
+      await SupplierLedger.deleteMany({ referencePO: po._id, transactionType: 'bill_po' });
+    }
+  } catch (err) {
+    console.error('[reversePOSupplierBilling] Error:', err);
+  }
+};
+
+const syncPOToFinanceExpense = async (po, userId) => {
+  try {
+    const supplier = po.supplier?._id ? po.supplier : (po.supplier ? await Supplier.findById(po.supplier) : null);
+    const supplierName = supplier?.name || 'Hardware Supplier';
+    const siteDesc = po.siteName || (po.project ? 'Site' : 'Central Warehouse');
+
+    const category = (supplier?.category && ['Hardware', 'Materials', 'Electrical', 'Plumbing', 'Machinery', 'Raw Material'].includes(supplier.category))
+      ? (supplier.category === 'Raw Material' ? 'Hardware' : supplier.category)
+      : (po.items?.[0]?.category || 'Hardware');
+
+    let branchId = null;
+    if (po.project) {
+      const proj = await Project.findById(po.project);
+      if (proj) {
+        branchId = proj.branch || null;
+      }
+    }
+
+    const txNo = po.poNumber && po.poNumber.startsWith('PO-') ? `TX-${po.poNumber}` : `TX-PO-${po.poNumber || Date.now()}`;
+    let entry = null;
+    if (po.financeEntryRef) {
+      entry = await FinanceEntry.findById(po.financeEntryRef);
+    }
+    if (!entry) {
+      entry = await FinanceEntry.findOne({ transactionNo: txNo });
+    }
+
+    const amount = Number(po.totalAmount || 0);
+    const poDate = po.deliveredAt || po.orderDate || new Date();
+
+    if (entry) {
+      entry.amount = amount;
+      entry.title = `Purchase Order - ${po.poNumber} (${supplierName})`;
+      entry.date = poDate;
+      entry.project = po.project || null;
+      entry.branch = branchId;
+      entry.category = category;
+      entry.masterCategory = category;
+      entry.payeeOrPayer = supplierName;
+      entry.description = `Delivered Purchase Order ${po.poNumber} (${supplierName}) for ${siteDesc}`;
+      entry.note = `PO: ${po.poNumber}, Items: ${po.items?.length || 0}, Delivery Site: ${siteDesc}`;
+      await entry.save();
+    } else {
+      entry = await FinanceEntry.create({
+        transactionNo: txNo,
+        type: 'expense',
+        transactionType: 'Expense',
+        category: category,
+        masterCategory: category,
+        subCategory: 'Purchase Order',
+        title: `Purchase Order - ${po.poNumber} (${supplierName})`,
+        amount: amount,
+        date: poDate,
+        paymentMethod: 'Bank Transfer',
+        payeeOrPayer: supplierName,
+        project: po.project || null,
+        branch: branchId,
+        description: `Delivered Purchase Order ${po.poNumber} (${supplierName}) for ${siteDesc}`,
+        note: `PO: ${po.poNumber}, Items: ${po.items?.length || 0}, Delivery Site: ${siteDesc}`,
+        status: 'Approved',
+        createdBy: userId || po.createdBy || null,
+      });
+    }
+
+    if (!po.financeEntryRef || String(po.financeEntryRef) !== String(entry._id)) {
+      po.financeEntryRef = entry._id;
+      await po.save();
+    }
+
+    if (po.project) {
+      await reconcileProjectExpense(po.project);
+    }
+
+    return entry;
+  } catch (err) {
+    console.error('[syncPOToFinanceExpense] Error:', err);
+    return null;
+  }
+};
+
+const removePOFinanceExpense = async (po) => {
+  try {
+    const txNo = po.poNumber && po.poNumber.startsWith('PO-') ? `TX-${po.poNumber}` : `TX-PO-${po.poNumber || ''}`;
+    if (po.financeEntryRef) {
+      await FinanceEntry.findByIdAndDelete(po.financeEntryRef);
+      po.financeEntryRef = null;
+      await po.save();
+    }
+    if (txNo) {
+      await FinanceEntry.deleteMany({ transactionNo: txNo });
+    }
+
+    if (po.project) {
+      await reconcileProjectExpense(po.project);
+    }
+  } catch (err) {
+    console.error('[removePOFinanceExpense] Error:', err);
+  }
+};
+
 // Get all POs
 exports.getPurchaseOrders = async (req, res) => {
   try {
@@ -216,10 +453,27 @@ exports.getPurchaseOrders = async (req, res) => {
     const sortDirection = sortOrder === 'asc' || sortOrder === '1' ? 1 : -1;
     const sortObj = { [sortField]: sortDirection };
 
+    // Auto-reconcile any Delivered POs that are missing their FinanceEntry record
+    try {
+      const unlinkedDeliveredPOs = await PurchaseOrder.find({
+        status: 'Delivered',
+        $or: [{ financeEntryRef: null }, { financeEntryRef: { $exists: false } }],
+      }).populate('supplier');
+
+      if (unlinkedDeliveredPOs && unlinkedDeliveredPOs.length > 0) {
+        for (const delPO of unlinkedDeliveredPOs) {
+          await syncPOToFinanceExpense(delPO, delPO.createdBy);
+        }
+      }
+    } catch (reconcileErr) {
+      console.warn('[getPurchaseOrders] Reconcile warning:', reconcileErr.message);
+    }
+
     const pos = await PurchaseOrder.find(filter)
-      .populate('supplier', 'name code phone contactPerson email')
+      .populate('supplier', 'name code phone contactPerson email category')
       .populate('project', 'name title code location')
       .populate('createdBy', 'name email')
+      .populate('financeEntryRef')
       .sort(sortObj);
 
     res.json({ success: true, pos: pos || [] });
@@ -228,7 +482,7 @@ exports.getPurchaseOrders = async (req, res) => {
   }
 };
 
-// Update PO Status (Delivered -> Auto Stock In + Ledger Update)
+// Update PO Status (Delivered -> Auto Stock In + Ledger Update + Expense Creation)
 exports.updatePOStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -241,64 +495,42 @@ exports.updatePOStatus = async (req, res) => {
     po.status = status;
     if (notes) po.notes = notes;
 
-    // When status changes to Delivered for the first time
+    // When status changes to Delivered
     if (status === 'Delivered' && previousStatus !== 'Delivered') {
       po.deliveryStatus = 'Received';
-      po.deliveredAt = new Date();
+      if (!po.deliveredAt) po.deliveredAt = new Date();
 
       // 1. Stock In to SiteStock (Direct site delivery or central stock)
-      for (const item of po.items) {
-        let stockItem = await SiteStock.findOne({ itemName: item.itemName });
-        if (stockItem) {
-          if (po.project) {
-            let siteEntry = stockItem.siteStockQty.find(s => s.project?.toString() === po.project.toString());
-            if (siteEntry) {
-              siteEntry.qty += item.quantity;
-            } else {
-              stockItem.siteStockQty.push({ project: po.project, qty: item.quantity });
-            }
-          } else {
-            stockItem.centralStockQty += item.quantity;
-          }
-          await stockItem.save();
-        } else {
-          await SiteStock.create({
-            itemCode: item.itemCode || 'ITEM-' + Date.now().toString().slice(-4),
-            itemName: item.itemName,
-            category: item.category || 'Hardware',
-            unit: item.unit || 'Units',
-            centralStockQty: po.project ? 0 : item.quantity,
-            siteStockQty: po.project ? [{ project: po.project, qty: item.quantity }] : [],
-            unitPrice: item.unitPrice,
-            supplier: po.supplier?.name || '',
-            lastRestockedAt: new Date(),
-          });
-        }
-      }
+      await applyPOStockIn(po);
 
       // 2. Update Supplier Ledger & Outstanding Balance
-      const supplier = await Supplier.findById(po.supplier._id);
-      if (supplier) {
-        const newOutstanding = (supplier.outstandingBalance || 0) + po.totalAmount;
-        supplier.outstandingBalance = newOutstanding;
-        supplier.totalBilled = (supplier.totalBilled || 0) + po.totalAmount;
-        await supplier.save();
+      await applyPOSupplierBilling(po, req.user?._id);
 
-        await SupplierLedger.create({
-          supplier: supplier._id,
-          transactionType: 'bill_po',
-          referencePO: po._id,
-          referenceNumber: po.poNumber,
-          amount: po.totalAmount,
-          notes: `PO Delivered: ${po.poNumber}`,
-          runningBalance: newOutstanding,
-          recordedBy: req.user?._id,
-        });
-      }
+      // 3. Create / Sync Expense in FinanceEntry & Project
+      await syncPOToFinanceExpense(po, req.user?._id);
+    } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
+      // Reverting from Delivered status
+      po.deliveryStatus = 'Pending';
+      await reversePOStock(po);
+      await reversePOSupplierBilling(po);
+      await removePOFinanceExpense(po);
     }
 
     await po.save();
-    res.json({ success: true, message: `PO status updated to ${status}`, po });
+
+    const populatedPO = await PurchaseOrder.findById(po._id)
+      .populate('supplier', 'name code phone contactPerson email category')
+      .populate('project', 'name title code location')
+      .populate('createdBy', 'name email')
+      .populate('financeEntryRef');
+
+    res.json({
+      success: true,
+      message: status === 'Delivered'
+        ? `PO status updated to Delivered and recorded in Expenses!`
+        : `PO status updated to ${status}`,
+      po: populatedPO,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -310,9 +542,10 @@ exports.updatePurchaseOrder = async (req, res) => {
     const { id } = req.params;
     const { supplierId, projectId, expectedDeliveryDate, items, tax, discount, notes, status } = req.body;
 
-    const po = await PurchaseOrder.findById(id);
+    const po = await PurchaseOrder.findById(id).populate('supplier');
     if (!po) return res.status(404).json({ success: false, message: 'Purchase Order not found' });
 
+    const previousStatus = po.status;
     if (supplierId) po.supplier = supplierId;
     if (projectId !== undefined) {
       po.project = projectId || null;
@@ -325,7 +558,6 @@ exports.updatePurchaseOrder = async (req, res) => {
     }
     if (expectedDeliveryDate !== undefined) po.expectedDeliveryDate = expectedDeliveryDate || null;
     if (notes !== undefined) po.notes = notes;
-    if (status) po.status = status;
 
     if (items && Array.isArray(items)) {
       let subtotal = 0;
@@ -356,11 +588,29 @@ exports.updatePurchaseOrder = async (req, res) => {
       po.totalAmount = totalAmount;
     }
 
+    if (status) po.status = status;
+
+    if (po.status === 'Delivered' && previousStatus !== 'Delivered') {
+      po.deliveryStatus = 'Received';
+      if (!po.deliveredAt) po.deliveredAt = new Date();
+      await applyPOStockIn(po);
+      await applyPOSupplierBilling(po, req.user?._id);
+      await syncPOToFinanceExpense(po, req.user?._id);
+    } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
+      po.deliveryStatus = 'Pending';
+      await reversePOStock(po);
+      await reversePOSupplierBilling(po);
+      await removePOFinanceExpense(po);
+    } else if (po.status === 'Delivered') {
+      await syncPOToFinanceExpense(po, req.user?._id);
+    }
+
     await po.save();
     const populatedPO = await PurchaseOrder.findById(po._id)
       .populate('supplier', 'name code phone')
       .populate('project', 'name title location')
-      .populate('createdBy', 'name');
+      .populate('createdBy', 'name')
+      .populate('financeEntryRef');
 
     res.json({ success: true, message: 'Purchase Order updated successfully', po: populatedPO });
   } catch (error) {
@@ -372,10 +622,36 @@ exports.updatePurchaseOrder = async (req, res) => {
 exports.deletePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const po = await PurchaseOrder.findByIdAndDelete(id);
+    const po = await PurchaseOrder.findById(id).populate('supplier');
     if (!po) return res.status(404).json({ success: false, message: 'Purchase Order not found' });
 
+    if (po.status === 'Delivered') {
+      await reversePOStock(po);
+      await reversePOSupplierBilling(po);
+      await removePOFinanceExpense(po);
+    }
+
+    await PurchaseOrder.findByIdAndDelete(id);
     res.json({ success: true, message: 'Purchase Order deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Dedicated Sync / Reconcile All Delivered PO Expenses API
+exports.syncAllDeliveredPOExpenses = async (req, res) => {
+  try {
+    const deliveredPOs = await PurchaseOrder.find({ status: 'Delivered' }).populate('supplier');
+    let syncedCount = 0;
+    for (const po of deliveredPOs) {
+      await syncPOToFinanceExpense(po, req.user?._id);
+      syncedCount++;
+    }
+    res.json({
+      success: true,
+      message: `Successfully synced ${syncedCount} delivered purchase order(s) to Expenses.`,
+      syncedCount,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

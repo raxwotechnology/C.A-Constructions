@@ -52,6 +52,8 @@ export default function FinanceEntries() {
   const [projectFilter, setProjectFilter] = useState('')
   const [deletePwdOpen, setDeletePwdOpen] = useState(false)
   const [entryIdToDelete, setEntryIdToDelete] = useState(null)
+  const EMPTY_ROW = { name: '', qty: '', price: '' }
+  const [titleRows, setTitleRows] = useState([{ ...EMPTY_ROW }])
   // Legacy month/year kept for query compat
   const [month] = useState(now.getMonth() + 1)
   const [year]  = useState(now.getFullYear())
@@ -96,6 +98,53 @@ export default function FinanceEntries() {
   const activeCategories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
   const finalCategory = form.category === 'Other' ? customCategory : form.category
 
+  // ---- multi-row title helpers ----
+  // Serialize rows to the title string stored in DB
+  const serializeRows = (rows) => JSON.stringify(rows.filter(r => r.name || r.qty || r.price))
+
+  // Parse title from DB — returns array of rows or null for plain text
+  const parseTitleJson = (title) => {
+    if (!title) return null
+    try {
+      const parsed = JSON.parse(title)
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') return parsed
+    } catch {}
+    return null
+  }
+
+  const updateTitleRow = (idx, key, val) => {
+    const next = titleRows.map((r, i) => i === idx ? { ...r, [key]: val } : r)
+    setTitleRows(next)
+    f('title', serializeRows(next))
+  }
+
+  const addTitleRow = () => {
+    const next = [...titleRows, { name: '', qty: '', price: '' }]
+    setTitleRows(next)
+    f('title', serializeRows(next))
+  }
+
+  const removeTitleRow = (idx) => {
+    const next = titleRows.length > 1 ? titleRows.filter((_, i) => i !== idx) : [{ name: '', qty: '', price: '' }]
+    setTitleRows(next)
+    f('title', serializeRows(next))
+  }
+
+  const resetTitleRows = () => {
+    setTitleRows([{ name: '', qty: '', price: '' }])
+    f('title', '')
+  }
+
+  const loadTitleRows = (titleStr) => {
+    const parsed = parseTitleJson(titleStr)
+    if (parsed) {
+      setTitleRows(parsed)
+    } else {
+      // Legacy plain string — put into first row's name
+      setTitleRows([{ name: titleStr || '', qty: '', price: '' }])
+    }
+  }
+
   const handleViewReceipt = (e, fileUrl) => {
     e.preventDefault()
     if (!fileUrl) return
@@ -139,7 +188,7 @@ export default function FinanceEntries() {
     },
     onSuccess: () => {
       toast.success('Entry added')
-      setForm(EMPTY); setShowModal(false)
+      setForm(EMPTY); setShowModal(false); resetTitleRows()
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
@@ -156,7 +205,7 @@ export default function FinanceEntries() {
     },
     onSuccess: () => {
       toast.success('Entry updated')
-      setForm(EMPTY); setShowModal(false); setEditingId(null)
+      setForm(EMPTY); setShowModal(false); setEditingId(null); resetTitleRows()
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
@@ -234,7 +283,7 @@ export default function FinanceEntries() {
           </button>
           <button type="button" onClick={()=>exportData('excel')} className="btn-export bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"><FiDownload size={12}/> Excel</button>
           <button type="button" onClick={()=>exportData('pdf')} className="btn-export bg-white border border-rose-200 text-rose-700 hover:bg-rose-50"><FiDownload size={12}/> PDF</button>
-          <button type="button" onClick={()=>{setEditingId(null); setForm(EMPTY); setShowModal(true)}} className="btn-primary btn-sm"><FiPlus size={13}/> Add Entry</button>
+          <button type="button" onClick={()=>{setEditingId(null); setForm(EMPTY); resetTitleRows(); setShowModal(true)}} className="btn-primary btn-sm"><FiPlus size={13}/> Add Entry</button>
         </div>
       </div>
 
@@ -347,7 +396,20 @@ export default function FinanceEntries() {
                           {pm}
                         </span>
                       </div>
-                      <h3 className="text-sm font-bold text-slate-800 truncate">{e.title}</h3>
+                      {(() => {
+                        const rows = parseTitleJson(e.title)
+                        if (rows) {
+                          const first = rows[0]
+                          const preview = [first?.name, first?.qty, first?.price].filter(Boolean).join(' · ')
+                          return (
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-800">{preview || '—'}</h3>
+                              {rows.length > 1 && <span className="text-[10px] text-slate-400 font-medium">+{rows.length - 1} more item{rows.length > 2 ? 's' : ''}</span>}
+                            </div>
+                          )
+                        }
+                        return <h3 className="text-sm font-bold text-slate-800 truncate">{e.title}</h3>
+                      })()}
                       <p className="text-xs font-medium text-slate-500">{e.category}</p>
                       
                       {e.bankAccount || e.branch || e.project ? (
@@ -399,6 +461,8 @@ export default function FinanceEntries() {
                               project: e.project?._id || e.project || '',
                               paymentMethod: e.paymentMethod || 'Cash',
                             })
+                            // Load existing title rows (JSON or legacy plain text)
+                            loadTitleRows(e.title || '')
                             setEditingId(e._id)
                             setShowModal(true)
                           }}
@@ -480,8 +544,59 @@ export default function FinanceEntries() {
                 <input className="form-input" value={customCategory} onChange={e=>setCustomCategory(e.target.value)} placeholder="Enter category name"/></div>
               )}
               <div>
-                <label className="form-label">Title *</label>
-                <input className="form-input" value={form.title} onChange={e=>f('title',e.target.value)} placeholder="Brief description"/>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="form-label mb-0">Items (Name / Qty / Price) *</label>
+                  <button
+                    type="button"
+                    onClick={addTitleRow}
+                    className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <FiPlus size={12}/> Add row
+                  </button>
+                </div>
+                {/* Column headers */}
+                <div className="grid grid-cols-[1fr_80px_90px_28px] gap-1.5 mb-1 px-0.5">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Name</span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Qty</span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Price</span>
+                  <span/>
+                </div>
+                <div className="space-y-1.5">
+                  {titleRows.map((row, idx) => (
+                    <div key={idx} className="grid grid-cols-[1fr_80px_90px_28px] gap-1.5 items-center">
+                      <input
+                        className="form-input py-1.5 text-xs"
+                        value={row.name}
+                        onChange={e => updateTitleRow(idx, 'name', e.target.value)}
+                        placeholder="Item name"
+                      />
+                      <input
+                        type="number"
+                        className="form-input py-1.5 text-xs"
+                        value={row.qty}
+                        onChange={e => updateTitleRow(idx, 'qty', e.target.value)}
+                        placeholder="0"
+                        min="0"
+                      />
+                      <input
+                        type="number"
+                        className="form-input py-1.5 text-xs"
+                        value={row.price}
+                        onChange={e => updateTitleRow(idx, 'price', e.target.value)}
+                        placeholder="0.00"
+                        min="0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeTitleRow(idx)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Remove row"
+                      >
+                        <FiX size={13}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -578,7 +693,29 @@ export default function FinanceEntries() {
                     {viewingEntry.paymentMethod || '—'}
                   </span>
                 </div>
-                <div className="col-span-2"><p className="text-slate-400 text-xs mb-1">Title</p><p className="font-medium text-slate-800">{viewingEntry.title}</p></div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 text-xs mb-2">Items</p>
+                  {(() => {
+                    const rows = parseTitleJson(viewingEntry.title)
+                    if (rows && rows.length > 0) {
+                      return (
+                        <div className="border border-slate-200 rounded-xl overflow-hidden">
+                          <div className="grid grid-cols-[1fr_70px_90px] gap-0 bg-slate-100 px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide border-b border-slate-200">
+                            <span>Name</span><span className="text-right">Qty</span><span className="text-right">Price</span>
+                          </div>
+                          {rows.map((row, i) => (
+                            <div key={i} className={`grid grid-cols-[1fr_70px_90px] gap-0 px-3 py-2 text-xs ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                              <span className="font-medium text-slate-800">{row.name || '—'}</span>
+                              <span className="text-right text-slate-600">{row.qty || '—'}</span>
+                              <span className="text-right text-slate-600">{row.price ? `LKR ${Number(row.price).toLocaleString('en-LK')}` : '—'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    }
+                    return <p className="font-medium text-slate-800">{viewingEntry.title || '—'}</p>
+                  })()}
+                </div>
               </div>
               
               {(viewingEntry.bankAccount || viewingEntry.branch || viewingEntry.project) && (

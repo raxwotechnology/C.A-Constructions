@@ -211,6 +211,15 @@ export default function HardwareSuppliersView() {
       toast.success('Purchase Order updated successfully!')
       queryClient.invalidateQueries({ queryKey: ['hardware-pos'] })
       queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-site-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
       setShowPOModal(false)
       setEditingPOId(null)
       if (viewingPO) setViewingPO(null)
@@ -229,6 +238,15 @@ export default function HardwareSuppliersView() {
       toast.success('Purchase Order deleted successfully!')
       queryClient.invalidateQueries({ queryKey: ['hardware-pos'] })
       queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-site-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
       if (viewingPO) setViewingPO(null)
     },
     onError: (err) => {
@@ -241,13 +259,26 @@ export default function HardwareSuppliersView() {
     mutationFn: async ({ id, status }) => {
       return await api.patch(`/suppliers/pos/${id}/status`, { status })
     },
-    onSuccess: () => {
-      toast.success('Purchase Order marked as Delivered!')
+    onSuccess: (res, vars) => {
+      toast.success(vars?.status === 'Delivered'
+        ? 'Purchase Order marked as Delivered & Added to Expenses!'
+        : `Purchase Order status updated to ${vars?.status}!`)
       queryClient.invalidateQueries({ queryKey: ['hardware-pos'] })
       queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
       queryClient.invalidateQueries({ queryKey: ['site-inventory'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries-category'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-site-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics'] })
       if (viewingPO) {
-        setViewingPO(prev => prev ? { ...prev, status: 'Delivered' } : null)
+        setViewingPO(prev => prev ? { ...prev, status: vars?.status || 'Delivered' } : null)
       }
     },
     onError: (err) => {

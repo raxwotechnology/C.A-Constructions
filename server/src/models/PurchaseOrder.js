@@ -35,6 +35,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     },
     deliveredAt: { type: Date },
     notes: { type: String, default: '' },
+    financeEntryRef: { type: mongoose.Schema.Types.ObjectId, ref: 'FinanceEntry' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

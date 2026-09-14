@@ -17,5 +17,6 @@ router.post('/pos', protect, supplierController.createPurchaseOrder);
 router.put('/pos/:id', protect, supplierController.updatePurchaseOrder);
 router.delete('/pos/:id', protect, supplierController.deletePurchaseOrder);
 router.patch('/pos/:id/status', protect, supplierController.updatePOStatus);
+router.post('/pos/sync-delivered-expenses', protect, supplierController.syncAllDeliveredPOExpenses);
 
 module.exports = router;
