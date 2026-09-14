@@ -112,22 +112,28 @@ export default function FinanceEntries() {
     return null
   }
 
+  const calcTotal = (rows) =>
+    rows.reduce((sum, r) => sum + (Number(r.qty) || 0) * (Number(r.price) || 0), 0)
+
   const updateTitleRow = (idx, key, val) => {
     const next = titleRows.map((r, i) => i === idx ? { ...r, [key]: val } : r)
     setTitleRows(next)
     f('title', serializeRows(next))
+    f('amount', calcTotal(next))
   }
 
   const addTitleRow = () => {
     const next = [...titleRows, { name: '', qty: '', price: '' }]
     setTitleRows(next)
     f('title', serializeRows(next))
+    f('amount', calcTotal(next))
   }
 
   const removeTitleRow = (idx) => {
     const next = titleRows.length > 1 ? titleRows.filter((_, i) => i !== idx) : [{ name: '', qty: '', price: '' }]
     setTitleRows(next)
     f('title', serializeRows(next))
+    f('amount', calcTotal(next))
   }
 
   const resetTitleRows = () => {
