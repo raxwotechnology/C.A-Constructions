@@ -1,0 +1,73 @@
+import api from './api'
+
+/** Async loader for SearchableSelect — returns { options, hasMore } */
+export function createLookupLoader(type, extraParams = {}) {
+  return async ({ search = '', page = 1 } = {}) => {
+    const params = new URLSearchParams({ search, page: String(page), limit: '20' })
+    Object.entries(extraParams).forEach(([k, v]) => {
+      if (v != null && v !== '') params.set(k, v)
+    })
+    const { data } = await api.get(`/lookups/${type}?${params}`)
+    return {
+      options: data.options || [],
+      hasMore: Boolean(data.hasMore),
+    }
+  }
+}
+
+/** Stable loader — uses /lookups/clients, falls back to /clients if lookup fails or is empty */
+async function loadClientOptions({ search = '', page = 1 } = {}) {
+  const limit = 20
+  try {
+    const params = new URLSearchParams({ search, page: String(page), limit: String(limit) })
+    const { data } = await api.get(`/lookups/clients?${params}`)
+    if (data?.options?.length) {
+      return { options: data.options, hasMore: Boolean(data.hasMore) }
+    }
+  } catch {
+    /* fall through to /clients */
+  }
+
+  let data;
+  try {
+    const res = await api.get('/clients')
+    data = res.data
+  } catch {
+    const res = await api.get('/auth/users')
+    data = res.data
+  }
+
+  const q = search.trim().toLowerCase()
+  const source = data?.clients || data?.users || []
+  const all = source.filter(u => !u.role || u.role === 'client').map((c) => ({
+    value: String(c._id),
+    label: `${c.name || 'Client'}${c.email ? ` (${c.email})` : ''}`,
+  }))
+  const filtered = q
+    ? all.filter((o) => o.label.toLowerCase().includes(q))
+    : all
+  const start = (Math.max(1, page) - 1) * limit
+  const slice = filtered.slice(start, start + limit + 1)
+  const hasMore = slice.length > limit
+  return {
+    options: hasMore ? slice.slice(0, limit) : slice,
+    hasMore,
+  }
+}
+
+export const lookupLoaders = {
+  employees: (extra = {}) => createLookupLoader('employees', { assignable: '1', ...extra }),
+  // employeesAll also enforces active-only; use employeesIncludeInactive for history/reports
+  employeesAll: (extra = {}) => createLookupLoader('employees', { assignable: '1', ...extra }),
+  employeesIncludeInactive: (extra = {}) => createLookupLoader('employees', extra),
+  clients: (extra = {}) => {
+    if (!extra || Object.keys(extra).length === 0) return loadClientOptions
+    return createLookupLoader('clients', extra)
+  },
+  banks: (extra = {}) => createLookupLoader('banks', extra),
+  projects: (extra = {}) => createLookupLoader('projects', extra),
+  invoices: () => createLookupLoader('invoices'),
+  suppliers: () => createLookupLoader('suppliers'),
+  loans: (extra = {}) => createLookupLoader('loans', extra),
+  branches: () => createLookupLoader('branches'),
+}

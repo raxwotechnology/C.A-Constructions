@@ -1,0 +1,534 @@
+const Attendance = require('../models/Attendance');
+const Employee = require('../models/Employee');
+const { resolveEmployeeForUser } = require('../utils/employeeResolver');
+const { computeAttendanceHours } = require('../utils/attendanceHours');
+const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
+
+// Helper: get start of today as a Date
+const todayStart = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+// Helper: resolve employee from authenticated user (auto-provisions staff profiles)
+const resolveEmployee = async (user) => resolveEmployeeForUser(user);
+
+// Helper: get employee IDs by branch
+const getEmpIds = async (branchId) => {
+  if (!branchId) return null;
+  const emps = await Employee.find({ branch: branchId }).select('_id');
+  return emps.map(e => e._id);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN / MANAGER — full mark / overwrite attendance for any employee
+// POST /api/attendance
+// ─────────────────────────────────────────────────────────────────────────────
+exports.markAttendance = async (req, res, next) => {
+  try {
+    const {
+      employeeId, date, status = 'present', checkIn, checkOut, breakTimes = [],
+      isHalfDay = false, isFullDay = true, otHours = 0, otAmount = 0, notes = '',
+      lateDeductionAmount = 0, hourlyDeductionAmount = 0,
+      site, gpsLocation, photoUrl,
+    } = req.body;
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+
+    // Double Payment / Conflict Detection Engine
+    const existingRec = await Attendance.findOne({ employee: employeeId, date: targetDate });
+    let conflictFlag = false;
+    let conflictDetails = '';
+
+    if (existingRec && site && existingRec.site && existingRec.site.toString() !== site.toString()) {
+      conflictFlag = true;
+      conflictDetails = `CONFLICT ALERT: Worker was previously marked at Site [${existingRec.site}] by user [${existingRec.markedBy}]. Prevented double-payment risk.`;
+    }
+
+    const parsedBreaks = Array.isArray(breakTimes)
+      ? breakTimes.map((b) => ({
+        breakIn: b?.breakIn ? new Date(b.breakIn) : undefined,
+        breakOut: b?.breakOut ? new Date(b.breakOut) : undefined,
+        notes: b?.notes || '',
+      }))
+      : undefined;
+
+    const isHalfDayEffective = Boolean(isHalfDay || status === 'half_day');
+    const finalStatus = isHalfDayEffective ? 'half_day' : status;
+
+    const ci = checkIn !== undefined ? (checkIn ? new Date(checkIn) : null) : undefined;
+    const co = checkOut !== undefined ? (checkOut ? new Date(checkOut) : null) : undefined;
+
+    const hours = computeAttendanceHours({
+      checkIn: ci,
+      checkOut: co,
+      breakTimes: parsedBreaks || [],
+      status: finalStatus,
+      isHalfDay: isHalfDayEffective,
+    });
+
+    const update = {
+      employee: employeeId,
+      date: targetDate,
+      status: finalStatus,
+      isHalfDay: isHalfDayEffective,
+      isFullDay: !isHalfDayEffective && Boolean(isFullDay),
+      otHours: hours.overtimeHours || Number(otHours),
+      otAmount: Number(otAmount),
+      lateDeductionAmount: Number(lateDeductionAmount) || 0,
+      hourlyDeductionAmount: Number(hourlyDeductionAmount) || 0,
+      notes,
+      markedBy: req.user._id,
+      site: site || undefined,
+      gpsLocation: gpsLocation || undefined,
+      photoUrl: photoUrl || undefined,
+      conflictFlag,
+      conflictDetails,
+      totalWorkedHours: hours.totalWorkedHours,
+      breakHours: hours.breakHours,
+      leaveHours: hours.leaveHours,
+      nonWorkedHours: hours.nonWorkedHours,
+      missingHours: hours.missingHours,
+      ...(ci !== undefined && { checkIn: ci }),
+      ...(co !== undefined && { checkOut: co }),
+      ...(parsedBreaks && { breakTimes: parsedBreaks }),
+    };
+
+    const attendance = await Attendance.findOneAndUpdate(
+      { employee: employeeId, date: targetDate },
+      { $set: update },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    const period = monthYearFromDate(targetDate);
+    await triggerPayrollSync({
+      employeeId,
+      month: period.month,
+      year: period.year,
+      source: 'attendance',
+      module: 'attendance',
+      entityId: attendance._id,
+      reason: 'Attendance marked/updated',
+      user: req.user,
+    });
+
+    res.status(200).json({ success: true, attendance, conflictFlag, conflictDetails });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEE SELF-SERVICE — Clock In (today only)
+// POST /api/attendance/clock-in
+// ─────────────────────────────────────────────────────────────────────────────
+exports.clockIn = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployee(req.user);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+
+    const { site, gpsLocation, photoUrl } = req.body;
+    const today = todayStart();
+    const now = new Date();
+
+    // Check if already clocked in today
+    const existing = await Attendance.findOne({ employee: employee._id, date: today });
+    if (existing?.checkIn) {
+      return res.status(400).json({ success: false, message: 'You have already clocked in today' });
+    }
+
+    const attendance = await Attendance.findOneAndUpdate(
+      { employee: employee._id, date: today },
+      {
+        $set: {
+          employee: employee._id,
+          date: today,
+          checkIn: now,
+          status: 'present',
+          site: site || undefined,
+          gpsLocation: gpsLocation || undefined,
+          photoUrl: photoUrl || undefined,
+          markedBy: req.user._id,
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    res.status(200).json({ success: true, attendance, message: 'Clocked in successfully with GPS/Photo tap verification' });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEE SELF-SERVICE — Clock Out (today only)
+// POST /api/attendance/clock-out
+// ─────────────────────────────────────────────────────────────────────────────
+exports.clockOut = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployee(req.user);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+
+    const today = todayStart();
+    const now = new Date();
+
+    const existing = await Attendance.findOne({ employee: employee._id, date: today });
+    if (!existing) {
+      return res.status(400).json({ success: false, message: 'You have not clocked in today' });
+    }
+    if (!existing.checkIn) {
+      return res.status(400).json({ success: false, message: 'Cannot clock out without clocking in first' });
+    }
+    if (existing.checkOut) {
+      return res.status(400).json({ success: false, message: 'You have already clocked out today' });
+    }
+
+    const hours = computeAttendanceHours({
+      checkIn: existing.checkIn,
+      checkOut: now,
+      breakTimes: existing.breakTimes || [],
+      status: existing.status,
+      isHalfDay: existing.isHalfDay,
+    });
+
+    const attendance = await Attendance.findOneAndUpdate(
+      { employee: employee._id, date: today },
+      {
+        $set: {
+          checkOut: now,
+          totalWorkedHours: hours.totalWorkedHours,
+          breakHours: hours.breakHours,
+          leaveHours: hours.leaveHours,
+          nonWorkedHours: hours.nonWorkedHours,
+          missingHours: hours.missingHours,
+          otHours: hours.overtimeHours,
+          markedBy: req.user._id,
+        },
+      },
+      { new: true }
+    );
+    res.status(200).json({ success: true, attendance, message: 'Clocked out successfully' });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEE SELF-SERVICE — Start Break
+// POST /api/attendance/break/start
+// ─────────────────────────────────────────────────────────────────────────────
+exports.startBreak = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployee(req.user);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+
+    const today = todayStart();
+    const existing = await Attendance.findOne({ employee: employee._id, date: today });
+    if (!existing?.checkIn) {
+      return res.status(400).json({ success: false, message: 'You must clock in before starting a break' });
+    }
+    // Check if there's an open break already
+    const openBreak = (existing.breakTimes || []).find((b) => b.breakIn && !b.breakOut);
+    if (openBreak) {
+      return res.status(400).json({ success: false, message: 'A break is already in progress' });
+    }
+
+    const attendance = await Attendance.findOneAndUpdate(
+      { employee: employee._id, date: today },
+      { $push: { breakTimes: { breakIn: new Date(), notes: req.body.notes || '' } } },
+      { new: true }
+    );
+    res.status(200).json({ success: true, attendance, message: 'Break started' });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEE SELF-SERVICE — End Break
+// POST /api/attendance/break/end
+// ─────────────────────────────────────────────────────────────────────────────
+exports.endBreak = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployee(req.user);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+
+    const today = todayStart();
+    const existing = await Attendance.findOne({ employee: employee._id, date: today });
+    if (!existing) return res.status(404).json({ success: false, message: 'No attendance record for today' });
+
+    const openIdx = (existing.breakTimes || []).findIndex((b) => b.breakIn && !b.breakOut);
+    if (openIdx === -1) {
+      return res.status(400).json({ success: false, message: 'No active break to end' });
+    }
+
+    const fieldPath = `breakTimes.${openIdx}.breakOut`;
+    const attendance = await Attendance.findOneAndUpdate(
+      { employee: employee._id, date: today },
+      { $set: { [fieldPath]: new Date() } },
+      { new: true }
+    );
+    res.status(200).json({ success: true, attendance, message: 'Break ended' });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEE — Get today's attendance record
+// GET /api/attendance/today
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getToday = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployee(req.user);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+
+    const today = todayStart();
+    const record = await Attendance.findOne({ employee: employee._id, date: today });
+    res.json({ success: true, record: record || null });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEE — Get own attendance history
+// GET /api/attendance/my
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getMyAttendance = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployee(req.user);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+    const { month, year } = req.query;
+    const query = { employee: employee._id };
+    if (month && year) {
+      const start = new Date(Number(year), Number(month) - 1, 1);
+      const end = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
+      query.date = { $gte: start, $lte: end };
+    }
+    const records = await Attendance.find(query).sort({ date: -1 }).limit(180);
+    res.json({ success: true, records });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN / MANAGER — Get all attendance records
+// GET /api/attendance
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getAttendance = async (req, res, next) => {
+  try {
+    const { month, year, employeeId, status, startDate, endDate, branch } = req.query;
+    const query = {};
+    if (employeeId) {
+      query.employee = employeeId;
+    } else if (branch) {
+      const empIds = await getEmpIds(branch);
+      if (empIds) query.employee = { $in: empIds };
+    }
+
+    if (status) query.status = status;
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) { const e = new Date(endDate); e.setHours(23, 59, 59, 999); query.date.$lte = e; }
+    } else if (month && year) {
+      const start = new Date(Number(year), Number(month) - 1, 1);
+      const end = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
+      query.date = { $gte: start, $lte: end };
+    }
+    const records = await Attendance.find(query)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .sort({ date: -1 });
+
+    const activeEmps = await Employee.find({ status: 'active', ...(branch ? { branch } : {}) }).populate('userId', 'name email');
+    
+    let dStart, dEnd;
+    if (startDate && endDate) {
+      dStart = new Date(startDate); dStart.setHours(0,0,0,0);
+      dEnd = new Date(endDate); dEnd.setHours(23,59,59,999);
+    } else if (month && year) {
+      dStart = new Date(Number(year), Number(month) - 1, 1);
+      dEnd = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
+    } else {
+      dStart = new Date(); dStart.setHours(0,0,0,0);
+      dEnd = new Date(); dEnd.setHours(23,59,59,999);
+    }
+    const today = new Date();
+    if (dEnd > today) dEnd = today;
+
+    const recordMap = new Set(records.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
+    const dummyRecords = [];
+    
+    if (!status || status === 'absent') {
+      const days = [];
+      for (let d = new Date(dStart); d <= dEnd; d.setDate(d.getDate() + 1)) {
+        days.push(new Date(d).toISOString().split('T')[0]);
+      }
+      const empFilterSet = employeeId ? new Set([String(employeeId)]) : new Set(activeEmps.map(e => String(e._id)));
+      
+      for (const emp of activeEmps) {
+        if (!empFilterSet.has(String(emp._id))) continue;
+        for (const dayStr of days) {
+          const key = `${emp._id}_${dayStr}`;
+          if (!recordMap.has(key)) {
+            dummyRecords.push({
+              _id: `dummy_${key}`,
+              employee: emp,
+              date: new Date(dayStr),
+              status: 'absent',
+              isDummy: true
+            });
+          }
+        }
+      }
+    }
+    const allRecords = [...records.map(r => r.toObject ? r.toObject() : r), ...dummyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({ success: true, count: allRecords.length, records: allRecords });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN / MANAGER — Update a specific record
+// PUT /api/attendance/:id
+// ─────────────────────────────────────────────────────────────────────────────
+exports.updateAttendance = async (req, res, next) => {
+  try {
+    const existing = await Attendance.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Record not found' });
+
+    const body = { ...req.body };
+    if (body.checkIn) body.checkIn = new Date(body.checkIn);
+    if (body.checkOut) body.checkOut = new Date(body.checkOut);
+    if (Array.isArray(body.breakTimes)) {
+      body.breakTimes = body.breakTimes.map((b) => ({
+        breakIn: b?.breakIn ? new Date(b.breakIn) : undefined,
+        breakOut: b?.breakOut ? new Date(b.breakOut) : undefined,
+        notes: b?.notes || '',
+      }));
+    }
+
+    const isHalfDayEffective = Boolean(body.isHalfDay || body.status === 'half_day' || (body.isHalfDay === undefined && existing.isHalfDay));
+    const finalStatus = isHalfDayEffective ? 'half_day' : (body.status || existing.status);
+    body.isHalfDay = isHalfDayEffective;
+    body.status = finalStatus;
+
+    const hours = computeAttendanceHours({
+      checkIn: body.checkIn ?? existing.checkIn,
+      checkOut: body.checkOut ?? existing.checkOut,
+      breakTimes: body.breakTimes ?? existing.breakTimes,
+      status: finalStatus,
+      isHalfDay: isHalfDayEffective,
+    });
+
+    const record = await Attendance.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          ...body,
+          totalWorkedHours: hours.totalWorkedHours,
+          breakHours: hours.breakHours,
+          leaveHours: hours.leaveHours,
+          nonWorkedHours: hours.nonWorkedHours,
+          missingHours: hours.missingHours,
+          otHours: hours.overtimeHours || body.otHours || existing.otHours,
+          markedBy: req.user._id,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+    const period = monthYearFromDate(record.date);
+    await triggerPayrollSync({
+      employeeId: record.employee,
+      month: period.month,
+      year: period.year,
+      source: 'attendance',
+      module: 'attendance',
+      entityId: record._id,
+      reason: 'Attendance record updated',
+      user: req.user,
+    });
+
+    res.json({ success: true, attendance: record });
+  } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN / MANAGER — Analytics
+// GET /api/attendance/analytics
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getAttendanceAnalytics = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const { branch, startDate, endDate } = req.query;
+    
+    let start, end, month, year;
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      month = start.getMonth() + 1;
+      year = start.getFullYear();
+    } else {
+      month = Number(req.query.month || now.getMonth() + 1);
+      year = Number(req.query.year || now.getFullYear());
+      start = new Date(year, month - 1, 1);
+      end = new Date(year, month, 0, 23, 59, 59, 999);
+    }
+
+    const query = { date: { $gte: start, $lte: end } };
+    if (branch) {
+      const empIds = await getEmpIds(branch);
+      if (empIds) query.employee = { $in: empIds };
+    }
+
+    const records = await Attendance.find(query)
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email role' } });
+
+    const activeEmps = await Employee.find({ status: 'active', ...(branch ? { branch } : {}) }).populate('userId', 'name employeeNo');
+    const today = new Date();
+    let dEnd = end > today ? today : end;
+    
+    const recordMap = new Set(records.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
+    const days = [];
+    for (let d = new Date(start); d <= dEnd; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d).toISOString().split('T')[0]);
+    }
+    
+    const dummyRecords = [];
+    for (const emp of activeEmps) {
+      for (const dayStr of days) {
+        const key = `${emp._id}_${dayStr}`;
+        if (!recordMap.has(key)) {
+          dummyRecords.push({
+            employee: emp,
+            date: new Date(dayStr),
+            status: 'absent',
+            isHalfDay: false
+          });
+        }
+      }
+    }
+    
+    const allRecords = [...records, ...dummyRecords];
+
+    const byStatus = allRecords.reduce((acc, row) => {
+      const key = row.isHalfDay ? 'half_day' : row.status;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    const byEmployee = allRecords.reduce((acc, row) => {
+      const empId = String(row.employee?._id || row.employee);
+      const name = row.employee?.userId?.name || 'Unknown';
+      if (!acc[empId]) acc[empId] = { employeeId: empId, employeeNo: row.employee?.employeeNo || '', name, present: 0, absent: 0, leave: 0, half_day: 0 };
+      const key = row.isHalfDay ? 'half_day' : row.status;
+      if (acc[empId][key] !== undefined) acc[empId][key] += 1;
+      return acc;
+    }, {});
+
+    const dailyTrendMap = {};
+    allRecords.forEach((row) => {
+      const day = new Date(row.date).getDate();
+      if (!dailyTrendMap[day]) dailyTrendMap[day] = { day, present: 0, absent: 0, leave: 0, half_day: 0 };
+      const key = row.isHalfDay ? 'half_day' : row.status;
+      if (dailyTrendMap[day][key] !== undefined) dailyTrendMap[day][key] += 1;
+    });
+
+    res.json({
+      success: true, month, year, byStatus,
+      byEmployee: Object.values(byEmployee).sort((a, b) => (b.present + b.half_day) - (a.present + a.half_day)),
+      dailyTrend: Object.values(dailyTrendMap).sort((a, b) => a.day - b.day),
+      totalRecords: allRecords.length,
+    });
+  } catch (err) { next(err); }
+};

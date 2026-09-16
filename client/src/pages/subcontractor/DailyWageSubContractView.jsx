@@ -1,0 +1,3495 @@
+import React, { useState, useEffect, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Users,
+  Calculator,
+  HardHat,
+  Ruler,
+  Utensils,
+  DollarSign,
+  Plus,
+  Search,
+  Filter,
+  Printer,
+  Download,
+  FileText,
+  CheckCircle,
+  Clock,
+  Trash2,
+  Edit,
+  X,
+  Save,
+  Building,
+  TrendingUp,
+  AlertCircle,
+  Calendar,
+  RotateCcw,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
+import api from '../../lib/api'
+import { printHtmlContent } from '../../lib/documentPrint'
+import { buildCompanyFromSettings, letterheadHtml } from '../../lib/companyBranding'
+import LetterheadHeader from '../../components/branding/LetterheadHeader'
+
+export default function DailyWageSubContractView() {
+  const queryClient = useQueryClient()
+
+  // Tab State: 'wages' | 'subcontract' | 'logs' | 'worker_summary' | 'advance_summary'
+  const [activeTab, setActiveTab] = useState('wages')
+
+  // Advance Summary — selected row IDs for sending to expenses
+  const [selectedAdvanceIds, setSelectedAdvanceIds] = useState([])
+
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState('')
+  const [selectedProject, setSelectedProject] = useState('')
+  const [selectedWorkType, setSelectedWorkType] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState('')
+  const [selectedWorkerFilter, setSelectedWorkerFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
+  // Date Filter State
+  const [datePreset, setDatePreset] = useState('all') // 'all' | 'today' | 'this_week' | 'this_month' | 'custom'
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+
+  // Handle Preset Changes
+  const handlePresetChange = (preset) => {
+    setDatePreset(preset)
+    const today = new Date()
+    if (preset === 'all') {
+      setStartDate('')
+      setEndDate('')
+    } else if (preset === 'today') {
+      const formatted = today.toISOString().split('T')[0]
+      setStartDate(formatted)
+      setEndDate(formatted)
+    } else if (preset === 'this_week') {
+      const dayOfWeek = today.getDay()
+      const distanceToMonday = (dayOfWeek + 6) % 7
+      const monday = new Date(today)
+      monday.setDate(today.getDate() - distanceToMonday)
+      setStartDate(monday.toISOString().split('T')[0])
+      setEndDate(today.toISOString().split('T')[0])
+    } else if (preset === 'this_month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+      setStartDate(firstDay.toISOString().split('T')[0])
+      setEndDate(today.toISOString().split('T')[0])
+    }
+  }
+
+  const handleClearDateFilter = () => {
+    setDatePreset('all')
+    setStartDate('')
+    setEndDate('')
+  }
+
+  // Print Payout Slip Modal State
+  const [printLog, setPrintLog] = useState(null)
+
+  // Edit Log Modal State
+  const [editLogModal, setEditLogModal] = useState(null)
+  const [showEditEmployeeSuggestions, setShowEditEmployeeSuggestions] = useState(false)
+
+  // Consolidated Batch Payout Modal State
+  const [batchPayoutModal, setBatchPayoutModal] = useState(null)
+
+  // Fetch Branches for Branch-Wise Filtering
+  const { data: branchesData } = useQuery({
+    queryKey: ['branches-list-dailywage'],
+    queryFn: async () => {
+      const res = await api.get('/branches')
+      return res.data?.branches || res.data?.data || res.data || []
+    },
+  })
+
+  // Fetch Projects for dropdown
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects-list'],
+    queryFn: async () => {
+      const res = await api.get('/projects')
+      return res.data?.projects || res.data?.data || res.data || []
+    },
+  })
+
+  // Fetch Advances for linking deductions
+  const { data: advancesData } = useQuery({
+    queryKey: ['advances-active'],
+    queryFn: async () => {
+      const res = await api.get('/advances?status=active')
+      return res.data?.advances || res.data?.data || res.data || []
+    },
+  })
+
+  // Fetch Employees for Worker Auto-Suggest
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees-list-dailywage'],
+    queryFn: async () => {
+      const res = await api.get('/employees')
+      return res.data?.employees || res.data?.data || res.data || []
+    },
+  })
+
+  // Safe Array Extractors
+  const projectsList = Array.isArray(projectsData?.projects)
+    ? projectsData.projects
+    : Array.isArray(projectsData?.data)
+    ? projectsData.data
+    : Array.isArray(projectsData)
+    ? projectsData
+    : []
+
+  const advancesList = Array.isArray(advancesData?.advances)
+    ? advancesData.advances
+    : Array.isArray(advancesData?.data)
+    ? advancesData.data
+    : Array.isArray(advancesData)
+    ? advancesData
+    : []
+
+  const employeesList = Array.isArray(employeesData?.employees)
+    ? employeesData.employees
+    : Array.isArray(employeesData?.data)
+    ? employeesData.data
+    : Array.isArray(employeesData)
+    ? employeesData
+    : []
+
+  // Fetch Daily Wage Logs & Aggregates
+  const { data: logsData, isLoading } = useQuery({
+    queryKey: ['daily-wage-logs', selectedBranch, selectedProject, selectedWorkType, selectedStatus, searchQuery, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (selectedBranch) params.append('branch', selectedBranch)
+      if (selectedProject) params.append('project', selectedProject)
+      if (selectedWorkType) params.append('workType', selectedWorkType)
+      if (selectedStatus) params.append('status', selectedStatus)
+      if (searchQuery) params.append('search', searchQuery)
+      if (startDate) params.append('startDate', startDate)
+      if (endDate) params.append('endDate', endDate)
+      params.append('limit', '500')
+
+      const res = await api.get(`/daily-wages?${params.toString()}`)
+      return res.data
+    },
+  })
+
+  const logs = Array.isArray(logsData?.data)
+    ? logsData.data
+    : Array.isArray(logsData)
+    ? logsData
+    : []
+
+  // Worker-wise Pending Subtotal Summary Calculation
+  const workerPendingSummaryMap = useMemo(() => {
+    const map = {}
+    logs.forEach((log) => {
+      const isPending = log.status !== 'Paid'
+      const name = (log.workerName || 'Unassigned Worker').trim()
+      if (!map[name]) {
+        map[name] = {
+          workerName: name,
+          totalLogsCount: 0,
+          pendingLogsCount: 0,
+          paidLogsCount: 0,
+          totalGross: 0,
+          totalAdvances: 0,
+          pendingGross: 0,
+          pendingAdvances: 0,
+          pendingNetSubtotal: 0,
+          paidGross: 0,
+          paidAdvances: 0,
+          paidNetTotal: 0,
+          pendingLogIds: [],
+        }
+      }
+      const isDaily = log.workType === 'Daily Wage'
+      const advanceAmount = Number(log.advanceDeductions || 0)
+      const grossAmount = isDaily 
+        ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+        : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+            ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+            : Number(log.subContractDetails?.totalMeasuredPay || 0))
+
+      map[name].totalLogsCount += 1
+      map[name].totalGross += grossAmount
+      map[name].totalAdvances += advanceAmount
+
+      if (isPending) {
+        map[name].pendingLogsCount += 1
+        map[name].pendingGross += grossAmount
+        map[name].pendingAdvances += advanceAmount
+        map[name].pendingLogIds.push(log._id)
+      } else {
+        map[name].paidLogsCount += 1
+        map[name].paidGross += grossAmount
+        map[name].paidAdvances += advanceAmount
+      }
+    })
+
+    // Subtract total advances from total gross earnings to get accurate uncleared subtotal
+    Object.values(map).forEach((w) => {
+      w.pendingNetSubtotal = Math.max(0, (w.pendingGross || 0) - (w.pendingAdvances || 0))
+      w.paidNetTotal = Math.max(0, (w.paidGross || 0) - (w.paidAdvances || 0))
+    })
+
+    return map
+  }, [logs])
+
+  const workerPendingSummaryList = useMemo(() => {
+    return Object.values(workerPendingSummaryMap).sort((a, b) => b.pendingNetSubtotal - a.pendingNetSubtotal)
+  }, [workerPendingSummaryMap])
+
+  // Filter logs by selected worker if chosen
+  const filteredLogsByWorker = useMemo(() => {
+    if (!selectedWorkerFilter) return logs
+    return logs.filter(
+      (l) => (l.workerName || '').trim().toLowerCase() === selectedWorkerFilter.trim().toLowerCase()
+    )
+  }, [logs, selectedWorkerFilter])
+
+  const totalLogsCount = filteredLogsByWorker.length
+  const effectivePageSize = pageSize === 'all' ? (totalLogsCount || 1) : Number(pageSize)
+  const totalPages = Math.ceil(totalLogsCount / effectivePageSize) || 1
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages)
+  const paginatedLogs = pageSize === 'all' 
+    ? filteredLogsByWorker 
+    : filteredLogsByWorker.slice((safeCurrentPage - 1) * effectivePageSize, safeCurrentPage * effectivePageSize)
+
+  // Consolidated Batch Payout Mutation
+  const batchPayoutMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await api.post('/daily-wages/batch-payout', payload)
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Consolidated payout processed successfully & synced to Accounts!')
+      setBatchPayoutModal(null)
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to process batch payout.')
+    },
+  })
+
+  // Open Batch Payout Modal for Worker
+  const handleOpenBatchPayout = (workerName) => {
+    const summaryItem = workerPendingSummaryMap[workerName]
+    if (!summaryItem || !summaryItem.pendingLogIds || summaryItem.pendingLogIds.length === 0) {
+      toast.error(`No pending unpaid logs found for ${workerName}.`)
+      return
+    }
+    const workerPendingLogs = logs.filter((l) => summaryItem.pendingLogIds.includes(l._id))
+    setBatchPayoutModal({
+      workerName,
+      logIds: summaryItem.pendingLogIds,
+      pendingLogs: workerPendingLogs,
+      pendingCount: summaryItem.pendingLogsCount,
+      totalGross: summaryItem.pendingGross,
+      totalAdvances: summaryItem.pendingAdvances,
+      totalNet: summaryItem.pendingNetSubtotal,
+      paymentDate: new Date().toISOString().split('T')[0],
+      paymentMethod: 'Cash',
+      notes: '',
+    })
+  }
+
+  // Auto-Fix & Deduplicate Duplicate Wage Entries Mutation
+  const syncAndDeduplicateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/daily-wages/sync-and-deduplicate')
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Auto-Fix complete! Accounts & Projects reconciled.')
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to auto-fix duplicate wage entries.')
+    },
+  })
+
+  // Send selected advances to Finance Expenses mutation
+  const sendAdvancesMutation = useMutation({
+    mutationFn: async (logIds) => {
+      const res = await api.post('/daily-wages/advance-to-expense', { logIds })
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Advances sent to Finance Expenses successfully!')
+      setSelectedAdvanceIds([])
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to send advances to expenses.')
+    },
+  })
+  const allUniqueWorkerNames = useMemo(() => {
+    const namesSet = new Set()
+    logs.forEach((l) => {
+      if (l.workerName?.trim()) namesSet.add(l.workerName.trim())
+    })
+    employeesList.forEach((e) => {
+      if (e.fullName?.trim()) namesSet.add(e.fullName.trim())
+    })
+    return Array.from(namesSet).sort((a, b) => a.localeCompare(b))
+  }, [logs, employeesList])
+
+  const summary = useMemo(() => {
+    if (selectedWorkerFilter) {
+      const workerLogs = logs.filter(
+        (l) => (l.workerName || '').trim().toLowerCase() === selectedWorkerFilter.trim().toLowerCase()
+      )
+      const raw = workerLogs.reduce(
+        (acc, log) => {
+          const isDaily = log.workType === 'Daily Wage'
+          const gross = isDaily
+            ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+            : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+                ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+                : Number(log.subContractDetails?.totalMeasuredPay || 0))
+          const adv = Number(log.advanceDeductions || 0)
+
+          if (isDaily) {
+            acc.totalDailyGross += gross
+            acc.totalDailyAdvances += adv
+            acc.totalAllowances += (log.totalAllowances || 0)
+          } else {
+            acc.totalSubContractGross += gross
+            acc.totalSubContractAdvances += adv
+            acc.totalSqftMeasured += (log.subContractDetails?.measuredSqft || 0)
+            acc.totalCubicFeetMeasured += (log.subContractDetails?.measuredCubicFeet || 0)
+          }
+          acc.totalAdvanceDeductions += adv
+          acc.totalGrossSalary += gross
+          return acc
+        },
+        {
+          totalDailyGross: 0,
+          totalDailyAdvances: 0,
+          totalSubContractGross: 0,
+          totalSubContractAdvances: 0,
+          totalNetDailyPay: 0,
+          totalSubContractPay: 0,
+          totalAllowances: 0,
+          totalAdvanceDeductions: 0,
+          totalSqftMeasured: 0,
+          totalCubicFeetMeasured: 0,
+          totalGrossSalary: 0,
+        }
+      )
+
+      raw.totalNetDailyPay = Math.max(0, raw.totalDailyGross - raw.totalDailyAdvances)
+      raw.totalSubContractPay = Math.max(0, raw.totalSubContractGross - raw.totalSubContractAdvances)
+      raw.totalNetSalary = Math.max(0, raw.totalGrossSalary - raw.totalAdvanceDeductions)
+      return raw
+    }
+
+    const baseSummary = logsData?.summary || {
+      totalNetDailyPay: 0,
+      totalSubContractPay: 0,
+      totalAllowances: 0,
+      totalAdvanceDeductions: 0,
+      totalSqftMeasured: 0,
+      totalCubicFeetMeasured: 0,
+      totalGrossSalary: 0,
+    }
+
+    let allDailyGross = 0
+    let allDailyAdvances = 0
+    let allSubGross = 0
+    let allSubAdvances = 0
+    let allAdvances = 0
+
+    logs.forEach((log) => {
+      const isDaily = log.workType === 'Daily Wage'
+      const gross = isDaily
+        ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+        : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+            ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+            : Number(log.subContractDetails?.totalMeasuredPay || 0))
+      const adv = Number(log.advanceDeductions || 0)
+      if (isDaily) {
+        allDailyGross += gross
+        allDailyAdvances += adv
+      } else {
+        allSubGross += gross
+        allSubAdvances += adv
+      }
+      allAdvances += adv
+    })
+
+    const totalGross = allDailyGross + allSubGross
+    const totalSubContractPay = Math.max(0, allSubGross - allSubAdvances)
+    const totalNetDailyPay = Math.max(0, allDailyGross - allDailyAdvances)
+
+    return {
+      ...baseSummary,
+      totalNetDailyPay: totalNetDailyPay || baseSummary.totalNetDailyPay || 0,
+      totalSubContractPay: totalSubContractPay || baseSummary.totalSubContractPay || 0,
+      totalAdvanceDeductions: allAdvances || baseSummary.totalAdvanceDeductions || 0,
+      totalGrossSalary: totalGross || baseSummary.totalGrossSalary || 0,
+      totalNetSalary: Math.max(0, totalGross - allAdvances),
+    }
+  }, [logsData, logs, selectedWorkerFilter])
+
+  const totalWorkerWages = Math.max(0, (summary.totalGrossSalary || 0) - (summary.totalAdvanceDeductions || 0))
+
+  // Site branding settings for letterhead print
+  const { data: siteSettingsData } = useQuery({
+    queryKey: ['site-settings'],
+    queryFn: async () => {
+      const res = await api.get('/site-settings')
+      return res.data?.settings || {}
+    },
+  })
+
+  // ---------------------------------------------------------
+  // FORM STATES FOR DAILY WAGE CALCULATOR
+  // ---------------------------------------------------------
+  const [wageForm, setWageForm] = useState({
+    workerName: '',
+    project: '',
+    date: new Date().toISOString().split('T')[0],
+    skillLevel: 'Skilled Labour / Baas',
+    skillRate: 5000,
+    daysWorked: 0,
+    otHours: 0,
+    otRate: 500,
+    foodRefreshments: 0,
+    travelTransport: 0,
+    nightOutstation: 0,
+    advanceDeductions: 0,
+    linkedAdvance: '',
+    mealExpenseAutoLogged: true,
+    notes: '',
+  })
+
+  // Employee Suggestion Dropdown State
+  const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false)
+
+  // Filter matching employees for Daily Wage Form
+  const matchingEmployees = wageForm.workerName.trim()
+    ? employeesList.filter((emp) => {
+        const s = wageForm.workerName.toLowerCase()
+        return (
+          emp.fullName?.toLowerCase().includes(s) ||
+          emp.employeeId?.toLowerCase().includes(s) ||
+          emp.designation?.toLowerCase().includes(s) ||
+          emp.nic?.toLowerCase().includes(s)
+        )
+      })
+    : employeesList.slice(0, 50)
+
+  // Handle Employee Auto-Fill Selection
+  const handleSelectEmployee = (emp) => {
+    // Find active advance if any
+    const activeAdv = advancesList.find(
+      (a) =>
+        String(a.employee?._id || a.employee || '') === String(emp._id || emp.id) ||
+        a.employee?.fullName === emp.fullName
+    )
+
+    setWageForm((prev) => ({
+      ...prev,
+      workerName: emp.fullName || emp.name,
+      employee: emp._id || emp.id,
+      otRate: emp.otRatePerHour > 0 ? emp.otRatePerHour : prev.otRate || 500,
+      linkedAdvance: activeAdv ? activeAdv._id : prev.linkedAdvance,
+      advanceDeductions: activeAdv
+        ? Math.min(activeAdv.outstandingBalance, 1000)
+        : prev.advanceDeductions,
+    }))
+
+    setShowEmployeeSuggestions(false)
+    toast.success(
+      `Auto-filled details for ${emp.fullName} (${emp.employeeId || emp.designation || 'Staff'})`
+    )
+  }
+
+  // Auto-set default skill rates
+  useEffect(() => {
+    if (wageForm.skillLevel === 'Skilled Labour / Baas') {
+      setWageForm((prev) => ({ ...prev, skillRate: 5000 }))
+    } else if (wageForm.skillLevel === 'Unskilled Labour / Helper') {
+      setWageForm((prev) => ({ ...prev, skillRate: 3500 }))
+    }
+  }, [wageForm.skillLevel])
+
+  // Live Net Daily Pay Calculation
+  const computedOtPay = Number(wageForm.otHours || 0) * Number(wageForm.otRate || 0)
+  const computedTotalAllowances =
+    Number(wageForm.foodRefreshments || 0) +
+    Number(wageForm.travelTransport || 0) +
+    Number(wageForm.nightOutstation || 0)
+  const computedGrossDailyPay =
+    Number(wageForm.daysWorked || 0) * Number(wageForm.skillRate || 0) +
+    computedOtPay +
+    computedTotalAllowances
+  const computedNetDailyPay = Math.max(0, computedGrossDailyPay - Number(wageForm.advanceDeductions || 0))
+
+  // ---------------------------------------------------------
+  // FORM STATES FOR SUB-CONTRACT CALCULATOR
+  // ---------------------------------------------------------
+  const [subForm, setSubForm] = useState({
+    workerName: '',
+    project: '',
+    date: new Date().toISOString().split('T')[0],
+    pricingBasis: 'SQFT', // 'SQFT' | 'Lump-sum'
+    workCategory: 'Roofing',
+    measuredSqft: 0,
+    measuredCubicFeet: 0,
+    ratePerSqft: 0,
+    lumpSumAmount: 0,
+    advanceDeductions: 0,
+    linkedAdvance: '',
+    notes: '',
+  })
+
+  // Live Sub-Contract Pay Calculation
+  const computedSubTotalPay = subForm.pricingBasis === 'Lump-sum'
+    ? Number(subForm.lumpSumAmount || 0)
+    : Number(subForm.measuredSqft || 0) * Number(subForm.ratePerSqft || 0)
+  const computedSubNetPay = Math.max(0, computedSubTotalPay - Number(subForm.advanceDeductions || 0))
+
+  // Auto-select first project when projects list loads
+  useEffect(() => {
+    if (projectsList && projectsList.length > 0) {
+      const defaultProjId = projectsList[0]._id || projectsList[0].id
+      if (!wageForm.project && defaultProjId) {
+        setWageForm((prev) => ({ ...prev, project: defaultProjId }))
+      }
+      if (!subForm.project && defaultProjId) {
+        setSubForm((prev) => ({ ...prev, project: defaultProjId }))
+      }
+    }
+  }, [projectsList])
+
+  // ---------------------------------------------------------
+  // MUTATIONS
+  // ---------------------------------------------------------
+  const createLogMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await api.post('/daily-wages', payload)
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Work log created successfully!')
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      // Reset forms partially
+      setWageForm((prev) => ({
+        ...prev,
+        workerName: '',
+        daysWorked: 0,
+        otHours: 0,
+        foodRefreshments: 0,
+        travelTransport: 0,
+        advanceDeductions: 0,
+        notes: '',
+      }))
+      setSubForm((prev) => ({
+        ...prev,
+        measuredSqft: 0,
+        advanceDeductions: 0,
+        notes: '',
+      }))
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to save log.')
+    },
+  })
+
+  const deleteLogMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await api.delete(`/daily-wages/${id}`)
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Log entry removed successfully.')
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+    },
+  })
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }) => {
+      const res = await api.put(`/daily-wages/${id}`, { status })
+      return res.data
+    },
+    onSuccess: (data, variables) => {
+      if (variables.status === 'Paid') {
+        toast.success('Status updated to Paid! Final payout expense synced to Accounts & Ledger.')
+      } else {
+        toast.success('Status updated successfully!')
+      }
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+    },
+  })
+
+  const updateLogMutation = useMutation({
+    mutationFn: async ({ id, payload }) => {
+      const res = await api.put(`/daily-wages/${id}`, payload)
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Daily wage log updated successfully!')
+      setEditLogModal(null)
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['projects-list'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to update work log.')
+    },
+  })
+
+  // Edit Modal Auto-fill & Calculations
+  const matchingEditEmployees = editLogModal?.workerName?.trim()
+    ? employeesList.filter((emp) => {
+        const s = editLogModal.workerName.toLowerCase()
+        return (
+          emp.fullName?.toLowerCase().includes(s) ||
+          emp.employeeId?.toLowerCase().includes(s) ||
+          emp.designation?.toLowerCase().includes(s) ||
+          emp.nic?.toLowerCase().includes(s)
+        )
+      })
+    : employeesList.slice(0, 30)
+
+  const handleSelectEditEmployee = (emp) => {
+    const activeAdv = advancesList.find(
+      (a) =>
+        String(a.employee?._id || a.employee || '') === String(emp._id || emp.id) ||
+        a.employee?.fullName === emp.fullName
+    )
+    setEditLogModal((prev) => ({
+      ...prev,
+      workerName: emp.fullName || emp.name,
+      employee: emp._id || emp.id,
+      otRate: emp.otRatePerHour > 0 ? emp.otRatePerHour : prev.otRate || 500,
+      linkedAdvance: activeAdv ? activeAdv._id : prev.linkedAdvance,
+      advanceDeductions: activeAdv
+        ? Math.min(activeAdv.outstandingBalance, 1000)
+        : prev.advanceDeductions,
+    }))
+    setShowEditEmployeeSuggestions(false)
+  }
+
+  const editComputedOtPay = editLogModal ? Number(editLogModal.otHours || 0) * Number(editLogModal.otRate || 0) : 0
+  const editComputedTotalAllowances = editLogModal
+    ? Number(editLogModal.foodRefreshments || 0) +
+      Number(editLogModal.travelTransport || 0) +
+      Number(editLogModal.nightOutstation || 0)
+    : 0
+  const editComputedGrossDailyPay = editLogModal
+    ? Number(editLogModal.daysWorked || 0) * Number(editLogModal.skillRate || 0) +
+      editComputedOtPay +
+      editComputedTotalAllowances
+    : 0
+  const editComputedNetDailyPay = editLogModal
+    ? Math.max(0, editComputedGrossDailyPay - Number(editLogModal.advanceDeductions || 0))
+    : 0
+
+  const editComputedSubTotalPay = editLogModal
+    ? editLogModal.pricingBasis === 'Lump-sum'
+      ? Number(editLogModal.lumpSumAmount || 0)
+      : Number(editLogModal.measuredSqft || 0) * Number(editLogModal.ratePerSqft || 0)
+    : 0
+  const editComputedSubNetPay = editLogModal
+    ? Math.max(0, editComputedSubTotalPay - Number(editLogModal.advanceDeductions || 0))
+    : 0
+
+  const handleOpenEditModal = (log) => {
+    const projId = log.project?._id || log.project?.id || log.project || ''
+    const empId = log.employee?._id || log.employee?.id || log.employee || ''
+    const advId = log.linkedAdvance?._id || log.linkedAdvance?.id || log.linkedAdvance || ''
+
+    setEditLogModal({
+      _id: log._id,
+      logCode: log.logCode,
+      workerName: log.workerName || '',
+      employee: empId,
+      project: projId,
+      date: log.date ? new Date(log.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      workType: log.workType || 'Daily Wage',
+      status: log.status || 'Pending',
+      skillLevel: log.skillLevel || 'Skilled Labour / Baas',
+      skillRate: log.skillRate ?? 5000,
+      daysWorked: log.daysWorked ?? 1.0,
+      otHours: log.otHours ?? 0,
+      otRate: log.otRate ?? 500,
+      foodRefreshments: log.allowances?.foodRefreshments ?? 0,
+      travelTransport: log.allowances?.travelTransport ?? 0,
+      nightOutstation: log.allowances?.nightOutstation ?? 0,
+      mealExpenseAutoLogged: Boolean(log.mealExpenseAutoLogged),
+      pricingBasis:
+        log.subContractDetails?.pricingBasis ||
+        (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft ? 'Lump-sum' : 'SQFT'),
+      workCategory: log.subContractDetails?.workCategory || 'Roofing',
+      measuredSqft: log.subContractDetails?.measuredSqft ?? 0,
+      measuredCubicFeet: log.subContractDetails?.measuredCubicFeet ?? 0,
+      ratePerSqft: log.subContractDetails?.ratePerSqft ?? 0,
+      lumpSumAmount: log.subContractDetails?.lumpSumAmount ?? 0,
+      advanceDeductions: log.advanceDeductions ?? 0,
+      linkedAdvance: advId,
+      notes: log.notes || '',
+    })
+  }
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault()
+    if (!editLogModal) return
+    if (!editLogModal.workerName || !editLogModal.project) {
+      toast.error('Please specify Worker Name and Project Site.')
+      return
+    }
+
+    const isDaily = editLogModal.workType === 'Daily Wage'
+    let payload = {
+      workerName: editLogModal.workerName,
+      employee: editLogModal.employee || null,
+      project: editLogModal.project,
+      date: editLogModal.date,
+      workType: editLogModal.workType,
+      status: editLogModal.status,
+      advanceDeductions: Number(editLogModal.advanceDeductions) || 0,
+      linkedAdvance: editLogModal.linkedAdvance || null,
+      notes: editLogModal.notes || '',
+    }
+
+    if (isDaily) {
+      payload = {
+        ...payload,
+        skillLevel: editLogModal.skillLevel,
+        skillRate: Number(editLogModal.skillRate) || 0,
+        daysWorked: Number(editLogModal.daysWorked) || 0,
+        otHours: Number(editLogModal.otHours) || 0,
+        otRate: Number(editLogModal.otRate) || 0,
+        allowances: {
+          foodRefreshments: Number(editLogModal.foodRefreshments) || 0,
+          travelTransport: Number(editLogModal.travelTransport) || 0,
+          nightOutstation: Number(editLogModal.nightOutstation) || 0,
+        },
+        mealExpenseAutoLogged: Boolean(editLogModal.mealExpenseAutoLogged),
+      }
+    } else {
+      const computedTotal =
+        editLogModal.pricingBasis === 'Lump-sum'
+          ? Number(editLogModal.lumpSumAmount || 0)
+          : Number(editLogModal.measuredSqft || 0) * Number(editLogModal.ratePerSqft || 0)
+
+      payload = {
+        ...payload,
+        subContractDetails: {
+          pricingBasis: editLogModal.pricingBasis,
+          workCategory: editLogModal.workCategory,
+          measuredSqft: editLogModal.pricingBasis === 'Lump-sum' ? 0 : Number(editLogModal.measuredSqft) || 0,
+          measuredCubicFeet: Number(editLogModal.measuredCubicFeet) || 0,
+          ratePerSqft: editLogModal.pricingBasis === 'Lump-sum' ? 0 : Number(editLogModal.ratePerSqft) || 0,
+          lumpSumAmount: editLogModal.pricingBasis === 'Lump-sum' ? Number(editLogModal.lumpSumAmount) || 0 : 0,
+          totalMeasuredPay: computedTotal,
+        },
+      }
+    }
+
+    updateLogMutation.mutate({ id: editLogModal._id, payload })
+  }
+
+  // Submit Daily Wage Form
+  const handleDailyWageSubmit = (e) => {
+    e.preventDefault()
+    if (!wageForm.workerName || !wageForm.project) {
+      toast.error('Please specify Worker Name and Select a Project.')
+      return
+    }
+    createLogMutation.mutate({
+      workerName: wageForm.workerName,
+      project: wageForm.project,
+      date: wageForm.date,
+      workType: 'Daily Wage',
+      skillLevel: wageForm.skillLevel,
+      skillRate: wageForm.skillRate,
+      daysWorked: wageForm.daysWorked,
+      otHours: wageForm.otHours,
+      otRate: wageForm.otRate,
+      allowances: {
+        foodRefreshments: wageForm.foodRefreshments,
+        travelTransport: wageForm.travelTransport,
+        nightOutstation: wageForm.nightOutstation,
+      },
+      advanceDeductions: wageForm.advanceDeductions,
+      linkedAdvance: wageForm.linkedAdvance || null,
+      mealExpenseAutoLogged: wageForm.mealExpenseAutoLogged,
+      notes: wageForm.notes,
+    })
+  }
+
+  // Submit Sub-Contract Form
+  const handleSubContractSubmit = (e) => {
+    e.preventDefault()
+    if (!subForm.workerName || !subForm.project) {
+      toast.error('Please specify Worker/Sub-contractor Name and Select a Project.')
+      return
+    }
+    createLogMutation.mutate({
+      workerName: subForm.workerName,
+      project: subForm.project,
+      date: subForm.date,
+      workType: 'Sub-Contract',
+      subContractDetails: {
+        pricingBasis: subForm.pricingBasis,
+        workCategory: subForm.workCategory,
+        measuredSqft: subForm.pricingBasis === 'Lump-sum' ? 0 : subForm.measuredSqft,
+        measuredCubicFeet: subForm.measuredCubicFeet,
+        ratePerSqft: subForm.pricingBasis === 'Lump-sum' ? 0 : subForm.ratePerSqft,
+        lumpSumAmount: subForm.pricingBasis === 'Lump-sum' ? subForm.lumpSumAmount : 0,
+        totalMeasuredPay: computedSubTotalPay,
+      },
+      advanceDeductions: subForm.advanceDeductions,
+      linkedAdvance: subForm.linkedAdvance || null,
+      notes: subForm.notes,
+    })
+  }
+
+  // Printable Payout Slip Handler
+  const handlePrintPayoutSlip = async (logItem) => {
+    const company = buildCompanyFromSettings(siteSettingsData || {})
+    const projName = logItem.project?.name || 'Construction Site'
+    const projLoc = logItem.project?.location || 'Sri Lanka'
+
+    const header = letterheadHtml(company, {
+      forPrint: true,
+      metadata: {
+        refNo: logItem.logCode,
+        projectName: projName,
+        siteLocation: projLoc,
+        date: new Date(logItem.date).toLocaleDateString('en-LK'),
+      },
+    })
+
+    const bodyHtml = `
+      <div style="font-family:'Segoe UI',sans-serif;color:#0f172a;max-width:800px;margin:0 auto;padding:10px">
+        ${header}
+        
+        <div style="border:2px solid #0f172a;border-radius:8px;padding:20px;margin-top:20px;background:#ffffff">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">
+            <h2 style="margin:0;font-size:18pt;color:#0f172a;font-weight:900">WORKER PAYOUT VOUCHER</h2>
+            <span style="background:#f59e0b;color:#0f172a;padding:4px 12px;border-radius:9999px;font-weight:800;font-size:10pt">${logItem.workType.toUpperCase()}</span>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:11pt">
+            <tr>
+              <td style="padding:6px;font-weight:700;color:#475569;width:30%">Worker / Sub-contractor:</td>
+              <td style="padding:6px;font-weight:800;color:#0f172a;font-size:12pt">${logItem.workerName}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px;font-weight:700;color:#475569">Skill Level / Category:</td>
+              <td style="padding:6px">${logItem.workType === 'Daily Wage' ? logItem.skillLevel : logItem.subContractDetails?.workCategory}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px;font-weight:700;color:#475569">Site Location / Project:</td>
+              <td style="padding:6px">${projName} (${projLoc})</td>
+            </tr>
+            <tr>
+              <td style="padding:6px;font-weight:700;color:#475569">Voucher Date:</td>
+              <td style="padding:6px">${new Date(logItem.date).toLocaleDateString('en-LK')}</td>
+            </tr>
+          </table>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px;margin-bottom:20px">
+            <h3 style="margin:0 0 12px;font-size:12pt;color:#0f172a;border-bottom:1px solid #cbd5e1;padding-bottom:6px">Earnings &amp; Measurements Breakdown</h3>
+            
+            ${
+              logItem.workType === 'Daily Wage'
+                ? `
+              <table style="width:100%;border-collapse:collapse;font-size:10.5pt">
+                <tr>
+                  <td style="padding:4px 0;color:#475569">Days Worked:</td>
+                  <td style="padding:4px 0;text-align:right;font-weight:600">${logItem.daysWorked} day(s) @ Rs. ${logItem.skillRate.toLocaleString()}/day</td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 0;color:#475569">Overtime (${logItem.otHours || 0} hrs @ Rs. ${logItem.otRate || 0}/hr):</td>
+                  <td style="padding:4px 0;text-align:right;font-weight:600">Rs. ${(logItem.otPay || 0).toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 0;color:#475569">Daily Allowances (Food, Travel, Outstation):</td>
+                  <td style="padding:4px 0;text-align:right;font-weight:600">Rs. ${(logItem.totalAllowances || 0).toLocaleString()}</td>
+                </tr>
+                <tr style="border-top:1px dashed #cbd5e1">
+                  <td style="padding:6px 0;font-weight:700">Gross Daily Pay:</td>
+                  <td style="padding:6px 0;text-align:right;font-weight:800;color:#0f172a">Rs. ${((logItem.daysWorked * logItem.skillRate) + (logItem.otPay || 0) + (logItem.totalAllowances || 0)).toLocaleString()}</td>
+                </tr>
+              </table>
+              `
+                : `
+              <table style="width:100%;border-collapse:collapse;font-size:10.5pt">
+                <tr>
+                  <td style="padding:4px 0;color:#475569">Measured Area:</td>
+                  <td style="padding:4px 0;text-align:right;font-weight:600">${logItem.subContractDetails?.measuredSqft || 0} Sqft</td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 0;color:#475569">Rate Per Sqft:</td>
+                  <td style="padding:4px 0;text-align:right;font-weight:600">Rs. ${(logItem.subContractDetails?.ratePerSqft || 0).toLocaleString()} / Sqft</td>
+                </tr>
+                <tr style="border-top:1px dashed #cbd5e1">
+                  <td style="padding:6px 0;font-weight:700">Total Measured Pay:</td>
+                  <td style="padding:6px 0;text-align:right;font-weight:800;color:#0f172a">Rs. ${(logItem.subContractDetails?.totalMeasuredPay || 0).toLocaleString()}</td>
+                </tr>
+              </table>
+              `
+            }
+          </div>
+
+          <div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;padding:16px;margin-bottom:24px">
+            <table style="width:100%;border-collapse:collapse;font-size:11pt">
+              <tr>
+                <td style="padding:4px 0;color:#854d0e;font-weight:600">Advance Deductions:</td>
+                <td style="padding:4px 0;text-align:right;font-weight:700;color:#dc2626">- Rs. ${(logItem.advanceDeductions || 0).toLocaleString()}</td>
+              </tr>
+              <tr style="border-top:2px solid #d97706;font-size:14pt">
+                <td style="padding:10px 0 0;font-weight:900;color:#0f172a">NET PAYABLE AMOUNT:</td>
+                <td style="padding:10px 0 0;text-align:right;font-weight:900;color:${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)) < 0 ? '#dc2626' : '#059669'}">${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)) < 0 ? `- Rs. ${Math.abs(logItem.workType === 'Daily Wage' ? logItem.netDailyPay : logItem.subContractPay).toLocaleString()}` : `Rs. ${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)).toLocaleString()}`}</td>
+              </tr>
+            </table>
+          </div>
+
+          ${logItem.notes ? `<p style="font-size:9.5pt;color:#64748b;font-style:italic">Notes: ${logItem.notes}</p>` : ''}
+
+          <div style="display:flex;justify-content:space-between;margin-top:50px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:10pt;color:#475569">
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:160px;margin-bottom:4px"></div>
+              <span>Worker Signature</span>
+            </div>
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:160px;margin-bottom:4px"></div>
+              <span>Site Supervisor / Manager</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+
+    await printHtmlContent({ title: `Payout Slip - ${logItem.logCode}`, bodyHtml })
+  }
+
+  // Download Payout Slip Document Handler
+  const handleDownloadPayoutSlip = async (logItem) => {
+    await handlePrintPayoutSlip(logItem)
+    toast.success(`Exporting payout voucher document for ${logItem.workerName}...`)
+  }
+
+  // Export Filtered Daily Wages to Excel (.xlsx)
+  const handleExportDailyWagesExcel = async () => {
+    try {
+      const XLSX = await import('xlsx')
+      const targetLogs = filteredLogsByWorker || logs || []
+      if (targetLogs.length === 0) {
+        toast.error('No daily wage logs available to export.')
+        return
+      }
+      const exportRows = targetLogs.map((log) => {
+        const isDaily = log.workType === 'Daily Wage'
+        const dateStr = log.date ? new Date(log.date).toLocaleDateString() : ''
+        const gross = isDaily
+          ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+          : (log.subContractDetails?.totalMeasuredPay || 0)
+        const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        return {
+          'Log Code': log.logCode || '',
+          'Date': dateStr,
+          'Worker / Baas Name': log.workerName || '',
+          'Project / Site': log.project?.name || log.project?.code || '',
+          'Work Type': log.workType || 'Daily Wage',
+          'Skill Level / Category': isDaily ? (log.skillLevel || 'Skilled Labour') : (log.subContractDetails?.workCategory || 'Sub-Contract'),
+          'Days / Output': isDaily ? `${log.daysWorked ?? 0} day(s)` : `${log.subContractDetails?.measuredSqft || 0} Sqft`,
+          'Daily Rate / Sqft Rate (LKR)': isDaily ? (log.skillRate || 0) : (log.subContractDetails?.ratePerSqft || 0),
+          'Overtime Pay (LKR)': log.otPay || 0,
+          'Allowances (LKR)': log.totalAllowances || 0,
+          'Gross Pay (LKR)': gross,
+          'Advance Deductions (LKR)': log.advanceDeductions || 0,
+          'Net Payable Amount (LKR)': net,
+          'Payment Status': log.status || 'Pending',
+          'Notes / Remarks': log.notes || '',
+        }
+      })
+      const ws = XLSX.utils.json_to_sheet(exportRows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Daily_Wages_Report')
+      XLSX.writeFile(wb, `Daily_Wages_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success(`Exported ${exportRows.length} daily wage logs to Excel!`)
+    } catch (err) {
+      toast.error('Failed to export daily wages to Excel.')
+    }
+  }
+
+  // Export Filtered Daily Wages to Formatted PDF Document
+  const handleExportDailyWagesPdf = async () => {
+    try {
+      const targetLogs = filteredLogsByWorker || logs || []
+      if (targetLogs.length === 0) {
+        toast.error('No daily wage logs available to export.')
+        return
+      }
+
+      const totalGross = targetLogs.reduce((acc, log) => {
+        const isDaily = log.workType === 'Daily Wage'
+        const gross = isDaily
+          ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+          : (log.subContractDetails?.totalMeasuredPay || 0)
+        return acc + gross
+      }, 0)
+
+      const totalAdvances = targetLogs.reduce((acc, log) => acc + (log.advanceDeductions || 0), 0)
+      const totalNetPay = Math.max(0, totalGross - totalAdvances)
+
+      const title = selectedWorkerFilter
+        ? `Worker Wage Summary - ${selectedWorkerFilter}`
+        : 'Daily Wage & Sub-Contract Master Statement'
+
+      const rowsHtml = targetLogs.map((log) => {
+        const isDaily = log.workType === 'Daily Wage'
+        const dateStr = log.date ? new Date(log.date).toLocaleDateString('en-GB') : ''
+        const gross = isDaily
+          ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+          : (log.subContractDetails?.totalMeasuredPay || 0)
+        const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        const statusColor = log.status === 'Paid' ? '#059669' : '#d97706'
+
+        return `
+          <tr>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;font-size:8.5pt">${log.logCode || ''}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8.5pt">${dateStr}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;font-size:8.5pt">${log.workerName || ''}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${log.project?.name || log.project?.code || '—'}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : `${log.subContractDetails?.measuredSqft || 0} sqft`}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-size:8.5pt">Rs. ${gross.toLocaleString()}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#dc2626;font-size:8.5pt">${log.advanceDeductions > 0 ? `- Rs. ${log.advanceDeductions.toLocaleString()}` : '—'}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-weight:700;color:${net < 0 ? '#dc2626' : '#0f172a'};font-size:8.5pt">${net < 0 ? `- Rs. ${Math.abs(net).toLocaleString()}` : `Rs. ${net.toLocaleString()}`}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:center;font-weight:700;font-size:8pt;color:${statusColor}">${log.status || 'Pending'}</td>
+          </tr>
+        `
+      }).join('')
+
+      const bodyHtml = `
+        <div style="font-family:'Segoe UI',sans-serif;color:#0f172a;padding:10px 0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #ea580c;padding-bottom:12px;margin-bottom:14px">
+            <div>
+              <h1 style="margin:0;font-size:16pt;font-weight:900;color:#0f172a">R.A CREATIONS & HOME DESIGNS (PVT) LTD</h1>
+              <p style="margin:2px 0 0;font-size:9pt;color:#64748b">Daily Labour & Sub-Contractor Wage Statement</p>
+            </div>
+            <div style="text-align:right;font-size:8pt;color:#475569">
+              <div><strong>Generated:</strong> ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString()}</div>
+              <div><strong>Filter:</strong> ${selectedWorkerFilter ? selectedWorkerFilter : 'All Active Workers'}</div>
+              <div><strong>Total Records:</strong> ${targetLogs.length}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;margin-bottom:14px">
+            <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:#64748b;font-weight:700;text-transform:uppercase">Total Gross Pay</div>
+              <div style="font-size:12pt;font-weight:800;color:#0f172a">Rs. ${totalGross.toLocaleString()}</div>
+            </div>
+            <div style="flex:1;background:#fef2f2;border:1px solid #fee2e2;border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:#991b1b;font-weight:700;text-transform:uppercase">Total Advances Deducted</div>
+              <div style="font-size:12pt;font-weight:800;color:#dc2626">Rs. ${totalAdvances.toLocaleString()}</div>
+            </div>
+            <div style="flex:1;background:#f0fdf4;border:1px solid #dcfce7;border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:#166534;font-weight:700;text-transform:uppercase">Total Net Payable</div>
+              <div style="font-size:12pt;font-weight:900;color:#15803d">Rs. ${totalNetPay.toLocaleString()}</div>
+            </div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <thead>
+              <tr style="background:#0f172a;color:#ffffff;font-size:7.5pt;text-transform:uppercase;letter-spacing:0.04em">
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Log Code</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Date</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Worker / Baas</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Project</th>
+                <th style="padding:6px;text-align:left;border:1px solid #0f172a">Work / Area</th>
+                <th style="padding:6px;text-align:right;border:1px solid #0f172a">Gross</th>
+                <th style="padding:6px;text-align:right;border:1px solid #0f172a">Advances</th>
+                <th style="padding:6px;text-align:right;border:1px solid #0f172a">Net Pay</th>
+                <th style="padding:6px;text-align:center;border:1px solid #0f172a">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr style="background:#f1f5f9;font-weight:800;font-size:9pt">
+                <td colspan="5" style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right">GRAND TOTAL:</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right">Rs. ${totalGross.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#dc2626">- Rs. ${totalAdvances.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#15803d;font-size:10pt">Rs. ${totalNetPay.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1"></td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div style="display:flex;justify-content:space-between;margin-top:35px;padding-top:15px;border-top:1px solid #e2e8f0;font-size:8.5pt;color:#64748b">
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
+              <span>Prepared By</span>
+            </div>
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
+              <span>Site Supervisor</span>
+            </div>
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
+              <span>Approved By (Management)</span>
+            </div>
+          </div>
+        </div>
+      `
+
+      await printHtmlContent({ title, bodyHtml })
+      toast.success('PDF document ready for download / printing!')
+    } catch (err) {
+      toast.error('Failed to generate PDF report.')
+    }
+  }
+
+  return (
+    <div className="space-y-6 pb-12">
+      {/* Header Banner Component */}
+      <LetterheadHeader
+        logoUrl={siteSettingsData?.logoUrl}
+        companyTitle="R.A CREATIONS & HOME DESIGNS (PVT) LTD"
+        tagline="Daily Wage & Sub-Contractor Management Portal"
+        refNo="MODULE-DW-2026"
+        date={new Date().toLocaleDateString('en-LK')}
+      />
+
+      {/* Date Range Filter Bar */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold shrink-0">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-extrabold text-slate-900">Date Range Filter (දිනය / දින පරාසය තේරීම)</h4>
+              {(startDate || endDate) && (
+                <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300">
+                  ACTIVE FILTER
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">Filter daily wage logs & summary cards by specific date range</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* Preset Buttons */}
+          <div className="flex flex-wrap items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">
+            {[
+              { id: 'all', label: 'All Time' },
+              { id: 'today', label: 'Today (අද)' },
+              { id: 'this_week', label: 'This Week' },
+              { id: 'this_month', label: 'This Month' },
+              { id: 'custom', label: 'Custom' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handlePresetChange(p.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  datePreset === p.id
+                    ? 'bg-amber-500 text-slate-950 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Date Pickers */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 font-bold">From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value)
+                  setDatePreset('custom')
+                }}
+                className="px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none bg-slate-50/50"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 font-bold">To:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value)
+                  setDatePreset('custom')
+                }}
+                className="px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none bg-slate-50/50"
+              />
+            </div>
+          </div>
+
+          {(startDate || endDate || datePreset !== 'all') && (
+            <button
+              type="button"
+              onClick={handleClearDateFilter}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition-all"
+              title="Reset date filter"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Clear Date
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Employee / Worker Salary Filter Bar */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-extrabold text-slate-900">
+                Employee Salary Filter (සේවකයා අනුව වැටුප් පෙන්වීම)
+              </h4>
+              {selectedWorkerFilter && (
+                <span className="text-[10px] bg-indigo-100 text-indigo-900 font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-300">
+                  INDIVIDUAL VIEW: {selectedWorkerFilter.toUpperCase()}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Select an employee/worker to view their individual salary, daily wages, and advances separately
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative w-full md:w-80">
+            <select
+              value={selectedWorkerFilter}
+              onChange={(e) => setSelectedWorkerFilter(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50/70 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            >
+              <option value="">-- All Employees / Workers (සියලු සේවකයින්) --</option>
+              {allUniqueWorkerNames.map((name) => {
+                const stats = workerPendingSummaryMap[name]
+                const netTotal = stats ? (stats.paidNetTotal || 0) + (stats.pendingNetSubtotal || 0) : 0
+                return (
+                  <option key={name} value={name}>
+                    {name} {netTotal > 0 ? `(Salary: Rs. ${netTotal.toLocaleString()})` : ''}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+
+          {selectedWorkerFilter && (
+            <button
+              type="button"
+              onClick={() => setSelectedWorkerFilter('')}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition-all shrink-0"
+              title="Show All Workers"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Show All
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Summary Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* CARD 1: TOTAL SALARY / WORKER WAGES */}
+        <div className="bg-gradient-to-br from-amber-500 via-amber-400 to-amber-500 rounded-2xl p-5 border border-amber-400/80 shadow-md flex items-center justify-between text-slate-950 col-span-1 sm:col-span-2 lg:col-span-1">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider bg-slate-950/90 text-amber-300 px-2 py-0.5 rounded-md">
+                {selectedWorkerFilter ? `Worker: ${selectedWorkerFilter}` : 'Total Salary'}
+              </span>
+            </div>
+            <p className="text-xs font-black uppercase tracking-wider text-slate-900 mt-1">
+              {selectedWorkerFilter ? `${selectedWorkerFilter}'s Salary` : 'Total Salary / Worker Wages (මුළු වැටුප)'}
+            </p>
+            <h3 className="text-2xl font-black text-slate-950 mt-1">
+              Rs. {totalWorkerWages.toLocaleString()}
+            </h3>
+            <p className="text-[11px] font-bold text-slate-900/80 mt-1 flex items-center gap-1">
+              <span>📅</span>
+              {startDate || endDate
+                ? `${startDate || 'Start'} - ${endDate || 'Today'}`
+                : 'All Time Summary'}
+            </p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-bold shadow-md shrink-0">
+            <DollarSign className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* CARD 2: DAILY WAGES PAID */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Daily Wages Paid</p>
+            <h3 className="text-2xl font-black text-slate-900 mt-1">
+              Rs. {summary.totalNetDailyPay.toLocaleString()}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">Net Daily Wage Payouts</p>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold shrink-0">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* CARD 3: SUB-CONTRACT PAYOUTS */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Sub-Contract Payouts</p>
+            <h3 className="text-2xl font-black text-emerald-600 mt-1">
+              Rs. {summary.totalSubContractPay.toLocaleString()}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {summary.totalSqftMeasured.toLocaleString()} Sqft Measured
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+            <Ruler className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* CARD 4: MEALS & REFRESHMENTS */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Worker Meals &amp; Refreshments</p>
+            <h3 className="text-2xl font-black text-cyan-600 mt-1">
+              Rs. {summary.totalAllowances.toLocaleString()}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">Site Operating Expenses</p>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-cyan-500/10 text-cyan-600 flex items-center justify-center font-bold shrink-0">
+            <Utensils className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* CARD 5: ADVANCES DEDUCTED */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Advances Deducted</p>
+            <h3 className="text-2xl font-black text-indigo-600 mt-1">
+              Rs. {summary.totalAdvanceDeductions.toLocaleString()}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">Recovered from Payouts</p>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+            <DollarSign className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs Navigation */}
+      <div className="flex border-b border-slate-200 bg-white rounded-xl p-1.5 shadow-sm gap-2">
+        <button
+          onClick={() => setActiveTab('wages')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'wages'
+              ? 'bg-white text-amber-400 shadow'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Calculator className="w-4 h-4" /> Daily Wage Calculator &amp; Entry
+        </button>
+        <button
+          onClick={() => setActiveTab('subcontract')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'subcontract'
+              ? 'bg-white text-amber-400 shadow'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Ruler className="w-4 h-4" /> Sub-Contract (Sqft Basis) Entry
+        </button>
+        <button
+          onClick={() => setActiveTab('logs')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'logs'
+              ? 'bg-white text-amber-400 shadow'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <FileText className="w-4 h-4" /> Work Logs &amp; Payout Slips ({logs.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('worker_summary')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'worker_summary'
+              ? 'bg-amber-500 text-slate-950 shadow font-extrabold'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Users className="w-4 h-4 text-indigo-600" /> Worker Outstanding Subtotals ({workerPendingSummaryList.filter(w => w.pendingLogsCount > 0).length})
+        </button>
+        <button
+          onClick={() => setActiveTab('advance_summary')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'advance_summary'
+              ? 'bg-indigo-600 text-white shadow font-extrabold'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <DollarSign className="w-4 h-4" /> Advance Summary ({logs.filter(l => (l.advanceDeductions || 0) > 0).length})
+        </button>
+      </div>
+
+      {/* --------------------------------------------------------- */}
+      {/* TAB 1: DAILY WAGE CALCULATOR & FORM */}
+      {/* --------------------------------------------------------- */}
+      {activeTab === 'wages' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Form */}
+          <form
+            onSubmit={handleDailyWageSubmit}
+            className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <HardHat className="w-5 h-5 text-amber-500" /> Daily Labour Wage Payout Form
+              </h3>
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                Formula: (Days * Rate) + OT + Allowances - Advances
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Worker / Baas Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Type name or select employee..."
+                  value={wageForm.workerName}
+                  onFocus={() => setShowEmployeeSuggestions(true)}
+                  onChange={(e) => {
+                    setWageForm({ ...wageForm, workerName: e.target.value })
+                    setShowEmployeeSuggestions(true)
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold"
+                />
+
+                {/* Employee Auto-Suggest Dropdown */}
+                {showEmployeeSuggestions && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-40 max-h-64 overflow-y-auto divide-y divide-slate-100 border-amber-200">
+                    <div className="p-2.5 bg-amber-50/80 text-[11px] font-bold text-amber-900 uppercase flex justify-between items-center border-b border-amber-100">
+                      <span className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-amber-600" /> Select Employee (Auto-fill Data)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowEmployeeSuggestions(false)}
+                        className="text-amber-700 hover:text-amber-900 font-bold text-xs cursor-pointer px-1.5 py-0.5 rounded hover:bg-amber-100"
+                      >
+                        ✕ Close
+                      </button>
+                    </div>
+                    {matchingEmployees.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-500 font-medium text-center">
+                        No registered employee found for "{wageForm.workerName}". You can enter custom worker name.
+                      </div>
+                    ) : (
+                      matchingEmployees.map((emp) => {
+                        const activeAdv = advancesList.find(
+                          (a) =>
+                            String(a.employee?._id || a.employee || '') === String(emp._id || emp.id) ||
+                            a.employee?.fullName === emp.fullName
+                        )
+                        return (
+                          <div
+                            key={emp._id || emp.id}
+                            onClick={() => handleSelectEmployee(emp)}
+                            className="p-3 hover:bg-amber-50 cursor-pointer transition-colors flex items-center justify-between"
+                          >
+                            <div>
+                              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                <Users className="w-3.5 h-3.5 text-amber-500" />
+                                {emp.fullName}
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono font-bold">
+                                  {emp.employeeId || 'EMP'}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {emp.designation || 'Staff'} • {emp.department || 'Civil Engineering'}
+                              </div>
+                            </div>
+                            {activeAdv && (
+                              <span className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                                Active Adv: Rs. {activeAdv.outstandingBalance}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Construction Site / Project *
+                </label>
+                <select
+                  required
+                  value={wageForm.project}
+                  onChange={(e) => setWageForm({ ...wageForm, project: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                >
+                  <option value="">-- Select Project --</option>
+                  {projectsList.map((p) => (
+                    <option key={p._id || p.id} value={p._id || p.id}>
+                      {p.name || p.title || 'Untitled Project'} ({p.location || 'Site'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Skill Rate Category
+                </label>
+                <select
+                  value={wageForm.skillLevel}
+                  onChange={(e) => setWageForm({ ...wageForm, skillLevel: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                >
+                  <option value="Skilled Labour / Baas">Skilled Labour / Baas (Rs. 5000/day)</option>
+                  <option value="Unskilled Labour / Helper">Unskilled Labour / Helper (Rs. 3500/day)</option>
+                  <option value="Custom">Custom Rate</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Skill Rate (Rs./Day)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={wageForm.skillRate}
+                  onChange={(e) => setWageForm((prev) => ({ ...prev, skillRate: Number(e.target.value) }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Days Worked
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={wageForm.daysWorked}
+                  onChange={(e) => setWageForm((prev) => ({ ...prev, daysWorked: Number(e.target.value) }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Log Date
+                </label>
+                <input
+                  type="date"
+                  value={wageForm.date}
+                  onChange={(e) => setWageForm({ ...wageForm, date: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Overtime Section */}
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-amber-600" /> Overtime (OT) Hours &amp; Rate
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">OT Hours</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wageForm.otHours}
+                    onChange={(e) => setWageForm({ ...wageForm, otHours: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">OT Rate / Hour (Rs.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wageForm.otRate}
+                    onChange={(e) => setWageForm({ ...wageForm, otRate: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Calculated OT Pay</label>
+                  <div className="px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 text-sm font-black text-amber-700">
+                    Rs. {computedOtPay.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Allowances Section */}
+            <div className="bg-cyan-50/50 rounded-xl p-4 border border-cyan-100 space-y-3">
+              <h4 className="text-xs font-bold text-cyan-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Utensils className="w-4 h-4 text-cyan-600" /> Daily Allowances &amp; Meals
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Daily Food &amp; Refreshments</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wageForm.foodRefreshments}
+                    onChange={(e) => setWageForm({ ...wageForm, foodRefreshments: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Travel &amp; Transport</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wageForm.travelTransport}
+                    onChange={(e) => setWageForm({ ...wageForm, travelTransport: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Night / Outstation Allowance</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wageForm.nightOutstation}
+                    onChange={(e) => setWageForm({ ...wageForm, nightOutstation: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="mealExpenseAuto"
+                  checked={wageForm.mealExpenseAutoLogged}
+                  onChange={(e) => setWageForm({ ...wageForm, mealExpenseAutoLogged: e.target.checked })}
+                  className="w-4 h-4 text-cyan-600 rounded border-slate-300 focus:ring-cyan-500"
+                />
+                <label htmlFor="mealExpenseAuto" className="text-xs text-slate-700 font-semibold cursor-pointer">
+                  Auto-log Food &amp; Refreshment Allowance to Site Operating Expenses for this Project
+                </label>
+              </div>
+            </div>
+
+            {/* Financial Adjustments / Advances Section */}
+            <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 space-y-3">
+              <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                <DollarSign className="w-4 h-4 text-indigo-600" /> Advance Deductions
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Link Active Employee Advance</label>
+                  <select
+                    value={wageForm.linkedAdvance}
+                    onChange={(e) => {
+                      const selected = advancesList.find((a) => a._id === e.target.value)
+                      setWageForm({
+                        ...wageForm,
+                        linkedAdvance: e.target.value,
+                        advanceDeductions: selected ? Math.min(selected.outstandingBalance, 1000) : wageForm.advanceDeductions,
+                      })
+                    }}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm"
+                  >
+                    <option value="">-- No Linked Advance --</option>
+                    {advancesList.map((a) => (
+                      <option key={a._id} value={a._id}>
+                        {a.employee?.fullName || 'Worker'} (Outstanding: Rs. {a.outstandingBalance})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Advance Amount to Deduct (Rs.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wageForm.advanceDeductions}
+                    onChange={(e) => setWageForm({ ...wageForm, advanceDeductions: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 text-sm font-semibold text-rose-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Notes / Description</label>
+              <input
+                type="text"
+                placeholder="e.g., Concrete pouring session extra overtime"
+                value={wageForm.notes}
+                onChange={(e) => setWageForm({ ...wageForm, notes: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={createLogMutation.isPending}
+              className="w-full py-3 bg-white text-amber-400 hover:bg-slate-100 font-extrabold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" /> Save Daily Wage Work Log
+            </button>
+          </form>
+
+          {/* Live Pay Calculator Summary Card */}
+          <div className="space-y-4">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white border-2 border-amber-500/40 shadow-xl space-y-5 sticky top-6">
+              <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+                <span className="text-xs font-black uppercase text-amber-400 tracking-wider">Live Pay Calculator</span>
+                <span className="text-xs bg-cyan-500/20 text-cyan-300 px-2.5 py-1 rounded-full font-bold">
+                  Daily Wage
+                </span>
+              </div>
+
+              <div className="space-y-2 text-sm text-slate-300">
+                <div className="flex justify-between">
+                  <span>Base Wage Pay:</span>
+                  <span className="font-bold text-white">
+                    Rs. {(Number(wageForm.daysWorked || 0) * Number(wageForm.skillRate || 0)).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Overtime Pay:</span>
+                  <span className="font-bold text-amber-400">+ Rs. {computedOtPay.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Daily Allowances:</span>
+                  <span className="font-bold text-cyan-400">+ Rs. {computedTotalAllowances.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-slate-700 font-bold text-white">
+                  <span>Gross Daily Pay:</span>
+                  <span>Rs. {computedGrossDailyPay.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-rose-400 font-bold">
+                  <span>Advance Deductions:</span>
+                  <span>- Rs. {Number(wageForm.advanceDeductions || 0).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t-2 border-amber-500/50 text-center">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">NET PAYABLE DAILY WAGE</p>
+                <h2 className="text-3xl font-black text-emerald-400 mt-1">
+                  Rs. {computedNetDailyPay.toLocaleString()}
+                </h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------- */}
+      {/* TAB 2: SUB-CONTRACT (SQFT BASIS) FORM */}
+      {/* --------------------------------------------------------- */}
+      {activeTab === 'subcontract' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form
+            onSubmit={handleSubContractSubmit}
+            className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Ruler className="w-5 h-5 text-emerald-600" /> Sub-Contract Work Log (Sqft / Cubic Ft Basis)
+              </h3>
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                Formula: (Measured Sqft * Rate/Sqft) - Advances
+              </span>
+            </div>
+
+            {/* Pricing Model Selector */}
+            <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200/80 space-y-3">
+              <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                Pricing &amp; Measurement Basis (මිල ගණන් සහ මැනුම් ක්‍රමය)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSubForm({ ...subForm, pricingBasis: 'SQFT' })}
+                  className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${
+                    subForm.pricingBasis === 'SQFT'
+                      ? 'bg-white border-emerald-500 shadow-sm ring-2 ring-emerald-400/30'
+                      : 'bg-slate-50/80 border-slate-200 hover:bg-white'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                    subForm.pricingBasis === 'SQFT' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    📐
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-slate-900">Per SQFT Basis (වර්ග අඩි ප්‍රමාණයට)</div>
+                    <div className="text-[11px] text-slate-500">Total = Measured Area (Sqft) × Rate/Sqft</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSubForm({ ...subForm, pricingBasis: 'Lump-sum' })}
+                  className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${
+                    subForm.pricingBasis === 'Lump-sum'
+                      ? 'bg-white border-emerald-500 shadow-sm ring-2 ring-emerald-400/30'
+                      : 'bg-slate-50/80 border-slate-200 hover:bg-white'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                    subForm.pricingBasis === 'Lump-sum' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    💼
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-slate-900">Fixed Amount (Lump-sum / Job Basis)</div>
+                    <div className="text-[11px] text-slate-500">SQFT නොබලා කතා කරගත් ස්ථාවර මුදල</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Sub-Contractor / Team Leader *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Perera Roofing Sub-Contractors"
+                  value={subForm.workerName}
+                  onChange={(e) => setSubForm({ ...subForm, workerName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Construction Site / Project *
+                </label>
+                <select
+                  required
+                  value={subForm.project}
+                  onChange={(e) => setSubForm({ ...subForm, project: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                >
+                  <option value="">-- Select Project --</option>
+                  {projectsList.map((p) => (
+                    <option key={p._id || p.id} value={p._id || p.id}>
+                      {p.name || p.title || 'Untitled Project'} ({p.location || 'Site'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Work Sub-Category *
+                </label>
+                <select
+                  value={subForm.workCategory}
+                  onChange={(e) => setSubForm({ ...subForm, workCategory: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-900 bg-amber-50/50"
+                >
+                  <option value="Roofing">Roofing Works / Structural Steel &amp; Roofing (වහලයේ වැඩ)</option>
+                  <option value="Tiling">Tiling Works (ටයිල් වැඩ)</option>
+                  <option value="Brickwork">Brickwork / Blockwork (ගඩොල්/බ්ලොක් වැඩ)</option>
+                  <option value="Painting">Painting Works (තීන්ත වැඩ)</option>
+                  <option value="Plastering">Plastering Works (ප්ලාස්ටර් වැඩ)</option>
+                  <option value="Piece-rate">Piece-rate Custom Work (අනෙකුත් ලම්ප්සම්/කොන්ත්‍රාත්)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Log Date *
+                </label>
+                <input
+                  type="date"
+                  value={subForm.date}
+                  onChange={(e) => setSubForm({ ...subForm, date: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                />
+              </div>
+
+              {subForm.pricingBasis === 'SQFT' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Measured Area (Square Feet - Sqft) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      placeholder="e.g., 450"
+                      value={subForm.measuredSqft}
+                      onChange={(e) => setSubForm({ ...subForm, measuredSqft: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-black text-emerald-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Rate Per Sqft (Rs.) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      placeholder="e.g., 180"
+                      value={subForm.ratePerSqft}
+                      onChange={(e) => setSubForm({ ...subForm, ratePerSqft: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-black text-emerald-700"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="md:col-span-2 bg-emerald-50/50 p-4 rounded-xl border border-emerald-200 space-y-1">
+                  <label className="block text-xs font-black text-emerald-950 uppercase mb-1">
+                    Fixed Agreed Lump-Sum Amount (Rs. ස්ථාවර ගාණ) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    placeholder="e.g., 150000 (enter agreed total price for complete job)"
+                    value={subForm.lumpSumAmount}
+                    onChange={(e) => setSubForm({ ...subForm, lumpSumAmount: Number(e.target.value) })}
+                    className="w-full px-4 py-3 rounded-xl border border-emerald-300 text-lg font-black text-emerald-800 bg-white shadow-xs focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <p className="text-[11px] text-emerald-700 font-semibold">
+                    💡 SQFT නොබලා කතා කරගත් ස්ථාවර මුදල (Lump-sum Amount) මෙහි කෙලින්ම සටහන් කරන්න.
+                  </p>
+                </div>
+              )}
+
+              {subForm.pricingBasis === 'SQFT' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Optional Measured Cubic Feet (m3 / ft3)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g., 12"
+                    value={subForm.measuredCubicFeet}
+                    onChange={(e) => setSubForm({ ...subForm, measuredCubicFeet: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Advance Deductions (Rs.)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={subForm.advanceDeductions}
+                  onChange={(e) => setSubForm({ ...subForm, advanceDeductions: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-rose-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                Work Notes / Measurement Location
+              </label>
+              <input
+                type="text"
+                placeholder="e.g., 2nd floor living room floor tiling measurement"
+                value={subForm.notes}
+                onChange={(e) => setSubForm({ ...subForm, notes: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={createLogMutation.isPending}
+              className="w-full py-3 bg-emerald-600 text-white hover:bg-emerald-700 font-extrabold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" /> Record Sub-Contract Sqft Log
+            </button>
+          </form>
+
+          {/* Sub-Contract Live Summary Card */}
+          <div className="space-y-4">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white border-2 border-emerald-500/40 shadow-xl space-y-5 sticky top-6">
+              <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+                <span className="text-xs font-black uppercase text-emerald-400 tracking-wider">Sub-Contract Calculator</span>
+                <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full font-bold">
+                  {subForm.workCategory}
+                </span>
+              </div>
+
+              <div className="space-y-2 text-sm text-slate-300">
+                {subForm.pricingBasis === 'Lump-sum' ? (
+                  <div className="flex justify-between">
+                    <span>Pricing Basis:</span>
+                    <span className="font-bold text-amber-300">Fixed Lump-Sum Job</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Measured Area:</span>
+                      <span className="font-bold text-white">{subForm.measuredSqft || 0} Sqft</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Rate Per Sqft:</span>
+                      <span className="font-bold text-white">Rs. {subForm.ratePerSqft || 0} / Sqft</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between pt-2 border-t border-slate-700 font-bold text-white">
+                  <span>Gross Payout:</span>
+                  <span>Rs. {computedSubTotalPay.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-rose-400 font-bold">
+                  <span>Advance Deductions:</span>
+                  <span>- Rs. {Number(subForm.advanceDeductions || 0).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t-2 border-emerald-500/50 text-center">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">NET SUB-CONTRACT PAYOUT</p>
+                <h2 className="text-3xl font-black text-emerald-400 mt-1">
+                  Rs. {computedSubNetPay.toLocaleString()}
+                </h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------- */}
+      {/* TAB 4: WORKER OUTSTANDING SUBTOTALS SUMMARY */}
+      {/* --------------------------------------------------------- */}
+      {activeTab === 'worker_summary' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <span className="text-xs font-black uppercase text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">
+                Per-Worker Reconciliation &amp; Uncleared Balances
+              </span>
+              <h3 className="text-xl font-black text-slate-900 mt-2 flex items-center gap-2">
+                <Users className="w-5 h-5 text-amber-500" /> Worker-Wise Outstanding Subtotals Summary
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                View uncleared pending payout subtotals per worker and perform bulk payouts.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-600">
+                Total Workers with Pending Payouts:{' '}
+                <strong className="text-amber-600 text-sm font-black">
+                  {workerPendingSummaryList.filter((w) => w.pendingLogsCount > 0).length}
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          {workerPendingSummaryList.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 font-medium bg-slate-50 rounded-2xl border border-slate-200">
+              No worker log entries recorded yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {workerPendingSummaryList.map((worker) => {
+                const hasPending = worker.pendingLogsCount > 0
+                return (
+                  <div
+                    key={worker.workerName}
+                    className={`rounded-2xl border p-5 transition-all shadow-sm flex flex-col justify-between ${
+                      hasPending ? 'bg-amber-50/40 border-amber-300' : 'bg-slate-50/60 border-slate-200'
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="text-base font-black text-slate-900 flex items-center gap-1.5">
+                            <Users className="w-4 h-4 text-amber-500" />
+                            {worker.workerName}
+                          </h4>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Total Recorded Logs: <span className="font-bold text-slate-700">{worker.totalLogsCount}</span>
+                          </p>
+                        </div>
+                        <span
+                          className={`text-xs font-extrabold px-2.5 py-1 rounded-full border ${
+                            hasPending
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          }`}
+                        >
+                          {hasPending ? `${worker.pendingLogsCount} PENDING` : 'ALL CLEARED'}
+                        </span>
+                      </div>
+
+                      <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Gross Earnings:</span>
+                          <span className="font-bold text-slate-800">Rs. {worker.totalGross.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Advance Deducted:</span>
+                          <span className="font-bold text-rose-600">- Rs. {worker.totalAdvances.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
+                          <span className="text-slate-700">Uncleared Subtotal:</span>
+                          <span className={hasPending ? 'text-rose-600' : 'text-emerald-600'}>
+                            Rs. {worker.pendingNetSubtotal.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200/80">
+                      <button
+                        onClick={() => {
+                          setSelectedWorkerFilter(worker.workerName)
+                          setActiveTab('logs')
+                        }}
+                        className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all"
+                      >
+                        View Logs ({worker.totalLogsCount})
+                      </button>
+
+                      {hasPending && (
+                        <button
+                          onClick={() => handleOpenBatchPayout(worker.workerName)}
+                          className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all flex items-center justify-center gap-1"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Pay Consolidated (Rs. {worker.pendingNetSubtotal.toLocaleString()})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --------------------------------------------------------- */}
+      {/* TAB 3: WORK LOGS DATA TABLE */}
+      {/* --------------------------------------------------------- */}
+      {activeTab === 'logs' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+          {/* Active Worker Filter Banner */}
+          {selectedWorkerFilter && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-amber-950 font-bold">
+                <Users className="w-4 h-4 text-amber-600" />
+                <span>
+                  Filtering Logs for Worker:{' '}
+                  <strong className="text-slate-900 underline text-sm">{selectedWorkerFilter}</strong>
+                </span>
+                {workerPendingSummaryMap[selectedWorkerFilter] && (
+                  <span className="ml-2 bg-white text-rose-700 px-2.5 py-0.5 rounded-full border border-rose-200 font-extrabold">
+                    Uncleared Subtotal: Rs.{' '}
+                    {workerPendingSummaryMap[selectedWorkerFilter].pendingNetSubtotal.toLocaleString()} (
+                    {workerPendingSummaryMap[selectedWorkerFilter].pendingLogsCount} pending)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {workerPendingSummaryMap[selectedWorkerFilter]?.pendingLogsCount > 0 && (
+                  <button
+                    onClick={() => handleOpenBatchPayout(selectedWorkerFilter)}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" /> Pay Consolidated for {selectedWorkerFilter}
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedWorkerFilter('')}
+                  className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-lg text-xs transition-all"
+                >
+                  ✕ Clear Worker Filter
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Table Filters */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="relative w-full md:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search worker or log ref..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <select
+                value={selectedWorkerFilter}
+                onChange={(e) => setSelectedWorkerFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-amber-300 text-xs font-bold focus:outline-none bg-amber-50 text-amber-900"
+              >
+                <option value="">All Workers</option>
+                {workerPendingSummaryList.map((w) => (
+                  <option key={w.workerName} value={w.workerName}>
+                    {w.workerName} {w.pendingLogsCount > 0 ? `(Pending: Rs.${w.pendingNetSubtotal.toLocaleString()})` : ''}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none bg-amber-50 text-amber-900 border-amber-300"
+              >
+                <option value="">All Branches</option>
+                {(branchesData || []).map((b) => (
+                  <option key={b._id || b.id} value={b._id || b.id}>
+                    {b.name} ({b.code || 'Branch'})
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none"
+              >
+                <option value="">All Projects</option>
+                {projectsList.map((p) => (
+                  <option key={p._id || p.id} value={p._id || p.id}>
+                    {p.name || p.title || 'Untitled Project'}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedWorkType}
+                onChange={(e) => setSelectedWorkType(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none"
+              >
+                <option value="">All Work Types</option>
+                <option value="Daily Wage">Daily Wage</option>
+                <option value="Sub-Contract">Sub-Contract</option>
+              </select>
+
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none"
+              >
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Paid">Paid</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={handleExportDailyWagesExcel}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                title="Export filtered daily wage work logs to Excel (.xlsx)"
+              >
+                <Download className="w-3.5 h-3.5" /> Export Excel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportDailyWagesPdf}
+                className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                title="Export filtered daily wage work logs as PDF Document"
+              >
+                <Printer className="w-3.5 h-3.5" /> Export PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Scan and auto-fix any duplicate or overlapping wage entries in Accounts & Database?')) {
+                    syncAndDeduplicateMutation.mutate();
+                  }
+                }}
+                disabled={syncAndDeduplicateMutation.isPending}
+                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                title="Scan and remove duplicate wage expense entries from Accounts"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${syncAndDeduplicateMutation.isPending ? 'animate-spin' : ''}`} />
+                {syncAndDeduplicateMutation.isPending ? 'Fixing...' : 'Auto-Fix Duplicates'}
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+                  <th className="py-3 px-4">Log Code / Date</th>
+                  <th className="py-3 px-4">Worker / Sub-contractor</th>
+                  <th className="py-3 px-4">Project Site</th>
+                  <th className="py-3 px-4">Type &amp; Category</th>
+                  <th className="py-3 px-4">Output / Measurement</th>
+                  <th className="py-3 px-4 text-right">Advance Taken</th>
+                  <th className="py-3 px-4 text-right">Net Payable Amount</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan="9" className="py-8 text-center text-slate-500 font-medium">
+                      Loading work logs...
+                    </td>
+                  </tr>
+                ) : paginatedLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="py-8 text-center text-slate-500 font-medium">
+                      No daily wage or sub-contract logs found for this page.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedLogs.map((log) => {
+                    const isDaily = log.workType === 'Daily Wage'
+                    const netAmount = isDaily ? log.netDailyPay : log.subContractPay
+                    const advanceAmount = log.advanceDeductions || 0
+
+                    return (
+                      <tr key={log._id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-mono text-xs font-bold text-slate-800">
+                          <div>{log.logCode}</div>
+                          <div className="text-[11px] font-normal text-slate-500">
+                            {new Date(log.date).toLocaleDateString('en-LK')}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          {log.workerName}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-700 font-medium">
+                          {log.project?.name || log.project?.title || 'Site'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                              isDaily
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {log.workType} ({isDaily ? log.skillLevel : log.subContractDetails?.workCategory})
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-700 text-xs">
+                          {isDaily
+                            ? `${log.daysWorked} Days (${log.otHours || 0} hrs OT)`
+                            : log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+                            ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})`
+                            : `${log.subContractDetails?.measuredSqft || 0} Sqft @ Rs.${log.subContractDetails?.ratePerSqft || 0}`}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-rose-600 text-sm">
+                          {advanceAmount > 0 ? `Rs. ${advanceAmount.toLocaleString()}` : '-'}
+                        </td>
+                        <td className={`py-3.5 px-4 text-right font-black text-base ${Number(netAmount) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {Number(netAmount) < 0 ? `- Rs. ${Math.abs(Number(netAmount)).toLocaleString()}` : `Rs. ${(Number(netAmount) || 0).toLocaleString()}`}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <select
+                            value={log.status}
+                            onChange={(e) => updateStatusMutation.mutate({ id: log._id, status: e.target.value })}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                              log.status === 'Paid'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : log.status === 'Approved'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Paid">Paid</option>
+                          </select>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {log.status !== 'Paid' && (
+                              <button
+                                onClick={() => updateStatusMutation.mutate({ id: log._id, status: 'Paid' })}
+                                title="Mark as Paid"
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" /> Paid
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleOpenEditModal(log)}
+                              title="Edit Log (සංස්කරණය)"
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handlePrintPayoutSlip(log)}
+                              title="Print Letterhead Payout Slip"
+                              className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadPayoutSlip(log)}
+                              title="Download Payout Slip Document"
+                              className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 hover:text-amber-700 cursor-pointer"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteLogMutation.mutate(log._id)}
+                              title="Delete Log"
+                              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Table Pagination Toolbar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs font-semibold text-slate-600">
+            <div className="flex items-center gap-2">
+              <span>Show items:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))
+                  setCurrentPage(1)
+                }}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value={25}>25 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
+                <option value="all">Show All ({totalLogsCount})</option>
+              </select>
+              <span className="text-slate-400">|</span>
+              <span>
+                Showing {totalLogsCount === 0 ? 0 : (safeCurrentPage - 1) * effectivePageSize + 1} to{' '}
+                {Math.min(safeCurrentPage * effectivePageSize, totalLogsCount)} of {totalLogsCount} logs
+              </span>
+            </div>
+
+            {pageSize !== 'all' && totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5 font-bold text-slate-900 bg-slate-100 rounded-lg">
+                  Page {safeCurrentPage} of {totalPages}
+                </span>
+                <button
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------- */}
+      {/* EDIT WORK LOG MODAL */}
+      {/* --------------------------------------------------------- */}
+      {editLogModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 my-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700 font-bold">
+                  <Edit className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-900">Edit Work Log (වැටුප් සටහන සංස්කරණය)</h3>
+                    <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 font-bold">
+                      {editLogModal.logCode}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Modify daily wage rates, days, measurements, advances or work category.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditLogModal(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Work Type & Status Selector */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Work Type (කාර්යය වර්ගය)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditLogModal({ ...editLogModal, workType: 'Daily Wage' })}
+                      className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                        editLogModal.workType === 'Daily Wage'
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Daily Wage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditLogModal({ ...editLogModal, workType: 'Sub-Contract' })}
+                      className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                        editLogModal.workType === 'Sub-Contract'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Sub-Contract
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Payment Status (ගෙවීම් තත්ත්වය)
+                  </label>
+                  <select
+                    value={editLogModal.status}
+                    onChange={(e) => setEditLogModal({ ...editLogModal, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold bg-white focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="Pending">Pending (නොගෙවූ)</option>
+                    <option value="Approved">Approved (අනුමත කළ)</option>
+                    <option value="Paid">Paid (ගෙවා අවසන්)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* General Details (Worker, Project, Date) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Worker Name with Auto-Suggest */}
+                <div className="relative">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Worker / Subcontractor *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editLogModal.workerName}
+                    onChange={(e) => {
+                      setEditLogModal({ ...editLogModal, workerName: e.target.value })
+                      setShowEditEmployeeSuggestions(true)
+                    }}
+                    onFocus={() => setShowEditEmployeeSuggestions(true)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-amber-500"
+                    placeholder="Worker Name"
+                  />
+
+                  {showEditEmployeeSuggestions && matchingEditEmployees.length > 0 && (
+                    <div className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 py-1 text-xs">
+                      {matchingEditEmployees.map((emp) => (
+                        <div
+                          key={emp._id || emp.id}
+                          onClick={() => handleSelectEditEmployee(emp)}
+                          className="px-3 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between border-b border-slate-100 last:border-0"
+                        >
+                          <div>
+                            <span className="font-bold text-slate-900">{emp.fullName}</span>
+                            <span className="text-slate-500 ml-1.5 font-mono text-[11px]">({emp.employeeId || 'Staff'})</span>
+                          </div>
+                          <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full font-bold">
+                            {emp.designation || 'Worker'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Project Site */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Project Site *
+                  </label>
+                  <select
+                    required
+                    value={editLogModal.project}
+                    onChange={(e) => setEditLogModal({ ...editLogModal, project: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="">-- Select Project Site --</option>
+                    {projectsList.map((p) => (
+                      <option key={p._id || p.id} value={p._id || p.id}>
+                        {p.name || p.title || 'Site'} ({p.code || 'PRJ'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Log Date */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Log Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editLogModal.date}
+                    onChange={(e) => setEditLogModal({ ...editLogModal, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* DAILY WAGE SPECIFIC INPUTS */}
+              {editLogModal.workType === 'Daily Wage' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Skill Category
+                      </label>
+                      <select
+                        value={editLogModal.skillLevel}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          let newRate = editLogModal.skillRate
+                          if (val === 'Skilled Labour / Baas') newRate = 5000
+                          if (val === 'Unskilled Labour / Helper') newRate = 3500
+                          setEditLogModal({ ...editLogModal, skillLevel: val, skillRate: newRate })
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                      >
+                        <option value="Skilled Labour / Baas">Skilled Labour / Baas (Rs. 5000)</option>
+                        <option value="Unskilled Labour / Helper">Unskilled Labour / Helper (Rs. 3500)</option>
+                        <option value="Custom">Custom Rate</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Skill Rate (Rs./Day)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editLogModal.skillRate}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, skillRate: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Days Worked
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        value={editLogModal.daysWorked}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, daysWorked: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Overtime */}
+                  <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200/80">
+                    <h4 className="text-xs font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-2.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" /> Overtime (OT)
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">OT Hours</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.otHours}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, otHours: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">OT Rate / Hour (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.otRate}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, otRate: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">OT Pay</label>
+                        <div className="px-3 py-1.5 bg-amber-100/70 rounded-lg text-xs font-bold text-amber-900 border border-amber-300">
+                          Rs. {editComputedOtPay.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Daily Allowances */}
+                  <div className="bg-cyan-50/50 p-3.5 rounded-xl border border-cyan-100">
+                    <h4 className="text-xs font-bold text-cyan-900 uppercase flex items-center gap-1.5 mb-2.5">
+                      <Utensils className="w-3.5 h-3.5 text-cyan-600" /> Daily Allowances &amp; Meals
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Food &amp; Refreshments (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.foodRefreshments}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, foodRefreshments: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Travel &amp; Transport (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.travelTransport}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, travelTransport: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Night / Outstation (Rs.)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.nightOutstation}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, nightOutstation: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="editMealExpenseAuto"
+                        checked={editLogModal.mealExpenseAutoLogged}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, mealExpenseAutoLogged: e.target.checked })}
+                        className="w-4 h-4 text-cyan-600 rounded border-slate-300 focus:ring-cyan-500"
+                      />
+                      <label htmlFor="editMealExpenseAuto" className="text-xs text-slate-700 font-semibold cursor-pointer">
+                        Auto-log Food &amp; Refreshment Allowance to Site Operating Expenses
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-CONTRACT SPECIFIC INPUTS */}
+              {editLogModal.workType === 'Sub-Contract' && (
+                <div className="space-y-4">
+                  {/* Pricing Model */}
+                  <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200">
+                    <label className="block text-xs font-bold text-emerald-950 uppercase mb-2">
+                      Pricing &amp; Measurement Basis
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditLogModal({ ...editLogModal, pricingBasis: 'SQFT' })}
+                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                          editLogModal.pricingBasis === 'SQFT'
+                            ? 'bg-white border-emerald-500 ring-2 ring-emerald-400/30'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-base">📐</span>
+                        <div>
+                          <div className="text-xs font-black text-slate-900">Per SQFT Basis</div>
+                          <div className="text-[10px] text-slate-500">Area × Rate/Sqft</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEditLogModal({ ...editLogModal, pricingBasis: 'Lump-sum' })}
+                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                          editLogModal.pricingBasis === 'Lump-sum'
+                            ? 'bg-white border-emerald-500 ring-2 ring-emerald-400/30'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <span className="text-base">💼</span>
+                        <div>
+                          <div className="text-xs font-black text-slate-900">Fixed Lump-Sum</div>
+                          <div className="text-[10px] text-slate-500">Agreed Fixed Total</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Sub-Contract Category
+                      </label>
+                      <select
+                        value={editLogModal.workCategory}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, workCategory: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white"
+                      >
+                        <option value="Roofing">Roofing (වහල වැඩ)</option>
+                        <option value="Floor Tiling">Floor Tiling (ටයිල් වැඩ)</option>
+                        <option value="Masonry & Plastering">Masonry &amp; Plastering (බදාම සහ පෙදරේරු)</option>
+                        <option value="Painting">Painting (පේන්ට් වැඩ)</option>
+                        <option value="Plumbing">Plumbing (නල කාර්මික)</option>
+                        <option value="Electrical">Electrical (විදුලි කාර්මික)</option>
+                        <option value="Ceiling">Ceiling (සිවිලිං)</option>
+                        <option value="Carpentry">Carpentry (වඩු වැඩ)</option>
+                        <option value="Iron Work & Welding">Iron Work &amp; Welding (යකඩ වැඩ)</option>
+                        <option value="Demolition">Demolition (කඩා දැමීම)</option>
+                        <option value="Excavation & Earthwork">Excavation &amp; Earthwork (පස් වැඩ)</option>
+                        <option value="Other Sub-Contract">Other Sub-Contract (වෙනත්)</option>
+                      </select>
+                    </div>
+
+                    {editLogModal.pricingBasis === 'Lump-sum' ? (
+                      <div>
+                        <label className="block text-xs font-black text-emerald-900 uppercase mb-1">
+                          Fixed Agreed Lump-Sum (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editLogModal.lumpSumAmount}
+                          onChange={(e) => setEditLogModal({ ...editLogModal, lumpSumAmount: Number(e.target.value) })}
+                          className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-sm font-black text-emerald-800 bg-white"
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                            Measured Sqft
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editLogModal.measuredSqft}
+                            onChange={(e) => setEditLogModal({ ...editLogModal, measuredSqft: Number(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                            Rate/Sqft (Rs.)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editLogModal.ratePerSqft}
+                            onChange={(e) => setEditLogModal({ ...editLogModal, ratePerSqft: Number(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Advance Deductions */}
+              <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 space-y-3">
+                <h4 className="text-xs font-bold text-indigo-900 uppercase flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-indigo-600" /> Advance Deductions (අත්තිකාරම් අඩු කිරීම්)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Link Active Advance</label>
+                    <select
+                      value={editLogModal.linkedAdvance}
+                      onChange={(e) => setEditLogModal({ ...editLogModal, linkedAdvance: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs"
+                    >
+                      <option value="">-- No Linked Advance --</option>
+                      {advancesList.map((a) => (
+                        <option key={a._id} value={a._id}>
+                          {a.employee?.fullName || 'Worker'} (Outstanding: Rs. {a.outstandingBalance})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Advance Deduct Amount (Rs.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editLogModal.advanceDeductions}
+                      onChange={(e) => setEditLogModal({ ...editLogModal, advanceDeductions: Number(e.target.value) })}
+                      className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-bold text-rose-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Notes / Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Living room wall plastering completed"
+                  value={editLogModal.notes}
+                  onChange={(e) => setEditLogModal({ ...editLogModal, notes: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm"
+                />
+              </div>
+
+              {/* Live Summary Calculation Banner */}
+              <div className="bg-slate-900 text-white rounded-xl p-4 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-xs space-y-1 text-slate-300">
+                  <div>
+                    Gross Amount:{' '}
+                    <span className="font-bold text-white">
+                      Rs.{' '}
+                      {(editLogModal.workType === 'Daily Wage'
+                        ? editComputedGrossDailyPay
+                        : editComputedSubTotalPay
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    Advance Deducted:{' '}
+                    <span className="font-bold text-rose-400">
+                      - Rs. {Number(editLogModal.advanceDeductions || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Net Payable Amount
+                  </div>
+                  <div className="text-xl font-black text-emerald-400">
+                    Rs.{' '}
+                    {(editLogModal.workType === 'Daily Wage'
+                      ? editComputedNetDailyPay
+                      : editComputedSubNetPay
+                    ).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditLogModal(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateLogMutation.isPending}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {updateLogMutation.isPending ? 'Saving Changes...' : 'Save Changes / යාවත්කාලීන කරන්න'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------- */}
+      {/* CONSOLIDATED BATCH PAYOUT MODAL */}
+      {/* --------------------------------------------------------- */}
+      {batchPayoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150 my-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-emerald-50/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-600 text-white font-bold shadow-xs">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Consolidated Wage Payout (එක්වර වැටුප් ගෙවීම)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Pay accumulated work logs for <strong className="text-emerald-800">{batchPayoutModal.workerName}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBatchPayoutModal(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                batchPayoutMutation.mutate({
+                  logIds: batchPayoutModal.logIds,
+                  paymentDate: batchPayoutModal.paymentDate,
+                  paymentMethod: batchPayoutModal.paymentMethod,
+                  notes: batchPayoutModal.notes,
+                })
+              }}
+              className="p-6 space-y-4 overflow-y-auto"
+            >
+              {/* Info Banner */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Consolidated Single Expense Entry:</p>
+                  <p className="text-amber-800 mt-0.5">
+                    This will mark all <strong>{batchPayoutModal.pendingCount} pending work log(s)</strong> as Paid and create <strong>1 single consolidated transaction</strong> in Accounts & Excel (totaling <strong>Rs. {batchPayoutModal.totalNet.toLocaleString()}</strong>), preventing duplicate records.
+                  </p>
+                </div>
+              </div>
+
+              {/* Work Logs Breakdown */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="bg-slate-50 px-3.5 py-2 border-b border-slate-200 text-xs font-bold text-slate-700 flex justify-between">
+                  <span>Work Logs to Settle ({batchPayoutModal.pendingLogs?.length || 0})</span>
+                  <span>Amount (LKR)</span>
+                </div>
+                <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 text-xs">
+                  {batchPayoutModal.pendingLogs?.map((log) => {
+                    const isDaily = log.workType === 'Daily Wage'
+                    const net = isDaily ? log.netDailyPay : log.subContractPay
+                    const dateStr = log.date ? new Date(log.date).toLocaleDateString() : 'N/A'
+                    return (
+                      <div key={log._id} className="px-3.5 py-2 flex items-center justify-between hover:bg-slate-50">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-slate-500 font-bold">{log.logCode}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-slate-700">{dateStr}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-slate-600 font-medium">
+                            {isDaily ? `${log.daysWorked} day(s) (${log.skillLevel || 'Labour'})` : 'Sub-Contract'}
+                          </span>
+                        </div>
+                        <span className={`font-bold ${Number(net) < 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {Number(net) < 0 ? `- Rs. ${Math.abs(Number(net)).toLocaleString()}` : `Rs. ${Number(net || 0).toLocaleString()}`}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Payment Details Form */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Payment Date (ගෙවූ දිනය)
+                  </label>
+                  <input
+                    type="date"
+                    value={batchPayoutModal.paymentDate}
+                    onChange={(e) =>
+                      setBatchPayoutModal({ ...batchPayoutModal, paymentDate: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Payment Method (ගෙවීම් ක්‍රමය)
+                  </label>
+                  <select
+                    value={batchPayoutModal.paymentMethod}
+                    onChange={(e) =>
+                      setBatchPayoutModal({ ...batchPayoutModal, paymentMethod: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="Cash">Cash (මුදල්)</option>
+                    <option value="Bank Transfer">Bank Transfer (බැංකු මාරුව)</option>
+                    <option value="Cheque">Cheque (චෙක්පත්)</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Notes / Remarks (විකල්ප සටහන්)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={`e.g. Paid ${batchPayoutModal.pendingCount} days accumulated wages`}
+                    value={batchPayoutModal.notes}
+                    onChange={(e) =>
+                      setBatchPayoutModal({ ...batchPayoutModal, notes: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Payout Total Box */}
+              <div className="p-4 rounded-xl bg-slate-900 text-white flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                    Total Consolidated Net Payout
+                  </div>
+                  <div className="text-xs text-emerald-400 font-medium mt-0.5">
+                    {batchPayoutModal.pendingCount} work day(s) combined
+                  </div>
+                </div>
+                <div className="text-2xl font-black text-emerald-400">
+                  Rs. {batchPayoutModal.totalNet.toLocaleString()}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setBatchPayoutModal(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={batchPayoutMutation.isPending}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {batchPayoutMutation.isPending
+                    ? 'Processing Payout...'
+                    : `Confirm & Pay Rs. ${batchPayoutModal.totalNet.toLocaleString()}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------- */}
+      {/* TAB 5: ADVANCE SUMMARY                                     */}
+      {/* --------------------------------------------------------- */}
+      {activeTab === 'advance_summary' && (() => {
+        const advanceLogs = logs.filter(l => (l.advanceDeductions || 0) > 0)
+        const totalAdvanceDailyWage = advanceLogs
+          .filter(l => l.workType === 'Daily Wage')
+          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
+        const totalAdvanceSubContract = advanceLogs
+          .filter(l => l.workType === 'Sub-Contract')
+          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
+        const totalPendingAdvance = advanceLogs
+          .filter(l => !l.advanceSentToExpenses)
+          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
+        const totalSentAdvance = advanceLogs
+          .filter(l => l.advanceSentToExpenses)
+          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
+
+        const allPendingIds = advanceLogs
+          .filter(l => !l.advanceSentToExpenses)
+          .map(l => l._id)
+
+        const toggleSelectAll = () => {
+          if (selectedAdvanceIds.length === allPendingIds.length) {
+            setSelectedAdvanceIds([])
+          } else {
+            setSelectedAdvanceIds(allPendingIds)
+          }
+        }
+
+        const toggleSelectOne = (id) => {
+          setSelectedAdvanceIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+          )
+        }
+
+        return (
+          <div className="space-y-5">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Daily Wage Advances</p>
+                  <h3 className="text-2xl font-black text-amber-600 mt-1">Rs. {totalAdvanceDailyWage.toLocaleString()}</h3>
+                  <p className="text-xs text-slate-500 mt-1">From Daily Wage entries</p>
+                </div>
+                <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                  <HardHat className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Sub-Contract Advances</p>
+                  <h3 className="text-2xl font-black text-emerald-600 mt-1">Rs. {totalAdvanceSubContract.toLocaleString()}</h3>
+                  <p className="text-xs text-slate-500 mt-1">From Sub-Contract entries</p>
+                </div>
+                <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Ruler className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-indigo-200 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Pending (Not in Expenses)</p>
+                  <h3 className="text-2xl font-black text-indigo-600 mt-1">Rs. {totalPendingAdvance.toLocaleString()}</h3>
+                  <p className="text-xs text-slate-500 mt-1">Not yet sent to Finance</p>
+                </div>
+                <div className="w-11 h-11 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-green-200 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Sent to Expenses</p>
+                  <h3 className="text-2xl font-black text-green-600 mt-1">Rs. {totalSentAdvance.toLocaleString()}</h3>
+                  <p className="text-xs text-slate-500 mt-1">Posted to Finance Ledger</p>
+                </div>
+                <div className="w-11 h-11 rounded-xl bg-green-500/10 text-green-600 flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Bar */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-indigo-600" />
+                  Advance Deductions — All Daily Wage &amp; Sub-Contract Entries
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select pending advances and click <strong>"Send to Expenses"</strong> to post them into the Finance Ledger.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {selectedAdvanceIds.length > 0 && (
+                  <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-3 py-1.5 rounded-full border border-indigo-200">
+                    {selectedAdvanceIds.length} selected
+                  </span>
+                )}
+                <button
+                  type="button"
+                  disabled={selectedAdvanceIds.length === 0 || sendAdvancesMutation.isPending}
+                  onClick={() => sendAdvancesMutation.mutate(selectedAdvanceIds)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-md transition-all cursor-pointer"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  {sendAdvancesMutation.isPending ? 'Sending...' : 'Send to Expenses'}
+                </button>
+              </div>
+            </div>
+
+            {/* Advances Table */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {advanceLogs.length === 0 ? (
+                <div className="p-12 text-center">
+                  <DollarSign className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-500">No advance deductions found.</p>
+                  <p className="text-xs text-slate-400 mt-1">Advances entered on Daily Wage or Sub-Contract entries will appear here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-slate-900 text-white text-[11px] uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedAdvanceIds.length === allPendingIds.length && allPendingIds.length > 0}
+                            onChange={toggleSelectAll}
+                            className="rounded border-slate-400 accent-indigo-500 cursor-pointer"
+                            title="Select all pending advances"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left">Log Code</th>
+                        <th className="px-4 py-3 text-left">Date</th>
+                        <th className="px-4 py-3 text-left">Worker / Sub-contractor</th>
+                        <th className="px-4 py-3 text-left">Project</th>
+                        <th className="px-4 py-3 text-center">Type</th>
+                        <th className="px-4 py-3 text-right">Advance Amount</th>
+                        <th className="px-4 py-3 text-center">Expense Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {advanceLogs.map((log, idx) => {
+                        const isSent = log.advanceSentToExpenses
+                        const isSelected = selectedAdvanceIds.includes(log._id)
+                        return (
+                          <tr
+                            key={log._id}
+                            className={`transition-colors ${
+                              isSent
+                                ? 'bg-green-50/40'
+                                : isSelected
+                                ? 'bg-indigo-50'
+                                : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                            }`}
+                          >
+                            <td className="px-4 py-3">
+                              {!isSent ? (
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleSelectOne(log._id)}
+                                  className="rounded border-slate-300 accent-indigo-500 cursor-pointer"
+                                />
+                              ) : (
+                                <span className="text-green-500 font-bold text-base">✓</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-mono font-bold text-slate-700">{log.logCode}</td>
+                            <td className="px-4 py-3 text-slate-600">
+                              {log.date ? new Date(log.date).toLocaleDateString('en-GB') : '—'}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-slate-900">{log.workerName}</td>
+                            <td className="px-4 py-3 text-slate-600">{log.project?.name || '—'}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                log.workType === 'Daily Wage'
+                                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                  : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              }`}>
+                                {log.workType === 'Daily Wage'
+                                  ? <><HardHat className="w-3 h-3" /> Daily Wage</>
+                                  : <><Ruler className="w-3 h-3" /> Sub-Contract</>
+                                }
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-black text-indigo-700">
+                              Rs. {(log.advanceDeductions || 0).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {isSent ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-bold text-[10px] border border-green-200">
+                                  <CheckCircle className="w-3 h-3" /> Sent to Expenses
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-bold text-[10px] border border-orange-200">
+                                  <Clock className="w-3 h-3" /> Pending
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    {/* Footer totals */}
+                    <tfoot>
+                      <tr className="bg-slate-100 font-extrabold text-slate-900 border-t-2 border-slate-200">
+                        <td colSpan={6} className="px-4 py-3 text-right text-xs uppercase tracking-wide">Grand Total Advances:</td>
+                        <td className="px-4 py-3 text-right text-indigo-700 font-black">
+                          Rs. {advanceLogs.reduce((s, l) => s + (l.advanceDeductions || 0), 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+    </div>
+  )
+}

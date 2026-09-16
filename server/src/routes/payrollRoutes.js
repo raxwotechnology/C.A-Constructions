@@ -1,0 +1,39 @@
+const express = require('express');
+const router = express.Router();
+const {
+  generatePayroll, generateAllPayroll, getPayrolls, getMyPayrolls, getEmployeePayrollPreview,
+  reviewPayroll, approvePayroll, updatePayroll, markPaid,
+  getEpfSummary, addOvertime, getOvertime, deleteOvertime,
+  syncPayroll, reopenPayroll, getRecalcLogs, getEmployeeFinancialSummary, getPayrollLiveSnapshot,
+  initiateSalaryPayHere, salaryPayHereNotify,
+  updateEpfRecord, deletePayroll, sendPayrollNotification, generatePayslipPdf, processMonthlyPayroll,
+} = require('../controllers/payrollController');
+const { protect, authorize } = require('../middleware/auth');
+
+router.post('/process', protect, authorize('admin', 'accountant'), processMonthlyPayroll);
+router.post('/generate', protect, authorize('admin'), generatePayroll);
+router.post('/generate-all', protect, authorize('admin'), generateAllPayroll);
+router.post('/generate-pdf', protect, authorize('admin', 'manager'), generatePayslipPdf);
+router.post('/sync', protect, authorize('admin'), syncPayroll);
+router.get('/recalc-logs', protect, authorize('admin'), getRecalcLogs);
+router.get('/employee-summary/:employeeId', protect, authorize('admin'), getEmployeeFinancialSummary);
+router.get('/live-snapshot/:employeeId', protect, authorize('admin'), getPayrollLiveSnapshot);
+router.post('/overtime', protect, authorize('admin'), addOvertime);
+router.delete('/overtime/:id', protect, authorize('admin'), deleteOvertime);
+router.get('/overtime', protect, authorize('admin'), getOvertime);
+router.put('/:id/reopen', protect, authorize('admin'), reopenPayroll);
+router.get('/preview/:employeeId', protect, authorize('admin'), getEmployeePayrollPreview);
+router.post('/payhere/notify', salaryPayHereNotify);
+router.get('/epf-summary', protect, authorize('admin'), getEpfSummary);
+router.get('/my', protect, getMyPayrolls);
+router.get('/', protect, authorize('admin'), getPayrolls);
+router.put('/:id/review', protect, authorize('admin'), reviewPayroll);
+router.put('/:id/approve', protect, authorize('admin'), approvePayroll);
+router.put('/:id/pay', protect, authorize('admin'), markPaid);
+router.post('/:id/send', protect, authorize('admin'), sendPayrollNotification);
+router.put('/:id/epf', protect, authorize('admin'), updateEpfRecord);
+router.put('/:id', protect, authorize('admin'), updatePayroll);
+router.post('/:id/payhere/init', protect, authorize('admin'), initiateSalaryPayHere);
+router.delete('/:id', protect, authorize('admin'), deletePayroll);
+
+module.exports = router;

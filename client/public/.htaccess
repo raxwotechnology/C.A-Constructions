@@ -1,0 +1,29 @@
+# Hostinger — Apache / LiteSpeed (shared hosting, hPanel)
+#
+# 1. Run: npm run build (in client/)
+# 2. Upload everything inside client/dist/ into public_html (or your subdomain root), including this file next to index.html.
+# 3. If the site is in a subfolder (e.g. public_html/app/), set RewriteBase to that path (see below).
+#
+# API must be a full URL in production (.env): VITE_API_URL=https://your-api.example.com/api
+# This host only serves static files + index.html for React routes.
+
+<IfModule mod_rewrite.c>
+  Options -MultiViews
+  RewriteEngine On
+
+  # Root deploy:
+  RewriteBase /
+
+  # Subfolder deploy example — uncomment and edit (leading slash, no trailing slash):
+  # RewriteBase /myapp/
+
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>
