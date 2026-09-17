@@ -1474,7 +1474,7 @@ export default function DailyWageSubContractView() {
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <DollarSign className="w-4 h-4" /> Advance Summary ({logs.filter(l => (l.advanceDeductions || 0) > 0).length})
+          <DollarSign className="w-4 h-4" /> Advance Summary ({filteredLogsByWorker.filter(l => (l.advanceDeductions || 0) > 0).length})
         </button>
       </div>
 
@@ -3268,7 +3268,7 @@ export default function DailyWageSubContractView() {
       {/* TAB 5: ADVANCE SUMMARY                                     */}
       {/* --------------------------------------------------------- */}
       {activeTab === 'advance_summary' && (() => {
-        const advanceLogs = logs.filter(l => (l.advanceDeductions || 0) > 0)
+        const advanceLogs = filteredLogsByWorker.filter(l => (l.advanceDeductions || 0) > 0)
         const totalAdvanceDailyWage = advanceLogs
           .filter(l => l.workType === 'Daily Wage')
           .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
