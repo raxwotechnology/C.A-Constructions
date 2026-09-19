@@ -59,8 +59,10 @@ const dailyWageLogSchema = new mongoose.Schema(
       ratePerSqft: { type: Number, default: 0 },
       lumpSumAmount: { type: Number, default: 0 },
       totalMeasuredPay: { type: Number, default: 0 },
+      foodDeductions: { type: Number, default: 0 },
     },
     subContractPay: { type: Number, default: 0 },
+    foodDeductions: { type: Number, default: 0 },
     
     // Site Operating Expense Integration
     mealExpenseAutoLogged: { type: Boolean, default: false },
@@ -105,7 +107,8 @@ dailyWageLogSchema.pre('validate', function (next) {
     if (this.subContractDetails) {
       this.subContractDetails.totalMeasuredPay = totalMeasured;
     }
-    this.subContractPay = totalMeasured - (this.advanceDeductions || 0);
+    const foodDed = Number(this.subContractDetails?.foodDeductions || this.foodDeductions || 0);
+    this.subContractPay = totalMeasured - (this.advanceDeductions || 0) - foodDed;
   }
   next();
 });

@@ -72,7 +72,9 @@ exports.createDailyWageLog = async (req, res, next) => {
         ratePerSqft: Number(subContractDetails?.ratePerSqft) || 0,
         lumpSumAmount: Number(subContractDetails?.lumpSumAmount) || 0,
         totalMeasuredPay: Number(subContractDetails?.totalMeasuredPay) || 0,
+        foodDeductions: Number(subContractDetails?.foodDeductions ?? req.body.foodDeductions) || 0,
       },
+      foodDeductions: Number(subContractDetails?.foodDeductions ?? req.body.foodDeductions) || 0,
       mealExpenseAutoLogged: Boolean(mealExpenseAutoLogged),
       notes: notes || '',
       createdBy: isValidId(req.user?._id || req.user?.id) ? (req.user?._id || req.user?.id) : null,
@@ -295,6 +297,15 @@ exports.getDailyWageLogs = async (req, res, next) => {
               ],
             },
           },
+          totalSubContractFoodDeductions: {
+            $sum: {
+              $cond: [
+                { $eq: ['$workType', 'Sub-Contract'] },
+                { $ifNull: ['$subContractDetails.foodDeductions', { $ifNull: ['$foodDeductions', 0] }] },
+                0,
+              ],
+            },
+          },
         },
       },
     ]);
@@ -304,18 +315,19 @@ exports.getDailyWageLogs = async (req, res, next) => {
     const totalDailyAdvances = s.totalDailyAdvances || 0;
     const totalSubContractGross = s.totalSubContractGross || 0;
     const totalSubContractAdvances = s.totalSubContractAdvances || 0;
+    const totalSubContractFoodDeductions = s.totalSubContractFoodDeductions || 0;
     const totalAdvanceDeductions = s.totalAdvanceDeductions || (totalDailyAdvances + totalSubContractAdvances);
     const totalGrossSalary = totalDailyGross + totalSubContractGross;
 
     const summary = {
       totalNetDailyPay: Math.max(0, totalDailyGross - totalDailyAdvances),
-      totalSubContractPay: Math.max(0, totalSubContractGross - totalSubContractAdvances),
+      totalSubContractPay: Math.max(0, totalSubContractGross - totalSubContractAdvances - totalSubContractFoodDeductions),
       totalAllowances: s.totalAllowances || 0,
       totalAdvanceDeductions,
       totalSqftMeasured: s.totalSqftMeasured || 0,
       totalCubicFeetMeasured: s.totalCubicFeetMeasured || 0,
       totalGrossSalary,
-      totalNetSalary: Math.max(0, totalGrossSalary - totalAdvanceDeductions),
+      totalNetSalary: Math.max(0, totalGrossSalary - totalAdvanceDeductions - totalSubContractFoodDeductions),
     };
 
     return res.json({
@@ -378,6 +390,7 @@ exports.updateDailyWageLog = async (req, res, next) => {
       'advanceDeductions',
       'linkedAdvance',
       'subContractDetails',
+      'foodDeductions',
       'mealExpenseAutoLogged',
       'status',
       'notes',
@@ -543,7 +556,8 @@ exports.calculatePayPreview = (req, res) => {
     });
   } else {
     const totalMeasuredPay = Number(measuredSqft) * Number(ratePerSqft);
-    const subContractPay = Math.max(0, totalMeasuredPay - Number(advanceDeductions));
+    const foodDeductions = Number(req.body.foodDeductions ?? req.body.subContractDetails?.foodDeductions) || 0;
+    const subContractPay = Math.max(0, totalMeasuredPay - Number(advanceDeductions) - foodDeductions);
 
     return res.json({
       success: true,
@@ -553,8 +567,9 @@ exports.calculatePayPreview = (req, res) => {
         ratePerSqft: Number(ratePerSqft),
         totalMeasuredPay,
         advanceDeductions: Number(advanceDeductions),
+        foodDeductions,
         subContractPay,
-        formula: '(Measured Sqft * Rate Per Sqft) - Advance Deductions',
+        formula: '(Measured Sqft * Rate Per Sqft) - Advance Deductions - Food Deductions',
       },
     });
   }

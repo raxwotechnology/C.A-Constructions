@@ -212,27 +212,31 @@ export default function DailyWageSubContractView() {
         : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
             ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
             : Number(log.subContractDetails?.totalMeasuredPay || 0))
+      const foodDeduction = !isDaily ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
 
       map[name].totalLogsCount += 1
       map[name].totalGross += grossAmount
       map[name].totalAdvances += advanceAmount
+      map[name].totalFoodDeductions = (map[name].totalFoodDeductions || 0) + foodDeduction
 
       if (isPending) {
         map[name].pendingLogsCount += 1
         map[name].pendingGross += grossAmount
         map[name].pendingAdvances += advanceAmount
+        map[name].pendingFoodDeductions = (map[name].pendingFoodDeductions || 0) + foodDeduction
         map[name].pendingLogIds.push(log._id)
       } else {
         map[name].paidLogsCount += 1
         map[name].paidGross += grossAmount
         map[name].paidAdvances += advanceAmount
+        map[name].paidFoodDeductions = (map[name].paidFoodDeductions || 0) + foodDeduction
       }
     })
 
-    // Subtract total advances from total gross earnings to get accurate uncleared subtotal
+    // Subtract total advances and food deductions from total gross earnings to get accurate uncleared subtotal
     Object.values(map).forEach((w) => {
-      w.pendingNetSubtotal = Math.max(0, (w.pendingGross || 0) - (w.pendingAdvances || 0))
-      w.paidNetTotal = Math.max(0, (w.paidGross || 0) - (w.paidAdvances || 0))
+      w.pendingNetSubtotal = Math.max(0, (w.pendingGross || 0) - (w.pendingAdvances || 0) - (w.pendingFoodDeductions || 0))
+      w.paidNetTotal = Math.max(0, (w.paidGross || 0) - (w.paidAdvances || 0) - (w.paidFoodDeductions || 0))
     })
 
     return map
@@ -367,6 +371,7 @@ export default function DailyWageSubContractView() {
                 ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
                 : Number(log.subContractDetails?.totalMeasuredPay || 0))
           const adv = Number(log.advanceDeductions || 0)
+          const foodDed = !isDaily ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
 
           if (isDaily) {
             acc.totalDailyGross += gross
@@ -375,10 +380,12 @@ export default function DailyWageSubContractView() {
           } else {
             acc.totalSubContractGross += gross
             acc.totalSubContractAdvances += adv
+            acc.totalSubContractFoodDeductions = (acc.totalSubContractFoodDeductions || 0) + foodDed
             acc.totalSqftMeasured += (log.subContractDetails?.measuredSqft || 0)
             acc.totalCubicFeetMeasured += (log.subContractDetails?.measuredCubicFeet || 0)
           }
           acc.totalAdvanceDeductions += adv
+          acc.totalFoodDeductions = (acc.totalFoodDeductions || 0) + foodDed
           acc.totalGrossSalary += gross
           return acc
         },
@@ -387,10 +394,12 @@ export default function DailyWageSubContractView() {
           totalDailyAdvances: 0,
           totalSubContractGross: 0,
           totalSubContractAdvances: 0,
+          totalSubContractFoodDeductions: 0,
           totalNetDailyPay: 0,
           totalSubContractPay: 0,
           totalAllowances: 0,
           totalAdvanceDeductions: 0,
+          totalFoodDeductions: 0,
           totalSqftMeasured: 0,
           totalCubicFeetMeasured: 0,
           totalGrossSalary: 0,
@@ -398,8 +407,8 @@ export default function DailyWageSubContractView() {
       )
 
       raw.totalNetDailyPay = Math.max(0, raw.totalDailyGross - raw.totalDailyAdvances)
-      raw.totalSubContractPay = Math.max(0, raw.totalSubContractGross - raw.totalSubContractAdvances)
-      raw.totalNetSalary = Math.max(0, raw.totalGrossSalary - raw.totalAdvanceDeductions)
+      raw.totalSubContractPay = Math.max(0, raw.totalSubContractGross - raw.totalSubContractAdvances - (raw.totalSubContractFoodDeductions || 0))
+      raw.totalNetSalary = Math.max(0, raw.totalGrossSalary - raw.totalAdvanceDeductions - (raw.totalFoodDeductions || 0))
       return raw
     }
 
@@ -417,6 +426,7 @@ export default function DailyWageSubContractView() {
     let allDailyAdvances = 0
     let allSubGross = 0
     let allSubAdvances = 0
+    let allSubFood = 0
     let allAdvances = 0
 
     logs.forEach((log) => {
@@ -427,18 +437,20 @@ export default function DailyWageSubContractView() {
             ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
             : Number(log.subContractDetails?.totalMeasuredPay || 0))
       const adv = Number(log.advanceDeductions || 0)
+      const foodDed = !isDaily ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
       if (isDaily) {
         allDailyGross += gross
         allDailyAdvances += adv
       } else {
         allSubGross += gross
         allSubAdvances += adv
+        allSubFood += foodDed
       }
       allAdvances += adv
     })
 
     const totalGross = allDailyGross + allSubGross
-    const totalSubContractPay = Math.max(0, allSubGross - allSubAdvances)
+    const totalSubContractPay = Math.max(0, allSubGross - allSubAdvances - allSubFood)
     const totalNetDailyPay = Math.max(0, allDailyGross - allDailyAdvances)
 
     return {
@@ -447,7 +459,7 @@ export default function DailyWageSubContractView() {
       totalSubContractPay: totalSubContractPay || baseSummary.totalSubContractPay || 0,
       totalAdvanceDeductions: allAdvances || baseSummary.totalAdvanceDeductions || 0,
       totalGrossSalary: totalGross || baseSummary.totalGrossSalary || 0,
-      totalNetSalary: Math.max(0, totalGross - allAdvances),
+      totalNetSalary: Math.max(0, totalGross - allAdvances - allSubFood),
     }
   }, [logsData, logs, selectedWorkerFilter])
 
@@ -560,6 +572,7 @@ export default function DailyWageSubContractView() {
     ratePerSqft: 0,
     lumpSumAmount: 0,
     advanceDeductions: 0,
+    foodDeductions: 0,
     linkedAdvance: '',
     notes: '',
   })
@@ -568,7 +581,10 @@ export default function DailyWageSubContractView() {
   const computedSubTotalPay = subForm.pricingBasis === 'Lump-sum'
     ? Number(subForm.lumpSumAmount || 0)
     : Number(subForm.measuredSqft || 0) * Number(subForm.ratePerSqft || 0)
-  const computedSubNetPay = Math.max(0, computedSubTotalPay - Number(subForm.advanceDeductions || 0))
+  const computedSubNetPay = Math.max(
+    0,
+    computedSubTotalPay - Number(subForm.advanceDeductions || 0) - Number(subForm.foodDeductions || 0)
+  )
 
   // Auto-select first project when projects list loads
   useEffect(() => {
@@ -613,6 +629,7 @@ export default function DailyWageSubContractView() {
         ...prev,
         measuredSqft: 0,
         advanceDeductions: 0,
+        foodDeductions: 0,
         notes: '',
       }))
     },
@@ -730,7 +747,12 @@ export default function DailyWageSubContractView() {
       : Number(editLogModal.measuredSqft || 0) * Number(editLogModal.ratePerSqft || 0)
     : 0
   const editComputedSubNetPay = editLogModal
-    ? Math.max(0, editComputedSubTotalPay - Number(editLogModal.advanceDeductions || 0))
+    ? Math.max(
+        0,
+        editComputedSubTotalPay -
+          Number(editLogModal.advanceDeductions || 0) -
+          Number(editLogModal.foodDeductions || 0)
+      )
     : 0
 
   const handleOpenEditModal = (log) => {
@@ -765,6 +787,7 @@ export default function DailyWageSubContractView() {
       ratePerSqft: log.subContractDetails?.ratePerSqft ?? 0,
       lumpSumAmount: log.subContractDetails?.lumpSumAmount ?? 0,
       advanceDeductions: log.advanceDeductions ?? 0,
+      foodDeductions: log.subContractDetails?.foodDeductions ?? log.foodDeductions ?? 0,
       linkedAdvance: advId,
       notes: log.notes || '',
     })
@@ -822,7 +845,9 @@ export default function DailyWageSubContractView() {
           ratePerSqft: editLogModal.pricingBasis === 'Lump-sum' ? 0 : Number(editLogModal.ratePerSqft) || 0,
           lumpSumAmount: editLogModal.pricingBasis === 'Lump-sum' ? Number(editLogModal.lumpSumAmount) || 0 : 0,
           totalMeasuredPay: computedTotal,
+          foodDeductions: Number(editLogModal.foodDeductions) || 0,
         },
+        foodDeductions: Number(editLogModal.foodDeductions) || 0,
       }
     }
 
@@ -878,8 +903,10 @@ export default function DailyWageSubContractView() {
         ratePerSqft: subForm.pricingBasis === 'Lump-sum' ? 0 : subForm.ratePerSqft,
         lumpSumAmount: subForm.pricingBasis === 'Lump-sum' ? subForm.lumpSumAmount : 0,
         totalMeasuredPay: computedSubTotalPay,
+        foodDeductions: subForm.foodDeductions || 0,
       },
       advanceDeductions: subForm.advanceDeductions,
+      foodDeductions: subForm.foodDeductions || 0,
       linkedAdvance: subForm.linkedAdvance || null,
       notes: subForm.notes,
     })
@@ -980,6 +1007,12 @@ export default function DailyWageSubContractView() {
                 <td style="padding:4px 0;color:#854d0e;font-weight:600">Advance Deductions:</td>
                 <td style="padding:4px 0;text-align:right;font-weight:700;color:#dc2626">- Rs. ${(logItem.advanceDeductions || 0).toLocaleString()}</td>
               </tr>
+              ${(logItem.subContractDetails?.foodDeductions || logItem.foodDeductions || 0) > 0 ? `
+              <tr>
+                <td style="padding:4px 0;color:#854d0e;font-weight:600">Food Deductions:</td>
+                <td style="padding:4px 0;text-align:right;font-weight:700;color:#dc2626">- Rs. ${(logItem.subContractDetails?.foodDeductions || logItem.foodDeductions || 0).toLocaleString()}</td>
+              </tr>
+              ` : ''}
               <tr style="border-top:2px solid #d97706;font-size:14pt">
                 <td style="padding:10px 0 0;font-weight:900;color:#0f172a">NET PAYABLE AMOUNT:</td>
                 <td style="padding:10px 0 0;text-align:right;font-weight:900;color:${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)) < 0 ? '#dc2626' : '#059669'}">${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)) < 0 ? `- Rs. ${Math.abs(logItem.workType === 'Daily Wage' ? logItem.netDailyPay : logItem.subContractPay).toLocaleString()}` : `Rs. ${(logItem.workType === 'Daily Wage' ? (logItem.netDailyPay || 0) : (logItem.subContractPay || 0)).toLocaleString()}`}</td>
@@ -1854,7 +1887,7 @@ export default function DailyWageSubContractView() {
                 <Ruler className="w-5 h-5 text-emerald-600" /> Sub-Contract Work Log (Sqft / Cubic Ft Basis)
               </h3>
               <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                Formula: (Measured Sqft * Rate/Sqft) - Advances
+                Formula: (Measured Sqft * Rate/Sqft) - Advances - Food
               </span>
             </div>
 
@@ -2050,6 +2083,19 @@ export default function DailyWageSubContractView() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-rose-600"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Food Deductions (Rs.)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={subForm.foodDeductions}
+                  onChange={(e) => setSubForm({ ...subForm, foodDeductions: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-rose-600"
+                />
+              </div>
             </div>
 
             <div>
@@ -2109,6 +2155,10 @@ export default function DailyWageSubContractView() {
                 <div className="flex justify-between text-rose-400 font-bold">
                   <span>Advance Deductions:</span>
                   <span>- Rs. {Number(subForm.advanceDeductions || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-rose-400 font-bold">
+                  <span>Food Deductions:</span>
+                  <span>- Rs. {Number(subForm.foodDeductions || 0).toLocaleString()}</span>
                 </div>
               </div>
 
@@ -2989,6 +3039,18 @@ export default function DailyWageSubContractView() {
                       className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-bold text-rose-600"
                     />
                   </div>
+                  {editLogModal.workType === 'Sub-Contract' && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Food Deductions (Rs.)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editLogModal.foodDeductions}
+                        onChange={(e) => setEditLogModal({ ...editLogModal, foodDeductions: Number(e.target.value) })}
+                        className="w-full px-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs font-bold text-rose-600"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3023,6 +3085,14 @@ export default function DailyWageSubContractView() {
                       - Rs. {Number(editLogModal.advanceDeductions || 0).toLocaleString()}
                     </span>
                   </div>
+                  {editLogModal.workType === 'Sub-Contract' && (
+                    <div>
+                      Food Deducted:{' '}
+                      <span className="font-bold text-rose-400">
+                        - Rs. {Number(editLogModal.foodDeductions || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-right">
