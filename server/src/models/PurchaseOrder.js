@@ -4,7 +4,7 @@ const poItemSchema = new mongoose.Schema({
   itemName: { type: String, required: true },
   itemCode: { type: String, default: '' },
   category: { type: String, default: 'Hardware' },
-  quantity: { type: Number, required: true, min: 1 },
+  quantity: { type: Number, required: true, min: 0 },
   unit: { type: String, default: 'Units' },
   unitPrice: { type: Number, required: true, min: 0 },
   totalPrice: { type: Number, required: true },

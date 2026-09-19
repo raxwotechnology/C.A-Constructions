@@ -162,7 +162,7 @@ exports.createPurchaseOrder = async (req, res) => {
 
     let subtotal = 0;
     const formattedItems = (items || []).map(item => {
-      const qty = Number(item.quantity || 1);
+      const qty = item.quantity !== undefined && item.quantity !== '' && !isNaN(Number(item.quantity)) ? Number(item.quantity) : 1;
       const price = Number(item.unitPrice || 0);
       const lineTotal = qty * price;
       subtotal += lineTotal;
@@ -562,7 +562,7 @@ exports.updatePurchaseOrder = async (req, res) => {
     if (items && Array.isArray(items)) {
       let subtotal = 0;
       const formattedItems = items.map(item => {
-        const qty = Number(item.quantity || 1);
+        const qty = item.quantity !== undefined && item.quantity !== '' && !isNaN(Number(item.quantity)) ? Number(item.quantity) : 1;
         const price = Number(item.unitPrice || 0);
         const lineTotal = qty * price;
         subtotal += lineTotal;

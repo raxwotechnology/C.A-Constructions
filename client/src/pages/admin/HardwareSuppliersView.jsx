@@ -351,7 +351,7 @@ export default function HardwareSuppliersView() {
         ? po.items.map(item => ({
             itemName: item.itemName || '',
             category: item.category || 'Hardware',
-            quantity: item.quantity || 1,
+            quantity: (item.quantity !== undefined && item.quantity !== null && item.quantity !== '') ? item.quantity : 1,
             unit: item.unit || 'Units',
             unitPrice: item.unitPrice || 0,
           }))
@@ -1619,13 +1619,13 @@ export default function HardwareSuppliersView() {
                       className="col-span-5 bg-white border border-slate-200 text-slate-900 p-2 text-xs rounded-lg focus:outline-none"
                     />
                     <input
-                      type="number" required min="1" placeholder="Qty"
+                      type="number" step="any" required min="0" placeholder="Qty"
                       value={item.quantity}
                       onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                       className="col-span-2 bg-white border border-slate-200 text-slate-900 p-2 text-xs rounded-lg focus:outline-none"
                     />
                     <input
-                      type="number" required min="0" placeholder="Unit Price"
+                      type="number" step="any" required min="0" placeholder="Unit Price"
                       value={item.unitPrice}
                       onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                       className="col-span-3 bg-white border border-slate-200 text-slate-900 p-2 text-xs rounded-lg focus:outline-none"
