@@ -196,11 +196,14 @@ export default function DailyWageSubContractView() {
           paidLogsCount: 0,
           totalGross: 0,
           totalAdvances: 0,
+          totalFoodDeductions: 0,
           pendingGross: 0,
           pendingAdvances: 0,
+          pendingFoodDeductions: 0,
           pendingNetSubtotal: 0,
           paidGross: 0,
           paidAdvances: 0,
+          paidFoodDeductions: 0,
           paidNetTotal: 0,
           pendingLogIds: [],
         }
@@ -253,6 +256,50 @@ export default function DailyWageSubContractView() {
       (l) => (l.workerName || '').trim().toLowerCase() === selectedWorkerFilter.trim().toLowerCase()
     )
   }, [logs, selectedWorkerFilter])
+
+  // Advance & Food deduction items for Advance Summary
+  const advanceDeductionItems = useMemo(() => {
+    const items = []
+    filteredLogsByWorker.forEach((log) => {
+      const adv = Number(log.advanceDeductions || 0)
+      const food = Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0)
+
+      if (adv > 0) {
+        items.push({
+          id: `${log._id}:advance`,
+          rawId: log._id,
+          logId: log._id,
+          deductionType: 'advance',
+          logCode: log.logCode,
+          date: log.date,
+          workerName: log.workerName,
+          project: log.project,
+          workType: log.workType,
+          amount: adv,
+          isSent: Boolean(log.advanceSentToExpenses),
+          log,
+        })
+      }
+
+      if (log.workType === 'Sub-Contract' && food > 0) {
+        items.push({
+          id: `${log._id}:food`,
+          rawId: log._id,
+          logId: log._id,
+          deductionType: 'food',
+          logCode: log.logCode,
+          date: log.date,
+          workerName: log.workerName,
+          project: log.project,
+          workType: 'Sub-Contract',
+          amount: food,
+          isSent: Boolean(log.foodSentToExpenses),
+          log,
+        })
+      }
+    })
+    return items
+  }, [filteredLogsByWorker])
 
   const totalLogsCount = filteredLogsByWorker.length
   const effectivePageSize = pageSize === 'all' ? (totalLogsCount || 1) : Number(pageSize)
@@ -331,8 +378,13 @@ export default function DailyWageSubContractView() {
 
   // Send selected advances to Finance Expenses mutation
   const sendAdvancesMutation = useMutation({
-    mutationFn: async (logIds) => {
-      const res = await api.post('/daily-wages/advance-to-expense', { logIds })
+    mutationFn: async (selectedIds) => {
+      const items = selectedIds.map((id) => {
+        if (id.includes(':food')) return { logId: id.replace(':food', ''), type: 'food' }
+        if (id.includes(':advance')) return { logId: id.replace(':advance', ''), type: 'advance' }
+        return { logId: id, type: 'advance' }
+      })
+      const res = await api.post('/daily-wages/advance-to-expense', { logIds: selectedIds, items })
       return res.data
     },
     onSuccess: (data) => {
@@ -1507,7 +1559,7 @@ export default function DailyWageSubContractView() {
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <DollarSign className="w-4 h-4" /> Advance Summary ({filteredLogsByWorker.filter(l => (l.advanceDeductions || 0) > 0).length})
+          <DollarSign className="w-4 h-4" /> Advance Summary ({advanceDeductionItems.length})
         </button>
       </div>
 
@@ -2247,6 +2299,12 @@ export default function DailyWageSubContractView() {
                           <span className="text-slate-500">Advance Deducted:</span>
                           <span className="font-bold text-rose-600">- Rs. {worker.totalAdvances.toLocaleString()}</span>
                         </div>
+                        {(worker.totalFoodDeductions || 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Food Deducted:</span>
+                            <span className="font-bold text-rose-600">- Rs. {(worker.totalFoodDeductions || 0).toLocaleString()}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
                           <span className="text-slate-700">Uncleared Subtotal:</span>
                           <span className={hasPending ? 'text-rose-600' : 'text-emerald-600'}>
@@ -3311,23 +3369,22 @@ export default function DailyWageSubContractView() {
       {/* TAB 5: ADVANCE SUMMARY                                     */}
       {/* --------------------------------------------------------- */}
       {activeTab === 'advance_summary' && (() => {
-        const advanceLogs = filteredLogsByWorker.filter(l => (l.advanceDeductions || 0) > 0)
-        const totalAdvanceDailyWage = advanceLogs
-          .filter(l => l.workType === 'Daily Wage')
-          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
-        const totalAdvanceSubContract = advanceLogs
-          .filter(l => l.workType === 'Sub-Contract')
-          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
-        const totalPendingAdvance = advanceLogs
-          .filter(l => !l.advanceSentToExpenses)
-          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
-        const totalSentAdvance = advanceLogs
-          .filter(l => l.advanceSentToExpenses)
-          .reduce((s, l) => s + (l.advanceDeductions || 0), 0)
+        const totalAdvanceDailyWage = advanceDeductionItems
+          .filter(i => i.deductionType === 'advance' && i.workType === 'Daily Wage')
+          .reduce((s, i) => s + i.amount, 0)
+        const totalAdvanceSubContract = advanceDeductionItems
+          .filter(i => i.workType === 'Sub-Contract' || i.deductionType === 'food')
+          .reduce((s, i) => s + i.amount, 0)
+        const totalPendingAdvance = advanceDeductionItems
+          .filter(i => !i.isSent)
+          .reduce((s, i) => s + i.amount, 0)
+        const totalSentAdvance = advanceDeductionItems
+          .filter(i => i.isSent)
+          .reduce((s, i) => s + i.amount, 0)
 
-        const allPendingIds = advanceLogs
-          .filter(l => !l.advanceSentToExpenses)
-          .map(l => l._id)
+        const allPendingIds = advanceDeductionItems
+          .filter(i => !i.isSent)
+          .map(i => i.id)
 
         const toggleSelectAll = () => {
           if (selectedAdvanceIds.length === allPendingIds.length) {
@@ -3423,7 +3480,7 @@ export default function DailyWageSubContractView() {
 
             {/* Advances Table */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              {advanceLogs.length === 0 ? (
+              {advanceDeductionItems.length === 0 ? (
                 <div className="p-12 text-center">
                   <DollarSign className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-500">No advance deductions found.</p>
@@ -3453,12 +3510,12 @@ export default function DailyWageSubContractView() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {advanceLogs.map((log, idx) => {
-                        const isSent = log.advanceSentToExpenses
-                        const isSelected = selectedAdvanceIds.includes(log._id)
+                      {advanceDeductionItems.map((item, idx) => {
+                        const isSent = item.isSent
+                        const isSelected = selectedAdvanceIds.includes(item.id)
                         return (
                           <tr
-                            key={log._id}
+                            key={item.id}
                             className={`transition-colors ${
                               isSent
                                 ? 'bg-green-50/40'
@@ -3472,33 +3529,39 @@ export default function DailyWageSubContractView() {
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
-                                  onChange={() => toggleSelectOne(log._id)}
+                                  onChange={() => toggleSelectOne(item.id)}
                                   className="rounded border-slate-300 accent-indigo-500 cursor-pointer"
                                 />
                               ) : (
                                 <span className="text-green-500 font-bold text-base">✓</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 font-mono font-bold text-slate-700">{log.logCode}</td>
+                            <td className="px-4 py-3 font-mono font-bold text-slate-700">{item.logCode}</td>
                             <td className="px-4 py-3 text-slate-600">
-                              {log.date ? new Date(log.date).toLocaleDateString('en-GB') : '—'}
+                              {item.date ? new Date(item.date).toLocaleDateString('en-GB') : '—'}
                             </td>
-                            <td className="px-4 py-3 font-semibold text-slate-900">{log.workerName}</td>
-                            <td className="px-4 py-3 text-slate-600">{log.project?.name || '—'}</td>
+                            <td className="px-4 py-3 font-semibold text-slate-900">{item.workerName}</td>
+                            <td className="px-4 py-3 text-slate-600">{item.project?.name || '—'}</td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                log.workType === 'Daily Wage'
-                                  ? 'bg-amber-100 text-amber-800 border-amber-200'
-                                  : 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                              }`}>
-                                {log.workType === 'Daily Wage'
-                                  ? <><HardHat className="w-3 h-3" /> Daily Wage</>
-                                  : <><Ruler className="w-3 h-3" /> Sub-Contract</>
-                                }
-                              </span>
+                              {item.deductionType === 'food' ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-rose-100 text-rose-800 border-rose-200">
+                                  <Utensils className="w-3 h-3" /> Food Deduction
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                  item.workType === 'Daily Wage'
+                                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                    : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                }`}>
+                                  {item.workType === 'Daily Wage'
+                                    ? <><HardHat className="w-3 h-3" /> Daily Wage</>
+                                    : <><Ruler className="w-3 h-3" /> Sub-Contract</>
+                                  }
+                                </span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right font-black text-indigo-700">
-                              Rs. {(log.advanceDeductions || 0).toLocaleString()}
+                              Rs. {item.amount.toLocaleString()}
                             </td>
                             <td className="px-4 py-3 text-center">
                               {isSent ? (
@@ -3520,7 +3583,7 @@ export default function DailyWageSubContractView() {
                       <tr className="bg-slate-100 font-extrabold text-slate-900 border-t-2 border-slate-200">
                         <td colSpan={6} className="px-4 py-3 text-right text-xs uppercase tracking-wide">Grand Total Advances:</td>
                         <td className="px-4 py-3 text-right text-indigo-700 font-black">
-                          Rs. {advanceLogs.reduce((s, l) => s + (l.advanceDeductions || 0), 0).toLocaleString()}
+                          Rs. {advanceDeductionItems.reduce((s, i) => s + i.amount, 0).toLocaleString()}
                         </td>
                         <td className="px-4 py-3"></td>
                       </tr>

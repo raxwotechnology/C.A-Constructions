@@ -504,6 +504,9 @@ exports.deleteDailyWageLog = async (req, res, next) => {
     if (log.advanceFinanceEntryRef) {
       await FinanceEntry.findByIdAndDelete(log.advanceFinanceEntryRef);
     }
+    if (log.foodFinanceEntryRef) {
+      await FinanceEntry.findByIdAndDelete(log.foodFinanceEntryRef);
+    }
     if (log.paidFinanceEntryRef) {
       await FinanceEntry.findByIdAndDelete(log.paidFinanceEntryRef);
     }
@@ -877,78 +880,136 @@ exports.syncAndDeduplicateWageFinanceEntries = async (req, res, next) => {
 
 
 /** POST /daily-wages/advance-to-expense
- *  Manually send advance deductions from selected log entries into Finance Expenses.
- *  Body: { logIds: [string] }
+ *  Manually send advance deductions and food deductions from selected log entries into Finance Expenses.
+ *  Body: { logIds: [string], items: [{ logId: string, type: 'advance'|'food' }] }
  */
 exports.sendAdvancesToExpenses = async (req, res, next) => {
   try {
-    const { logIds } = req.body;
+    const { logIds, items } = req.body;
     const isValidId = (v) => v && mongoose.Types.ObjectId.isValid(v) && String(new mongoose.Types.ObjectId(v)) === String(v);
 
-    if (!Array.isArray(logIds) || logIds.length === 0) {
-      return res.status(400).json({ success: false, message: 'Please provide at least one log ID.' });
+    let requestedItems = [];
+    if (Array.isArray(items) && items.length > 0) {
+      requestedItems = items.map((item) => ({
+        logId: typeof item === 'object' ? String(item.logId) : String(item),
+        type: (typeof item === 'object' && item.type) ? String(item.type) : 'advance',
+      }));
+    } else if (Array.isArray(logIds) && logIds.length > 0) {
+      requestedItems = logIds.map((rawId) => {
+        const str = String(rawId);
+        if (str.includes(':food') || str.endsWith('-food') || str.endsWith('_food')) {
+          return { logId: str.replace(/[:\-_]food$/, ''), type: 'food' };
+        }
+        if (str.includes(':advance') || str.endsWith('-advance') || str.endsWith('_advance')) {
+          return { logId: str.replace(/[:\-_]advance$/, ''), type: 'advance' };
+        }
+        return { logId: str, type: 'any' };
+      });
     }
 
-    const validIds = logIds.filter(isValidId);
-    if (validIds.length === 0) {
+    const validItems = requestedItems.filter((item) => isValidId(item.logId));
+    if (validItems.length === 0) {
       return res.status(400).json({ success: false, message: 'No valid log IDs provided.' });
     }
 
+    const uniqueLogIds = [...new Set(validItems.map((item) => item.logId))];
     const logs = await DailyWageLog.find({
-      _id: { $in: validIds },
-      advanceDeductions: { $gt: 0 },
-      advanceSentToExpenses: false,
+      _id: { $in: uniqueLogIds },
     }).populate('project', 'name branch');
 
-    if (logs.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No eligible advances found. They may have already been sent to Expenses or have zero advance amount.',
-      });
-    }
+    const logMap = new Map();
+    logs.forEach((l) => logMap.set(String(l._id), l));
 
     const createdById = isValidId(req.user?._id || req.user?.id) ? (req.user?._id || req.user?.id) : null;
     let successCount = 0;
     const errors = [];
 
-    for (const log of logs) {
-      try {
-        const projBranch = log.project?.branch || null;
-        const advTxNo = `TX-ADV-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+    for (const item of validItems) {
+      const log = logMap.get(item.logId);
+      if (!log) continue;
 
-        const advFinanceEntry = new FinanceEntry({
-          transactionNo: advTxNo,
-          project: log.project?._id || log.project,
-          branch: projBranch,
-          transactionType: 'Expense',
-          type: 'expense',
-          category: 'Daily Wages',
-          masterCategory: 'Daily Wages',
-          subCategory: 'Salary Advance',
-          title: `Worker Salary Advance - ${log.workerName}`,
-          amount: log.advanceDeductions,
-          date: log.date || new Date(),
-          paymentMethod: 'Cash',
-          payeeOrPayer: log.workerName,
-          description: `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
-          note: `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
-          status: 'Approved',
-          createdBy: createdById,
-        });
+      const projBranch = log.project?.branch || null;
 
-        await advFinanceEntry.save();
-        log.advanceFinanceEntryRef = advFinanceEntry._id;
-        log.advanceSentToExpenses = true;
-        await log.save();
-        successCount++;
-      } catch (err) {
-        errors.push({ logId: log._id, logCode: log.logCode, error: err.message });
+      // Handle Advance Deduction
+      if ((item.type === 'advance' || item.type === 'any') && (log.advanceDeductions || 0) > 0 && !log.advanceSentToExpenses) {
+        try {
+          const advTxNo = `TX-ADV-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+          const advFinanceEntry = new FinanceEntry({
+            transactionNo: advTxNo,
+            project: log.project?._id || log.project,
+            branch: projBranch,
+            transactionType: 'Expense',
+            type: 'expense',
+            category: 'Daily Wages',
+            masterCategory: 'Daily Wages',
+            subCategory: 'Salary Advance',
+            title: `Worker Salary Advance - ${log.workerName}`,
+            amount: log.advanceDeductions,
+            date: log.date || new Date(),
+            paymentMethod: 'Cash',
+            payeeOrPayer: log.workerName,
+            description: `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
+            note: `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
+            status: 'Approved',
+            createdBy: createdById,
+          });
+
+          await advFinanceEntry.save();
+          log.advanceFinanceEntryRef = advFinanceEntry._id;
+          log.advanceSentToExpenses = true;
+          await log.save();
+          successCount++;
+        } catch (err) {
+          errors.push({ logId: log._id, type: 'advance', error: err.message });
+        }
       }
+
+      // Handle Food Deduction (Sub-Contract)
+      const foodAmount = Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0);
+      if ((item.type === 'food' || item.type === 'any') && foodAmount > 0 && !log.foodSentToExpenses) {
+        try {
+          const foodTxNo = `TX-FOOD-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+          const foodFinanceEntry = new FinanceEntry({
+            transactionNo: foodTxNo,
+            project: log.project?._id || log.project,
+            branch: projBranch,
+            transactionType: 'Expense',
+            type: 'expense',
+            category: 'Daily Wages',
+            masterCategory: 'Daily Wages',
+            subCategory: 'Food Deduction',
+            title: `Sub-Contract Food Deduction - ${log.workerName}`,
+            amount: foodAmount,
+            date: log.date || new Date(),
+            paymentMethod: 'Cash',
+            payeeOrPayer: log.workerName,
+            description: `Sub-Contract Food Deduction - ${log.workerName} (${log.logCode})`,
+            note: `Sub-Contract Food Deduction - ${log.workerName} (${log.logCode})`,
+            status: 'Approved',
+            createdBy: createdById,
+          });
+
+          await foodFinanceEntry.save();
+          log.foodFinanceEntryRef = foodFinanceEntry._id;
+          log.foodSentToExpenses = true;
+          await log.save();
+          successCount++;
+        } catch (err) {
+          errors.push({ logId: log._id, type: 'food', error: err.message });
+        }
+      }
+    }
+
+    if (successCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No eligible advance or food deductions found. They may have already been sent to Expenses or have zero amount.',
+      });
     }
 
     return res.json({
       success: true,
-      message: `Successfully sent ${successCount} advance(s) to Finance Expenses.${errors.length > 0 ? ` ${errors.length} failed.` : ''}`,
+      message: `Successfully sent ${successCount} deduction(s) to Finance Expenses.${errors.length > 0 ? ` ${errors.length} failed.` : ''}`,
       successCount,
       errors,
     });

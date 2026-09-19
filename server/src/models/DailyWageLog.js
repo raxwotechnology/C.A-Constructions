@@ -71,6 +71,9 @@ const dailyWageLogSchema = new mongoose.Schema(
     paidFinanceEntryRef: { type: mongoose.Schema.Types.ObjectId, ref: 'FinanceEntry' },
     // Tracks whether the advance deduction has been manually posted to Finance Expenses
     advanceSentToExpenses: { type: Boolean, default: false },
+    // Tracks whether the food deduction has been manually posted to Finance Expenses
+    foodSentToExpenses: { type: Boolean, default: false },
+    foodFinanceEntryRef: { type: mongoose.Schema.Types.ObjectId, ref: 'FinanceEntry' },
     
     notes: { type: String, default: '' },
     status: {
