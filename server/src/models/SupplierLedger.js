@@ -22,6 +22,7 @@ const supplierLedgerSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now },
     notes: { type: String, default: '' },
     runningBalance: { type: Number, default: 0 },
+    financeEntryRef: { type: mongoose.Schema.Types.ObjectId, ref: 'FinanceEntry' },
     recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

@@ -14,6 +14,7 @@ router.post('/:id/pay', protect, supplierController.recordSupplierPayment);
 
 router.get('/pos/all', protect, supplierController.getPurchaseOrders);
 router.post('/pos', protect, supplierController.createPurchaseOrder);
+router.post('/pos/send-to-expenses', protect, supplierController.sendPOsToExpenses);
 router.put('/pos/:id', protect, supplierController.updatePurchaseOrder);
 router.delete('/pos/:id', protect, supplierController.deletePurchaseOrder);
 router.patch('/pos/:id/status', protect, supplierController.updatePOStatus);

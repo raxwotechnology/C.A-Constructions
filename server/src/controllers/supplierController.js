@@ -91,14 +91,18 @@ exports.getSupplierLedger = async (req, res) => {
     const supplier = await Supplier.findById(id);
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
 
+    // Guarantee running balances and supplier totals are mathematically accurate
+    await reconcileSupplierLedger(id);
+
     const ledger = await SupplierLedger.find({ supplier: id })
       .populate('referencePO', 'poNumber totalAmount status')
       .populate('recordedBy', 'name')
-      .sort({ date: -1 });
+      .sort({ date: -1, createdAt: -1, _id: -1 });
 
     const purchaseOrders = await PurchaseOrder.find({ supplier: id }).sort({ createdAt: -1 });
+    const updatedSupplier = await Supplier.findById(id);
 
-    res.json({ success: true, supplier, ledger, purchaseOrders });
+    res.json({ success: true, supplier: updatedSupplier || supplier, ledger, purchaseOrders });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -118,26 +122,65 @@ exports.recordSupplierPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Payment amount must be greater than 0.' });
     }
 
-    const newOutstanding = (supplier.outstandingBalance || 0) - payAmount;
-    supplier.outstandingBalance = newOutstanding;
-    supplier.totalPaid = (supplier.totalPaid || 0) + payAmount;
-    await supplier.save();
+    const refNo = referenceNumber || 'PAY-' + Date.now().toString().slice(-6);
+
+    const category = (supplier?.category && ['Hardware', 'Materials', 'Electrical', 'Plumbing', 'Machinery', 'Raw Material'].includes(supplier.category))
+      ? (supplier.category === 'Raw Material' ? 'Hardware' : supplier.category)
+      : 'Hardware';
+
+    const pMethod = paymentMethod === 'cash' ? 'Cash' : (paymentMethod === 'cheque' ? 'Cheque' : 'Bank Transfer');
+    const txNo = `TX-${refNo}`;
+
+    // Create Expense in FinanceEntry
+    const financeEntry = await FinanceEntry.create({
+      transactionNo: txNo,
+      type: 'expense',
+      transactionType: 'Expense',
+      category: category,
+      masterCategory: category,
+      subCategory: 'Supplier Payment',
+      title: `Supplier Payment - ${supplier.name}`,
+      amount: payAmount,
+      date: new Date(),
+      paymentMethod: pMethod,
+      payeeOrPayer: supplier.name,
+      bankAccount: bankAccount || null,
+      chequeDetails: chequeNumber ? {
+        chequeNumber,
+        realizationDate: chequeDate || null,
+        status: 'Pending'
+      } : undefined,
+      description: notes || `Payment to supplier ${supplier.name} (${supplier.code || ''})`,
+      note: `Ref: ${refNo}, Method: ${pMethod}`,
+      status: 'Approved',
+      createdBy: req.user?._id || null,
+    });
 
     const ledgerEntry = await SupplierLedger.create({
       supplier: id,
       transactionType: 'payment',
-      referenceNumber: referenceNumber || 'PAY-' + Date.now().toString().slice(-6),
+      referenceNumber: refNo,
       amount: payAmount,
       paymentMethod: paymentMethod || 'bank_transfer',
       chequeNumber: chequeNumber || '',
       chequeDate: chequeDate || null,
       bankAccount: bankAccount || null,
       notes: notes || `Payment made to ${supplier.name}`,
-      runningBalance: newOutstanding,
+      runningBalance: 0,
+      financeEntryRef: financeEntry._id,
       recordedBy: req.user?._id,
     });
 
-    res.json({ success: true, message: 'Payment recorded in Supplier Ledger', supplier, ledgerEntry });
+    await reconcileSupplierLedger(id);
+    const updatedSupplier = await Supplier.findById(id);
+
+    res.json({
+      success: true,
+      message: 'Payment recorded in Supplier Ledger and added to Expenses',
+      supplier: updatedSupplier || supplier,
+      ledgerEntry,
+      financeEntry,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -197,6 +240,9 @@ exports.createPurchaseOrder = async (req, res) => {
       notes,
       createdBy: req.user?._id,
     });
+
+    // Immediately record bill in Supplier Ledger (increases supplier outstanding balance)
+    await applyPOSupplierBilling(po, req.user?._id);
 
     res.json({ success: true, message: 'Purchase Order created successfully', po });
   } catch (error) {
@@ -281,36 +327,87 @@ const reversePOStock = async (po) => {
   }
 };
 
+const reconcileSupplierLedger = async (supplierId) => {
+  try {
+    if (!supplierId) return;
+    const entries = await SupplierLedger.find({ supplier: supplierId })
+      .sort({ date: 1, createdAt: 1, _id: 1 });
+
+    let runningBalance = 0;
+    let totalBilled = 0;
+    let totalPaid = 0;
+    const bulkOps = [];
+
+    for (const entry of entries) {
+      const amt = Number(entry.amount || 0);
+      if (entry.transactionType === 'payment') {
+        totalPaid += amt;
+        runningBalance -= amt;
+      } else if (entry.transactionType === 'bill_po') {
+        totalBilled += amt;
+        runningBalance += amt;
+      } else if (entry.transactionType === 'adjustment') {
+        runningBalance += amt;
+      }
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: entry._id },
+          update: { $set: { runningBalance } },
+        },
+      });
+    }
+
+    if (bulkOps.length > 0) {
+      await SupplierLedger.bulkWrite(bulkOps);
+    }
+
+    const supplier = await Supplier.findById(supplierId);
+    if (supplier) {
+      supplier.totalBilled = totalBilled;
+      supplier.totalPaid = totalPaid;
+      supplier.outstandingBalance = runningBalance;
+      await supplier.save();
+    }
+    return { runningBalance, totalBilled, totalPaid };
+  } catch (err) {
+    console.error('[reconcileSupplierLedger] Error:', err);
+  }
+};
+
 const applyPOSupplierBilling = async (po, userId) => {
   try {
     const supplierId = po.supplier?._id || po.supplier;
     if (!supplierId) return;
-    const supplier = await Supplier.findById(supplierId);
-    if (!supplier) return;
 
     const existingLedger = await SupplierLedger.findOne({
-      supplier: supplier._id,
+      supplier: supplierId,
       referencePO: po._id,
       transactionType: 'bill_po',
     });
 
-    if (!existingLedger) {
-      const newOutstanding = (supplier.outstandingBalance || 0) + po.totalAmount;
-      supplier.outstandingBalance = newOutstanding;
-      supplier.totalBilled = (supplier.totalBilled || 0) + po.totalAmount;
-      await supplier.save();
+    const poAmount = Number(po.totalAmount || 0);
+    const poDate = po.orderDate || po.createdAt || new Date();
 
+    if (!existingLedger) {
       await SupplierLedger.create({
-        supplier: supplier._id,
+        supplier: supplierId,
         transactionType: 'bill_po',
         referencePO: po._id,
         referenceNumber: po.poNumber,
-        amount: po.totalAmount,
-        notes: `PO Delivered: ${po.poNumber}`,
-        runningBalance: newOutstanding,
+        amount: poAmount,
+        date: poDate,
+        notes: `PO Bill: ${po.poNumber}`,
+        runningBalance: 0,
         recordedBy: userId || po.createdBy || null,
       });
+    } else {
+      existingLedger.amount = poAmount;
+      existingLedger.referenceNumber = po.poNumber;
+      if (!existingLedger.date) existingLedger.date = poDate;
+      await existingLedger.save();
     }
+
+    await reconcileSupplierLedger(supplierId);
   } catch (err) {
     console.error('[applyPOSupplierBilling] Error:', err);
   }
@@ -320,21 +417,9 @@ const reversePOSupplierBilling = async (po) => {
   try {
     const supplierId = po.supplier?._id || po.supplier;
     if (!supplierId) return;
-    const supplier = await Supplier.findById(supplierId);
-    if (!supplier) return;
 
-    const existingLedger = await SupplierLedger.findOne({
-      supplier: supplier._id,
-      referencePO: po._id,
-      transactionType: 'bill_po',
-    });
-
-    if (existingLedger) {
-      supplier.outstandingBalance = Math.max(0, (supplier.outstandingBalance || 0) - po.totalAmount);
-      supplier.totalBilled = Math.max(0, (supplier.totalBilled || 0) - po.totalAmount);
-      await supplier.save();
-      await SupplierLedger.deleteMany({ referencePO: po._id, transactionType: 'bill_po' });
-    }
+    await SupplierLedger.deleteMany({ referencePO: po._id, transactionType: 'bill_po' });
+    await reconcileSupplierLedger(supplierId);
   } catch (err) {
     console.error('[reversePOSupplierBilling] Error:', err);
   }
@@ -406,8 +491,10 @@ const syncPOToFinanceExpense = async (po, userId) => {
 
     if (!po.financeEntryRef || String(po.financeEntryRef) !== String(entry._id)) {
       po.financeEntryRef = entry._id;
-      await po.save();
     }
+    po.isSentToExpenses = true;
+    if (!po.sentToExpensesAt) po.sentToExpensesAt = new Date();
+    await po.save();
 
     if (po.project) {
       await reconcileProjectExpense(po.project);
@@ -426,6 +513,8 @@ const removePOFinanceExpense = async (po) => {
     if (po.financeEntryRef) {
       await FinanceEntry.findByIdAndDelete(po.financeEntryRef);
       po.financeEntryRef = null;
+      po.isSentToExpenses = false;
+      po.sentToExpensesAt = null;
       await po.save();
     }
     if (txNo) {
@@ -452,22 +541,6 @@ exports.getPurchaseOrders = async (req, res) => {
     const sortField = sortBy || 'createdAt';
     const sortDirection = sortOrder === 'asc' || sortOrder === '1' ? 1 : -1;
     const sortObj = { [sortField]: sortDirection };
-
-    // Auto-reconcile any Delivered POs that are missing their FinanceEntry record
-    try {
-      const unlinkedDeliveredPOs = await PurchaseOrder.find({
-        status: 'Delivered',
-        $or: [{ financeEntryRef: null }, { financeEntryRef: { $exists: false } }],
-      }).populate('supplier');
-
-      if (unlinkedDeliveredPOs && unlinkedDeliveredPOs.length > 0) {
-        for (const delPO of unlinkedDeliveredPOs) {
-          await syncPOToFinanceExpense(delPO, delPO.createdBy);
-        }
-      }
-    } catch (reconcileErr) {
-      console.warn('[getPurchaseOrders] Reconcile warning:', reconcileErr.message);
-    }
 
     const pos = await PurchaseOrder.find(filter)
       .populate('supplier', 'name code phone contactPerson email category')
@@ -503,17 +576,12 @@ exports.updatePOStatus = async (req, res) => {
       // 1. Stock In to SiteStock (Direct site delivery or central stock)
       await applyPOStockIn(po);
 
-      // 2. Update Supplier Ledger & Outstanding Balance
+      // 2. Ensure Supplier Ledger & Outstanding Balance are updated
       await applyPOSupplierBilling(po, req.user?._id);
-
-      // 3. Create / Sync Expense in FinanceEntry & Project
-      await syncPOToFinanceExpense(po, req.user?._id);
     } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
       // Reverting from Delivered status
       po.deliveryStatus = 'Pending';
       await reversePOStock(po);
-      await reversePOSupplierBilling(po);
-      await removePOFinanceExpense(po);
     }
 
     await po.save();
@@ -526,9 +594,7 @@ exports.updatePOStatus = async (req, res) => {
 
     res.json({
       success: true,
-      message: status === 'Delivered'
-        ? `PO status updated to Delivered and recorded in Expenses!`
-        : `PO status updated to ${status}`,
+      message: `PO status updated to ${status}`,
       po: populatedPO,
     });
   } catch (error) {
@@ -594,14 +660,16 @@ exports.updatePurchaseOrder = async (req, res) => {
       po.deliveryStatus = 'Received';
       if (!po.deliveredAt) po.deliveredAt = new Date();
       await applyPOStockIn(po);
-      await applyPOSupplierBilling(po, req.user?._id);
-      await syncPOToFinanceExpense(po, req.user?._id);
     } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
       po.deliveryStatus = 'Pending';
       await reversePOStock(po);
-      await reversePOSupplierBilling(po);
-      await removePOFinanceExpense(po);
-    } else if (po.status === 'Delivered') {
+    }
+
+    // Always keep supplier ledger billing synced
+    await applyPOSupplierBilling(po, req.user?._id);
+
+    // If PO was already sent to expenses, keep FinanceEntry synced
+    if (po.financeEntryRef) {
       await syncPOToFinanceExpense(po, req.user?._id);
     }
 
@@ -627,12 +695,47 @@ exports.deletePurchaseOrder = async (req, res) => {
 
     if (po.status === 'Delivered') {
       await reversePOStock(po);
-      await reversePOSupplierBilling(po);
+    }
+    await reversePOSupplierBilling(po);
+    if (po.financeEntryRef) {
       await removePOFinanceExpense(po);
     }
 
     await PurchaseOrder.findByIdAndDelete(id);
     res.json({ success: true, message: 'Purchase Order deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Send selected POs to Finance Expenses
+exports.sendPOsToExpenses = async (req, res) => {
+  try {
+    const { poIds } = req.body;
+    if (!Array.isArray(poIds) || poIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No Purchase Orders selected' });
+    }
+
+    const pos = await PurchaseOrder.find({ _id: { $in: poIds } }).populate('supplier');
+    const synced = [];
+
+    for (const po of pos) {
+      const entry = await syncPOToFinanceExpense(po, req.user?._id);
+      if (entry) {
+        po.financeEntryRef = entry._id;
+        po.isSentToExpenses = true;
+        if (!po.sentToExpensesAt) po.sentToExpensesAt = new Date();
+        await po.save();
+        synced.push(po.poNumber);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `${synced.length} Purchase Order(s) sent to Expenses successfully!`,
+      syncedCount: synced.length,
+      syncedPOs: synced,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
