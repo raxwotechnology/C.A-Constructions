@@ -83,6 +83,7 @@ export default function HardwareSuppliersView() {
     referenceNumber: '',
     chequeNumber: '',
     notes: '',
+    poNumber: '',
   })
 
   // Fetch Suppliers
@@ -411,6 +412,7 @@ export default function HardwareSuppliersView() {
         referenceNumber: '',
         chequeNumber: '',
         notes: '',
+        poNumber: '',
       })
     },
     onError: (err) => {
@@ -1830,6 +1832,17 @@ export default function HardwareSuppliersView() {
                   type="text"
                   value={paymentForm.referenceNumber}
                   onChange={(e) => setPaymentForm({ ...paymentForm, referenceNumber: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600">PO Number</label>
+                <input
+                  type="text"
+                  value={paymentForm.poNumber}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, poNumber: e.target.value })}
+                  placeholder="Enter PO Number (optional)"
                   className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
