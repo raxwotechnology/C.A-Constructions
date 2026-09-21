@@ -112,7 +112,7 @@ exports.getSupplierLedger = async (req, res) => {
 exports.recordSupplierPayment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { amount, paymentMethod, referenceNumber, chequeNumber, chequeDate, bankAccount, notes } = req.body;
+    const { amount, paymentMethod, referenceNumber, chequeNumber, chequeDate, bankAccount, notes, poNumber } = req.body;
 
     const supplier = await Supplier.findById(id);
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
@@ -131,6 +131,8 @@ exports.recordSupplierPayment = async (req, res) => {
     const pMethod = paymentMethod === 'cash' ? 'Cash' : (paymentMethod === 'cheque' ? 'Cheque' : 'Bank Transfer');
     const txNo = `TX-${refNo}`;
 
+    const poLabel = poNumber ? ` | PO: ${poNumber}` : '';
+
     // Create Expense in FinanceEntry
     const financeEntry = await FinanceEntry.create({
       transactionNo: txNo,
@@ -139,7 +141,7 @@ exports.recordSupplierPayment = async (req, res) => {
       category: category,
       masterCategory: category,
       subCategory: 'Supplier Payment',
-      title: `Supplier Payment - ${supplier.name}`,
+      title: `Supplier Payment - ${supplier.name}${poLabel}`,
       amount: payAmount,
       date: new Date(),
       paymentMethod: pMethod,
@@ -151,7 +153,7 @@ exports.recordSupplierPayment = async (req, res) => {
         status: 'Pending'
       } : undefined,
       description: notes || `Payment to supplier ${supplier.name} (${supplier.code || ''})`,
-      note: `Ref: ${refNo}, Method: ${pMethod}`,
+      note: `Ref: ${refNo}, Method: ${pMethod}${poLabel}`,
       status: 'Approved',
       createdBy: req.user?._id || null,
     });
