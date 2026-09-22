@@ -2040,6 +2040,7 @@ export default function DailyWageSubContractView() {
                   <option value="Painting">Painting Works (තීන්ත වැඩ)</option>
                   <option value="Plastering">Plastering Works (ප්ලාස්ටර් වැඩ)</option>
                   <option value="Piece-rate">Piece-rate Custom Work (අනෙකුත් ලම්ප්සම්/කොන්ත්‍රාත්)</option>
+                  <option value="Electrician">Electrician Works (විදුලි වැඩ)</option>
                 </select>
               </div>
 

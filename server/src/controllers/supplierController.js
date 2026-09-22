@@ -84,6 +84,29 @@ exports.deleteSupplier = async (req, res) => {
   }
 };
 
+// Delete a single ledger entry
+exports.deleteLedgerEntry = async (req, res) => {
+  try {
+    const { entryId } = req.params;
+    const entry = await SupplierLedger.findById(entryId);
+    if (!entry) return res.status(404).json({ success: false, message: 'Ledger entry not found' });
+
+    const supplierId = entry.supplier;
+
+    // Remove linked finance entry if exists
+    if (entry.financeEntryRef) {
+      await FinanceEntry.findByIdAndDelete(entry.financeEntryRef);
+    }
+
+    await SupplierLedger.findByIdAndDelete(entryId);
+    await reconcileSupplierLedger(supplierId);
+
+    res.json({ success: true, message: 'Ledger entry deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Get single supplier with full ledger
 exports.getSupplierLedger = async (req, res) => {
   try {

@@ -420,6 +420,23 @@ export default function HardwareSuppliersView() {
     }
   })
 
+  const deleteLedgerEntryMutation = useMutation({
+    mutationFn: async (entryId) => {
+      return await api.delete(`/suppliers/ledger/${entryId}`)
+    },
+    onSuccess: () => {
+      toast.success('Ledger entry deleted')
+      queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['supplier-ledger'] })
+      queryClient.invalidateQueries({ queryKey: ['supplier-ledger', selectedSupplier?._id] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Failed to delete ledger entry')
+    }
+  })
+
   const suppliers = suppliersData || []
   const pos = posData || []
 
@@ -1749,6 +1766,7 @@ export default function HardwareSuppliersView() {
                       <th className="p-3">Notes</th>
                       <th className="p-3 text-right">Amount</th>
                       <th className="p-3 text-right">Running Balance</th>
+                      <th className="p-3"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
@@ -1769,6 +1787,20 @@ export default function HardwareSuppliersView() {
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-slate-900">
                           LKR {(entry.runningBalance || 0).toLocaleString()}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Delete this ledger entry? This cannot be undone.')) {
+                                deleteLedgerEntryMutation.mutate(entry._id)
+                              }
+                            }}
+                            disabled={deleteLedgerEntryMutation.isPending}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                            title="Delete entry"
+                          >
+                            <FiTrash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
