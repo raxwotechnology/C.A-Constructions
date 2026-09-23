@@ -3508,6 +3508,7 @@ export default function DailyWageSubContractView() {
                         <th className="px-4 py-3 text-center">Type</th>
                         <th className="px-4 py-3 text-right">Advance Amount</th>
                         <th className="px-4 py-3 text-center">Expense Status</th>
+                        <th className="px-4 py-3 text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -3574,6 +3575,16 @@ export default function DailyWageSubContractView() {
                                   <Clock className="w-3 h-3" /> Pending
                                 </span>
                               )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(item.log)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[10px] border border-blue-200 transition-colors"
+                                title="Edit this entry"
+                              >
+                                <Edit className="w-3 h-3" /> Edit
+                              </button>
                             </td>
                           </tr>
                         )
