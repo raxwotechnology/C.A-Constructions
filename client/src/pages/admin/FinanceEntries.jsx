@@ -567,15 +567,16 @@ export default function FinanceEntries() {
                   </button>
                 </div>
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_80px_90px_28px] gap-1.5 mb-1 px-0.5">
+                <div className="grid grid-cols-[1fr_80px_90px_80px_28px] gap-1.5 mb-1 px-0.5">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Name</span>
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Qty</span>
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Price</span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Total</span>
                   <span/>
                 </div>
                 <div className="space-y-1.5">
                   {titleRows.map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-[1fr_80px_90px_28px] gap-1.5 items-center">
+                    <div key={idx} className="grid grid-cols-[1fr_80px_90px_80px_28px] gap-1.5 items-center">
                       <input
                         className="form-input py-1.5 text-xs"
                         value={row.name}
@@ -598,6 +599,9 @@ export default function FinanceEntries() {
                         placeholder="0.00"
                         min="0"
                       />
+                      <span className="text-xs font-bold text-slate-700 text-right pr-1">
+                        {((Number(row.qty) || 0) * (Number(row.price) || 0)).toLocaleString()}
+                      </span>
                       <button
                         type="button"
                         onClick={() => removeTitleRow(idx)}
