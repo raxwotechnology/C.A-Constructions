@@ -1160,7 +1160,7 @@ export default function DailyWageSubContractView() {
 
       const totalAdvances = targetLogs.reduce((acc, log) => acc + (log.advanceDeductions || 0), 0)
       const totalFoodDeductions = targetLogs.reduce((acc, log) => acc + (Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0)), 0)
-      const totalNetPay = Math.max(0, totalGross - totalAdvances)
+      const totalNetPay = Math.max(0, totalGross - totalAdvances - totalFoodDeductions)
 
       const title = selectedWorkerFilter
         ? `Worker Wage Summary - ${selectedWorkerFilter}`
