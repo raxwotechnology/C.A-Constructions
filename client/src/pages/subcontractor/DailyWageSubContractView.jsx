@@ -2303,16 +2303,16 @@ export default function DailyWageSubContractView() {
                       <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5 text-xs">
                         <div className="flex justify-between">
                           <span className="text-slate-500">Gross Earnings:</span>
-                          <span className="font-bold text-slate-800">Rs. {worker.totalGross.toLocaleString()}</span>
+                          <span className="font-bold text-slate-800">Rs. {(worker.pendingGross || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-500">Advance Deducted:</span>
-                          <span className="font-bold text-rose-600">- Rs. {worker.totalAdvances.toLocaleString()}</span>
+                          <span className="font-bold text-rose-600">- Rs. {(worker.pendingAdvances || 0).toLocaleString()}</span>
                         </div>
-                        {(worker.totalFoodDeductions || 0) > 0 && (
+                        {(worker.pendingFoodDeductions || 0) > 0 && (
                           <div className="flex justify-between">
                             <span className="text-slate-500">Food Deducted:</span>
-                            <span className="font-bold text-rose-600">- Rs. {(worker.totalFoodDeductions || 0).toLocaleString()}</span>
+                            <span className="font-bold text-rose-600">- Rs. {(worker.pendingFoodDeductions || 0).toLocaleString()}</span>
                           </div>
                         )}
                         <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
