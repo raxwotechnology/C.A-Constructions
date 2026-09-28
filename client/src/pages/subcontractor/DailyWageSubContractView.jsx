@@ -1182,7 +1182,7 @@ export default function DailyWageSubContractView() {
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8.5pt">${dateStr}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;font-size:8.5pt">${log.workerName || ''}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${log.project?.name || log.project?.code || '—'}</td>
-            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft) ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})` : `${log.subContractDetails?.measuredSqft || 0} Sqft @ Rs.${log.subContractDetails?.ratePerSqft || 0}`)}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft) ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})` : `${log.subContractDetails?.measuredSqft || 0} Sqft * Rs.${log.subContractDetails?.ratePerSqft || 0}`)}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-size:8.5pt">Rs. ${gross.toLocaleString()}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#dc2626;font-size:8.5pt">${log.advanceDeductions > 0 ? `- Rs. ${log.advanceDeductions.toLocaleString()}` : '—'}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#9333ea;font-size:8.5pt">${food > 0 ? `- Rs. ${food.toLocaleString()}` : '—'}</td>
@@ -2558,7 +2558,7 @@ export default function DailyWageSubContractView() {
                             ? `${log.daysWorked} Days (${log.otHours || 0} hrs OT)`
                             : log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
                             ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})`
-                            : `${log.subContractDetails?.measuredSqft || 0} Sqft @ Rs.${log.subContractDetails?.ratePerSqft || 0}`}
+                            : `${log.subContractDetails?.measuredSqft || 0} Sqft * Rs.${log.subContractDetails?.ratePerSqft || 0}`}
                         </td>
                         <td className="py-3.5 px-4 text-right font-bold text-rose-600 text-sm">
                           {advanceAmount > 0 ? `Rs. ${advanceAmount.toLocaleString()}` : '-'}
