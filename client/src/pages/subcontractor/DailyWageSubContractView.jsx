@@ -1159,6 +1159,7 @@ export default function DailyWageSubContractView() {
       }, 0)
 
       const totalAdvances = targetLogs.reduce((acc, log) => acc + (log.advanceDeductions || 0), 0)
+      const totalFoodDeductions = targetLogs.reduce((acc, log) => acc + (Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0)), 0)
       const totalNetPay = Math.max(0, totalGross - totalAdvances)
 
       const title = selectedWorkerFilter
@@ -1172,6 +1173,7 @@ export default function DailyWageSubContractView() {
           ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
           : (log.subContractDetails?.totalMeasuredPay || 0)
         const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        const food = Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0)
         const statusColor = log.status === 'Paid' ? '#059669' : '#d97706'
 
         return `
@@ -1180,9 +1182,10 @@ export default function DailyWageSubContractView() {
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8.5pt">${dateStr}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;font-size:8.5pt">${log.workerName || ''}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${log.project?.name || log.project?.code || '—'}</td>
-            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : `${log.subContractDetails?.measuredSqft || 0} sqft`}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft) ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})` : `${log.subContractDetails?.measuredSqft || 0} Sqft @ Rs.${log.subContractDetails?.ratePerSqft || 0}`)}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-size:8.5pt">Rs. ${gross.toLocaleString()}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#dc2626;font-size:8.5pt">${log.advanceDeductions > 0 ? `- Rs. ${log.advanceDeductions.toLocaleString()}` : '—'}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#9333ea;font-size:8.5pt">${food > 0 ? `- Rs. ${food.toLocaleString()}` : '—'}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-weight:700;color:${net < 0 ? '#dc2626' : '#0f172a'};font-size:8.5pt">${net < 0 ? `- Rs. ${Math.abs(net).toLocaleString()}` : `Rs. ${net.toLocaleString()}`}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:center;font-weight:700;font-size:8pt;color:${statusColor}">${log.status || 'Pending'}</td>
           </tr>
@@ -1212,6 +1215,10 @@ export default function DailyWageSubContractView() {
               <div style="font-size:7.5pt;color:#991b1b;font-weight:700;text-transform:uppercase">Total Advances Deducted</div>
               <div style="font-size:12pt;font-weight:800;color:#dc2626">Rs. ${totalAdvances.toLocaleString()}</div>
             </div>
+            <div style="flex:1;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:#6b21a8;font-weight:700;text-transform:uppercase">Total Food Deductions</div>
+              <div style="font-size:12pt;font-weight:800;color:#9333ea">Rs. ${totalFoodDeductions.toLocaleString()}</div>
+            </div>
             <div style="flex:1;background:#f0fdf4;border:1px solid #dcfce7;border-radius:8px;padding:8px 12px">
               <div style="font-size:7.5pt;color:#166534;font-weight:700;text-transform:uppercase">Total Net Payable</div>
               <div style="font-size:12pt;font-weight:900;color:#15803d">Rs. ${totalNetPay.toLocaleString()}</div>
@@ -1228,6 +1235,7 @@ export default function DailyWageSubContractView() {
                 <th style="padding:6px;text-align:left;border:1px solid #0f172a">Work / Area</th>
                 <th style="padding:6px;text-align:right;border:1px solid #0f172a">Gross</th>
                 <th style="padding:6px;text-align:right;border:1px solid #0f172a">Advances</th>
+                <th style="padding:6px;text-align:right;border:1px solid #0f172a">Food Ded.</th>
                 <th style="padding:6px;text-align:right;border:1px solid #0f172a">Net Pay</th>
                 <th style="padding:6px;text-align:center;border:1px solid #0f172a">Status</th>
               </tr>
@@ -1240,6 +1248,7 @@ export default function DailyWageSubContractView() {
                 <td colspan="5" style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right">GRAND TOTAL:</td>
                 <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right">Rs. ${totalGross.toLocaleString()}</td>
                 <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#dc2626">- Rs. ${totalAdvances.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#9333ea">- Rs. ${totalFoodDeductions.toLocaleString()}</td>
                 <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#15803d;font-size:10pt">Rs. ${totalNetPay.toLocaleString()}</td>
                 <td style="padding:8px 6px;border:1px solid #cbd5e1"></td>
               </tr>
