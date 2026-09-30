@@ -1268,6 +1268,10 @@ export default function DailyWageSubContractView() {
               <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
               <span>Approved By (Management)</span>
             </div>
+            <div style="text-align:center">
+              <div style="border-bottom:1px solid #94a3b8;width:130px;margin-bottom:4px"></div>
+              <span>Received By</span>
+            </div>
           </div>
         </div>
       `
