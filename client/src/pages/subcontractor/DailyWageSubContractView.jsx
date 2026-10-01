@@ -1160,7 +1160,7 @@ export default function DailyWageSubContractView() {
 
       const totalAdvances = targetLogs.reduce((acc, log) => acc + (log.advanceDeductions || 0), 0)
       const totalFoodDeductions = targetLogs.reduce((acc, log) => acc + (Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0)), 0)
-      const totalNetPay = Math.max(0, totalGross - totalAdvances - totalFoodDeductions)
+      const totalNetPay = totalGross - totalAdvances - totalFoodDeductions
 
       const title = selectedWorkerFilter
         ? `Worker Wage Summary - ${selectedWorkerFilter}`
@@ -1219,9 +1219,9 @@ export default function DailyWageSubContractView() {
               <div style="font-size:7.5pt;color:#6b21a8;font-weight:700;text-transform:uppercase">Total Food Deductions</div>
               <div style="font-size:12pt;font-weight:800;color:#9333ea">Rs. ${totalFoodDeductions.toLocaleString()}</div>
             </div>
-            <div style="flex:1;background:#f0fdf4;border:1px solid #dcfce7;border-radius:8px;padding:8px 12px">
-              <div style="font-size:7.5pt;color:#166534;font-weight:700;text-transform:uppercase">Total Net Payable</div>
-              <div style="font-size:12pt;font-weight:900;color:#15803d">Rs. ${totalNetPay.toLocaleString()}</div>
+            <div style="flex:1;background:${totalNetPay < 0 ? '#fef2f2' : '#f0fdf4'};border:1px solid ${totalNetPay < 0 ? '#fee2e2' : '#dcfce7'};border-radius:8px;padding:8px 12px">
+              <div style="font-size:7.5pt;color:${totalNetPay < 0 ? '#991b1b' : '#166534'};font-weight:700;text-transform:uppercase">Total Net Payable</div>
+              <div style="font-size:12pt;font-weight:900;color:${totalNetPay < 0 ? '#dc2626' : '#15803d'}">${totalNetPay < 0 ? `- Rs. ${Math.abs(totalNetPay).toLocaleString()}` : `Rs. ${totalNetPay.toLocaleString()}`}</div>
             </div>
           </div>
 
@@ -1249,7 +1249,7 @@ export default function DailyWageSubContractView() {
                 <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right">Rs. ${totalGross.toLocaleString()}</td>
                 <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#dc2626">- Rs. ${totalAdvances.toLocaleString()}</td>
                 <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#9333ea">- Rs. ${totalFoodDeductions.toLocaleString()}</td>
-                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:#15803d;font-size:10pt">Rs. ${totalNetPay.toLocaleString()}</td>
+                <td style="padding:8px 6px;border:1px solid #cbd5e1;text-align:right;color:${totalNetPay < 0 ? '#dc2626' : '#15803d'};font-size:10pt">${totalNetPay < 0 ? `- Rs. ${Math.abs(totalNetPay).toLocaleString()}` : `Rs. ${totalNetPay.toLocaleString()}`}</td>
                 <td style="padding:8px 6px;border:1px solid #cbd5e1"></td>
               </tr>
             </tfoot>
