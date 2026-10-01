@@ -238,8 +238,8 @@ export default function DailyWageSubContractView() {
 
     // Subtract total advances and food deductions from total gross earnings to get accurate uncleared subtotal
     Object.values(map).forEach((w) => {
-      w.pendingNetSubtotal = Math.max(0, (w.pendingGross || 0) - (w.pendingAdvances || 0) - (w.pendingFoodDeductions || 0))
-      w.paidNetTotal = Math.max(0, (w.paidGross || 0) - (w.paidAdvances || 0) - (w.paidFoodDeductions || 0))
+      w.pendingNetSubtotal = (w.pendingGross || 0) - (w.pendingAdvances || 0) - (w.pendingFoodDeductions || 0)
+      w.paidNetTotal = (w.paidGross || 0) - (w.paidAdvances || 0) - (w.paidFoodDeductions || 0)
     })
 
     return map
@@ -2321,8 +2321,10 @@ export default function DailyWageSubContractView() {
                         )}
                         <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
                           <span className="text-slate-700">Uncleared Subtotal:</span>
-                          <span className={hasPending ? 'text-rose-600' : 'text-emerald-600'}>
-                            Rs. {worker.pendingNetSubtotal.toLocaleString()}
+                          <span className="text-rose-600">
+                            {worker.pendingNetSubtotal < 0
+                              ? `- Rs. ${Math.abs(worker.pendingNetSubtotal).toLocaleString()}`
+                              : `Rs. ${worker.pendingNetSubtotal.toLocaleString()}`}
                           </span>
                         </div>
                       </div>
