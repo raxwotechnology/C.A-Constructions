@@ -240,6 +240,7 @@ export default function DailyWageSubContractView() {
     Object.values(map).forEach((w) => {
       w.pendingNetSubtotal = (w.pendingGross || 0) - (w.pendingAdvances || 0) - (w.pendingFoodDeductions || 0)
       w.paidNetTotal = (w.paidGross || 0) - (w.paidAdvances || 0) - (w.paidFoodDeductions || 0)
+      w.totalNetSubtotal = (w.totalGross || 0) - (w.totalAdvances || 0) - (w.totalFoodDeductions || 0)
     })
 
     return map
@@ -2307,24 +2308,24 @@ export default function DailyWageSubContractView() {
                       <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5 text-xs">
                         <div className="flex justify-between">
                           <span className="text-slate-500">Gross Earnings:</span>
-                          <span className="font-bold text-slate-800">Rs. {(worker.pendingGross || 0).toLocaleString()}</span>
+                          <span className="font-bold text-slate-800">Rs. {(worker.totalGross || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-500">Advance Deducted:</span>
-                          <span className="font-bold text-rose-600">- Rs. {(worker.pendingAdvances || 0).toLocaleString()}</span>
+                          <span className="font-bold text-rose-600">- Rs. {(worker.totalAdvances || 0).toLocaleString()}</span>
                         </div>
-                        {(worker.pendingFoodDeductions || 0) > 0 && (
+                        {(worker.totalFoodDeductions || 0) > 0 && (
                           <div className="flex justify-between">
                             <span className="text-slate-500">Food Deducted:</span>
-                            <span className="font-bold text-rose-600">- Rs. {(worker.pendingFoodDeductions || 0).toLocaleString()}</span>
+                            <span className="font-bold text-rose-600">- Rs. {(worker.totalFoodDeductions || 0).toLocaleString()}</span>
                           </div>
                         )}
                         <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
-                          <span className="text-slate-700">Uncleared Subtotal:</span>
-                          <span className="text-rose-600">
-                            {worker.pendingNetSubtotal < 0
-                              ? `- Rs. ${Math.abs(worker.pendingNetSubtotal).toLocaleString()}`
-                              : `Rs. ${worker.pendingNetSubtotal.toLocaleString()}`}
+                          <span className="text-slate-700">Net Subtotal:</span>
+                          <span className={worker.totalNetSubtotal < 0 ? 'text-rose-600' : (hasPending ? 'text-rose-600' : 'text-emerald-600')}>
+                            {worker.totalNetSubtotal < 0
+                              ? `- Rs. ${Math.abs(worker.totalNetSubtotal).toLocaleString()}`
+                              : `Rs. ${(worker.totalNetSubtotal || 0).toLocaleString()}`}
                           </span>
                         </div>
                       </div>
