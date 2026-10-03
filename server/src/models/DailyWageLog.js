@@ -10,7 +10,7 @@ const dailyWageLogSchema = new mongoose.Schema(
     
     workType: {
       type: String,
-      enum: ['Daily Wage', 'Sub-Contract'],
+      enum: ['Daily Wage', 'Sub-Contract', 'Office Staff'],
       default: 'Daily Wage',
       required: true,
     },
@@ -112,6 +112,14 @@ dailyWageLogSchema.pre('validate', function (next) {
     }
     const foodDed = Number(this.subContractDetails?.foodDeductions || this.foodDeductions || 0);
     this.subContractPay = totalMeasured - (this.advanceDeductions || 0) - foodDed;
+  } else if (this.workType === 'Office Staff') {
+    // Salary: (daysWorked * ratePerDay) - advances
+    const dailyRate = this.skillRate || 0;
+    const daysWorked = this.daysWorked || 0;
+    const calculatedPay = daysWorked * dailyRate;
+    this.otPay = 0;
+    this.totalAllowances = 0;
+    this.netDailyPay = calculatedPay - (this.advanceDeductions || 0);
   }
   next();
 });

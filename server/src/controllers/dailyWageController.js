@@ -89,7 +89,8 @@ exports.createDailyWageLog = async (req, res, next) => {
     // They appear in the Advance Summary tab and must be manually sent to Expenses.
 
     // If status is created as Paid, log the Final Wage Payout Expense immediately
-    const netPayout = newLog.workType === 'Daily Wage' ? newLog.netDailyPay : newLog.subContractPay;
+    const isOffice = newLog.workType === 'Office Staff';
+    const netPayout = (newLog.workType === 'Daily Wage' || isOffice) ? newLog.netDailyPay : newLog.subContractPay;
     if (newLog.status === 'Paid' && netPayout > 0) {
       const paidTxNo = `TX-PAY-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
       const paidFinanceEntry = new FinanceEntry({
@@ -98,16 +99,16 @@ exports.createDailyWageLog = async (req, res, next) => {
         branch: projBranch,
         transactionType: 'Expense',
         type: 'expense',
-        category: 'Daily Wages',
-        masterCategory: 'Daily Wages',
-        subCategory: 'Final Wage Payout',
-        title: `Final Wage Payout - ${newLog.workerName}`,
+        category: isOffice ? 'Salary & Wages' : 'Daily Wages',
+        masterCategory: isOffice ? 'Office Staff Salary' : 'Daily Wages',
+        subCategory: isOffice ? 'Staff Salary Payout' : 'Final Wage Payout',
+        title: isOffice ? `Office Staff Salary - ${newLog.workerName}` : `Final Wage Payout - ${newLog.workerName}`,
         amount: netPayout,
         date: newLog.date || new Date(),
         paymentMethod: 'Cash',
         payeeOrPayer: newLog.workerName,
-        description: `Final Wage Payout Expense - ${newLog.workerName} (${newLog.logCode})`,
-        note: `Final Wage Payout Expense - ${newLog.workerName} (${newLog.logCode})`,
+        description: isOffice ? `Office Staff Salary Payout Expense - ${newLog.workerName} (${newLog.logCode})` : `Final Wage Payout Expense - ${newLog.workerName} (${newLog.logCode})`,
+        note: isOffice ? `Office Staff Salary Payout Expense - ${newLog.workerName} (${newLog.logCode})` : `Final Wage Payout Expense - ${newLog.workerName} (${newLog.logCode})`,
         status: 'Approved',
         createdBy: isValidId(req.user?._id || req.user?.id) ? (req.user?._id || req.user?.id) : null,
       });
@@ -411,7 +412,8 @@ exports.updateDailyWageLog = async (req, res, next) => {
 
     // Check if status changed to 'Paid' or changed away from 'Paid'
     const newStatus = log.status;
-    const netPayout = log.workType === 'Daily Wage' ? log.netDailyPay : log.subContractPay;
+    const isOffice = log.workType === 'Office Staff';
+    const netPayout = (log.workType === 'Daily Wage' || isOffice) ? log.netDailyPay : log.subContractPay;
 
     if (newStatus === 'Paid' && previousStatus !== 'Paid') {
       if (!log.paidFinanceEntryRef && netPayout > 0) {
@@ -427,16 +429,16 @@ exports.updateDailyWageLog = async (req, res, next) => {
           branch: projBranch,
           transactionType: 'Expense',
           type: 'expense',
-          category: 'Daily Wages',
-          masterCategory: 'Daily Wages',
-          subCategory: 'Final Wage Payout',
-          title: `Final Wage Payout - ${log.workerName}`,
+          category: isOffice ? 'Salary & Wages' : 'Daily Wages',
+          masterCategory: isOffice ? 'Office Staff Salary' : 'Daily Wages',
+          subCategory: isOffice ? 'Staff Salary Payout' : 'Final Wage Payout',
+          title: isOffice ? `Office Staff Salary - ${log.workerName}` : `Final Wage Payout - ${log.workerName}`,
           amount: netPayout,
           date: log.date || new Date(),
           paymentMethod: 'Cash',
           payeeOrPayer: log.workerName,
-          description: `Final Worker Wage Payout Expense - ${log.workerName} (${log.logCode})`,
-          note: `Final Worker Wage Payout Expense - ${log.workerName} (${log.logCode})`,
+          description: isOffice ? `Office Staff Salary Payout Expense - ${log.workerName} (${log.logCode})` : `Final Worker Wage Payout Expense - ${log.workerName} (${log.logCode})`,
+          note: isOffice ? `Office Staff Salary Payout Expense - ${log.workerName} (${log.logCode})` : `Final Worker Wage Payout Expense - ${log.workerName} (${log.logCode})`,
           status: 'Approved',
           createdBy: (req.user?._id || req.user?.id) || null,
         });
@@ -934,22 +936,23 @@ exports.sendAdvancesToExpenses = async (req, res, next) => {
       if ((item.type === 'advance' || item.type === 'any') && (log.advanceDeductions || 0) > 0 && !log.advanceSentToExpenses) {
         try {
           const advTxNo = `TX-ADV-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+          const isOffice = log.workType === 'Office Staff';
           const advFinanceEntry = new FinanceEntry({
             transactionNo: advTxNo,
             project: log.project?._id || log.project,
             branch: projBranch,
             transactionType: 'Expense',
             type: 'expense',
-            category: 'Daily Wages',
-            masterCategory: 'Daily Wages',
-            subCategory: 'Salary Advance',
-            title: `Worker Salary Advance - ${log.workerName}`,
+            category: isOffice ? 'Salary & Wages' : 'Daily Wages',
+            masterCategory: isOffice ? 'Office Staff Advance' : 'Daily Wages',
+            subCategory: isOffice ? 'Staff Salary Advance' : 'Salary Advance',
+            title: isOffice ? `Office Staff Advance - ${log.workerName}` : `Worker Salary Advance - ${log.workerName}`,
             amount: log.advanceDeductions,
             date: log.date || new Date(),
             paymentMethod: 'Cash',
             payeeOrPayer: log.workerName,
-            description: `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
-            note: `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
+            description: isOffice ? `Office Staff Advance Deduction - ${log.workerName} (${log.logCode})` : `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
+            note: isOffice ? `Office Staff Advance Deduction - ${log.workerName} (${log.logCode})` : `Worker Wage Advance Deduction - ${log.workerName} (${log.logCode})`,
             status: 'Approved',
             createdBy: createdById,
           });

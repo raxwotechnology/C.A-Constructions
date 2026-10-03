@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Calendar,
   RotateCcw,
+  Briefcase,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
@@ -209,15 +210,20 @@ export default function DailyWageSubContractView() {
         }
       }
       const isDaily = log.workType === 'Daily Wage'
+      const isOffice = log.workType === 'Office Staff'
       const advanceAmount = Number(log.advanceDeductions || 0)
       const grossAmount = isDaily 
         ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
-        : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
-            ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
-            : Number(log.subContractDetails?.totalMeasuredPay || 0))
-      const foodDeduction = !isDaily ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
+        : isOffice
+          ? ((Number(log.daysWorked) || 0) * (Number(log.skillRate) || 0))
+          : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+              ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+              : Number(log.subContractDetails?.totalMeasuredPay || 0))
+      const foodDeduction = (!isDaily && !isOffice) ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
 
       map[name].totalLogsCount += 1
+      if (!map[name].workTypes) map[name].workTypes = new Set()
+      map[name].workTypes.add(log.workType)
       map[name].totalGross += grossAmount
       map[name].totalAdvances += advanceAmount
       map[name].totalFoodDeductions = (map[name].totalFoodDeductions || 0) + foodDeduction
@@ -228,6 +234,12 @@ export default function DailyWageSubContractView() {
         map[name].pendingAdvances += advanceAmount
         map[name].pendingFoodDeductions = (map[name].pendingFoodDeductions || 0) + foodDeduction
         map[name].pendingLogIds.push(log._id)
+        // Office Staff specific tracking
+        if (log.workType === 'Office Staff') {
+          map[name].dailyRate = log.skillRate || map[name].dailyRate || 0
+          map[name].monthlySalary = log.skillRate || map[name].monthlySalary || 0
+          map[name].pendingDaysWorked = (map[name].pendingDaysWorked || 0) + (log.daysWorked || 0)
+        }
       } else {
         map[name].paidLogsCount += 1
         map[name].paidGross += grossAmount
@@ -243,12 +255,24 @@ export default function DailyWageSubContractView() {
       w.totalNetSubtotal = (w.totalGross || 0) - (w.totalAdvances || 0) - (w.totalFoodDeductions || 0)
     })
 
+    Object.values(map).forEach((w) => {
+      if (w.workTypes instanceof Set) w.workTypes = Array.from(w.workTypes)
+    })
+
     return map
   }, [logs])
 
   const workerPendingSummaryList = useMemo(() => {
     return Object.values(workerPendingSummaryMap).sort((a, b) => b.pendingNetSubtotal - a.pendingNetSubtotal)
   }, [workerPendingSummaryMap])
+
+  const officeStaffSummaryList = useMemo(() =>
+    workerPendingSummaryList.filter(w => w.workTypes?.includes('Office Staff'))
+  , [workerPendingSummaryList])
+
+  const regularWorkerSummaryList = useMemo(() =>
+    workerPendingSummaryList.filter(w => !w.workTypes?.includes('Office Staff'))
+  , [workerPendingSummaryList])
 
   // Filter logs by selected worker if chosen
   const filteredLogsByWorker = useMemo(() => {
@@ -418,15 +442,18 @@ export default function DailyWageSubContractView() {
       const raw = workerLogs.reduce(
         (acc, log) => {
           const isDaily = log.workType === 'Daily Wage'
+          const isOffice = log.workType === 'Office Staff'
           const gross = isDaily
             ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
-            : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
-                ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
-                : Number(log.subContractDetails?.totalMeasuredPay || 0))
+            : isOffice
+              ? ((Number(log.daysWorked) || 0) * (Number(log.skillRate) || 0))
+              : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+                  ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+                  : Number(log.subContractDetails?.totalMeasuredPay || 0))
           const adv = Number(log.advanceDeductions || 0)
-          const foodDed = !isDaily ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
+          const foodDed = (!isDaily && !isOffice) ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
 
-          if (isDaily) {
+          if (isDaily || isOffice) {
             acc.totalDailyGross += gross
             acc.totalDailyAdvances += adv
             acc.totalAllowances += (log.totalAllowances || 0)
@@ -484,14 +511,17 @@ export default function DailyWageSubContractView() {
 
     logs.forEach((log) => {
       const isDaily = log.workType === 'Daily Wage'
+      const isOffice = log.workType === 'Office Staff'
+      const adv = Number(log.advanceDeductions || 0)
       const gross = isDaily
         ? (((log.daysWorked || 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
-        : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
-            ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
-            : Number(log.subContractDetails?.totalMeasuredPay || 0))
-      const adv = Number(log.advanceDeductions || 0)
-      const foodDed = !isDaily ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
-      if (isDaily) {
+        : isOffice
+          ? ((Number(log.daysWorked) || 0) * (Number(log.skillRate) || 0))
+          : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
+              ? Number(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0)
+              : Number(log.subContractDetails?.totalMeasuredPay || 0))
+      const foodDed = (!isDaily && !isOffice) ? Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0) : 0
+      if (isDaily || isOffice) {
         allDailyGross += gross
         allDailyAdvances += adv
       } else {
@@ -639,6 +669,60 @@ export default function DailyWageSubContractView() {
     computedSubTotalPay - Number(subForm.advanceDeductions || 0) - Number(subForm.foodDeductions || 0)
   )
 
+  // ---------------------------------------------------------
+  // FORM STATES FOR OFFICE STAFF PAYOUT
+  // ---------------------------------------------------------
+  const [officeStaffForm, setOfficeStaffForm] = useState({
+    workerName: '',
+    employee: '',
+    project: '',
+    date: new Date().toISOString().split('T')[0],
+    designation: 'Office Staff',
+    dailyRate: 0,
+    daysWorked: 0,
+    advanceDeductions: 0,
+    linkedAdvance: '',
+    notes: '',
+  })
+
+  const [showOfficeStaffSuggestions, setShowOfficeStaffSuggestions] = useState(false)
+
+  const matchingOfficeEmployees = officeStaffForm.workerName.trim()
+    ? employeesList.filter((emp) => {
+        const s = officeStaffForm.workerName.toLowerCase()
+        return (
+          emp.fullName?.toLowerCase().includes(s) ||
+          emp.employeeId?.toLowerCase().includes(s) ||
+          emp.designation?.toLowerCase().includes(s)
+        )
+      })
+    : employeesList.slice(0, 50)
+
+  const handleSelectOfficeEmployee = (emp) => {
+    const activeAdv = advancesList.find(
+      (a) =>
+        String(a.employee?._id || a.employee || '') === String(emp._id || emp.id) ||
+        a.employee?.fullName === emp.fullName
+    )
+    const empDailyRate = emp.dailyRate || (emp.basicSalary ? Math.round(emp.basicSalary / 26) : 0)
+    setOfficeStaffForm((prev) => ({
+      ...prev,
+      workerName: emp.fullName || emp.name,
+      employee: emp._id || emp.id,
+      designation: emp.designation || prev.designation,
+      dailyRate: empDailyRate || prev.dailyRate,
+      linkedAdvance: activeAdv ? activeAdv._id : prev.linkedAdvance,
+      advanceDeductions: activeAdv
+        ? Math.min(activeAdv.outstandingBalance, 5000)
+        : prev.advanceDeductions,
+    }))
+    setShowOfficeStaffSuggestions(false)
+    toast.success(`Auto-filled details for ${emp.fullName}`)
+  }
+
+  const computedOfficeSalaryPay = Number(officeStaffForm.daysWorked || 0) * Number(officeStaffForm.dailyRate || 0)
+  const computedOfficeNetPay = Math.max(0, computedOfficeSalaryPay - Number(officeStaffForm.advanceDeductions || 0))
+
   // Auto-select first project when projects list loads
   useEffect(() => {
     if (projectsList && projectsList.length > 0) {
@@ -648,6 +732,9 @@ export default function DailyWageSubContractView() {
       }
       if (!subForm.project && defaultProjId) {
         setSubForm((prev) => ({ ...prev, project: defaultProjId }))
+      }
+      if (!officeStaffForm.project && defaultProjId) {
+        setOfficeStaffForm((prev) => ({ ...prev, project: defaultProjId }))
       }
     }
   }, [projectsList])
@@ -683,6 +770,15 @@ export default function DailyWageSubContractView() {
         measuredSqft: 0,
         advanceDeductions: 0,
         foodDeductions: 0,
+        notes: '',
+      }))
+      setOfficeStaffForm((prev) => ({
+        ...prev,
+        workerName: '',
+        employee: '',
+        dailyRate: 0,
+        daysWorked: 0,
+        advanceDeductions: 0,
         notes: '',
       }))
     },
@@ -744,6 +840,28 @@ export default function DailyWageSubContractView() {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to update work log.')
+    },
+  })
+
+  const payOfficeStaffMutation = useMutation({
+    mutationFn: async ({ pendingLogIds }) => {
+      // Mark all pending office staff logs as Paid (backend automatically creates Finance Expense entry)
+      for (const id of pendingLogIds) {
+        await api.put(`/daily-wages/${id}`, { status: 'Paid' })
+      }
+    },
+    onSuccess: () => {
+      toast.success('Office staff salary marked as paid and recorded in expenses!')
+      queryClient.invalidateQueries({ queryKey: ['daily-wage-logs'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-financial'] })
+      queryClient.invalidateQueries({ queryKey: ['financial-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to process office staff payment.')
     },
   })
 
@@ -965,6 +1083,32 @@ export default function DailyWageSubContractView() {
     })
   }
 
+  // Submit Office Staff Form
+  const handleOfficeStaffSubmit = (e) => {
+    e.preventDefault()
+    if (!officeStaffForm.workerName || !officeStaffForm.project) {
+      toast.error('Please specify Staff Name and Select a Project.')
+      return
+    }
+    createLogMutation.mutate({
+      workerName: officeStaffForm.workerName,
+      employee: officeStaffForm.employee || null,
+      project: officeStaffForm.project,
+      date: officeStaffForm.date,
+      workType: 'Office Staff',
+      skillLevel: officeStaffForm.designation,
+      skillRate: Number(officeStaffForm.dailyRate || 0),
+      daysWorked: Number(officeStaffForm.daysWorked || 0),
+      otHours: 0,
+      otRate: 0,
+      allowances: { foodRefreshments: 0, travelTransport: 0, nightOutstation: 0 },
+      advanceDeductions: Number(officeStaffForm.advanceDeductions || 0),
+      linkedAdvance: officeStaffForm.linkedAdvance || null,
+      mealExpenseAutoLogged: false,
+      notes: officeStaffForm.notes,
+    })
+  }
+
   // Printable Payout Slip Handler
   const handlePrintPayoutSlip = async (logItem) => {
     const company = buildCompanyFromSettings(siteSettingsData || {})
@@ -1109,20 +1253,23 @@ export default function DailyWageSubContractView() {
       }
       const exportRows = targetLogs.map((log) => {
         const isDaily = log.workType === 'Daily Wage'
+        const isOffice = log.workType === 'Office Staff'
         const dateStr = log.date ? new Date(log.date).toLocaleDateString() : ''
         const gross = isDaily
           ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+          : isOffice
+          ? ((Number(log.daysWorked) || 0) * (Number(log.skillRate) || 0))
           : (log.subContractDetails?.totalMeasuredPay || 0)
-        const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        const net = (isDaily || isOffice) ? (log.netDailyPay || 0) : (log.subContractPay || 0)
         return {
           'Log Code': log.logCode || '',
           'Date': dateStr,
           'Worker / Baas Name': log.workerName || '',
           'Project / Site': log.project?.name || log.project?.code || '',
           'Work Type': log.workType || 'Daily Wage',
-          'Skill Level / Category': isDaily ? (log.skillLevel || 'Skilled Labour') : (log.subContractDetails?.workCategory || 'Sub-Contract'),
-          'Days / Output': isDaily ? `${log.daysWorked ?? 0} day(s)` : `${log.subContractDetails?.measuredSqft || 0} Sqft`,
-          'Daily Rate / Sqft Rate (LKR)': isDaily ? (log.skillRate || 0) : (log.subContractDetails?.ratePerSqft || 0),
+          'Skill Level / Category': isDaily ? (log.skillLevel || 'Skilled Labour') : isOffice ? (log.skillLevel || 'Office Staff') : (log.subContractDetails?.workCategory || 'Sub-Contract'),
+          'Days / Output': isDaily ? `${log.daysWorked ?? 0} day(s)` : isOffice ? `${log.daysWorked ?? 0} day(s)` : `${log.subContractDetails?.measuredSqft || 0} Sqft`,
+          'Daily Rate / Sqft Rate (LKR)': isDaily ? (log.skillRate || 0) : isOffice ? (log.skillRate || 0) : (log.subContractDetails?.ratePerSqft || 0),
           'Overtime Pay (LKR)': log.otPay || 0,
           'Allowances (LKR)': log.totalAllowances || 0,
           'Gross Pay (LKR)': gross,
@@ -1153,8 +1300,11 @@ export default function DailyWageSubContractView() {
 
       const totalGross = targetLogs.reduce((acc, log) => {
         const isDaily = log.workType === 'Daily Wage'
+        const isOffice = log.workType === 'Office Staff'
         const gross = isDaily
           ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+          : isOffice
+          ? ((Number(log.daysWorked) || 0) * (Number(log.skillRate) || 0))
           : (log.subContractDetails?.totalMeasuredPay || 0)
         return acc + gross
       }, 0)
@@ -1169,11 +1319,14 @@ export default function DailyWageSubContractView() {
 
       const rowsHtml = targetLogs.map((log) => {
         const isDaily = log.workType === 'Daily Wage'
+        const isOffice = log.workType === 'Office Staff'
         const dateStr = log.date ? new Date(log.date).toLocaleDateString('en-GB') : ''
         const gross = isDaily
           ? (((log.daysWorked ?? 0) * (log.skillRate || 0)) + (log.otPay || 0) + (log.totalAllowances || 0))
+          : isOffice
+          ? ((Number(log.daysWorked) || 0) * (Number(log.skillRate) || 0))
           : (log.subContractDetails?.totalMeasuredPay || 0)
-        const net = isDaily ? (log.netDailyPay || 0) : (log.subContractPay || 0)
+        const net = (isDaily || isOffice) ? (log.netDailyPay || 0) : (log.subContractPay || 0)
         const food = Number(log.subContractDetails?.foodDeductions || log.foodDeductions || 0)
         const statusColor = log.status === 'Paid' ? '#059669' : '#d97706'
 
@@ -1183,7 +1336,7 @@ export default function DailyWageSubContractView() {
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8.5pt">${dateStr}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;font-size:8.5pt">${log.workerName || ''}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${log.project?.name || log.project?.code || '—'}</td>
-            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft) ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})` : `${log.subContractDetails?.measuredSqft || 0} Sqft * Rs.${log.subContractDetails?.ratePerSqft || 0}`)}</td>
+            <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:8pt">${isDaily ? `${log.daysWorked ?? 0} day(s)` : isOffice ? `${log.daysWorked ?? 0} day(s)` : (log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft) ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})` : `${log.subContractDetails?.measuredSqft || 0} Sqft * Rs.${log.subContractDetails?.ratePerSqft || 0}`)}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-size:8.5pt">Rs. ${gross.toLocaleString()}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#dc2626;font-size:8.5pt">${log.advanceDeductions > 0 ? `- Rs. ${log.advanceDeductions.toLocaleString()}` : '—'}</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;color:#9333ea;font-size:8.5pt">${food > 0 ? `- Rs. ${food.toLocaleString()}` : '—'}</td>
@@ -1574,6 +1727,16 @@ export default function DailyWageSubContractView() {
           }`}
         >
           <DollarSign className="w-4 h-4" /> Advance Summary ({advanceDeductionItems.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('office_staff')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'office_staff'
+              ? 'bg-purple-600 text-white shadow font-extrabold'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Briefcase className="w-4 h-4" /> Office Staff
         </button>
       </div>
 
@@ -2257,7 +2420,6 @@ export default function DailyWageSubContractView() {
                 View uncleared pending payout subtotals per worker and perform bulk payouts.
               </p>
             </div>
-
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold text-slate-600">
                 Total Workers with Pending Payouts:{' '}
@@ -2268,83 +2430,180 @@ export default function DailyWageSubContractView() {
             </div>
           </div>
 
-          {workerPendingSummaryList.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 font-medium bg-slate-50 rounded-2xl border border-slate-200">
-              No worker log entries recorded yet.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {workerPendingSummaryList.map((worker) => {
-                const hasPending = worker.pendingLogsCount > 0
-                return (
-                  <div
-                    key={worker.workerName}
-                    className={`rounded-2xl border p-5 transition-all shadow-sm flex flex-col justify-between ${
-                      hasPending ? 'bg-amber-50/40 border-amber-300' : 'bg-slate-50/60 border-slate-200'
-                    }`}
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="text-base font-black text-slate-900 flex items-center gap-1.5">
-                            <Users className="w-4 h-4 text-amber-500" />
-                            {worker.workerName}
-                          </h4>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Total Recorded Logs: <span className="font-bold text-slate-700">{worker.totalLogsCount}</span>
-                          </p>
-                        </div>
-                        <span
-                          className={`text-xs font-extrabold px-2.5 py-1 rounded-full border ${
-                            hasPending
-                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                              : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          }`}
-                        >
-                          {hasPending ? `${worker.pendingLogsCount} PENDING` : 'ALL CLEARED'}
-                        </span>
-                      </div>
-
-                      <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Gross Earnings:</span>
-                          <span className="font-bold text-slate-800">Rs. {(worker.totalGross || 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Advance Deducted:</span>
-                          <span className="font-bold text-rose-600">- Rs. {(worker.totalAdvances || 0).toLocaleString()}</span>
-                        </div>
-                        {(worker.totalFoodDeductions || 0) > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Food Deducted:</span>
-                            <span className="font-bold text-rose-600">- Rs. {(worker.totalFoodDeductions || 0).toLocaleString()}</span>
+          {/* ---- REGULAR WORKERS SECTION ---- */}
+          {regularWorkerSummaryList.length > 0 && (
+            <div>
+              <h4 className="text-sm font-black text-slate-700 flex items-center gap-2 mb-4">
+                <Users className="w-4 h-4 text-amber-500" /> Daily Wage &amp; Sub-Contract Workers
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {regularWorkerSummaryList.map((worker) => {
+                  const hasPending = worker.pendingLogsCount > 0
+                  return (
+                    <div
+                      key={worker.workerName}
+                      className={`rounded-2xl border p-5 transition-all shadow-sm flex flex-col justify-between ${
+                        hasPending ? 'bg-amber-50/40 border-amber-300' : 'bg-slate-50/60 border-slate-200'
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="text-base font-black text-slate-900 flex items-center gap-1.5">
+                              <Users className="w-4 h-4 text-amber-500" />
+                              {worker.workerName}
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Total Recorded Logs: <span className="font-bold text-slate-700">{worker.totalLogsCount}</span>
+                            </p>
                           </div>
-                        )}
-                        <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
-                          <span className="text-slate-700">Net Subtotal:</span>
-                          <span className={worker.totalNetSubtotal < 0 ? 'text-rose-600' : (hasPending ? 'text-rose-600' : 'text-emerald-600')}>
-                            {worker.totalNetSubtotal < 0
-                              ? `- Rs. ${Math.abs(worker.totalNetSubtotal).toLocaleString()}`
-                              : `Rs. ${(worker.totalNetSubtotal || 0).toLocaleString()}`}
+                          <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full border ${
+                            hasPending ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          }`}>
+                            {hasPending ? `${worker.pendingLogsCount} PENDING` : 'ALL CLEARED'}
                           </span>
                         </div>
+                        <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Gross Earnings:</span>
+                            <span className="font-bold text-slate-800">Rs. {(worker.totalGross || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Advance Deducted:</span>
+                            <span className="font-bold text-rose-600">- Rs. {(worker.totalAdvances || 0).toLocaleString()}</span>
+                          </div>
+                          {(worker.totalFoodDeductions || 0) > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Food Deducted:</span>
+                              <span className="font-bold text-rose-600">- Rs. {(worker.totalFoodDeductions || 0).toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
+                            <span className="text-slate-700">Net Subtotal:</span>
+                            <span className={worker.totalNetSubtotal < 0 ? 'text-rose-600' : (hasPending ? 'text-rose-600' : 'text-emerald-600')}>
+                              {worker.totalNetSubtotal < 0
+                                ? `- Rs. ${Math.abs(worker.totalNetSubtotal).toLocaleString()}`
+                                : `Rs. ${(worker.totalNetSubtotal || 0).toLocaleString()}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-slate-200/80">
+                        <button
+                          onClick={() => { setSelectedWorkerFilter(worker.workerName); setActiveTab('logs') }}
+                          className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all text-center"
+                        >
+                          View Logs ({worker.totalLogsCount})
+                        </button>
                       </div>
                     </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
-                    <div className="mt-4 pt-3 border-t border-slate-200/80">
-                      <button
-                        onClick={() => {
-                          setSelectedWorkerFilter(worker.workerName)
-                          setActiveTab('logs')
-                        }}
-                        className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all text-center"
-                      >
-                        View Logs ({worker.totalLogsCount})
-                      </button>
+          {/* ---- OFFICE STAFF SECTION ---- */}
+          {officeStaffSummaryList.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4 pt-2 border-t border-slate-100">
+                <Briefcase className="w-4 h-4 text-purple-600" />
+                <h4 className="text-sm font-black text-purple-700">Office Staff Salary Outstanding</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {officeStaffSummaryList.map((worker) => {
+                  const hasPending = worker.pendingLogsCount > 0
+                  return (
+                    <div
+                      key={worker.workerName}
+                      className={`rounded-2xl border p-5 transition-all shadow-sm flex flex-col justify-between ${
+                        hasPending ? 'bg-purple-50/60 border-purple-300' : 'bg-slate-50/60 border-slate-200'
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="text-base font-black text-slate-900 flex items-center gap-1.5">
+                              <Briefcase className="w-4 h-4 text-purple-500" />
+                              {worker.workerName}
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Total Recorded Logs: <span className="font-bold text-slate-700">{worker.totalLogsCount}</span>
+                            </p>
+                          </div>
+                          <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full border ${
+                            hasPending ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          }`}>
+                            {hasPending ? `${worker.pendingLogsCount} PENDING` : 'ALL CLEARED'}
+                          </span>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Rate per Day:</span>
+                            <span className="font-bold text-slate-800">Rs. {(worker.dailyRate || worker.monthlySalary || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Days Worked (Pending):</span>
+                            <span className="font-bold text-purple-700">{worker.pendingDaysWorked || 0} days</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Calculated Pay:</span>
+                            <span className="font-bold text-slate-800">Rs. {(worker.pendingGross || 0).toLocaleString()}</span>
+                          </div>
+                          {(worker.pendingAdvances || 0) > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Advance Deducted:</span>
+                              <span className="font-bold text-rose-600">- Rs. {(worker.pendingAdvances || 0).toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-slate-100 pt-1 text-sm font-black">
+                            <span className="text-slate-700">Net Subtotal:</span>
+                            <span className={worker.pendingNetSubtotal < 0 ? 'text-rose-600' : 'text-purple-700'}>
+                              {worker.pendingNetSubtotal < 0
+                                ? `- Rs. ${Math.abs(worker.pendingNetSubtotal).toLocaleString()}`
+                                : `Rs. ${(worker.pendingNetSubtotal || 0).toLocaleString()}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-200/80 space-y-2">
+                        {hasPending && (
+                          <button
+                            type="button"
+                            disabled={payOfficeStaffMutation.isPending}
+                            onClick={() => {
+                              if (window.confirm(`Pay Rs. ${(worker.pendingNetSubtotal || 0).toLocaleString()} to ${worker.workerName}?\n\nThis will mark all pending logs as Paid and record an expense entry.`)) {
+                                payOfficeStaffMutation.mutate({
+                                  pendingLogIds: worker.pendingLogIds,
+                                  workerName: worker.workerName,
+                                  netAmount: worker.pendingNetSubtotal,
+                                })
+                              }
+                            }}
+                            className="w-full py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-all text-center disabled:opacity-60 flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" /> Mark as Paid &amp; Send to Expenses
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setSelectedWorkerFilter(worker.workerName); setActiveTab('logs') }}
+                          className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all text-center"
+                        >
+                          View Logs ({worker.totalLogsCount})
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {workerPendingSummaryList.length === 0 && (
+            <div className="text-center py-12 text-slate-500 font-medium bg-slate-50 rounded-2xl border border-slate-200">
+              No worker log entries recorded yet.
             </div>
           )}
         </div>
@@ -2532,7 +2791,8 @@ export default function DailyWageSubContractView() {
                 ) : (
                   paginatedLogs.map((log) => {
                     const isDaily = log.workType === 'Daily Wage'
-                    const netAmount = isDaily ? log.netDailyPay : log.subContractPay
+                    const isOffice = log.workType === 'Office Staff'
+                    const netAmount = (isDaily || isOffice) ? log.netDailyPay : log.subContractPay
                     const advanceAmount = log.advanceDeductions || 0
 
                     return (
@@ -2554,15 +2814,19 @@ export default function DailyWageSubContractView() {
                             className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
                               isDaily
                                 ? 'bg-amber-100 text-amber-800'
+                                : isOffice
+                                ? 'bg-purple-100 text-purple-800'
                                 : 'bg-emerald-100 text-emerald-800'
                             }`}
                           >
-                            {log.workType} ({isDaily ? log.skillLevel : log.subContractDetails?.workCategory})
+                            {log.workType} ({isDaily || isOffice ? (log.skillLevel || 'Staff') : log.subContractDetails?.workCategory})
                           </span>
                         </td>
                         <td className="py-3.5 px-4 font-semibold text-slate-700 text-xs">
                           {isDaily
                             ? `${log.daysWorked} Days (${log.otHours || 0} hrs OT)`
+                            : isOffice
+                            ? `${log.daysWorked ?? 0} Days * Rs. ${(log.skillRate || 0).toLocaleString()}`
                             : log.subContractDetails?.pricingBasis === 'Lump-sum' || (log.subContractDetails?.lumpSumAmount > 0 && !log.subContractDetails?.measuredSqft)
                             ? `Fixed Lump-Sum (Rs. ${(log.subContractDetails?.lumpSumAmount || log.subContractDetails?.totalMeasuredPay || 0).toLocaleString()})`
                             : `${log.subContractDetails?.measuredSqft || 0} Sqft * Rs.${log.subContractDetails?.ratePerSqft || 0}`}
@@ -3569,10 +3833,14 @@ export default function DailyWageSubContractView() {
                                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                                   item.workType === 'Daily Wage'
                                     ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                    : item.workType === 'Office Staff'
+                                    ? 'bg-purple-100 text-purple-800 border-purple-200'
                                     : 'bg-emerald-100 text-emerald-800 border-emerald-200'
                                 }`}>
                                   {item.workType === 'Daily Wage'
                                     ? <><HardHat className="w-3 h-3" /> Daily Wage</>
+                                    : item.workType === 'Office Staff'
+                                    ? <><Briefcase className="w-3 h-3" /> Office Staff</>
                                     : <><Ruler className="w-3 h-3" /> Sub-Contract</>
                                   }
                                 </span>
@@ -3623,6 +3891,220 @@ export default function DailyWageSubContractView() {
           </div>
         )
       })()}
+
+      {/* --------------------------------------------------------- */}
+      {/* TAB: OFFICE STAFF PAYOUT */}
+      {/* --------------------------------------------------------- */}
+      {activeTab === 'office_staff' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Form */}
+          <form
+            onSubmit={handleOfficeStaffSubmit}
+            className="lg:col-span-2 bg-white rounded-2xl p-6 border border-purple-200 shadow-sm space-y-5"
+          >
+            <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-purple-500" /> Office Staff Salary Payout Form
+              </h3>
+              <span className="text-xs font-semibold text-slate-500 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+                Formula: (Days × Rate per Day) - Advances
+              </span>
+            </div>
+
+            {/* Name & Project */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Staff Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Type name or select employee..."
+                  value={officeStaffForm.workerName}
+                  onFocus={() => setShowOfficeStaffSuggestions(true)}
+                  onChange={(e) => {
+                    setOfficeStaffForm({ ...officeStaffForm, workerName: e.target.value })
+                    setShowOfficeStaffSuggestions(true)
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-semibold"
+                />
+                {showOfficeStaffSuggestions && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-purple-200 rounded-2xl shadow-2xl z-40 max-h-64 overflow-y-auto divide-y divide-slate-100">
+                    <div className="p-2.5 bg-purple-50/80 text-[11px] font-bold text-purple-900 uppercase flex justify-between items-center border-b border-purple-100">
+                      <span>Select Employee</span>
+                      <button type="button" onClick={() => setShowOfficeStaffSuggestions(false)} className="text-purple-400 hover:text-purple-700"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                    {matchingOfficeEmployees.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-400">No employees found</div>
+                    ) : (
+                      matchingOfficeEmployees.map((emp) => (
+                        <button
+                          key={emp._id || emp.id}
+                          type="button"
+                          onClick={() => handleSelectOfficeEmployee(emp)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-purple-50 transition-colors"
+                        >
+                          <div className="font-bold text-sm text-slate-900">{emp.fullName}</div>
+                          <div className="text-xs text-slate-500">{emp.employeeId} · {emp.designation}</div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Project / Site *</label>
+                <select
+                  required
+                  value={officeStaffForm.project}
+                  onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, project: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-semibold bg-white"
+                >
+                  <option value="">Select project...</option>
+                  {(projectsList || []).map((p) => (
+                    <option key={p._id || p.id} value={p._id || p.id}>
+                      {p.name || p.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Designation & Date */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Designation / Role</label>
+                <input
+                  type="text"
+                  value={officeStaffForm.designation}
+                  onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, designation: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-semibold"
+                  placeholder="e.g. Accountant, Site Manager"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pay Date</label>
+                <input
+                  type="date"
+                  value={officeStaffForm.date}
+                  onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, date: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-semibold"
+                />
+              </div>
+            </div>
+
+            {/* Rate per Day & Days Worked */}
+            <div className="bg-purple-50/60 border border-purple-200 rounded-xl p-4">
+              <h4 className="text-xs font-black text-purple-800 uppercase tracking-wide mb-3">💼 Salary Details</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Rate per Day (Rs.) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={officeStaffForm.dailyRate}
+                    onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, dailyRate: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Number of Days Worked *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={officeStaffForm.daysWorked}
+                    onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, daysWorked: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Advance Deductions */}
+            <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4">
+              <h4 className="text-xs font-black text-indigo-800 uppercase tracking-wide mb-3">$ Advance Deductions</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Link Active Employee Advance</label>
+                  <select
+                    value={officeStaffForm.linkedAdvance}
+                    onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, linkedAdvance: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold bg-white"
+                  >
+                    <option value="">-- No Linked Advance --</option>
+                    {(advancesList || []).map((adv) => (
+                      <option key={adv._id} value={adv._id}>
+                        {adv.employee?.fullName || adv.employeeName} — Rs. {(adv.outstandingBalance || 0).toLocaleString()} outstanding
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Advance Amount to Deduct (Rs.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={officeStaffForm.advanceDeductions}
+                    onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, advanceDeductions: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold text-rose-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Notes / Description</label>
+              <textarea
+                rows={2}
+                value={officeStaffForm.notes}
+                onChange={(e) => setOfficeStaffForm({ ...officeStaffForm, notes: e.target.value })}
+                placeholder="e.g., Office staff salary payout..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={createLogMutation.isPending}
+              className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-sm transition-all shadow-sm disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              <Briefcase className="w-4 h-4" />
+              {createLogMutation.isPending ? 'Saving...' : '+ Save Office Staff Payout Log'}
+            </button>
+          </form>
+
+          {/* Live Pay Calculator */}
+          <div className="bg-slate-950 rounded-2xl p-6 text-white border border-purple-900 shadow-lg space-y-4 h-fit">
+            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Live Pay Calculator</span>
+              <span className="text-[10px] font-black bg-purple-600 text-white px-2.5 py-0.5 rounded-full">Office Staff</span>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Rate per Day:</span>
+                <span className="font-bold text-white">Rs. {Number(officeStaffForm.dailyRate || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Days Worked:</span>
+                <span className="font-bold text-purple-300">+ {officeStaffForm.daysWorked || 0} days</span>
+              </div>
+              <div className="border-t border-slate-700 pt-2 flex justify-between">
+                <span className="text-slate-400">Calculated Salary Pay:</span>
+                <span className="font-bold text-white">Rs. {computedOfficeSalaryPay.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Advance Deductions:</span>
+                <span className="font-bold text-rose-400">- Rs. {Number(officeStaffForm.advanceDeductions || 0).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="border-t border-slate-700 pt-4 text-center">
+              <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Net Payable Salary</p>
+              <p className="text-4xl font-black text-purple-400">Rs. {computedOfficeNetPay.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
