@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 
 const WORKER_TYPES = [
-  'Mason', 'Helper', 'Carpenter', 'Bar Bender', 'Electrician', 'Plumber', 'Unskilled', 'Supervisor', 'Site Manager'
+  'Mason', 'Helper', 'Carpenter', 'Bar Bender', 'Electrician', 'Plumber', 'Unskilled', 'Supervisor', 'Site Manager', 'Painter', 'Poti', 'Wader Base'
 ];
 
 const HSE_SEVERITIES = ['Near Miss', 'Minor', 'Major', 'Critical'];

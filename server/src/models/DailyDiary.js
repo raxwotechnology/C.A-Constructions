@@ -10,7 +10,11 @@ const dailyDiarySchema = new mongoose.Schema(
     // Labor Attendance Breakdown
     labourAttendance: [
       {
-        workerType: { type: String, enum: ['Mason', 'Helper', 'Carpenter', 'Bar Bender', 'Electrician', 'Plumber', 'Unskilled'], required: true },
+        workerType: { 
+          type: String, 
+          enum: ['Mason', 'Helper', 'Carpenter', 'Bar Bender', 'Electrician', 'Plumber', 'Unskilled', 'Supervisor', 'Site Manager', 'Painter', 'Poti', 'Wader Base'], 
+          required: true 
+        },
         count: { type: Number, default: 0 },
         regularHours: { type: Number, default: 8 },
         otHours: { type: Number, default: 0 }
