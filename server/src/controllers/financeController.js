@@ -323,7 +323,13 @@ exports.getEntries = async (req, res, next) => {
     if (category) q.category = category;
     if (branch) q.branch = branch;
     if (paymentMethod) q.paymentMethod = paymentMethod;
-    if (project) q.project = project;
+    if (project) {
+      if (String(project).toLowerCase() === 'other') {
+        q.project = null;
+      } else {
+        q.project = project;
+      }
+    }
 
     const dateFilter = buildDateFilter({ from, to, month, year });
     if (dateFilter) q.date = dateFilter;
@@ -380,10 +386,18 @@ exports.getEntries = async (req, res, next) => {
       allEntries = allEntries.filter((e) => e.category === category);
     }
     if (project) {
-      allEntries = allEntries.filter((e) => {
-        const pId = e.project?._id || e.project;
-        return pId && String(pId) === String(project);
-      });
+      const isOther = String(project).toLowerCase() === 'other';
+      if (isOther) {
+        allEntries = allEntries.filter((e) => {
+          const pId = e.project?._id || (typeof e.project === 'string' && e.project.trim() ? e.project : null);
+          return !pId;
+        });
+      } else {
+        allEntries = allEntries.filter((e) => {
+          const pId = e.project?._id || (typeof e.project === 'string' && e.project.trim() ? e.project : null);
+          return pId && String(pId) === String(project);
+        });
+      }
     }
 
     const totals = allEntries.reduce((acc, e) => {

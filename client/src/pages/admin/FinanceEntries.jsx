@@ -337,6 +337,7 @@ export default function FinanceEntries() {
             <label className="form-label text-xs">Project Site</label>
             <select className="form-select text-sm py-2 bg-amber-50/60 font-semibold border-amber-200" value={projectFilter} onChange={e=>setProjectFilter(e.target.value)}>
               <option value="">All Projects</option>
+              <option value="other">Other</option>
               {projects.map(p=><option key={p._id || p.id} value={p._id || p.id}>{p.name || p.title}</option>)}
             </select>
           </div>
