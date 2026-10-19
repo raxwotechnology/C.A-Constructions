@@ -224,6 +224,18 @@ export default function DailyWageSubContractView() {
       map[name].totalLogsCount += 1
       if (!map[name].workTypes) map[name].workTypes = new Set()
       map[name].workTypes.add(log.workType)
+
+      if (!map[name].positions) map[name].positions = new Set()
+      const pos = log.workType === 'Daily Wage'
+        ? (log.skillLevel || log.employee?.designation || 'Daily Labour')
+        : log.workType === 'Office Staff'
+        ? (log.skillLevel || log.employee?.designation || 'Office Staff')
+        : log.workType === 'Sub-Contract'
+        ? (log.subContractDetails?.workCategory || log.skillLevel || log.employee?.designation || 'Sub-Contract')
+        : (log.skillLevel || log.employee?.designation || log.workType || 'Worker')
+      if (pos && typeof pos === 'string' && pos.trim()) {
+        map[name].positions.add(pos.trim())
+      }
       map[name].totalGross += grossAmount
       map[name].totalAdvances += advanceAmount
       map[name].totalFoodDeductions = (map[name].totalFoodDeductions || 0) + foodDeduction
@@ -257,10 +269,27 @@ export default function DailyWageSubContractView() {
 
     Object.values(map).forEach((w) => {
       if (w.workTypes instanceof Set) w.workTypes = Array.from(w.workTypes)
+      if (w.positions instanceof Set) {
+        if (w.positions.size === 0 && Array.isArray(employeesList) && employeesList.length > 0) {
+          const matchedEmp = employeesList.find((e) =>
+            (e.fullName || e.name || '').trim().toLowerCase() === w.workerName.trim().toLowerCase()
+          )
+          if (matchedEmp?.designation) {
+            w.positions.add(matchedEmp.designation.trim())
+          }
+        }
+        w.positions = Array.from(w.positions).filter(Boolean)
+      }
+      if (!w.positions || w.positions.length === 0) {
+        if (w.workTypes?.includes('Office Staff')) w.positions = ['Office Staff']
+        else if (w.workTypes?.includes('Daily Wage')) w.positions = ['Daily Labour']
+        else if (w.workTypes?.includes('Sub-Contract')) w.positions = ['Sub-Contract']
+        else w.positions = ['Worker']
+      }
     })
 
     return map
-  }, [logs])
+  }, [logs, employeesList])
 
   const workerPendingSummaryList = useMemo(() => {
     return Object.values(workerPendingSummaryMap).sort((a, b) => b.pendingNetSubtotal - a.pendingNetSubtotal)
@@ -2453,7 +2482,20 @@ export default function DailyWageSubContractView() {
                               <Users className="w-4 h-4 text-amber-500" />
                               {worker.workerName}
                             </h4>
-                            <p className="text-xs text-slate-500 mt-0.5">
+                            {worker.positions && worker.positions.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                <span className="text-[11px] font-bold text-slate-500">Position:</span>
+                                {worker.positions.map((pos) => (
+                                  <span
+                                    key={pos}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300"
+                                  >
+                                    {pos}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-xs text-slate-500 mt-1">
                               Total Recorded Logs: <span className="font-bold text-slate-700">{worker.totalLogsCount}</span>
                             </p>
                           </div>
@@ -2527,7 +2569,20 @@ export default function DailyWageSubContractView() {
                               <Briefcase className="w-4 h-4 text-purple-500" />
                               {worker.workerName}
                             </h4>
-                            <p className="text-xs text-slate-500 mt-0.5">
+                            {worker.positions && worker.positions.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                <span className="text-[11px] font-bold text-purple-700">Position:</span>
+                                {worker.positions.map((pos) => (
+                                  <span
+                                    key={pos}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-purple-100 text-purple-900 border border-purple-300"
+                                  >
+                                    {pos}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-xs text-slate-500 mt-1">
                               Total Recorded Logs: <span className="font-bold text-slate-700">{worker.totalLogsCount}</span>
                             </p>
                           </div>
@@ -2673,7 +2728,7 @@ export default function DailyWageSubContractView() {
                 <option value="">All Workers</option>
                 {workerPendingSummaryList.map((w) => (
                   <option key={w.workerName} value={w.workerName}>
-                    {w.workerName} {w.pendingLogsCount > 0 ? `(Pending: Rs.${w.pendingNetSubtotal.toLocaleString()})` : ''}
+                    {w.workerName} {w.positions?.length ? `(${w.positions.join(', ')})` : ''} {w.pendingLogsCount > 0 ? `(Pending: Rs.${w.pendingNetSubtotal.toLocaleString()})` : ''}
                   </option>
                 ))}
               </select>

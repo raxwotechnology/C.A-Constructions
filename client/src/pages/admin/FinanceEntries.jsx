@@ -642,6 +642,7 @@ export default function FinanceEntries() {
                   <label className="form-label">Project Site</label>
                   <select className="form-select font-semibold text-amber-900 bg-amber-50/50 border-amber-200" value={form.project} onChange={e=>f('project',e.target.value)}>
                     <option value="">No Project Linked</option>
+                    <option value="other">Other</option>
                     {projects.map(p=><option key={p._id || p.id} value={p._id || p.id}>{p.name || p.title}</option>)}
                   </select>
                 </div>

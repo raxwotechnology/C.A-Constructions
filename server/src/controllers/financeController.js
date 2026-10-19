@@ -163,7 +163,7 @@ exports.addEntry = async (req, res, next) => {
       voucherNumber: voucherNumber ? String(voucherNumber).trim() : '',
       paymentMethod: paymentMethod || 'Cash',
       bankAccount: req.body.bankAccount || null,
-      project: project || req.body.project || null,
+      project: (project || req.body.project) && String(project || req.body.project).toLowerCase() !== 'other' ? (project || req.body.project) : null,
       createdBy: req.user._id,
       branch: branch || null,
       transactionNo: transactionNo || `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -235,7 +235,7 @@ exports.updateEntry = async (req, res, next) => {
     entry.branch = branch !== undefined ? (branch || null) : entry.branch;
     entry.paymentMethod = paymentMethod || entry.paymentMethod;
     entry.bankAccount = bankAccount !== undefined ? (bankAccount || null) : entry.bankAccount;
-    if (project !== undefined) entry.project = project || null;
+    if (project !== undefined) entry.project = project && String(project).toLowerCase() !== 'other' ? project : null;
 
     if (req.file) {
       entry.billFile = req.file.filename.startsWith('data:') ? req.file.filename : `/uploads/bills/${req.file.filename}`;

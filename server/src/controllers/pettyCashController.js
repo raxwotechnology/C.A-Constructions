@@ -70,12 +70,15 @@ exports.createTransaction = async (req, res, next) => {
       referenceNumber, receiptUrl, branch,
     } = req.body;
 
+    const branchId = branch && String(branch).trim() ? branch : null;
+    const bankAccountId = bankAccount && String(bankAccount).trim() ? bankAccount : null;
+
     const amt = Number(amount);
     const isCheque = paymentType === 'cheque' || isCashCheque === true;
 
     // For OUT via CASH: check physical petty cash balance
     if (type === 'out' && (!paymentType || String(paymentType).toLowerCase() === 'cash')) {
-      const balanceQuery = branch ? { branch } : {};
+      const balanceQuery = branchId ? { branch: branchId } : {};
       const all = await PettyCash.find(balanceQuery).lean();
       const cashTransactions = all.filter(t => !t.paymentType || String(t.paymentType).toLowerCase() === 'cash');
       const balance = cashTransactions.reduce((s, t) => t.type === 'in' ? s + t.amount : s - t.amount, 0);
@@ -87,8 +90,8 @@ exports.createTransaction = async (req, res, next) => {
     let chequeRecord = null;
 
     // Handle Cash Cheque Top-up or Expense
-    if (isCheque && bankAccount) {
-      const bankAcc = await BankAccount.findById(bankAccount);
+    if (isCheque && bankAccountId) {
+      const bankAcc = await BankAccount.findById(bankAccountId);
       if (!bankAcc) return res.status(404).json({ success: false, message: 'Selected Bank Account not found' });
 
       // Create issued Cash Cheque entry in Cheque ledger
@@ -103,8 +106,8 @@ exports.createTransaction = async (req, res, next) => {
         chequeDate: date ? new Date(date) : new Date(),
         bankName: bankAcc.bankName || 'Bank',
         drawerOrPayee: paidTo || 'Petty Cash Cash Cheque',
-        bankAccount,
-        branch,
+        bankAccount: bankAccountId,
+        branch: branchId,
         notes: `Cash Cheque for Petty Cash: ${description || 'Petty Cash Funding'}`,
         recordedBy: req.user._id,
         ledgerPosted: true,
@@ -112,7 +115,7 @@ exports.createTransaction = async (req, res, next) => {
       });
 
       // Auto deduct from Bank Account!
-      await appendBankTransaction(bankAccount, {
+      await appendBankTransaction(bankAccountId, {
         type: 'withdrawal',
         amount: amt,
         description: `Petty Cash Cash Cheque (${chqNo}): ${description}`,
@@ -122,11 +125,11 @@ exports.createTransaction = async (req, res, next) => {
         sourceType: 'Cheque',
         recordedBy: req.user._id,
       });
-    } else if (bankAccount && ['bank_transfer', 'card'].includes(String(paymentType || '').toLowerCase())) {
-      const acc = await BankAccount.findById(bankAccount);
+    } else if (bankAccountId && ['bank_transfer', 'card'].includes(String(paymentType || '').toLowerCase())) {
+      const acc = await BankAccount.findById(bankAccountId);
       if (!acc) return res.status(404).json({ success: false, message: 'Selected Bank Account not found' });
       const isIn = type === 'in';
-      await appendBankTransaction(bankAccount, {
+      await appendBankTransaction(bankAccountId, {
         type: isIn ? 'deposit' : 'withdrawal',
         amount: amt,
         description: `Petty Cash ${isIn ? 'IN' : 'OUT'}: ${description} (${category})`,
@@ -138,7 +141,7 @@ exports.createTransaction = async (req, res, next) => {
       });
     }
 
-    const balanceQuery = branch ? { branch } : {};
+    const balanceQuery = branchId ? { branch: branchId } : {};
     const priorCash = await PettyCash.find(balanceQuery).lean();
     const isCashPayment = !paymentType || String(paymentType).toLowerCase() === 'cash' || type === 'in';
     const priorBalance = priorCash
@@ -160,11 +163,11 @@ exports.createTransaction = async (req, res, next) => {
       isCashCheque: !!isCheque,
       chequeNumber: chequeNumber || (chequeRecord ? chequeRecord.chequeNumber : ''),
       chequeId: chequeRecord ? chequeRecord._id : null,
-      bankAccount: bankAccount || null,
+      bankAccount: bankAccountId,
       expenseBreakdown: Array.isArray(expenseBreakdown) ? expenseBreakdown : [],
       referenceNumber,
       receiptUrl,
-      branch,
+      branch: branchId,
       recordedBy: req.user._id,
       runningBalance,
     });
@@ -216,7 +219,7 @@ exports.updateTransaction = async (req, res, next) => {
     t.paidTo = paidTo !== undefined ? paidTo : t.paidTo;
     t.paymentType = paymentType !== undefined ? paymentType : t.paymentType;
     t.referenceNumber = referenceNumber !== undefined ? referenceNumber : t.referenceNumber;
-    t.branch = branch !== undefined ? branch : t.branch;
+    t.branch = branch !== undefined ? (branch && String(branch).trim() ? branch : null) : t.branch;
     if (Array.isArray(expenseBreakdown)) {
       t.expenseBreakdown = expenseBreakdown;
     }

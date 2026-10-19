@@ -468,10 +468,15 @@ export default function AdminPettyCash() {
               {modalMode !== 'view' && (
                 <button onClick={() => { 
                   if (!form.amount || !form.description) { toast.error('Amount and description required'); return } 
+                  const payload = {
+                    ...form,
+                    branch: form.branch || null,
+                    bankAccount: form.bankAccount || null,
+                  }
                   if (modalMode === 'edit') {
-                    updateMut.mutate(form)
+                    updateMut.mutate(payload)
                   } else {
-                    createMut.mutate(form)
+                    createMut.mutate(payload)
                   }
                 }}
                   disabled={createMut.isPending || updateMut.isPending}
