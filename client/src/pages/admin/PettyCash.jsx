@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
 import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
 import { usePasswordProtectedDelete } from '../../hooks/usePasswordProtectedDelete'
-import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart, FiEye, FiEdit2 } from 'react-icons/fi'
+import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart, FiEye, FiEdit2, FiClock, FiCheckCircle } from 'react-icons/fi'
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316']
@@ -28,6 +28,8 @@ export default function AdminPettyCash() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [activeTab, setActiveTab] = useState('transactions') // 'transactions' | 'pending_review'
+  const [selectedPending, setSelectedPending] = useState([])
 
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -65,9 +67,22 @@ export default function AdminPettyCash() {
     mutateFn: (id) => deleteMut.mutateAsync(id),
   })
 
-  const transactions = (data?.transactions || []).filter(t =>
+  const approveMut = useMutation({
+    mutationFn: ids => api.post('/petty-cash/approve', { ids }),
+    onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); toast.success(r.data?.message || 'Approved'); setSelectedPending([]) },
+    onError: e => toast.error(e.response?.data?.message || 'Approve failed'),
+  })
+  const rejectMut = useMutation({
+    mutationFn: ids => api.post('/petty-cash/reject', { ids }),
+    onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); toast.success(r.data?.message || 'Rejected'); setSelectedPending([]) },
+    onError: e => toast.error(e.response?.data?.message || 'Reject failed'),
+  })
+
+  const allFiltered = (data?.transactions || []).filter(t =>
     !search || t.description?.toLowerCase().includes(search.toLowerCase()) || t.paidTo?.toLowerCase().includes(search.toLowerCase())
   )
+  const transactions = allFiltered.filter(t => t.status !== 'pending')
+  const pendingTransactions = allFiltered.filter(t => t.status === 'pending')
 
   // Compute summary from all API transactions (unfiltered by search) for accurate balance KPIs
   const allTransactions = data?.transactions || []
@@ -149,6 +164,22 @@ export default function AdminPettyCash() {
         ))}
       </div>
 
+      {/* Tab Switcher */}
+      <div className="flex gap-2 bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm">
+        <button onClick={() => setActiveTab('transactions')}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'transactions' ? 'bg-secondary text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>
+          <FiCheck size={14}/> Transactions
+        </button>
+        <button onClick={() => setActiveTab('pending_review')}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'pending_review' ? 'bg-amber-500 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>
+          <FiClock size={14}/> Pending Review
+          {pendingTransactions.length > 0 && (
+            <span className="ml-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{pendingTransactions.length}</span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'transactions' && (<>
       {/* Financial Overview Chart */}
       {expenseByCategory.length > 0 && (
         <div className="card card-body bg-slate-50/50 border border-slate-100">
@@ -318,6 +349,109 @@ export default function AdminPettyCash() {
           ))
         )}
       </div>
+      </>)}
+
+      {/* PENDING REVIEW TAB */}
+      {activeTab === 'pending_review' && (
+        <div className="space-y-4">
+          {/* Action bar */}
+          {selectedPending.length > 0 && (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <span className="text-sm font-semibold text-amber-800">{selectedPending.length} selected</span>
+              <button onClick={() => approveMut.mutate(selectedPending)}
+                disabled={approveMut.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors disabled:opacity-60">
+                <FiCheckCircle size={14}/> {approveMut.isPending ? 'Approving...' : 'Approve & Send to Expenses'}
+              </button>
+              <button onClick={() => { if (window.confirm('Reject selected transactions? They will be deleted.')) rejectMut.mutate(selectedPending) }}
+                disabled={rejectMut.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors disabled:opacity-60">
+                <FiTrash2 size={14}/> {rejectMut.isPending ? 'Rejecting...' : 'Reject'}
+              </button>
+              <button onClick={() => setSelectedPending([])} className="text-xs text-slate-500 hover:text-slate-700 ml-auto">Clear Selection</button>
+            </div>
+          )}
+
+          {pendingTransactions.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+              <FiClock size={40} className="mx-auto text-slate-300 mb-3"/>
+              <p className="text-slate-400 font-medium">No pending expenses to review</p>
+              <p className="text-xs text-slate-300 mt-1">All recorded expenses will appear here for approval</p>
+            </div>
+          ) : (
+            <>
+              {/* Select All */}
+              <div className="flex items-center gap-3 px-2">
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input type="checkbox"
+                    checked={selectedPending.length === pendingTransactions.length && pendingTransactions.length > 0}
+                    onChange={e => setSelectedPending(e.target.checked ? pendingTransactions.map(t => t._id) : [])}
+                    className="accent-amber-500 w-4 h-4"
+                  /> Select All ({pendingTransactions.length})
+                </label>
+              </div>
+
+              {/* Desktop Table */}
+              <div className="table-container hidden md:block">
+                <table className="table">
+                  <thead>
+                    <tr><th className="w-10"></th><th>Date</th><th>Category</th><th>Description</th><th>Paid To</th><th className="text-right">Amount</th><th>Payment</th><th>By</th></tr>
+                  </thead>
+                  <tbody>
+                    {pendingTransactions.map(t => (
+                      <tr key={t._id} className={selectedPending.includes(t._id) ? 'bg-amber-50/50' : ''}>
+                        <td>
+                          <input type="checkbox" className="accent-amber-500 w-4 h-4"
+                            checked={selectedPending.includes(t._id)}
+                            onChange={e => setSelectedPending(prev => e.target.checked ? [...prev, t._id] : prev.filter(id => id !== t._id))}
+                          />
+                        </td>
+                        <td className="text-sm text-slate-600 whitespace-nowrap">{new Date(t.date).toLocaleDateString('en-LK')}</td>
+                        <td className="text-sm text-slate-600">{CAT_LABEL[t.category] || t.category}</td>
+                        <td className="font-medium text-slate-800 max-w-[180px] truncate">{t.description}</td>
+                        <td className="text-sm text-slate-500">{t.paidTo || '—'}</td>
+                        <td className="amount-cell text-red-600">
+                          <div className="amount-cell-inner">
+                            <span className="amount-cell-sign">−</span>
+                            <span>LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        </td>
+                        <td className="text-xs text-slate-400 capitalize">{t.paymentType?.replace('_',' ')}</td>
+                        <td className="text-xs text-slate-400">{t.recordedBy?.name || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="block md:hidden space-y-3">
+                {pendingTransactions.map(t => (
+                  <div key={t._id} className={`bg-white rounded-2xl border p-4 space-y-3 shadow-sm ${selectedPending.includes(t._id) ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'}`}>
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" className="accent-amber-500 w-4 h-4"
+                        checked={selectedPending.includes(t._id)}
+                        onChange={e => setSelectedPending(prev => e.target.checked ? [...prev, t._id] : prev.filter(id => id !== t._id))}
+                      />
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-800 text-sm">{t.description}</p>
+                        <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('en-LK')} · {t.paidTo || '—'}</p>
+                      </div>
+                      <span className="badge badge-red gap-1 text-[10px]">
+                        <FiClock size={10}/> PENDING
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                      <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{CAT_LABEL[t.category] || t.category}</span>
+                      <p className="font-bold text-sm text-red-600">− LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && createPortal(

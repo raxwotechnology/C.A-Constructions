@@ -170,6 +170,7 @@ exports.createTransaction = async (req, res, next) => {
       branch: branchId,
       recordedBy: req.user._id,
       runningBalance,
+      status: type === 'in' ? 'approved' : 'pending',
     });
 
     res.status(201).json({ success: true, transaction });
@@ -226,5 +227,35 @@ exports.updateTransaction = async (req, res, next) => {
 
     await t.save();
     res.json({ success: true, transaction: t });
+  } catch (err) { next(err); }
+};
+
+// POST /api/petty-cash/approve
+exports.approveTransactions = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'No transaction IDs provided' });
+    }
+    const result = await PettyCash.updateMany(
+      { _id: { $in: ids }, status: 'pending', type: 'out' },
+      { $set: { status: 'approved' } }
+    );
+    res.json({ success: true, message: `${result.modifiedCount} transaction(s) approved`, modifiedCount: result.modifiedCount });
+  } catch (err) { next(err); }
+};
+
+// POST /api/petty-cash/reject
+exports.rejectTransaction = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'No transaction IDs provided' });
+    }
+    // Delete the pending transactions (they were never approved)
+    const result = await PettyCash.deleteMany(
+      { _id: { $in: ids }, status: 'pending', type: 'out' }
+    );
+    res.json({ success: true, message: `${result.deletedCount} transaction(s) rejected and removed`, deletedCount: result.deletedCount });
   } catch (err) { next(err); }
 };

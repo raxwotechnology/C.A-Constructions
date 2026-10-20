@@ -40,6 +40,7 @@ const pettyCashSchema = new mongoose.Schema({
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   runningBalance: { type: Number, default: 0 },   // updated on each transaction
+  status: { type: String, enum: ['pending', 'approved'], default: 'pending' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('PettyCash', pettyCashSchema);

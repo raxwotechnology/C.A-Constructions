@@ -131,6 +131,7 @@ function matchesPaymentMethodFilter(actualMethod, filterMethod) {
 
 function normalizePettyCashEntries(pettyCash = [], { type, paymentMethod } = {}) {
   return pettyCash
+    .filter((p) => p.status !== 'pending')  // only approved entries go to finance
     .filter((p) => !type || (type === 'income' && p.type === 'in') || (type === 'expense' && p.type === 'out'))
     .filter((p) => matchesPaymentMethodFilter(mapPettyCashPaymentMethod(p.paymentType), paymentMethod))
     .map((p) => ({
@@ -472,7 +473,7 @@ exports.getOverview = async (req, res, next) => {
 
     const entries = rawEntries.filter((e) => !isSubscriptionIncomeEntry(e) && !isInvoiceIncomeEntry(e));
     const pettyCashIn = pettyCashEntries.filter(p => p.type === 'in').reduce((s, p) => s + Number(p.amount || 0), 0);
-    const pettyCashOut = pettyCashEntries.filter(p => p.type === 'out').reduce((s, p) => s + Number(p.amount || 0), 0);
+    const pettyCashOut = pettyCashEntries.filter(p => p.type === 'out' && p.status !== 'pending').reduce((s, p) => s + Number(p.amount || 0), 0);
     const subscriptionRevenue = subIncome.total;
     const subscriptionPaymentsCount = subIncome.count;
     const invoiceRevenue = invIncome.total;
@@ -630,9 +631,9 @@ exports.getOverview = async (req, res, next) => {
         paidInvoicesCount: paidInvoices.length,
         invoicePaymentsCount: paymentRevenueAgg.paymentCount,
         payrollRunsCount: paidPayrolls.length,
-        entriesCount: entries.length + pettyCashEntries.length + subscriptionPaymentsCount,
+        entriesCount: entries.length + pettyCashEntries.filter(p => p.status !== 'pending').length + subscriptionPaymentsCount,
         subscriptionPaymentsCount,
-        pettyCashCount: pettyCashEntries.length,
+        pettyCashCount: pettyCashEntries.filter(p => p.status !== 'pending').length,
         profitMarginPct: totalIncome > 0 ? Number(((profit / totalIncome) * 100).toFixed(2)) : 0,
         incomeBreakdown: Object.entries(incomeBreakdown).map(([cat, amount]) => ({ category: cat, amount })).sort((a, b) => b.amount - a.amount),
         expenseBreakdown: Object.entries(expenseBreakdown).map(([cat, amount]) => ({ category: cat, amount })).sort((a, b) => b.amount - a.amount),
