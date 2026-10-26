@@ -5,8 +5,6 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
-import PasswordConfirmModal from '../../components/admin/PasswordConfirmModal'
-import { usePasswordProtectedDelete } from '../../hooks/usePasswordProtectedDelete'
 import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart, FiEye, FiEdit2, FiClock, FiCheckCircle } from 'react-icons/fi'
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 
@@ -63,9 +61,11 @@ export default function AdminPettyCash() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['petty-cash'] }); qc.invalidateQueries({ queryKey: ['bank-accounts'] }); toast.success('Deleted') },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
-  const passwordDelete = usePasswordProtectedDelete({
-    mutateFn: (id) => deleteMut.mutateAsync(id),
-  })
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      deleteMut.mutate(id)
+    }
+  }
 
   const approveMut = useMutation({
     mutationFn: ids => api.post('/petty-cash/approve', { ids }),
@@ -94,6 +94,7 @@ export default function AdminPettyCash() {
       ...t,
       date: new Date(t.date).toISOString().split('T')[0],
       branch: t.branch?._id || t.branch || '',
+      bankAccount: t.bankAccount?._id || t.bankAccount || '',
     })
     setModalMode('view')
     setShowModal(true)
@@ -104,6 +105,7 @@ export default function AdminPettyCash() {
       ...t,
       date: new Date(t.date).toISOString().split('T')[0],
       branch: t.branch?._id || t.branch || '',
+      bankAccount: t.bankAccount?._id || t.bankAccount || '',
     })
     setModalMode('edit')
     setShowModal(true)
@@ -276,7 +278,7 @@ export default function AdminPettyCash() {
                       className="p-1.5 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-colors">
                       <FiEdit2 size={13}/>
                     </button>
-                    <button type="button" onClick={() => passwordDelete.requestDelete(t._id)}
+                    <button type="button" onClick={() => handleDelete(t._id)}
                       title="Delete Transaction"
                       className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
                       <FiTrash2 size={13}/>
@@ -338,7 +340,7 @@ export default function AdminPettyCash() {
                       className="p-1.5 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-colors">
                       <FiEdit2 size={14}/>
                     </button>
-                    <button type="button" onClick={() => passwordDelete.requestDelete(t._id)}
+                    <button type="button" onClick={() => handleDelete(t._id)}
                       className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
                       <FiTrash2 size={14}/>
                     </button>
@@ -395,7 +397,7 @@ export default function AdminPettyCash() {
               <div className="table-container hidden md:block">
                 <table className="table">
                   <thead>
-                    <tr><th className="w-10"></th><th>Date</th><th>Category</th><th>Description</th><th>Paid To</th><th className="text-right">Amount</th><th>Payment</th><th>By</th></tr>
+                    <tr><th className="w-10"></th><th>Date</th><th>Category</th><th>Description</th><th>Paid To</th><th className="text-right">Amount</th><th>Payment</th><th>By</th><th></th></tr>
                   </thead>
                   <tbody>
                     {pendingTransactions.map(t => (
@@ -418,6 +420,25 @@ export default function AdminPettyCash() {
                         </td>
                         <td className="text-xs text-slate-400 capitalize">{t.paymentType?.replace('_',' ')}</td>
                         <td className="text-xs text-slate-400">{t.recordedBy?.name || '—'}</td>
+                        <td className="whitespace-nowrap">
+                          <div className="flex items-center gap-1 justify-end">
+                            <button type="button" onClick={() => handleView(t)}
+                              title="View Transaction"
+                              className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors">
+                              <FiEye size={13}/>
+                            </button>
+                            <button type="button" onClick={() => handleEdit(t)}
+                              title="Edit Transaction"
+                              className="p-1.5 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-colors">
+                              <FiEdit2 size={13}/>
+                            </button>
+                            <button type="button" onClick={() => handleDelete(t._id)}
+                              title="Delete Transaction"
+                              className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
+                              <FiTrash2 size={13}/>
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -442,8 +463,24 @@ export default function AdminPettyCash() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                      <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{CAT_LABEL[t.category] || t.category}</span>
-                      <p className="font-bold text-sm text-red-600">− LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <div>
+                        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{CAT_LABEL[t.category] || t.category}</span>
+                        <p className="font-bold text-sm text-red-600 mt-1">− LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => handleView(t)}
+                          className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors">
+                          <FiEye size={14}/>
+                        </button>
+                        <button type="button" onClick={() => handleEdit(t)}
+                          className="p-1.5 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-colors">
+                          <FiEdit2 size={14}/>
+                        </button>
+                        <button type="button" onClick={() => handleDelete(t._id)}
+                          className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
+                          <FiTrash2 size={14}/>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -623,15 +660,6 @@ export default function AdminPettyCash() {
           </motion.div>
         </div>, document.body
       )}
-
-      <PasswordConfirmModal
-        open={passwordDelete.deleteModalOpen}
-        onClose={passwordDelete.cancelDelete}
-        onConfirm={passwordDelete.confirmDelete}
-        isSubmitting={passwordDelete.isSubmitting || deleteMut.isPending}
-        title="Delete petty cash transaction"
-        message="Enter your admin password to permanently delete this transaction. Linked bank entries will be reversed."
-      />
     </div>
   )
 }

@@ -209,7 +209,7 @@ exports.deleteTransaction = async (req, res, next) => {
 // PUT /api/petty-cash/:id
 exports.updateTransaction = async (req, res, next) => {
   try {
-    const { amount, date, description, category, paidTo, paymentType, referenceNumber, branch, expenseBreakdown } = req.body;
+    const { amount, date, description, category, paidTo, paymentType, referenceNumber, branch, expenseBreakdown, bankAccount, chequeNumber, isCashCheque } = req.body;
     let t = await PettyCash.findById(req.params.id);
     if (!t) return res.status(404).json({ success: false, message: 'Transaction not found' });
 
@@ -221,6 +221,9 @@ exports.updateTransaction = async (req, res, next) => {
     t.paymentType = paymentType !== undefined ? paymentType : t.paymentType;
     t.referenceNumber = referenceNumber !== undefined ? referenceNumber : t.referenceNumber;
     t.branch = branch !== undefined ? (branch && String(branch).trim() ? branch : null) : t.branch;
+    if (bankAccount !== undefined) t.bankAccount = bankAccount && String(bankAccount).trim() ? bankAccount : null;
+    if (chequeNumber !== undefined) t.chequeNumber = chequeNumber;
+    if (isCashCheque !== undefined) t.isCashCheque = isCashCheque;
     if (Array.isArray(expenseBreakdown)) {
       t.expenseBreakdown = expenseBreakdown;
     }
