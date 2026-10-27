@@ -376,7 +376,7 @@ export default function App() {
       </Route>
 
       {/* Worker Portal */}
-      <Route path="/worker" element={<ProtectedRoute roles={['worker', 'developer', 'designer', 'marketing', 'admin']}><DashboardLayout role="worker" /></ProtectedRoute>}>
+      <Route path="/worker" element={<ProtectedRoute roles={['worker', 'engineer', 'developer', 'designer', 'marketing', 'admin']}><DashboardLayout role="worker" /></ProtectedRoute>}>
         <Route index element={<WorkerPortal />} />
         <Route path="advances" element={<AdminAdvances />} />
         <Route path="attendance" element={<DeveloperAttendance />} />
@@ -470,11 +470,24 @@ export default function App() {
       </Route>
 
       <Route path="/unauthorized" element={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-primary mb-4">403</h1>
-            <p className="text-gray-600 mb-6">You are not authorized to view this page.</p>
-            <a href="/" className="btn-primary">Go Home</a>
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+          <div className="text-center max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+            <h1 className="text-5xl font-black text-amber-600 mb-3">403</h1>
+            <h2 className="text-lg font-bold text-slate-800 mb-2">Access Restricted</h2>
+            <p className="text-slate-600 mb-6 text-sm">You are logged into an account that is not authorized to view this page.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <a href="/" className="btn-primary">Go to Dashboard</a>
+              <button
+                type="button"
+                onClick={() => {
+                  useAuthStore.getState().logout()
+                  window.location.href = '/login'
+                }}
+                className="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100 font-semibold text-sm text-slate-700 transition"
+              >
+                Log Out / Switch Account
+              </button>
+            </div>
           </div>
         </div>
       } />

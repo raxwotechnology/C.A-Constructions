@@ -57,4 +57,11 @@ const dailyDiarySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('DailyDiary', dailyDiarySchema);
+dailyDiarySchema.index({ project: 1, date: -1 });
+
+const DailyDiary = mongoose.model('DailyDiary', dailyDiarySchema);
+
+// Ensure legacy/broken site_1_date_1 index is removed if present in any environment
+DailyDiary.collection.dropIndex('site_1_date_1').catch(() => {});
+
+module.exports = DailyDiary;
