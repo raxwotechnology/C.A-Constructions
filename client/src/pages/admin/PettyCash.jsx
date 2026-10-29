@@ -363,7 +363,7 @@ export default function AdminPettyCash() {
               <button onClick={() => approveMut.mutate(selectedPending)}
                 disabled={approveMut.isPending}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors disabled:opacity-60">
-                <FiCheckCircle size={14}/> {approveMut.isPending ? 'Approving...' : 'Approve & Send to Expenses'}
+                <FiCheckCircle size={14}/> {approveMut.isPending ? 'Approving...' : 'Approve'}
               </button>
               <button onClick={() => { if (window.confirm('Reject selected transactions? They will be deleted.')) rejectMut.mutate(selectedPending) }}
                 disabled={rejectMut.isPending}
@@ -377,8 +377,8 @@ export default function AdminPettyCash() {
           {pendingTransactions.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
               <FiClock size={40} className="mx-auto text-slate-300 mb-3"/>
-              <p className="text-slate-400 font-medium">No pending expenses to review</p>
-              <p className="text-xs text-slate-300 mt-1">All recorded expenses will appear here for approval</p>
+              <p className="text-slate-400 font-medium">No pending transactions to review</p>
+              <p className="text-xs text-slate-300 mt-1">All recorded transactions will appear here for approval</p>
             </div>
           ) : (
             <>
@@ -397,7 +397,7 @@ export default function AdminPettyCash() {
               <div className="table-container hidden md:block">
                 <table className="table">
                   <thead>
-                    <tr><th className="w-10"></th><th>Date</th><th>Category</th><th>Description</th><th>Paid To</th><th className="text-right">Amount</th><th>Payment</th><th>By</th><th></th></tr>
+                    <tr><th className="w-10"></th><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Paid To</th><th className="text-right">Amount</th><th>Payment</th><th>By</th><th></th></tr>
                   </thead>
                   <tbody>
                     {pendingTransactions.map(t => (
@@ -409,12 +409,18 @@ export default function AdminPettyCash() {
                           />
                         </td>
                         <td className="text-sm text-slate-600 whitespace-nowrap">{new Date(t.date).toLocaleDateString('en-LK')}</td>
+                        <td>
+                          <span className={`badge gap-1 ${t.type === 'in' ? 'badge-green' : 'badge-red'}`}>
+                            {t.type === 'in' ? <FiTrendingUp size={11}/> : <FiTrendingDown size={11}/>}
+                            {t.type.toUpperCase()}
+                          </span>
+                        </td>
                         <td className="text-sm text-slate-600">{CAT_LABEL[t.category] || t.category}</td>
                         <td className="font-medium text-slate-800 max-w-[180px] truncate">{t.description}</td>
                         <td className="text-sm text-slate-500">{t.paidTo || '—'}</td>
-                        <td className="amount-cell text-red-600">
+                        <td className={`amount-cell ${t.type === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
                           <div className="amount-cell-inner">
-                            <span className="amount-cell-sign">−</span>
+                            <span className="amount-cell-sign">{t.type === 'in' ? '+' : '−'}</span>
                             <span>LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         </td>
@@ -458,14 +464,16 @@ export default function AdminPettyCash() {
                         <p className="font-bold text-slate-800 text-sm">{t.description}</p>
                         <p className="text-xs text-slate-500">{new Date(t.date).toLocaleDateString('en-LK')} · {t.paidTo || '—'}</p>
                       </div>
-                      <span className="badge badge-red gap-1 text-[10px]">
-                        <FiClock size={10}/> PENDING
+                      <span className={`badge ${t.type === 'in' ? 'badge-green' : 'badge-red'} gap-1 text-[10px]`}>
+                        <FiClock size={10}/> {t.type === 'in' ? 'PENDING IN' : 'PENDING'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                       <div>
                         <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{CAT_LABEL[t.category] || t.category}</span>
-                        <p className="font-bold text-sm text-red-600 mt-1">− LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className={`font-bold text-sm ${t.type === 'in' ? 'text-emerald-600' : 'text-red-600'} mt-1`}>
+                          {t.type === 'in' ? '+' : '−'} LKR {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => handleView(t)}

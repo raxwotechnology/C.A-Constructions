@@ -170,7 +170,7 @@ exports.createTransaction = async (req, res, next) => {
       branch: branchId,
       recordedBy: req.user._id,
       runningBalance,
-      status: type === 'in' ? 'approved' : 'pending',
+      status: 'pending',
     });
 
     res.status(201).json({ success: true, transaction });
@@ -241,7 +241,7 @@ exports.approveTransactions = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No transaction IDs provided' });
     }
     const result = await PettyCash.updateMany(
-      { _id: { $in: ids }, status: 'pending', type: 'out' },
+      { _id: { $in: ids }, status: 'pending' },
       { $set: { status: 'approved' } }
     );
     res.json({ success: true, message: `${result.modifiedCount} transaction(s) approved`, modifiedCount: result.modifiedCount });
@@ -255,10 +255,26 @@ exports.rejectTransaction = async (req, res, next) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ success: false, message: 'No transaction IDs provided' });
     }
-    // Delete the pending transactions (they were never approved)
-    const result = await PettyCash.deleteMany(
-      { _id: { $in: ids }, status: 'pending', type: 'out' }
-    );
-    res.json({ success: true, message: `${result.deletedCount} transaction(s) rejected and removed`, deletedCount: result.deletedCount });
+    const toDelete = await PettyCash.find({ _id: { $in: ids }, status: 'pending' });
+    for (const t of toDelete) {
+      const usesBank = t.bankAccount && (t.isCashCheque || ['bank_transfer', 'card', 'cheque'].includes(String(t.paymentType || '').toLowerCase()));
+      if (usesBank) {
+        const wasIn = t.type === 'in';
+        await appendBankTransaction(t.bankAccount, {
+          type: wasIn ? 'withdrawal' : 'deposit',
+          amount: t.amount,
+          description: `Petty Cash reversal (rejected): ${t.description}`,
+          date: new Date(),
+          reference: t.referenceNumber || t.chequeNumber || '',
+          moduleSource: 'petty_cash',
+          recordedBy: req.user._id,
+        }).catch(() => {});
+      }
+      if (t.chequeId) {
+        await Cheque.findByIdAndDelete(t.chequeId).catch(() => {});
+      }
+      await PettyCash.findByIdAndDelete(t._id);
+    }
+    res.json({ success: true, message: `${toDelete.length} transaction(s) rejected and removed`, deletedCount: toDelete.length });
   } catch (err) { next(err); }
 };
