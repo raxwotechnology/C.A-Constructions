@@ -198,6 +198,7 @@ export default function FinanceEntries() {
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      qc.invalidateQueries({ queryKey: ['petty-cash'] })
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -215,6 +216,7 @@ export default function FinanceEntries() {
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      qc.invalidateQueries({ queryKey: ['petty-cash'] })
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
@@ -227,6 +229,7 @@ export default function FinanceEntries() {
       qc.invalidateQueries({ queryKey:['finance-entries'] })
       qc.invalidateQueries({ queryKey:['finance-overview'] })
       qc.invalidateQueries({ queryKey: ['bank-accounts'] })
+      qc.invalidateQueries({ queryKey: ['petty-cash'] })
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })

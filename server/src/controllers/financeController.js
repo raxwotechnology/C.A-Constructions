@@ -281,7 +281,43 @@ exports.deleteEntry = async (req, res, next) => {
     if (!check.ok) return res.status(check.status).json({ success: false, message: check.message });
 
     const entry = await FinanceEntry.findById(req.params.id);
-    if (!entry) return res.status(404).json({ success: false, message: 'Not found' });
+    if (!entry) {
+      const petty = await PettyCash.findById(req.params.id);
+      if (petty) {
+        const usesBank = petty.bankAccount && (petty.isCashCheque || ['bank_transfer', 'card', 'cheque'].includes(String(petty.paymentType || '').toLowerCase()));
+        if (usesBank) {
+          const wasIn = petty.type === 'in';
+          await appendBankTransaction(petty.bankAccount, {
+            type: wasIn ? 'withdrawal' : 'deposit',
+            amount: petty.amount,
+            description: `Petty Cash reversal (Deleted): ${petty.description}`,
+            date: new Date(),
+            reference: petty.referenceNumber || petty.chequeNumber || '',
+            moduleSource: 'petty_cash',
+            recordedBy: req.user._id,
+          });
+        }
+        if (petty.chequeId) {
+          await Cheque.findByIdAndDelete(petty.chequeId);
+        }
+        await PettyCash.findByIdAndDelete(req.params.id);
+        await createAuditLog({
+          user: req.user,
+          action: 'delete',
+          module: 'financial',
+          entityId: String(petty._id),
+          entityName: petty.description,
+          description: `Petty cash entry deleted: ${petty.description} (${petty.type}, LKR ${petty.amount})`,
+          changes: { before: petty.toObject ? petty.toObject() : petty, after: null },
+          ipAddress: req.ip || '',
+          userAgent: req.get('user-agent') || '',
+          severity: 'warning',
+        });
+        return res.json({ success: true, message: 'Deleted' });
+      }
+
+      return res.status(404).json({ success: false, message: 'Not found' });
+    }
 
     const beforeSnap = financeEntrySnapshot(entry.toObject ? entry.toObject() : entry);
 
