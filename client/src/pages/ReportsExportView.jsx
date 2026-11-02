@@ -165,6 +165,7 @@ export default function ReportsExportView() {
           return entries.map((e, idx) => ({
             'No': idx + 1,
             'Date': e.date ? new Date(e.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            'Voucher No': e.voucherNumber || '—',
             'Transaction Type': (e.type || e.transactionType || 'expense').toUpperCase(),
             'Category': e.category || 'General',
             'Description / Title': e.title || e.description || 'Transaction',
@@ -282,6 +283,7 @@ export default function ReportsExportView() {
       return rows.map((r, idx) => ({
         'No': idx + 1,
         'Date': r.date ? new Date(r.date).toISOString().split('T')[0] : '—',
+        'Voucher No': r.voucherNumber || '—',
         'Type': r.type || 'Entry',
         'Category': r.category || 'General',
         'Title': r.title || 'Record',

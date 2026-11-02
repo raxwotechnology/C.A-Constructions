@@ -31,6 +31,7 @@ const exportToExcel = async (req, res) => {
       const finance = await FinanceEntry.find().lean();
       data = finance.map(f => ({
         'Tx No': f.transactionNo,
+        'Voucher No': f.voucherNumber || '—',
         'Type': f.transactionType,
         'Master Category': f.masterCategory,
         'Payee/Payer': f.payeeOrPayer,

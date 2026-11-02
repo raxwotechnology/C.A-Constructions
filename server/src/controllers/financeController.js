@@ -144,6 +144,7 @@ function normalizePettyCashEntries(pettyCash = [], { type, paymentMethod } = {})
       paymentMethod: mapPettyCashPaymentMethod(p.paymentType),
       note: p.paidTo || '',
       source: 'petty_cash',
+      voucherNumber: p.referenceNumber || '',
     }));
 }
 
@@ -763,10 +764,14 @@ exports.exportData = async (req, res, next) => {
       const financeRows = rawEntries
         .filter((e) => !(entryType === 'income' && (isSubscriptionIncomeEntry(e) || isInvoiceIncomeEntry(e))))
         .map((e) => ({
-          date: e.date, category: e.category, title: e.title,
+          date: e.date,
+          voucherNumber: e.voucherNumber || '',
+          category: e.category,
+          title: e.title,
           projectName: e.project?.name || e.project?.title || '—',
           amount: e.amount,
-          paymentMethod: e.paymentMethod || 'Cash', note: e.note || '',
+          paymentMethod: e.paymentMethod || 'Cash',
+          note: e.note || '',
         }));
       const pcRows = normalizePettyCashEntries(pettyCash, { type: entryType, paymentMethod });
       const extraIncome = entryType === 'income'
@@ -780,9 +785,16 @@ exports.exportData = async (req, res, next) => {
         .filter((e) => !category || e.category === category)
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      headers = ['Date', 'Category', 'Title', 'Project / Site', 'Amount', 'Payment Method', 'Note'];
+      headers = ['Date', 'Voucher No', 'Category', 'Title', 'Project / Site', 'Amount', 'Payment Method', 'Note'];
       rows = merged.map((e) => [
-        new Date(e.date).toLocaleDateString(), e.category, e.title, e.projectName || e.project?.name || e.project?.title || '—', e.amount, e.paymentMethod || 'Cash', e.note || '',
+        new Date(e.date).toLocaleDateString(),
+        e.voucherNumber || '—',
+        e.category,
+        e.title,
+        e.projectName || e.project?.name || e.project?.title || '—',
+        e.amount,
+        e.paymentMethod || 'Cash',
+        e.note || '',
       ]);
     } else if (lowerDataset === 'attendance_reports') {
       const records = await Attendance.find({
@@ -993,6 +1005,7 @@ exports.exportData = async (req, res, next) => {
         rawDate: p.paidAt ? new Date(p.paidAt) : new Date(0),
         row: [
           p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—',
+          '—',
           'Payroll', 'expense', 'Salary',
           `Salary Payout ${p.employee?.userId?.name || ''} (${p.month}/${p.year})`,
           Number(p.netSalary || 0), p.paymentMethod || 'Cash', '',
@@ -1002,6 +1015,7 @@ exports.exportData = async (req, res, next) => {
         rawDate: e.date ? new Date(e.date) : new Date(0),
         row: [
           e.date ? new Date(e.date).toLocaleDateString() : '—',
+          e.voucherNumber || '—',
           e.source || 'Finance Entry', e.type, e.category || '—', e.title || '—',
           Number(e.amount || 0), e.paymentMethod || 'Cash', e.note || '',
         ],
@@ -1009,25 +1023,25 @@ exports.exportData = async (req, res, next) => {
       ledger.sort((a, b) => b.rawDate - a.rawDate);
 
       const filterNote = paymentMethod ? ` · Method: ${paymentMethod}` : '';
-      headers = ['Date', 'Source', 'Type', 'Category', 'Title', 'Amount', 'Method', 'Note'];
+      headers = ['Date', 'Voucher No', 'Source', 'Type', 'Category', 'Title', 'Amount', 'Method', 'Note'];
       rows = [
-        ['Summary', 'System', 'income', 'Invoices', `Invoice payments${filterNote}`, invoiceRevenue, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'income', 'Subscriptions', `Subscription payments${filterNote}`, subRevenue, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'income', 'Finance Entries', `Other income entries${filterNote}`, financeOnlyIncome, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'expense', 'Finance Entries', `Other expense entries${filterNote}`, financeOnlyExpense, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'expense', 'Salary', 'Salary payout', salaryPayout, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'income', 'Petty Cash', 'Petty Cash (In)', pcIn, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'expense', 'Petty Cash', 'Petty Cash (Out)', pcOut, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'income', 'Cheques', 'Cheque income', chequeIn, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'expense', 'Cheques', 'Cheque expense', chequeOut, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'expense', 'Advances', 'Employee advances', advanceExpense, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'expense', 'Loans', 'Loan disbursements', loanDisbursement, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'income', 'Loans', 'Loan repayments', loanRepayment, paymentMethod || 'All', ''],
-        ['Summary', 'System', 'income', 'Bank', 'Bank deposits (ledger)', bankIn, '—', ''],
-        ['Summary', 'System', 'expense', 'Bank', 'Bank withdrawals (ledger)', bankOut, '—', ''],
-        ['Summary', 'System', 'income', 'Total', 'Total income', totalIncome, '', ''],
-        ['Summary', 'System', 'expense', 'Total', 'Total expense', totalExpense, '', ''],
-        ['Summary', 'System', profit >= 0 ? 'income' : 'expense', 'Profit', 'Net profit', profit, '', ''],
+        ['Summary', '—', 'System', 'income', 'Invoices', `Invoice payments${filterNote}`, invoiceRevenue, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'income', 'Subscriptions', `Subscription payments${filterNote}`, subRevenue, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'income', 'Finance Entries', `Other income entries${filterNote}`, financeOnlyIncome, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'expense', 'Finance Entries', `Other expense entries${filterNote}`, financeOnlyExpense, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'expense', 'Salary', 'Salary payout', salaryPayout, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'income', 'Petty Cash', 'Petty Cash (In)', pcIn, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'expense', 'Petty Cash', 'Petty Cash (Out)', pcOut, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'income', 'Cheques', 'Cheque income', chequeIn, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'expense', 'Cheques', 'Cheque expense', chequeOut, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'expense', 'Advances', 'Employee advances', advanceExpense, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'expense', 'Loans', 'Loan disbursements', loanDisbursement, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'income', 'Loans', 'Loan repayments', loanRepayment, paymentMethod || 'All', ''],
+        ['Summary', '—', 'System', 'income', 'Bank', 'Bank deposits (ledger)', bankIn, '—', ''],
+        ['Summary', '—', 'System', 'expense', 'Bank', 'Bank withdrawals (ledger)', bankOut, '—', ''],
+        ['Summary', '—', 'System', 'income', 'Total', 'Total income', totalIncome, '', ''],
+        ['Summary', '—', 'System', 'expense', 'Total', 'Total expense', totalExpense, '', ''],
+        ['Summary', '—', 'System', profit >= 0 ? 'income' : 'expense', 'Profit', 'Net profit', profit, '', ''],
         ...ledger.map((x) => x.row),
       ];
     }
