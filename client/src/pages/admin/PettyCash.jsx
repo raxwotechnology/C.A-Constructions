@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import ExportBar from '../../components/ui/ExportBar'
-import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart, FiEye, FiEdit2, FiClock, FiCheckCircle } from 'react-icons/fi'
+import { FiPlus, FiX, FiTrendingUp, FiTrendingDown, FiTrash2, FiCheck, FiPieChart, FiEye, FiEdit2, FiClock, FiCheckCircle, FiDownload } from 'react-icons/fi'
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316']
@@ -113,15 +113,70 @@ export default function AdminPettyCash() {
 
   const exportColumns = [
     { header: 'Date', accessor: r => new Date(r.date).toLocaleDateString('en-LK') },
-    { header: 'Type', accessor: r => r.type.toUpperCase() },
+    { header: 'Type', accessor: r => (r.type || '').toUpperCase() },
     { header: 'Category', accessor: r => CAT_LABEL[r.category] || r.category },
     { header: 'Description', accessor: 'description' },
     { header: 'Paid To', accessor: r => r.paidTo || '—' },
     { header: 'Amount (LKR)', accessor: r => r.amount },
-    { header: 'Payment', accessor: 'paymentType' },
+    { header: 'Payment', accessor: r => (r.paymentType ? r.paymentType.replace('_', ' ') : 'Cash') },
     { header: 'Ref No', accessor: r => r.referenceNumber || '—' },
     { header: 'Recorded By', accessor: r => r.recordedBy?.name || '—' },
+    { header: 'Status', accessor: r => (r.status || 'approved').toUpperCase() },
   ]
+
+  const handleExportPendingExcel = async (specificIds = null) => {
+    try {
+      const recordsToExport = specificIds && specificIds.length > 0
+        ? pendingTransactions.filter(t => specificIds.includes(t._id))
+        : (selectedPending.length > 0 ? pendingTransactions.filter(t => selectedPending.includes(t._id)) : pendingTransactions)
+
+      if (!recordsToExport || recordsToExport.length === 0) {
+        toast.error('No pending review records to export')
+        return
+      }
+
+      const XLSX = await import('xlsx')
+      const rows = recordsToExport.map(r => ({
+        'Date': new Date(r.date).toLocaleDateString('en-LK'),
+        'Type': (r.type || '').toUpperCase(),
+        'Category': CAT_LABEL[r.category] || r.category || '—',
+        'Description': r.description || '—',
+        'Paid To': r.paidTo || '—',
+        'Amount (LKR)': Number(r.amount || 0),
+        'Payment Method': r.paymentType ? r.paymentType.replace('_', ' ').toUpperCase() : 'CASH',
+        'Reference No': r.referenceNumber || '—',
+        'Recorded By': r.recordedBy?.name || '—',
+        'Status': 'PENDING REVIEW',
+      }))
+
+      const worksheet = XLSX.utils.json_to_sheet(rows)
+      worksheet['!cols'] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }))
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Pending_Review')
+      XLSX.writeFile(workbook, `Petty_Cash_Pending_Review_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success(`Exported ${recordsToExport.length} pending review records to Excel`)
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to export Excel')
+    }
+  }
+
+  const currentExportData = activeTab === 'pending_review'
+    ? (selectedPending.length > 0 ? pendingTransactions.filter(t => selectedPending.includes(t._id)) : pendingTransactions)
+    : transactions
+
+  const currentExportTitle = activeTab === 'pending_review'
+    ? (selectedPending.length > 0 ? `Petty Cash Pending Review (${selectedPending.length} Selected)` : 'Petty Cash Pending Review')
+    : 'Petty Cash Register'
+
+  const currentExportFilters = {
+    View: activeTab === 'pending_review' ? 'Pending Review' : 'Approved Transactions',
+    Type: typeFilter || 'All',
+    Category: catFilter || 'All',
+    Branch: branchFilter || 'All',
+    From: startDate || 'All',
+    To: endDate || 'All',
+  }
 
   // Financial Overview data prep
   const expenseByCategory = CATEGORIES.map(c => {
@@ -136,10 +191,12 @@ export default function AdminPettyCash() {
       <div className="page-header flex-wrap gap-3">
         <div>
           <h1 className="page-title">Petty Cash</h1>
-          <p className="page-subtitle">{transactions.length} transactions · Balance: <strong className={summary.currentBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}>LKR {summary.currentBalance.toLocaleString()}</strong></p>
+          <p className="page-subtitle">
+            {activeTab === 'pending_review' ? `${pendingTransactions.length} pending review` : `${transactions.length} transactions`} · Balance: <strong className={summary.currentBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}>LKR {summary.currentBalance.toLocaleString()}</strong>
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <ExportBar data={transactions} columns={exportColumns} title="Petty Cash Register" filters={{ Type: typeFilter || 'All', Category: catFilter || 'All', Branch: branchFilter || 'All', From: startDate, To: endDate }} />
+          <ExportBar data={currentExportData} columns={exportColumns} title={currentExportTitle} filters={currentExportFilters} />
           <button onClick={() => { setForm({ ...EMPTY, type: 'in', category: 'fund_top_up', branch: '' }); setModalMode('create'); setShowModal(true) }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
             <FiTrendingUp size={14}/> Add Funds
           </button>
@@ -358,7 +415,7 @@ export default function AdminPettyCash() {
         <div className="space-y-4">
           {/* Action bar */}
           {selectedPending.length > 0 && (
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex-wrap">
               <span className="text-sm font-semibold text-amber-800">{selectedPending.length} selected</span>
               <button onClick={() => approveMut.mutate(selectedPending)}
                 disabled={approveMut.isPending}
@@ -369,6 +426,14 @@ export default function AdminPettyCash() {
                 disabled={rejectMut.isPending}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors disabled:opacity-60">
                 <FiTrash2 size={14}/> {rejectMut.isPending ? 'Rejecting...' : 'Reject'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExportPendingExcel(selectedPending)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors cursor-pointer"
+                title="Download selected transactions as Excel"
+              >
+                <FiDownload size={14} /> Download Excel ({selectedPending.length})
               </button>
               <button onClick={() => setSelectedPending([])} className="text-xs text-slate-500 hover:text-slate-700 ml-auto">Clear Selection</button>
             </div>
@@ -382,8 +447,8 @@ export default function AdminPettyCash() {
             </div>
           ) : (
             <>
-              {/* Select All */}
-              <div className="flex items-center gap-3 px-2">
+              {/* Select All & Excel Download */}
+              <div className="flex items-center justify-between px-2 flex-wrap gap-2">
                 <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                   <input type="checkbox"
                     checked={selectedPending.length === pendingTransactions.length && pendingTransactions.length > 0}
@@ -391,6 +456,16 @@ export default function AdminPettyCash() {
                     className="accent-amber-500 w-4 h-4"
                   /> Select All ({pendingTransactions.length})
                 </label>
+
+                <button
+                  type="button"
+                  onClick={() => handleExportPendingExcel()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 shadow-xs transition-colors cursor-pointer"
+                  title="Download all pending review records as Excel"
+                >
+                  <FiDownload size={13} />
+                  <span>Download Excel {selectedPending.length > 0 ? `(${selectedPending.length} Selected)` : `(${pendingTransactions.length})`}</span>
+                </button>
               </div>
 
               {/* Desktop Table */}
