@@ -603,6 +603,16 @@ exports.updatePOStatus = async (req, res) => {
 
       // 2. Ensure Supplier Ledger & Outstanding Balance are updated
       await applyPOSupplierBilling(po, req.user?._id);
+    } else if (status === 'Returned') {
+      po.returnedAt = new Date();
+      po.deliveryStatus = 'Pending';
+      if (previousStatus === 'Delivered') {
+        await reversePOStock(po);
+      }
+      await reversePOSupplierBilling(po);
+      if (po.financeEntryRef) {
+        await removePOFinanceExpense(po);
+      }
     } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
       // Reverting from Delivered status
       po.deliveryStatus = 'Pending';
@@ -681,21 +691,33 @@ exports.updatePurchaseOrder = async (req, res) => {
 
     if (status) po.status = status;
 
-    if (po.status === 'Delivered' && previousStatus !== 'Delivered') {
-      po.deliveryStatus = 'Received';
-      if (!po.deliveredAt) po.deliveredAt = new Date();
-      await applyPOStockIn(po);
-    } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
+    if (status === 'Returned') {
+      po.returnedAt = new Date();
       po.deliveryStatus = 'Pending';
-      await reversePOStock(po);
-    }
+      if (previousStatus === 'Delivered') {
+        await reversePOStock(po);
+      }
+      await reversePOSupplierBilling(po);
+      if (po.financeEntryRef) {
+        await removePOFinanceExpense(po);
+      }
+    } else {
+      if (po.status === 'Delivered' && previousStatus !== 'Delivered') {
+        po.deliveryStatus = 'Received';
+        if (!po.deliveredAt) po.deliveredAt = new Date();
+        await applyPOStockIn(po);
+      } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
+        po.deliveryStatus = 'Pending';
+        await reversePOStock(po);
+      }
 
-    // Always keep supplier ledger billing synced
-    await applyPOSupplierBilling(po, req.user?._id);
+      // Always keep supplier ledger billing synced
+      await applyPOSupplierBilling(po, req.user?._id);
 
-    // If PO was already sent to expenses, keep FinanceEntry synced
-    if (po.financeEntryRef) {
-      await syncPOToFinanceExpense(po, req.user?._id);
+      // If PO was already sent to expenses, keep FinanceEntry synced
+      if (po.financeEntryRef) {
+        await syncPOToFinanceExpense(po, req.user?._id);
+      }
     }
 
     await po.save();

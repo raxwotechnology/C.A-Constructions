@@ -7,6 +7,7 @@
     "start": "node server/src/server.js",
     "dev": "cd server && nodemon src/server.js",
     "seed": "node server/src/seed.js",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
     "build": "npm --prefix client install && npm --prefix client run build && node -e \"require('fs').cpSync('client/dist', 'dist', {recursive: true})\""
   },
   "dependencies": {

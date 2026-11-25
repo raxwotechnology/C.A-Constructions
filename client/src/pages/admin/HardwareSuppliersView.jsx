@@ -27,7 +27,7 @@ import {
 
 export default function HardwareSuppliersView() {
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('pos') // 'suppliers' | 'pos'
+  const [activeTab, setActiveTab] = useState('pos') // 'suppliers' | 'pos' | 'return_pos'
   const [searchQuery, setSearchQuery] = useState('')
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
@@ -264,9 +264,13 @@ export default function HardwareSuppliersView() {
       return await api.patch(`/suppliers/pos/${id}/status`, { status })
     },
     onSuccess: (res, vars) => {
-      toast.success(vars?.status === 'Delivered'
-        ? 'Purchase Order marked as Delivered!'
-        : `Purchase Order status updated to ${vars?.status}!`)
+      toast.success(
+        vars?.status === 'Delivered'
+          ? 'Purchase Order marked as Delivered!'
+          : vars?.status === 'Returned'
+          ? 'Purchase Order marked as Returned!'
+          : `Purchase Order status updated to ${vars?.status}!`
+      )
       queryClient.invalidateQueries({ queryKey: ['hardware-pos'] })
       queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
       queryClient.invalidateQueries({ queryKey: ['supplier-ledger'] })
@@ -290,6 +294,18 @@ export default function HardwareSuppliersView() {
       toast.error(err?.response?.data?.message || 'Failed to update status')
     }
   })
+
+  const handleReturnPO = (po) => {
+    if (window.confirm(`Are you sure you want to mark Purchase Order "${po.poNumber}" as Returned?\n\nThis will reverse any stock added, cancel billing in the supplier ledger, and update totals.`)) {
+      updatePOStatusMutation.mutate({ id: po._id, status: 'Returned' })
+    }
+  }
+
+  const handleReopenPO = (po) => {
+    if (window.confirm(`Reopen Purchase Order "${po.poNumber}" as Pending?`)) {
+      updatePOStatusMutation.mutate({ id: po._id, status: 'Pending' })
+    }
+  }
 
   const openCreateSupplierModal = () => {
     setEditingSupplierId(null)
@@ -444,8 +460,10 @@ export default function HardwareSuppliersView() {
   const sortedAndFilteredPOs = useMemo(() => {
     let list = [...pos]
 
-    // 1. Status filter
-    if (statusFilter !== 'ALL') {
+    // 1. Tab & Status filter
+    if (activeTab === 'return_pos') {
+      list = list.filter(p => p.status === 'Returned')
+    } else if (statusFilter !== 'ALL') {
       list = list.filter(p => p.status === statusFilter)
     }
 
@@ -532,7 +550,7 @@ export default function HardwareSuppliersView() {
     })
 
     return list
-  }, [pos, statusFilter, supplierFilter, projectFilter, deliveryDateFilter, searchQuery, poSortBy, poSortOrder])
+  }, [pos, activeTab, statusFilter, supplierFilter, projectFilter, deliveryDateFilter, searchQuery, poSortBy, poSortOrder])
 
   // Filter suppliers
   const filteredSuppliers = suppliers.filter(s => {
@@ -579,11 +597,15 @@ export default function HardwareSuppliersView() {
   }
 
   // KPI Calculations
-  const totalPOAmount = useMemo(() => pos.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [pos])
+  const activePOs = useMemo(() => pos.filter(p => p.status !== 'Returned'), [pos])
+  const activeTotalPOAmount = useMemo(() => activePOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [activePOs])
   const pendingPOs = useMemo(() => pos.filter(p => p.status === 'Pending'), [pos])
   const pendingPOAmount = useMemo(() => pendingPOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [pendingPOs])
   const deliveredPOs = useMemo(() => pos.filter(p => p.status === 'Delivered'), [pos])
   const deliveredPOAmount = useMemo(() => deliveredPOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [deliveredPOs])
+  const returnedPOs = useMemo(() => pos.filter(p => p.status === 'Returned'), [pos])
+  const returnedPOAmount = useMemo(() => returnedPOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [returnedPOs])
+  const totalPOAmount = useMemo(() => pos.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [pos])
 
   const handleAddItemRow = () => {
     setPOForm(prev => ({
@@ -640,14 +662,14 @@ export default function HardwareSuppliersView() {
       </div>
 
       {/* KPI Metric Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">Total Purchase Orders</span>
+            <span className="text-xs font-bold text-slate-500">Active Purchase Orders</span>
             <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><FiShoppingBag size={15} /></span>
           </div>
-          <p className="text-xl font-extrabold text-slate-900 mt-1">{pos.length}</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Total Value: <span className="font-bold text-slate-700">LKR {totalPOAmount.toLocaleString()}</span></p>
+          <p className="text-xl font-extrabold text-slate-900 mt-1">{activePOs.length}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Total Value: <span className="font-bold text-slate-700">LKR {activeTotalPOAmount.toLocaleString()}</span></p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -668,6 +690,15 @@ export default function HardwareSuppliersView() {
           <p className="text-[11px] text-slate-500 mt-0.5">Delivered: <span className="font-bold text-emerald-700">LKR {deliveredPOAmount.toLocaleString()}</span></p>
         </div>
 
+        <div className="bg-white p-4 rounded-2xl border border-purple-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-purple-700">Return POs</span>
+            <span className="p-1.5 bg-purple-50 text-purple-600 rounded-lg"><FiRotateCcw size={15} /></span>
+          </div>
+          <p className="text-xl font-extrabold text-purple-700 mt-1">{returnedPOs.length}</p>
+          <p className="text-[11px] text-purple-600 mt-0.5">Returned: <span className="font-bold text-purple-800">LKR {returnedPOAmount.toLocaleString()}</span></p>
+        </div>
+
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-indigo-600">Registered Suppliers</span>
@@ -680,7 +711,7 @@ export default function HardwareSuppliersView() {
 
       {/* Tabs & Filter Header */}
       <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-2">
-        <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 flex-wrap">
           <button
             onClick={() => setActiveTab('pos')}
             className={`px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -689,6 +720,16 @@ export default function HardwareSuppliersView() {
           >
             <FiShoppingBag size={14} />
             Purchase Orders ({pos.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('return_pos')}
+            className={`px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'return_pos' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FiRotateCcw size={14} />
+            Return PO ({returnedPOs.length})
           </button>
 
           <button
@@ -716,10 +757,30 @@ export default function HardwareSuppliersView() {
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* TAB 1: PURCHASE ORDERS (WITH FULL ASC / DESC & MULTI-FILTERS) */}
+      {/* TAB 1: PURCHASE ORDERS & TAB: RETURN POS                     */}
       {/* ------------------------------------------------------------- */}
-      {activeTab === 'pos' && (
+      {(activeTab === 'pos' || activeTab === 'return_pos') && (
         <div className="space-y-4">
+          {/* Archive Banner for Return PO Tab */}
+          {activeTab === 'return_pos' && (
+            <div className="bg-purple-50 border border-purple-200 text-purple-900 px-4 py-3 rounded-2xl text-xs flex flex-wrap items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-purple-100 text-purple-700 rounded-xl">
+                  <FiRotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900">Returned Purchase Orders ({returnedPOs.length})</h4>
+                  <p className="text-slate-500 text-[11px]">All returned orders are archived here. Materials stock and vendor balances are automatically reversed.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-purple-700 bg-purple-100/70 border border-purple-300 px-3 py-1 rounded-xl">
+                  Total Returned Value: LKR {returnedPOAmount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Enhanced Order / Filter Toolbar */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             {/* Top row: Sort Controls & Direction Toggle */}
@@ -788,7 +849,7 @@ export default function HardwareSuppliersView() {
                 <FiSearch className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search PO #, supplier, item..."
+                  placeholder={activeTab === 'return_pos' ? "Search returned PO #, supplier..." : "Search PO #, supplier, item..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 pl-8 pr-7 py-2 rounded-xl text-xs font-medium focus:outline-none focus:border-amber-500"
@@ -805,19 +866,30 @@ export default function HardwareSuppliersView() {
               </div>
 
               {/* Status Filter */}
-              <div>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 py-2 px-3 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
-                >
-                  <option value="ALL">All Statuses ({pos.length})</option>
-                  <option value="Pending">Pending ({pos.filter(p => p.status === 'Pending').length})</option>
-                  <option value="Approved">Approved ({pos.filter(p => p.status === 'Approved').length})</option>
-                  <option value="Delivered">Delivered ({pos.filter(p => p.status === 'Delivered').length})</option>
-                  <option value="Cancelled">Cancelled ({pos.filter(p => p.status === 'Cancelled').length})</option>
-                </select>
-              </div>
+              {activeTab === 'return_pos' ? (
+                <div className="bg-purple-50 border border-purple-200 text-purple-800 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <FiRotateCcw className="w-3.5 h-3.5 text-purple-600" />
+                    Status: Returned
+                  </span>
+                  <span className="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded text-[10px]">{returnedPOs.length}</span>
+                </div>
+              ) : (
+                <div>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 py-2 px-3 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value="ALL">All Statuses ({pos.length})</option>
+                    <option value="Pending">Pending ({pendingPOs.length})</option>
+                    <option value="Approved">Approved ({pos.filter(p => p.status === 'Approved').length})</option>
+                    <option value="Delivered">Delivered ({deliveredPOs.length})</option>
+                    <option value="Returned">Returned ({returnedPOs.length})</option>
+                    <option value="Cancelled">Cancelled ({pos.filter(p => p.status === 'Cancelled').length})</option>
+                  </select>
+                </div>
+              )}
 
               {/* Supplier Filter */}
               <div>
@@ -873,9 +945,11 @@ export default function HardwareSuppliersView() {
           {/* PO Table */}
           {posLoading ? (
             <div className="text-center py-12 text-slate-500">Loading Purchase Orders...</div>
-          ) : pos.length === 0 ? (
+          ) : (activeTab === 'return_pos' ? returnedPOs.length === 0 : pos.length === 0) ? (
             <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500">
-              No Purchase Orders found. Click &quot;+ New Purchase Order&quot; to issue orders to suppliers.
+              {activeTab === 'return_pos'
+                ? 'No returned Purchase Orders yet. Click "Return" on any PO in the Purchase Orders tab to return it.'
+                : 'No Purchase Orders found. Click "+ New Purchase Order" to issue orders to suppliers.'}
             </div>
           ) : sortedAndFilteredPOs.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500 space-y-2">
@@ -1004,112 +1078,154 @@ export default function HardwareSuppliersView() {
                   </thead>
 
                   <tbody className="divide-y divide-slate-200">
-                    {sortedAndFilteredPOs.map((po) => (
-                      <tr key={po._id} className="hover:bg-slate-50 transition">
-                        <td className="p-3.5 font-mono font-bold text-amber-600">
-                          <button
-                            type="button"
-                            onClick={() => setViewingPO(po)}
-                            className="hover:underline text-left cursor-pointer"
-                          >
-                            {po.poNumber}
-                          </button>
-                        </td>
-
-                        <td className="p-3.5 font-semibold text-slate-900">
-                          <div>{po.supplier?.name || 'N/A'}</div>
-                          {po.supplier?.code && (
-                            <span className="text-[10px] text-slate-400 font-mono">{po.supplier.code}</span>
-                          )}
-                        </td>
-
-                        <td className="p-3.5 text-slate-700">
-                          {po.siteName || po.project?.name || po.project?.title || 'Central Warehouse'}
-                        </td>
-
-                        <td className="p-3.5 whitespace-nowrap">
-                          {po.expectedDeliveryDate ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200">
-                              <FiCalendar className="w-3 h-3 text-amber-600" />
-                              {new Date(po.expectedDeliveryDate).toLocaleDateString('en-CA')}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">Not set</span>
-                          )}
-                        </td>
-
-                        <td className="p-3.5 font-medium text-slate-700">
-                          <span className="px-2 py-0.5 bg-slate-100 rounded-md font-bold text-slate-800">
-                            {po.items?.length || 0}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5 font-extrabold text-slate-900">
-                          LKR {(po.totalAmount || 0).toLocaleString()}
-                        </td>
-
-                        <td className="p-3.5">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                              po.status === 'Delivered'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : po.status === 'Approved'
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : po.status === 'Cancelled'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}
-                          >
-                            {po.status === 'Delivered' && <FiCheckCircle className="w-3 h-3" />}
-                            {po.status === 'Pending' && <FiClock className="w-3 h-3" />}
-                            {po.status}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {/* Inspect / View Details Button */}
+                    {sortedAndFilteredPOs.map((po) => {
+                      const isReturned = po.status === 'Returned'
+                      return (
+                        <tr
+                          key={po._id}
+                          className={`transition ${
+                            isReturned
+                              ? 'bg-purple-50/70 hover:bg-purple-100/70 border-l-4 border-l-purple-600'
+                              : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <td className={`p-3.5 font-mono font-bold ${isReturned ? 'text-purple-700' : 'text-amber-600'}`}>
                             <button
+                              type="button"
                               onClick={() => setViewingPO(po)}
-                              title="View Order Details"
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                              className="hover:underline text-left cursor-pointer flex items-center gap-1.5"
                             >
-                              <FiEye size={15} />
+                              {isReturned && <FiRotateCcw className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
+                              <span>{po.poNumber}</span>
                             </button>
+                          </td>
 
-                            {/* Mark Delivered Button */}
-                            {po.status !== 'Delivered' && (
-                              <button
-                                onClick={() => updatePOStatusMutation.mutate({ id: po._id, status: 'Delivered' })}
-                                title="Mark Delivered"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
-                              >
-                                <FiCheck size={12} />
-                                <span>Delivered</span>
-                              </button>
+                          <td className="p-3.5 font-semibold text-slate-900">
+                            <div>{po.supplier?.name || 'N/A'}</div>
+                            {po.supplier?.code && (
+                              <span className="text-[10px] text-slate-400 font-mono">{po.supplier.code}</span>
                             )}
+                          </td>
 
-                            {/* Edit Button */}
-                            <button
-                              onClick={() => openEditPOModal(po)}
-                              title="Edit Purchase Order"
-                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
-                            >
-                              <FiEdit2 size={14} />
-                            </button>
+                          <td className="p-3.5 text-slate-700">
+                            {po.siteName || po.project?.name || po.project?.title || 'Central Warehouse'}
+                          </td>
 
-                            {/* Delete Button */}
-                            <button
-                              onClick={() => handleDeletePO(po)}
-                              title="Delete Purchase Order"
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                          <td className="p-3.5 whitespace-nowrap">
+                            {po.expectedDeliveryDate ? (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold ${
+                                isReturned
+                                  ? 'bg-purple-100 text-purple-900 border border-purple-200'
+                                  : 'bg-amber-50 text-amber-900 border border-amber-200'
+                              }`}>
+                                <FiCalendar className={`w-3 h-3 ${isReturned ? 'text-purple-600' : 'text-amber-600'}`} />
+                                {new Date(po.expectedDeliveryDate).toLocaleDateString('en-CA')}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic">Not set</span>
+                            )}
+                          </td>
+
+                          <td className="p-3.5 font-medium text-slate-700">
+                            <span className={`px-2 py-0.5 rounded-md font-bold ${
+                              isReturned ? 'bg-purple-100 text-purple-900' : 'bg-slate-100 text-slate-800'
+                            }`}>
+                              {po.items?.length || 0}
+                            </span>
+                          </td>
+
+                          <td className={`p-3.5 font-extrabold ${isReturned ? 'text-purple-800' : 'text-slate-900'}`}>
+                            <div>LKR {(po.totalAmount || 0).toLocaleString()}</div>
+                            {isReturned && <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Returned</span>}
+                          </td>
+
+                          <td className="p-3.5">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                                isReturned
+                                  ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                  : po.status === 'Delivered'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : po.status === 'Approved'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : po.status === 'Cancelled'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}
                             >
-                              <FiTrash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {isReturned && <FiRotateCcw className="w-3 h-3 text-purple-700" />}
+                              {po.status === 'Delivered' && <FiCheckCircle className="w-3 h-3" />}
+                              {po.status === 'Pending' && <FiClock className="w-3 h-3" />}
+                              {po.status}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {/* Inspect / View Details Button */}
+                              <button
+                                onClick={() => setViewingPO(po)}
+                                title="View Order Details"
+                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                              >
+                                <FiEye size={15} />
+                              </button>
+
+                              {/* Mark Delivered Button */}
+                              {!isReturned && po.status !== 'Delivered' && (
+                                <button
+                                  onClick={() => updatePOStatusMutation.mutate({ id: po._id, status: 'Delivered' })}
+                                  title="Mark Delivered"
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <FiCheck size={12} />
+                                  <span>Delivered</span>
+                                </button>
+                              )}
+
+                              {/* Return / Reopen Button */}
+                              {!isReturned ? (
+                                <button
+                                  onClick={() => handleReturnPO(po)}
+                                  title="Return this Purchase Order"
+                                  className="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <FiRotateCcw size={12} />
+                                  <span>Return</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleReopenPO(po)}
+                                  title="Reopen PO as Pending"
+                                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-2 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <FiRotateCcw size={11} />
+                                  <span>Reopen</span>
+                                </button>
+                              )}
+
+                              {/* Edit Button */}
+                              <button
+                                onClick={() => openEditPOModal(po)}
+                                title="Edit Purchase Order"
+                                className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                              >
+                                <FiEdit2 size={14} />
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                onClick={() => handleDeletePO(po)}
+                                title="Delete Purchase Order"
+                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1118,12 +1234,26 @@ export default function HardwareSuppliersView() {
               <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-600 gap-2">
                 <div>
                   Showing <span className="font-bold text-slate-900">{sortedAndFilteredPOs.length}</span> of{' '}
-                  <span className="font-bold text-slate-900">{pos.length}</span> Purchase Orders
+                  <span className="font-bold text-slate-900">{activeTab === 'return_pos' ? returnedPOs.length : pos.length}</span>{' '}
+                  {activeTab === 'return_pos' ? 'Returned Purchase Orders' : 'Purchase Orders'}
                 </div>
-                <div className="flex items-center gap-4">
-                  <span>
-                    Filtered Total: <strong className="text-slate-900">LKR {sortedAndFilteredPOs.reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}</strong>
-                  </span>
+                <div className="flex items-center gap-4 flex-wrap">
+                  {activeTab === 'return_pos' ? (
+                    <span>
+                      Total Returned Value: <strong className="text-purple-700">LKR {sortedAndFilteredPOs.reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}</strong>
+                    </span>
+                  ) : (
+                    <>
+                      <span>
+                        Active Total: <strong className="text-slate-900">LKR {sortedAndFilteredPOs.filter(p => p.status !== 'Returned').reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}</strong>
+                      </span>
+                      {sortedAndFilteredPOs.some(p => p.status === 'Returned') && (
+                        <span className="text-purple-700">
+                          Returned: <strong>LKR {sortedAndFilteredPOs.filter(p => p.status === 'Returned').reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}</strong>
+                        </span>
+                      )}
+                    </>
+                  )}
                   <span>
                     Order: <strong className="text-amber-600">{poSortBy} ({poSortOrder.toUpperCase()})</strong>
                   </span>
@@ -1288,7 +1418,15 @@ export default function HardwareSuppliersView() {
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Status</span>
                 <span className={`inline-block font-bold px-2 py-0.5 rounded text-[10px] ${
-                  viewingPO.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  viewingPO.status === 'Delivered'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : viewingPO.status === 'Returned'
+                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                    : viewingPO.status === 'Approved'
+                    ? 'bg-blue-100 text-blue-800'
+                    : viewingPO.status === 'Cancelled'
+                    ? 'bg-rose-100 text-rose-800'
+                    : 'bg-amber-100 text-amber-800'
                 }`}>
                   {viewingPO.status}
                 </span>
@@ -1345,12 +1483,27 @@ export default function HardwareSuppliersView() {
             {/* Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-200">
               <div className="flex items-center gap-2">
-                {viewingPO.status !== 'Delivered' && (
+                {viewingPO.status !== 'Delivered' && viewingPO.status !== 'Returned' && (
                   <button
                     onClick={() => updatePOStatusMutation.mutate({ id: viewingPO._id, status: 'Delivered' })}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
                   >
                     <FiCheck size={14} /> Mark Delivered
+                  </button>
+                )}
+                {viewingPO.status !== 'Returned' ? (
+                  <button
+                    onClick={() => handleReturnPO(viewingPO)}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <FiRotateCcw size={14} /> Return PO
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleReopenPO(viewingPO)}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <FiRotateCcw size={14} /> Reopen PO
                   </button>
                 )}
                 <button
@@ -1622,6 +1775,7 @@ export default function HardwareSuppliersView() {
                       <option value="Pending">Pending</option>
                       <option value="Approved">Approved</option>
                       <option value="Delivered">Delivered</option>
+                      <option value="Returned">Returned</option>
                       <option value="Cancelled">Cancelled</option>
                     </select>
                   </div>

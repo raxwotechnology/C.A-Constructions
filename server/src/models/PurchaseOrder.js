@@ -25,7 +25,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     totalAmount: { type: Number, required: true, default: 0 },
     status: {
       type: String,
-      enum: ['Pending', 'Approved', 'Delivered', 'Cancelled'],
+      enum: ['Pending', 'Approved', 'Delivered', 'Cancelled', 'Returned'],
       default: 'Pending',
     },
     deliveryStatus: {
@@ -34,6 +34,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       default: 'Pending',
     },
     deliveredAt: { type: Date },
+    returnedAt: { type: Date },
     notes: { type: String, default: '' },
     financeEntryRef: { type: mongoose.Schema.Types.ObjectId, ref: 'FinanceEntry' },
     isSentToExpenses: { type: Boolean, default: false },
