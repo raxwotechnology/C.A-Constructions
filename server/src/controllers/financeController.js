@@ -353,101 +353,105 @@ exports.deleteEntry = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getFinanceEntries = async (filters) => {
+  const { type, category, month, year, from, to, branch, paymentMethod, project } = filters;
+  const q = {};
+  if (type) q.type = type;
+  if (category) q.category = category;
+  if (branch) q.branch = branch;
+  if (paymentMethod) q.paymentMethod = paymentMethod;
+  if (project) {
+    if (String(project).toLowerCase() === 'other') {
+      q.project = null;
+    } else {
+      q.project = project;
+    }
+  }
+
+  const dateFilter = buildDateFilter({ from, to, month, year });
+  if (dateFilter) q.date = dateFilter;
+
+  const pcQ = {};
+  if (branch) pcQ.branch = branch;
+  if (dateFilter) pcQ.date = dateFilter;
+
+  const [rawEntries, pettyCash, subIncome, invIncome, chequeTx, advanceExp, loanTx] = await Promise.all([
+    FinanceEntry.find(q)
+      .sort({ date: -1, createdAt: -1 })
+      .populate('createdBy', 'name email')
+      .populate('bankAccount', 'bankName accountNumber')
+      .populate('branch', 'name')
+      .populate('project', 'name title code location'),
+    PettyCash.find(pcQ).sort({ date: -1 }),
+    resolveSubscriptionIncome(branch, dateFilter, paymentMethod),
+    resolveInvoicePaymentIncome(branch, dateFilter, paymentMethod),
+    resolveChequeTransactions(branch, dateFilter, paymentMethod),
+    resolveAdvanceExpenses(branch, dateFilter, paymentMethod),
+    resolveLoanTransactions(branch, dateFilter, paymentMethod),
+  ]);
+
+  const entries = rawEntries
+    .map((e) => e.toObject())
+    .filter((e) => !isSubscriptionIncomeEntry(e) && !isInvoiceIncomeEntry(e));
+
+  const pcEntries = normalizePettyCashEntries(pettyCash, { type, paymentMethod });
+  const subEntries = type === 'expense' ? [] : subIncome.entries;
+  const invEntries = type === 'expense' ? [] : invIncome.entries;
+  const chequeIncome = type === 'expense' ? [] : chequeTx.incomeEntries;
+  const chequeExpense = type === 'income' ? [] : chequeTx.expenseEntries;
+  const advanceEntries = type === 'income' ? [] : advanceExp.entries;
+  const loanDisbursements = type === 'income' ? [] : loanTx.expenseEntries;
+  const loanRepayments = type === 'expense' ? [] : loanTx.incomeEntries;
+
+  let allEntriesRaw = [
+    ...entries, ...pcEntries, ...subEntries, ...invEntries,
+    ...chequeIncome, ...chequeExpense,
+    ...advanceEntries, ...loanDisbursements, ...loanRepayments,
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  let allEntries = [];
+  const seenAll = new Set();
+  for (const e of allEntriesRaw) {
+    const key = String(e._id);
+    if (!seenAll.has(key)) {
+      seenAll.add(key);
+      allEntries.push(e);
+    }
+  }
+
+  if (category) {
+    allEntries = allEntries.filter((e) => e.category === category);
+  }
+  if (project) {
+    const isOther = String(project).toLowerCase() === 'other';
+    if (isOther) {
+      allEntries = allEntries.filter((e) => {
+        const pId = e.project?._id || (typeof e.project === 'string' && e.project.trim() ? e.project : null);
+        return !pId;
+      });
+    } else {
+      allEntries = allEntries.filter((e) => {
+        const pId = e.project?._id || (typeof e.project === 'string' && e.project.trim() ? e.project : null);
+        return pId && String(pId) === String(project);
+      });
+    }
+  }
+
+  const totals = allEntries.reduce((acc, e) => {
+    if (e.countsInTotals === false) return acc;
+    if (e.type === 'income') acc.income += Number(e.amount || 0);
+    if (e.type === 'expense') acc.expense += Number(e.amount || 0);
+    return acc;
+  }, { income: 0, expense: 0 });
+  totals.profit = totals.income - totals.expense;
+
+  const categories = [...new Set(allEntries.map((e) => e.category).filter(Boolean))];
+  return { success: true, count: allEntries.length, entries: allEntries, totals, categories };
+};
+
 exports.getEntries = async (req, res, next) => {
   try {
-    const { type, category, month, year, from, to, branch, paymentMethod, project } = req.query;
-    const q = {};
-    if (type) q.type = type;
-    if (category) q.category = category;
-    if (branch) q.branch = branch;
-    if (paymentMethod) q.paymentMethod = paymentMethod;
-    if (project) {
-      if (String(project).toLowerCase() === 'other') {
-        q.project = null;
-      } else {
-        q.project = project;
-      }
-    }
-
-    const dateFilter = buildDateFilter({ from, to, month, year });
-    if (dateFilter) q.date = dateFilter;
-
-    const pcQ = {};
-    if (branch) pcQ.branch = branch;
-    if (dateFilter) pcQ.date = dateFilter;
-
-    const [rawEntries, pettyCash, subIncome, invIncome, chequeTx, advanceExp, loanTx] = await Promise.all([
-      FinanceEntry.find(q)
-        .sort({ date: -1, createdAt: -1 })
-        .populate('createdBy', 'name email')
-        .populate('bankAccount', 'bankName accountNumber')
-        .populate('branch', 'name')
-        .populate('project', 'name title code location'),
-      PettyCash.find(pcQ).sort({ date: -1 }),
-      resolveSubscriptionIncome(branch, dateFilter, paymentMethod),
-      resolveInvoicePaymentIncome(branch, dateFilter, paymentMethod),
-      resolveChequeTransactions(branch, dateFilter, paymentMethod),
-      resolveAdvanceExpenses(branch, dateFilter, paymentMethod),
-      resolveLoanTransactions(branch, dateFilter, paymentMethod),
-    ]);
-
-    const entries = rawEntries
-      .map((e) => e.toObject())
-      .filter((e) => !isSubscriptionIncomeEntry(e) && !isInvoiceIncomeEntry(e));
-
-    const pcEntries = normalizePettyCashEntries(pettyCash, { type, paymentMethod });
-    const subEntries = type === 'expense' ? [] : subIncome.entries;
-    const invEntries = type === 'expense' ? [] : invIncome.entries;
-    const chequeIncome = type === 'expense' ? [] : chequeTx.incomeEntries;
-    const chequeExpense = type === 'income' ? [] : chequeTx.expenseEntries;
-    const advanceEntries = type === 'income' ? [] : advanceExp.entries;
-    const loanDisbursements = type === 'income' ? [] : loanTx.expenseEntries;
-    const loanRepayments = type === 'expense' ? [] : loanTx.incomeEntries;
-
-    let allEntriesRaw = [
-      ...entries, ...pcEntries, ...subEntries, ...invEntries,
-      ...chequeIncome, ...chequeExpense,
-      ...advanceEntries, ...loanDisbursements, ...loanRepayments,
-    ].sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    let allEntries = [];
-    const seenAll = new Set();
-    for (const e of allEntriesRaw) {
-      const key = String(e._id);
-      if (!seenAll.has(key)) {
-        seenAll.add(key);
-        allEntries.push(e);
-      }
-    }
-
-    if (category) {
-      allEntries = allEntries.filter((e) => e.category === category);
-    }
-    if (project) {
-      const isOther = String(project).toLowerCase() === 'other';
-      if (isOther) {
-        allEntries = allEntries.filter((e) => {
-          const pId = e.project?._id || (typeof e.project === 'string' && e.project.trim() ? e.project : null);
-          return !pId;
-        });
-      } else {
-        allEntries = allEntries.filter((e) => {
-          const pId = e.project?._id || (typeof e.project === 'string' && e.project.trim() ? e.project : null);
-          return pId && String(pId) === String(project);
-        });
-      }
-    }
-
-    const totals = allEntries.reduce((acc, e) => {
-      if (e.countsInTotals === false) return acc;
-      if (e.type === 'income') acc.income += Number(e.amount || 0);
-      if (e.type === 'expense') acc.expense += Number(e.amount || 0);
-      return acc;
-    }, { income: 0, expense: 0 });
-    totals.profit = totals.income - totals.expense;
-
-    const categories = [...new Set(allEntries.map((e) => e.category).filter(Boolean))];
-    res.json({ success: true, count: allEntries.length, entries: allEntries, totals, categories });
+    res.json(await getFinanceEntries(req.query));
   } catch (err) { next(err); }
 };
 
@@ -686,7 +690,7 @@ const { buildTabularExportHtml } = require('../services/documentHtmlService');
 
 exports.exportData = async (req, res, next) => {
   try {
-    const { dataset = 'financial_overview', format = 'excel', month, year, from, to, category, type, employeeId, branch, paymentMethod } = req.query;
+    const { dataset = 'financial_overview', format = 'excel', month, year, from, to, category, type, employeeId, branch, paymentMethod, project } = req.query;
     const lowerDataset = String(dataset).toLowerCase();
     const lowerFormat = String(format).toLowerCase();
     let headers = [];
@@ -738,6 +742,29 @@ exports.exportData = async (req, res, next) => {
       rows = employees.map((e) => [
         e.userId?.name, e.userId?.email, e.userId?.phone, e.userId?.role, e.employeeNo, e.department, e.designation, e.basicSalary, e.status,
       ]);
+    } else if (project && ['financial_overview', 'incomes', 'expenses'].includes(lowerDataset)) {
+      const entryType = lowerDataset === 'incomes' ? 'income' : lowerDataset === 'expenses' ? 'expense' : type;
+      const { entries, totals } = await getFinanceEntries({ ...req.query, type: entryType });
+
+      headers = ['Date', 'Voucher No', 'Type', 'Category', 'Title', 'Project / Site', 'Amount', 'Payment Method', 'Note'];
+      rows = entries.map((e) => [
+        new Date(e.date).toLocaleDateString(),
+        e.voucherNumber || '—',
+        e.type,
+        e.category,
+        e.title,
+        e.projectName || e.project?.name || e.project?.title || '—',
+        e.amount,
+        e.paymentMethod || 'Cash',
+        e.note || '',
+      ]);
+      if (lowerDataset === 'financial_overview') {
+        rows.unshift(
+          ['Summary', '', 'income', '', 'Total income', '', totals.income, '', ''],
+          ['Summary', '', 'expense', '', 'Total expense', '', totals.expense, '', ''],
+          ['Summary', '', '', '', 'Net profit', '', totals.profit, '', ''],
+        );
+      }
     } else if (lowerDataset === 'incomes' || lowerDataset === 'expenses') {
       const dateFilter = buildDateFilter({ from, to, month, year });
       const entryType = lowerDataset === 'incomes' ? 'income' : 'expense';

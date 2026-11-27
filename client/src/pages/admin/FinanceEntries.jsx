@@ -243,6 +243,7 @@ export default function FinanceEntries() {
       if (paymentFilter)  p.set('paymentMethod', paymentFilter)
       if (fromDate)       p.set('from', fromDate)
       if (toDate)         p.set('to', toDate)
+      if (projectFilter)  p.set('project', projectFilter)
       const res = await api.get(`/finance/export?${p}`, { responseType:'blob' })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(new Blob([res.data], { type:res.headers['content-type'] }))
