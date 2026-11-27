@@ -27,7 +27,7 @@ import {
 
 export default function HardwareSuppliersView() {
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('pos') // 'suppliers' | 'pos' | 'return_pos'
+  const [activeTab, setActiveTab] = useState('pos') // 'pos' | 'return_pos' | 'suppliers'
   const [searchQuery, setSearchQuery] = useState('')
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
@@ -73,6 +73,7 @@ export default function HardwareSuppliersView() {
     expectedDeliveryDate: '',
     notes: '',
     status: 'Pending',
+    isReturn: false,
     items: [{ itemName: '', category: 'Hardware', quantity: 1, unit: 'Units', unitPrice: 0 }],
   })
 
@@ -184,11 +185,12 @@ export default function HardwareSuppliersView() {
     mutationFn: async (data) => {
       return await api.post('/suppliers/pos', data)
     },
-    onSuccess: () => {
-      toast.success('Purchase Order created successfully!')
+    onSuccess: (res, vars) => {
+      toast.success(vars?.isReturn ? 'Return Purchase Order created successfully!' : 'Purchase Order created successfully!')
       queryClient.invalidateQueries({ queryKey: ['hardware-pos'] })
       queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
       queryClient.invalidateQueries({ queryKey: ['supplier-ledger'] })
+      queryClient.invalidateQueries({ queryKey: ['supplier-ledger', selectedSupplier?._id] })
       setShowPOModal(false)
       setPOForm({
         supplierId: '',
@@ -196,6 +198,7 @@ export default function HardwareSuppliersView() {
         expectedDeliveryDate: '',
         notes: '',
         status: 'Pending',
+        isReturn: false,
         items: [{ itemName: '', category: 'Hardware', quantity: 1, unit: 'Units', unitPrice: 0 }],
       })
     },
@@ -209,8 +212,8 @@ export default function HardwareSuppliersView() {
     mutationFn: async ({ id, data }) => {
       return await api.put(`/suppliers/pos/${id}`, data)
     },
-    onSuccess: () => {
-      toast.success('Purchase Order updated successfully!')
+    onSuccess: (res, vars) => {
+      toast.success(vars?.data?.isReturn ? 'Return Purchase Order updated successfully!' : 'Purchase Order updated successfully!')
       queryClient.invalidateQueries({ queryKey: ['hardware-pos'] })
       queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
       queryClient.invalidateQueries({ queryKey: ['supplier-ledger'] })
@@ -264,13 +267,9 @@ export default function HardwareSuppliersView() {
       return await api.patch(`/suppliers/pos/${id}/status`, { status })
     },
     onSuccess: (res, vars) => {
-      toast.success(
-        vars?.status === 'Delivered'
-          ? 'Purchase Order marked as Delivered!'
-          : vars?.status === 'Returned'
-          ? 'Purchase Order marked as Returned!'
-          : `Purchase Order status updated to ${vars?.status}!`
-      )
+      toast.success(vars?.status === 'Delivered'
+        ? 'Purchase Order marked as Delivered!'
+        : `Purchase Order status updated to ${vars?.status}!`)
       queryClient.invalidateQueries({ queryKey: ['hardware-pos'] })
       queryClient.invalidateQueries({ queryKey: ['hardware-suppliers'] })
       queryClient.invalidateQueries({ queryKey: ['supplier-ledger'] })
@@ -294,18 +293,6 @@ export default function HardwareSuppliersView() {
       toast.error(err?.response?.data?.message || 'Failed to update status')
     }
   })
-
-  const handleReturnPO = (po) => {
-    if (window.confirm(`Are you sure you want to mark Purchase Order "${po.poNumber}" as Returned?\n\nThis will reverse any stock added, cancel billing in the supplier ledger, and update totals.`)) {
-      updatePOStatusMutation.mutate({ id: po._id, status: 'Returned' })
-    }
-  }
-
-  const handleReopenPO = (po) => {
-    if (window.confirm(`Reopen Purchase Order "${po.poNumber}" as Pending?`)) {
-      updatePOStatusMutation.mutate({ id: po._id, status: 'Pending' })
-    }
-  }
 
   const openCreateSupplierModal = () => {
     setEditingSupplierId(null)
@@ -352,6 +339,21 @@ export default function HardwareSuppliersView() {
       expectedDeliveryDate: '',
       notes: '',
       status: 'Pending',
+      isReturn: false,
+      items: [{ itemName: '', category: 'Hardware', quantity: 1, unit: 'Units', unitPrice: 0 }],
+    })
+    setShowPOModal(true)
+  }
+
+  const openNewReturnPOModal = () => {
+    setEditingPOId(null)
+    setPOForm({
+      supplierId: suppliersData?.[0]?._id || '',
+      projectId: '',
+      expectedDeliveryDate: new Date().toISOString().slice(0, 10),
+      notes: '',
+      status: 'Returned',
+      isReturn: true,
       items: [{ itemName: '', category: 'Hardware', quantity: 1, unit: 'Units', unitPrice: 0 }],
     })
     setShowPOModal(true)
@@ -359,6 +361,7 @@ export default function HardwareSuppliersView() {
 
   const openEditPOModal = (po) => {
     setEditingPOId(po._id)
+    const isReturnOrder = Boolean(po.isReturn || po.status === 'Returned' || po.poNumber?.startsWith('RPO-'))
     const formattedDeliveryDate = po.expectedDeliveryDate
       ? new Date(po.expectedDeliveryDate).toISOString().slice(0, 10)
       : ''
@@ -367,7 +370,8 @@ export default function HardwareSuppliersView() {
       projectId: po.project?._id || po.project || '',
       expectedDeliveryDate: formattedDeliveryDate,
       notes: po.notes || '',
-      status: po.status || 'Pending',
+      status: po.status || (isReturnOrder ? 'Returned' : 'Pending'),
+      isReturn: isReturnOrder,
       items: (po.items && po.items.length > 0)
         ? po.items.map(item => ({
             itemName: item.itemName || '',
@@ -456,14 +460,25 @@ export default function HardwareSuppliersView() {
   const suppliers = suppliersData || []
   const pos = posData || []
 
+  // Separate regular POs and return POs
+  const regularPOs = useMemo(() => {
+    return pos.filter(p => !p.isReturn && p.status !== 'Returned' && !p.poNumber?.startsWith('RPO-'))
+  }, [pos])
+
+  const returnPOs = useMemo(() => {
+    return pos.filter(p => p.isReturn === true || p.status === 'Returned' || p.poNumber?.startsWith('RPO-'))
+  }, [pos])
+
+  const targetPOsList = useMemo(() => {
+    return activeTab === 'return_pos' ? returnPOs : regularPOs
+  }, [activeTab, returnPOs, regularPOs])
+
   // Filter and Sort POs with full multi-criteria & ASC/DESC direction
   const sortedAndFilteredPOs = useMemo(() => {
-    let list = [...pos]
+    let list = [...targetPOsList]
 
-    // 1. Tab & Status filter
-    if (activeTab === 'return_pos') {
-      list = list.filter(p => p.status === 'Returned')
-    } else if (statusFilter !== 'ALL') {
+    // 1. Status filter
+    if (statusFilter !== 'ALL') {
       list = list.filter(p => p.status === statusFilter)
     }
 
@@ -550,7 +565,7 @@ export default function HardwareSuppliersView() {
     })
 
     return list
-  }, [pos, activeTab, statusFilter, supplierFilter, projectFilter, deliveryDateFilter, searchQuery, poSortBy, poSortOrder])
+  }, [targetPOsList, statusFilter, supplierFilter, projectFilter, deliveryDateFilter, searchQuery, poSortBy, poSortOrder])
 
   // Filter suppliers
   const filteredSuppliers = suppliers.filter(s => {
@@ -597,15 +612,11 @@ export default function HardwareSuppliersView() {
   }
 
   // KPI Calculations
-  const activePOs = useMemo(() => pos.filter(p => p.status !== 'Returned'), [pos])
-  const activeTotalPOAmount = useMemo(() => activePOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [activePOs])
-  const pendingPOs = useMemo(() => pos.filter(p => p.status === 'Pending'), [pos])
+  const totalPOAmount = useMemo(() => regularPOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [regularPOs])
+  const pendingPOs = useMemo(() => regularPOs.filter(p => p.status === 'Pending'), [regularPOs])
   const pendingPOAmount = useMemo(() => pendingPOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [pendingPOs])
-  const deliveredPOs = useMemo(() => pos.filter(p => p.status === 'Delivered'), [pos])
+  const deliveredPOs = useMemo(() => regularPOs.filter(p => p.status === 'Delivered'), [regularPOs])
   const deliveredPOAmount = useMemo(() => deliveredPOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [deliveredPOs])
-  const returnedPOs = useMemo(() => pos.filter(p => p.status === 'Returned'), [pos])
-  const returnedPOAmount = useMemo(() => returnedPOs.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [returnedPOs])
-  const totalPOAmount = useMemo(() => pos.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0), [pos])
 
   const handleAddItemRow = () => {
     setPOForm(prev => ({
@@ -636,7 +647,7 @@ export default function HardwareSuppliersView() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Purchase Orders &amp; Supplier Management</h1>
               <p className="text-slate-500 text-xs md:text-sm mt-0.5">
-                Sort, filter by Order Direction (ASC/DESC), track site deliveries, and manage vendor ledgers.
+                Sort, filter by Order Direction (ASC/DESC), track site deliveries, return orders, and manage vendor ledgers.
               </p>
             </div>
           </div>
@@ -658,18 +669,26 @@ export default function HardwareSuppliersView() {
             <FiShoppingBag className="w-4 h-4" />
             <span>+ New Purchase Order (PO)</span>
           </button>
+
+          <button
+            onClick={openNewReturnPOModal}
+            className="flex items-center gap-2 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold px-4 py-2.5 rounded-xl shadow-md transition-all text-xs cursor-pointer"
+          >
+            <FiRotateCcw className="w-4 h-4" />
+            <span>+ New Return PO</span>
+          </button>
         </div>
       </div>
 
       {/* KPI Metric Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">Active Purchase Orders</span>
+            <span className="text-xs font-bold text-slate-500">Total Purchase Orders</span>
             <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><FiShoppingBag size={15} /></span>
           </div>
-          <p className="text-xl font-extrabold text-slate-900 mt-1">{activePOs.length}</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Total Value: <span className="font-bold text-slate-700">LKR {activeTotalPOAmount.toLocaleString()}</span></p>
+          <p className="text-xl font-extrabold text-slate-900 mt-1">{regularPOs.length}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Total Value: <span className="font-bold text-slate-700">LKR {totalPOAmount.toLocaleString()}</span></p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -688,15 +707,6 @@ export default function HardwareSuppliersView() {
           </div>
           <p className="text-xl font-extrabold text-emerald-600 mt-1">{deliveredPOs.length}</p>
           <p className="text-[11px] text-slate-500 mt-0.5">Delivered: <span className="font-bold text-emerald-700">LKR {deliveredPOAmount.toLocaleString()}</span></p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-purple-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-purple-700">Return POs</span>
-            <span className="p-1.5 bg-purple-50 text-purple-600 rounded-lg"><FiRotateCcw size={15} /></span>
-          </div>
-          <p className="text-xl font-extrabold text-purple-700 mt-1">{returnedPOs.length}</p>
-          <p className="text-[11px] text-purple-600 mt-0.5">Returned: <span className="font-bold text-purple-800">LKR {returnedPOAmount.toLocaleString()}</span></p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -719,17 +729,17 @@ export default function HardwareSuppliersView() {
             }`}
           >
             <FiShoppingBag size={14} />
-            Purchase Orders ({pos.length})
+            Purchase Orders ({regularPOs.length})
           </button>
 
           <button
             onClick={() => setActiveTab('return_pos')}
             className={`px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'return_pos' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'return_pos' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FiRotateCcw size={14} />
-            Return PO ({returnedPOs.length})
+            Return POs ({returnPOs.length})
           </button>
 
           <button
@@ -757,30 +767,10 @@ export default function HardwareSuppliersView() {
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* TAB 1: PURCHASE ORDERS & TAB: RETURN POS                     */}
+      {/* TAB 1 & 2: PURCHASE ORDERS & RETURN POS                      */}
       {/* ------------------------------------------------------------- */}
       {(activeTab === 'pos' || activeTab === 'return_pos') && (
         <div className="space-y-4">
-          {/* Archive Banner for Return PO Tab */}
-          {activeTab === 'return_pos' && (
-            <div className="bg-purple-50 border border-purple-200 text-purple-900 px-4 py-3 rounded-2xl text-xs flex flex-wrap items-center justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-purple-100 text-purple-700 rounded-xl">
-                  <FiRotateCcw className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Returned Purchase Orders ({returnedPOs.length})</h4>
-                  <p className="text-slate-500 text-[11px]">All returned orders are archived here. Materials stock and vendor balances are automatically reversed.</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-purple-700 bg-purple-100/70 border border-purple-300 px-3 py-1 rounded-xl">
-                  Total Returned Value: LKR {returnedPOAmount.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* Enhanced Order / Filter Toolbar */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             {/* Top row: Sort Controls & Direction Toggle */}
@@ -788,7 +778,7 @@ export default function HardwareSuppliersView() {
               {/* Order Direction Toggle: ASC vs DESC */}
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                  <FiFilter className="text-amber-500" /> Sort Order:
+                  <FiFilter className={activeTab === 'return_pos' ? 'text-rose-500' : 'text-amber-500'} /> Sort Order:
                 </span>
 
                 <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200">
@@ -797,7 +787,7 @@ export default function HardwareSuppliersView() {
                     onClick={() => setPoSortOrder('asc')}
                     className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
                       poSortOrder === 'asc'
-                        ? 'bg-amber-500 text-slate-950 shadow-xs'
+                        ? (activeTab === 'return_pos' ? 'bg-rose-500 text-white shadow-xs' : 'bg-amber-500 text-slate-950 shadow-xs')
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Ascending Order (A-Z / Low to High / Oldest First)"
@@ -811,7 +801,7 @@ export default function HardwareSuppliersView() {
                     onClick={() => setPoSortOrder('desc')}
                     className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
                       poSortOrder === 'desc'
-                        ? 'bg-amber-500 text-slate-950 shadow-xs'
+                        ? (activeTab === 'return_pos' ? 'bg-rose-500 text-white shadow-xs' : 'bg-amber-500 text-slate-950 shadow-xs')
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Descending Order (Z-A / High to Low / Newest First)"
@@ -831,11 +821,11 @@ export default function HardwareSuppliersView() {
                   className="bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold rounded-xl px-3 py-1.5 focus:outline-none focus:border-amber-500 cursor-pointer"
                 >
                   <option value="createdAt">Date Created ({poSortOrder === 'asc' ? 'Oldest → Newest' : 'Newest → Oldest'})</option>
-                  <option value="expectedDeliveryDate">Expected Delivery Date ({poSortOrder === 'asc' ? 'Earliest → Latest' : 'Latest → Earliest'})</option>
-                  <option value="poNumber">PO Number ({poSortOrder === 'asc' ? 'PO-001 → PO-999' : 'PO-999 → PO-001'})</option>
+                  <option value="expectedDeliveryDate">{activeTab === 'return_pos' ? 'Return Date' : 'Expected Delivery Date'} ({poSortOrder === 'asc' ? 'Earliest → Latest' : 'Latest → Earliest'})</option>
+                  <option value="poNumber">{activeTab === 'return_pos' ? 'Return PO #' : 'PO Number'} ({poSortOrder === 'asc' ? 'A → Z' : 'Z → A'})</option>
                   <option value="totalAmount">Total Amount ({poSortOrder === 'asc' ? 'Low → High' : 'High → Low'})</option>
                   <option value="supplier">Supplier Name ({poSortOrder === 'asc' ? 'A → Z' : 'Z → A'})</option>
-                  <option value="project">Site / Project ({poSortOrder === 'asc' ? 'A → Z' : 'Z → A'})</option>
+                  <option value="project">{activeTab === 'return_pos' ? 'Return Site / Project' : 'Site / Project'} ({poSortOrder === 'asc' ? 'A → Z' : 'Z → A'})</option>
                   <option value="status">Status ({poSortOrder === 'asc' ? 'A → Z' : 'Z → A'})</option>
                   <option value="items">Item Count ({poSortOrder === 'asc' ? 'Fewest → Most' : 'Most → Fewest'})</option>
                 </select>
@@ -849,7 +839,7 @@ export default function HardwareSuppliersView() {
                 <FiSearch className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                 <input
                   type="text"
-                  placeholder={activeTab === 'return_pos' ? "Search returned PO #, supplier..." : "Search PO #, supplier, item..."}
+                  placeholder={activeTab === 'return_pos' ? 'Search Return PO #, supplier, item...' : 'Search PO #, supplier, item...'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 pl-8 pr-7 py-2 rounded-xl text-xs font-medium focus:outline-none focus:border-amber-500"
@@ -866,30 +856,30 @@ export default function HardwareSuppliersView() {
               </div>
 
               {/* Status Filter */}
-              {activeTab === 'return_pos' ? (
-                <div className="bg-purple-50 border border-purple-200 text-purple-800 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <FiRotateCcw className="w-3.5 h-3.5 text-purple-600" />
-                    Status: Returned
-                  </span>
-                  <span className="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded text-[10px]">{returnedPOs.length}</span>
-                </div>
-              ) : (
-                <div>
+              <div>
+                {activeTab === 'return_pos' ? (
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 py-2 px-3 rounded-xl text-xs font-bold focus:outline-none focus:border-rose-500 cursor-pointer"
+                  >
+                    <option value="ALL">All Return Statuses ({returnPOs.length})</option>
+                    <option value="Returned">Returned ({returnPOs.filter(p => p.status === 'Returned' || p.isReturn).length})</option>
+                  </select>
+                ) : (
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 text-slate-800 py-2 px-3 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value="ALL">All Statuses ({pos.length})</option>
-                    <option value="Pending">Pending ({pendingPOs.length})</option>
-                    <option value="Approved">Approved ({pos.filter(p => p.status === 'Approved').length})</option>
-                    <option value="Delivered">Delivered ({deliveredPOs.length})</option>
-                    <option value="Returned">Returned ({returnedPOs.length})</option>
-                    <option value="Cancelled">Cancelled ({pos.filter(p => p.status === 'Cancelled').length})</option>
+                    <option value="ALL">All Statuses ({regularPOs.length})</option>
+                    <option value="Pending">Pending ({regularPOs.filter(p => p.status === 'Pending').length})</option>
+                    <option value="Approved">Approved ({regularPOs.filter(p => p.status === 'Approved').length})</option>
+                    <option value="Delivered">Delivered ({regularPOs.filter(p => p.status === 'Delivered').length})</option>
+                    <option value="Cancelled">Cancelled ({regularPOs.filter(p => p.status === 'Cancelled').length})</option>
                   </select>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Supplier Filter */}
               <div>
@@ -926,7 +916,7 @@ export default function HardwareSuppliersView() {
                   value={deliveryDateFilter}
                   onChange={(e) => setDeliveryDateFilter(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 py-2 px-3 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
-                  title="Filter by Expected Delivery Date"
+                  title={activeTab === 'return_pos' ? 'Filter by Return Date' : 'Filter by Expected Delivery Date'}
                 />
                 {deliveryDateFilter && (
                   <button
@@ -942,18 +932,32 @@ export default function HardwareSuppliersView() {
             </div>
           </div>
 
-          {/* PO Table */}
+          {/* PO / Return PO Table */}
           {posLoading ? (
-            <div className="text-center py-12 text-slate-500">Loading Purchase Orders...</div>
-          ) : (activeTab === 'return_pos' ? returnedPOs.length === 0 : pos.length === 0) ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500">
-              {activeTab === 'return_pos'
-                ? 'No returned Purchase Orders yet. Click "Return" on any PO in the Purchase Orders tab to return it.'
-                : 'No Purchase Orders found. Click "+ New Purchase Order" to issue orders to suppliers.'}
+            <div className="text-center py-12 text-slate-500">
+              {activeTab === 'return_pos' ? 'Loading Return Purchase Orders...' : 'Loading Purchase Orders...'}
+            </div>
+          ) : targetPOsList.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500 space-y-3">
+              <p>
+                {activeTab === 'return_pos'
+                  ? 'No Return POs recorded yet. Click "+ New Return PO" to record a return and deduct from supplier ledger.'
+                  : 'No Purchase Orders found. Click "+ New Purchase Order (PO)" to issue orders to suppliers.'}
+              </p>
+              {activeTab === 'return_pos' && (
+                <button
+                  type="button"
+                  onClick={openNewReturnPOModal}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                >
+                  <FiRotateCcw className="w-3.5 h-3.5" />
+                  <span>+ Create First Return PO</span>
+                </button>
+              )}
             </div>
           ) : sortedAndFilteredPOs.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500 space-y-2">
-              <p>No Purchase Orders found matching your current filter and sort criteria.</p>
+              <p>No {activeTab === 'return_pos' ? 'Return POs' : 'Purchase Orders'} found matching your current filter and sort criteria.</p>
               <button
                 type="button"
                 onClick={resetAllFilters}
@@ -974,9 +978,9 @@ export default function HardwareSuppliersView() {
                         className="p-3.5 font-bold cursor-pointer hover:bg-slate-100 transition"
                       >
                         <div className="flex items-center gap-1">
-                          <span>PO Number</span>
+                          <span>{activeTab === 'return_pos' ? 'Return PO #' : 'PO Number'}</span>
                           {poSortBy === 'poNumber' ? (
-                            poSortOrder === 'asc' ? <FiArrowUp className="text-amber-600" /> : <FiArrowDown className="text-amber-600" />
+                            poSortOrder === 'asc' ? <FiArrowUp className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} /> : <FiArrowDown className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} />
                           ) : (
                             <span className="text-slate-300">⇅</span>
                           )}
@@ -991,7 +995,7 @@ export default function HardwareSuppliersView() {
                         <div className="flex items-center gap-1">
                           <span>Supplier</span>
                           {poSortBy === 'supplier' ? (
-                            poSortOrder === 'asc' ? <FiArrowUp className="text-amber-600" /> : <FiArrowDown className="text-amber-600" />
+                            poSortOrder === 'asc' ? <FiArrowUp className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} /> : <FiArrowDown className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} />
                           ) : (
                             <span className="text-slate-300">⇅</span>
                           )}
@@ -1004,9 +1008,9 @@ export default function HardwareSuppliersView() {
                         className="p-3.5 font-bold cursor-pointer hover:bg-slate-100 transition"
                       >
                         <div className="flex items-center gap-1">
-                          <span>Delivery Site / Project</span>
+                          <span>{activeTab === 'return_pos' ? 'Return Site / Project' : 'Delivery Site / Project'}</span>
                           {poSortBy === 'project' ? (
-                            poSortOrder === 'asc' ? <FiArrowUp className="text-amber-600" /> : <FiArrowDown className="text-amber-600" />
+                            poSortOrder === 'asc' ? <FiArrowUp className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} /> : <FiArrowDown className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} />
                           ) : (
                             <span className="text-slate-300">⇅</span>
                           )}
@@ -1019,9 +1023,9 @@ export default function HardwareSuppliersView() {
                         className="p-3.5 font-bold cursor-pointer hover:bg-slate-100 transition"
                       >
                         <div className="flex items-center gap-1">
-                          <span>Expected Delivery</span>
+                          <span>{activeTab === 'return_pos' ? 'Return Date' : 'Expected Delivery'}</span>
                           {poSortBy === 'expectedDeliveryDate' ? (
-                            poSortOrder === 'asc' ? <FiArrowUp className="text-amber-600" /> : <FiArrowDown className="text-amber-600" />
+                            poSortOrder === 'asc' ? <FiArrowUp className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} /> : <FiArrowDown className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} />
                           ) : (
                             <span className="text-slate-300">⇅</span>
                           )}
@@ -1036,7 +1040,7 @@ export default function HardwareSuppliersView() {
                         <div className="flex items-center gap-1">
                           <span>Items</span>
                           {poSortBy === 'items' ? (
-                            poSortOrder === 'asc' ? <FiArrowUp className="text-amber-600" /> : <FiArrowDown className="text-amber-600" />
+                            poSortOrder === 'asc' ? <FiArrowUp className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} /> : <FiArrowDown className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} />
                           ) : (
                             <span className="text-slate-300">⇅</span>
                           )}
@@ -1049,9 +1053,9 @@ export default function HardwareSuppliersView() {
                         className="p-3.5 font-bold cursor-pointer hover:bg-slate-100 transition"
                       >
                         <div className="flex items-center gap-1">
-                          <span>Total Amount</span>
+                          <span>{activeTab === 'return_pos' ? 'Return Amount' : 'Total Amount'}</span>
                           {poSortBy === 'totalAmount' ? (
-                            poSortOrder === 'asc' ? <FiArrowUp className="text-amber-600" /> : <FiArrowDown className="text-amber-600" />
+                            poSortOrder === 'asc' ? <FiArrowUp className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} /> : <FiArrowDown className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} />
                           ) : (
                             <span className="text-slate-300">⇅</span>
                           )}
@@ -1066,7 +1070,7 @@ export default function HardwareSuppliersView() {
                         <div className="flex items-center gap-1">
                           <span>Status</span>
                           {poSortBy === 'status' ? (
-                            poSortOrder === 'asc' ? <FiArrowUp className="text-amber-600" /> : <FiArrowDown className="text-amber-600" />
+                            poSortOrder === 'asc' ? <FiArrowUp className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} /> : <FiArrowDown className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'} />
                           ) : (
                             <span className="text-slate-300">⇅</span>
                           )}
@@ -1078,154 +1082,124 @@ export default function HardwareSuppliersView() {
                   </thead>
 
                   <tbody className="divide-y divide-slate-200">
-                    {sortedAndFilteredPOs.map((po) => {
-                      const isReturned = po.status === 'Returned'
-                      return (
-                        <tr
-                          key={po._id}
-                          className={`transition ${
-                            isReturned
-                              ? 'bg-purple-50/70 hover:bg-purple-100/70 border-l-4 border-l-purple-600'
-                              : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          <td className={`p-3.5 font-mono font-bold ${isReturned ? 'text-purple-700' : 'text-amber-600'}`}>
-                            <button
-                              type="button"
-                              onClick={() => setViewingPO(po)}
-                              className="hover:underline text-left cursor-pointer flex items-center gap-1.5"
-                            >
-                              {isReturned && <FiRotateCcw className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
-                              <span>{po.poNumber}</span>
-                            </button>
-                          </td>
+                    {sortedAndFilteredPOs.map((po) => (
+                      <tr key={po._id} className="hover:bg-slate-50 transition">
+                        <td className={`p-3.5 font-mono font-bold ${activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'}`}>
+                          <button
+                            type="button"
+                            onClick={() => setViewingPO(po)}
+                            className="hover:underline text-left cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            {activeTab === 'return_pos' && <FiRotateCcw size={12} className="text-rose-500 shrink-0" />}
+                            <span>{po.poNumber}</span>
+                          </button>
+                        </td>
 
-                          <td className="p-3.5 font-semibold text-slate-900">
-                            <div>{po.supplier?.name || 'N/A'}</div>
-                            {po.supplier?.code && (
-                              <span className="text-[10px] text-slate-400 font-mono">{po.supplier.code}</span>
-                            )}
-                          </td>
+                        <td className="p-3.5 font-semibold text-slate-900">
+                          <div>{po.supplier?.name || 'N/A'}</div>
+                          {po.supplier?.code && (
+                            <span className="text-[10px] text-slate-400 font-mono">{po.supplier.code}</span>
+                          )}
+                        </td>
 
-                          <td className="p-3.5 text-slate-700">
-                            {po.siteName || po.project?.name || po.project?.title || 'Central Warehouse'}
-                          </td>
+                        <td className="p-3.5 text-slate-700">
+                          {po.siteName || po.project?.name || po.project?.title || 'Central Warehouse'}
+                        </td>
 
-                          <td className="p-3.5 whitespace-nowrap">
-                            {po.expectedDeliveryDate ? (
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold ${
-                                isReturned
-                                  ? 'bg-purple-100 text-purple-900 border border-purple-200'
-                                  : 'bg-amber-50 text-amber-900 border border-amber-200'
-                              }`}>
-                                <FiCalendar className={`w-3 h-3 ${isReturned ? 'text-purple-600' : 'text-amber-600'}`} />
-                                {new Date(po.expectedDeliveryDate).toLocaleDateString('en-CA')}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 italic">Not set</span>
-                            )}
-                          </td>
-
-                          <td className="p-3.5 font-medium text-slate-700">
-                            <span className={`px-2 py-0.5 rounded-md font-bold ${
-                              isReturned ? 'bg-purple-100 text-purple-900' : 'bg-slate-100 text-slate-800'
+                        <td className="p-3.5 whitespace-nowrap">
+                          {po.expectedDeliveryDate ? (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border ${
+                              activeTab === 'return_pos'
+                                ? 'bg-rose-50 text-rose-900 border-rose-200'
+                                : 'bg-amber-50 text-amber-900 border-amber-200'
                             }`}>
-                              {po.items?.length || 0}
+                              <FiCalendar className={`w-3 h-3 ${activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'}`} />
+                              {new Date(po.expectedDeliveryDate).toLocaleDateString('en-CA')}
                             </span>
-                          </td>
+                          ) : (
+                            <span className="text-slate-400 italic">Not set</span>
+                          )}
+                        </td>
 
-                          <td className={`p-3.5 font-extrabold ${isReturned ? 'text-purple-800' : 'text-slate-900'}`}>
-                            <div>LKR {(po.totalAmount || 0).toLocaleString()}</div>
-                            {isReturned && <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Returned</span>}
-                          </td>
+                        <td className="p-3.5 font-medium text-slate-700">
+                          <span className={`px-2 py-0.5 rounded-md font-bold ${activeTab === 'return_pos' ? 'bg-rose-50 text-rose-800' : 'bg-slate-100 text-slate-800'}`}>
+                            {po.items?.length || 0}
+                          </span>
+                        </td>
 
-                          <td className="p-3.5">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                                isReturned
-                                  ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                  : po.status === 'Delivered'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : po.status === 'Approved'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                  : po.status === 'Cancelled'
-                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                        <td className={`p-3.5 font-extrabold ${activeTab === 'return_pos' ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {activeTab === 'return_pos' ? '- ' : ''}LKR {(po.totalAmount || 0).toLocaleString()}
+                        </td>
+
+                        <td className="p-3.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                              po.isReturn || po.status === 'Returned'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : po.status === 'Delivered'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : po.status === 'Approved'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : po.status === 'Cancelled'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {(po.isReturn || po.status === 'Returned') && <FiRotateCcw className="w-3 h-3" />}
+                            {po.status === 'Delivered' && <FiCheckCircle className="w-3 h-3" />}
+                            {po.status === 'Pending' && <FiClock className="w-3 h-3" />}
+                            {po.isReturn && po.status !== 'Returned' ? 'Returned' : (po.status || 'Returned')}
+                          </span>
+                        </td>
+
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Inspect / View Details Button */}
+                            <button
+                              onClick={() => setViewingPO(po)}
+                              title="View Details"
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                            >
+                              <FiEye size={15} />
+                            </button>
+
+                            {/* Mark Delivered Button (Regular POs only) */}
+                            {activeTab === 'pos' && po.status !== 'Delivered' && (
+                              <button
+                                onClick={() => updatePOStatusMutation.mutate({ id: po._id, status: 'Delivered' })}
+                                title="Mark Delivered"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
+                              >
+                                <FiCheck size={12} />
+                                <span>Delivered</span>
+                              </button>
+                            )}
+
+                            {/* Edit Button */}
+                            <button
+                              onClick={() => openEditPOModal(po)}
+                              title={activeTab === 'return_pos' ? 'Edit Return PO' : 'Edit Purchase Order'}
+                              className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                activeTab === 'return_pos'
+                                  ? 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'
+                                  : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'
                               }`}
                             >
-                              {isReturned && <FiRotateCcw className="w-3 h-3 text-purple-700" />}
-                              {po.status === 'Delivered' && <FiCheckCircle className="w-3 h-3" />}
-                              {po.status === 'Pending' && <FiClock className="w-3 h-3" />}
-                              {po.status}
-                            </span>
-                          </td>
+                              <FiEdit2 size={14} />
+                            </button>
 
-                          <td className="p-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {/* Inspect / View Details Button */}
-                              <button
-                                onClick={() => setViewingPO(po)}
-                                title="View Order Details"
-                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                              >
-                                <FiEye size={15} />
-                              </button>
-
-                              {/* Mark Delivered Button */}
-                              {!isReturned && po.status !== 'Delivered' && (
-                                <button
-                                  onClick={() => updatePOStatusMutation.mutate({ id: po._id, status: 'Delivered' })}
-                                  title="Mark Delivered"
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
-                                >
-                                  <FiCheck size={12} />
-                                  <span>Delivered</span>
-                                </button>
-                              )}
-
-                              {/* Return / Reopen Button */}
-                              {!isReturned ? (
-                                <button
-                                  onClick={() => handleReturnPO(po)}
-                                  title="Return this Purchase Order"
-                                  className="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
-                                >
-                                  <FiRotateCcw size={12} />
-                                  <span>Return</span>
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleReopenPO(po)}
-                                  title="Reopen PO as Pending"
-                                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-2 py-1 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1"
-                                >
-                                  <FiRotateCcw size={11} />
-                                  <span>Reopen</span>
-                                </button>
-                              )}
-
-                              {/* Edit Button */}
-                              <button
-                                onClick={() => openEditPOModal(po)}
-                                title="Edit Purchase Order"
-                                className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
-                              >
-                                <FiEdit2 size={14} />
-                              </button>
-
-                              {/* Delete Button */}
-                              <button
-                                onClick={() => handleDeletePO(po)}
-                                title="Delete Purchase Order"
-                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                              >
-                                <FiTrash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
+                            {/* Delete Button */}
+                            <button
+                              onClick={() => handleDeletePO(po)}
+                              title={activeTab === 'return_pos' ? 'Delete Return PO' : 'Delete Purchase Order'}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            >
+                              <FiTrash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -1234,28 +1208,16 @@ export default function HardwareSuppliersView() {
               <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-600 gap-2">
                 <div>
                   Showing <span className="font-bold text-slate-900">{sortedAndFilteredPOs.length}</span> of{' '}
-                  <span className="font-bold text-slate-900">{activeTab === 'return_pos' ? returnedPOs.length : pos.length}</span>{' '}
-                  {activeTab === 'return_pos' ? 'Returned Purchase Orders' : 'Purchase Orders'}
+                  <span className="font-bold text-slate-900">{targetPOsList.length}</span> {activeTab === 'return_pos' ? 'Return Orders' : 'Purchase Orders'}
                 </div>
-                <div className="flex items-center gap-4 flex-wrap">
-                  {activeTab === 'return_pos' ? (
-                    <span>
-                      Total Returned Value: <strong className="text-purple-700">LKR {sortedAndFilteredPOs.reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}</strong>
-                    </span>
-                  ) : (
-                    <>
-                      <span>
-                        Active Total: <strong className="text-slate-900">LKR {sortedAndFilteredPOs.filter(p => p.status !== 'Returned').reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}</strong>
-                      </span>
-                      {sortedAndFilteredPOs.some(p => p.status === 'Returned') && (
-                        <span className="text-purple-700">
-                          Returned: <strong>LKR {sortedAndFilteredPOs.filter(p => p.status === 'Returned').reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}</strong>
-                        </span>
-                      )}
-                    </>
-                  )}
+                <div className="flex items-center gap-4">
                   <span>
-                    Order: <strong className="text-amber-600">{poSortBy} ({poSortOrder.toUpperCase()})</strong>
+                    Filtered Total: <strong className={activeTab === 'return_pos' ? 'text-rose-600 font-bold' : 'text-slate-900'}>
+                      {activeTab === 'return_pos' ? '- ' : ''}LKR {sortedAndFilteredPOs.reduce((s, p) => s + (Number(p.totalAmount) || 0), 0).toLocaleString()}
+                    </strong>
+                  </span>
+                  <span>
+                    Order: <strong className={activeTab === 'return_pos' ? 'text-rose-600' : 'text-amber-600'}>{poSortBy} ({poSortOrder.toUpperCase()})</strong>
                   </span>
                 </div>
               </div>
@@ -1380,11 +1342,19 @@ export default function HardwareSuppliersView() {
           <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-amber-100 text-amber-800 rounded-lg">
-                  <FiShoppingBag size={18} />
+                <div className={`p-2 rounded-lg ${viewingPO.isReturn || viewingPO.status === 'Returned' || viewingPO.poNumber?.startsWith('RPO-') ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
+                  {viewingPO.isReturn || viewingPO.status === 'Returned' || viewingPO.poNumber?.startsWith('RPO-') ? (
+                    <FiRotateCcw size={18} />
+                  ) : (
+                    <FiShoppingBag size={18} />
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">Purchase Order: {viewingPO.poNumber}</h3>
+                  <h3 className="text-lg font-black text-slate-900">
+                    {viewingPO.isReturn || viewingPO.status === 'Returned' || viewingPO.poNumber?.startsWith('RPO-')
+                      ? `Return Purchase Order: ${viewingPO.poNumber}`
+                      : `Purchase Order: ${viewingPO.poNumber}`}
+                  </h3>
                   <p className="text-xs text-slate-500">
                     Created on {new Date(viewingPO.createdAt || Date.now()).toLocaleDateString()}
                   </p>
@@ -1404,13 +1374,17 @@ export default function HardwareSuppliersView() {
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Delivery Site</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                  {viewingPO.isReturn || viewingPO.status === 'Returned' ? 'Return Site' : 'Delivery Site'}
+                </span>
                 <span className="font-bold text-slate-900">{viewingPO.siteName || viewingPO.project?.name || viewingPO.project?.title || 'Central Warehouse'}</span>
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Expected Date</span>
-                <span className="font-bold text-amber-700">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                  {viewingPO.isReturn || viewingPO.status === 'Returned' ? 'Return Date' : 'Expected Date'}
+                </span>
+                <span className={`font-bold ${viewingPO.isReturn || viewingPO.status === 'Returned' ? 'text-rose-700' : 'text-amber-700'}`}>
                   {viewingPO.expectedDeliveryDate ? new Date(viewingPO.expectedDeliveryDate).toLocaleDateString() : 'Immediate'}
                 </span>
               </div>
@@ -1418,24 +1392,22 @@ export default function HardwareSuppliersView() {
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Status</span>
                 <span className={`inline-block font-bold px-2 py-0.5 rounded text-[10px] ${
-                  viewingPO.status === 'Delivered'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : viewingPO.status === 'Returned'
-                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                    : viewingPO.status === 'Approved'
-                    ? 'bg-blue-100 text-blue-800'
-                    : viewingPO.status === 'Cancelled'
+                  viewingPO.isReturn || viewingPO.status === 'Returned'
                     ? 'bg-rose-100 text-rose-800'
+                    : viewingPO.status === 'Delivered'
+                    ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-amber-100 text-amber-800'
                 }`}>
-                  {viewingPO.status}
+                  {viewingPO.status || (viewingPO.isReturn ? 'Returned' : 'Pending')}
                 </span>
               </div>
             </div>
 
             {/* Line Items Table */}
             <div className="space-y-2">
-              <h4 className="text-xs font-bold text-slate-700 uppercase">Ordered Material Items</h4>
+              <h4 className="text-xs font-bold text-slate-700 uppercase">
+                {viewingPO.isReturn || viewingPO.status === 'Returned' ? 'Returned Material Items' : 'Ordered Material Items'}
+              </h4>
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
@@ -1460,11 +1432,13 @@ export default function HardwareSuppliersView() {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-amber-50 font-bold border-t border-amber-200">
+                  <tfoot className={viewingPO.isReturn || viewingPO.status === 'Returned' ? 'bg-rose-50 font-bold border-t border-rose-200' : 'bg-amber-50 font-bold border-t border-amber-200'}>
                     <tr>
-                      <td colSpan="4" className="p-2.5 text-right text-amber-900">Total PO Value:</td>
-                      <td className="p-2.5 text-right text-amber-900 font-mono text-sm">
-                        LKR {(viewingPO.totalAmount || 0).toLocaleString()}
+                      <td colSpan="4" className={`p-2.5 text-right ${viewingPO.isReturn || viewingPO.status === 'Returned' ? 'text-rose-900' : 'text-amber-900'}`}>
+                        {viewingPO.isReturn || viewingPO.status === 'Returned' ? 'Total Return Value (Deduction):' : 'Total PO Value:'}
+                      </td>
+                      <td className={`p-2.5 text-right font-mono text-sm ${viewingPO.isReturn || viewingPO.status === 'Returned' ? 'text-rose-700' : 'text-amber-900'}`}>
+                        {viewingPO.isReturn || viewingPO.status === 'Returned' ? '- ' : ''}LKR {(viewingPO.totalAmount || 0).toLocaleString()}
                       </td>
                     </tr>
                   </tfoot>
@@ -1475,7 +1449,9 @@ export default function HardwareSuppliersView() {
             {/* Notes */}
             {viewingPO.notes && (
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-                <span className="font-bold text-slate-700 block mb-1">Notes &amp; Delivery Instructions:</span>
+                <span className="font-bold text-slate-700 block mb-1">
+                  {viewingPO.isReturn || viewingPO.status === 'Returned' ? 'Return Reason & Notes:' : 'Notes & Delivery Instructions:'}
+                </span>
                 <p className="text-slate-600">{viewingPO.notes}</p>
               </div>
             )}
@@ -1483,27 +1459,12 @@ export default function HardwareSuppliersView() {
             {/* Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-200">
               <div className="flex items-center gap-2">
-                {viewingPO.status !== 'Delivered' && viewingPO.status !== 'Returned' && (
+                {!viewingPO.isReturn && viewingPO.status !== 'Returned' && viewingPO.status !== 'Delivered' && (
                   <button
                     onClick={() => updatePOStatusMutation.mutate({ id: viewingPO._id, status: 'Delivered' })}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
                   >
                     <FiCheck size={14} /> Mark Delivered
-                  </button>
-                )}
-                {viewingPO.status !== 'Returned' ? (
-                  <button
-                    onClick={() => handleReturnPO(viewingPO)}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                  >
-                    <FiRotateCcw size={14} /> Return PO
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleReopenPO(viewingPO)}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                  >
-                    <FiRotateCcw size={14} /> Reopen PO
                   </button>
                 )}
                 <button
@@ -1514,7 +1475,7 @@ export default function HardwareSuppliersView() {
                   }}
                   className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5"
                 >
-                  <FiEdit2 size={13} /> Edit PO
+                  <FiEdit2 size={13} /> {viewingPO.isReturn || viewingPO.status === 'Returned' ? 'Edit Return PO' : 'Edit PO'}
                 </button>
               </div>
 
@@ -1707,8 +1668,18 @@ export default function HardwareSuppliersView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">
-                {editingPOId ? 'Edit Purchase Order (PO)' : 'Create Purchase Order (PO)'}
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                {poForm.isReturn ? (
+                  <>
+                    <span className="p-1.5 bg-rose-100 text-rose-700 rounded-lg"><FiRotateCcw size={16} /></span>
+                    <span>{editingPOId ? 'Edit Return Purchase Order (Return PO)' : 'Create Return Purchase Order (Return PO)'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="p-1.5 bg-amber-100 text-amber-700 rounded-lg"><FiShoppingBag size={16} /></span>
+                    <span>{editingPOId ? 'Edit Purchase Order (PO)' : 'Create Purchase Order (PO)'}</span>
+                  </>
+                )}
               </h3>
               <button
                 onClick={() => {
@@ -1739,7 +1710,9 @@ export default function HardwareSuppliersView() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-600">Delivery Site / Project</label>
+                  <label className="text-xs font-medium text-slate-600">
+                    {poForm.isReturn ? 'Return Site / Project' : 'Delivery Site / Project'}
+                  </label>
                   <select
                     value={poForm.projectId}
                     onChange={(e) => setPOForm({ ...poForm, projectId: e.target.value })}
@@ -1755,7 +1728,9 @@ export default function HardwareSuppliersView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-600">Expected Delivery Date</label>
+                  <label className="text-xs font-medium text-slate-600">
+                    {poForm.isReturn ? 'Return Date *' : 'Expected Delivery Date'}
+                  </label>
                   <input
                     type="date"
                     value={poForm.expectedDeliveryDate}
@@ -1766,17 +1741,22 @@ export default function HardwareSuppliersView() {
 
                 {editingPOId && (
                   <div>
-                    <label className="text-xs font-medium text-slate-600">PO Status</label>
+                    <label className="text-xs font-medium text-slate-600">Status</label>
                     <select
                       value={poForm.status}
                       onChange={(e) => setPOForm({ ...poForm, status: e.target.value })}
                       className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                     >
-                      <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Delivered">Delivered</option>
-                      <option value="Returned">Returned</option>
-                      <option value="Cancelled">Cancelled</option>
+                      {poForm.isReturn ? (
+                        <option value="Returned">Returned</option>
+                      ) : (
+                        <>
+                          <option value="Pending">Pending</option>
+                          <option value="Approved">Approved</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 )}
@@ -1785,11 +1765,13 @@ export default function HardwareSuppliersView() {
               {/* Items Table */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-slate-600">Order Items</label>
+                  <label className="text-xs font-medium text-slate-600">
+                    {poForm.isReturn ? 'Returned Items' : 'Order Items'}
+                  </label>
                   <button
                     type="button"
                     onClick={handleAddItemRow}
-                    className="text-xs font-semibold text-amber-500 hover:underline"
+                    className={`text-xs font-semibold hover:underline ${poForm.isReturn ? 'text-rose-600' : 'text-amber-500'}`}
                   >
                     + Add Line Item
                   </button>
@@ -1815,7 +1797,7 @@ export default function HardwareSuppliersView() {
                       onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                       className="col-span-3 bg-white border border-slate-200 text-slate-900 p-2 text-xs rounded-lg focus:outline-none"
                     />
-                    <div className="col-span-1 text-right text-xs font-bold text-amber-600">
+                    <div className={`col-span-1 text-right text-xs font-bold ${poForm.isReturn ? 'text-rose-600' : 'text-amber-600'}`}>
                       {(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toLocaleString()}
                     </div>
                     <div className="col-span-1 text-right">
@@ -1834,17 +1816,22 @@ export default function HardwareSuppliersView() {
                 ))}
 
                 <div className="text-right text-sm font-bold text-slate-900 pt-2">
-                  Total Amount: <span className="text-amber-500 font-mono text-base">LKR {calculatePOTotal().toLocaleString()}</span>
+                  {poForm.isReturn ? 'Total Return Deduction:' : 'Total Amount:'}{' '}
+                  <span className={poForm.isReturn ? 'text-rose-600 font-mono text-base' : 'text-amber-500 font-mono text-base'}>
+                    {poForm.isReturn ? '- ' : ''}LKR {calculatePOTotal().toLocaleString()}
+                  </span>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-600">Notes / Instructions</label>
+                <label className="text-xs font-medium text-slate-600">
+                  {poForm.isReturn ? 'Return Reason / Notes' : 'Notes / Instructions'}
+                </label>
                 <textarea
                   rows="2"
                   value={poForm.notes}
                   onChange={(e) => setPOForm({ ...poForm, notes: e.target.value })}
-                  placeholder="Optional delivery notes or terms..."
+                  placeholder={poForm.isReturn ? 'Reason for return (damaged, excess stock, wrong specification)...' : 'Optional delivery notes or terms...'}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-2.5 text-sm mt-1 focus:border-amber-500 focus:outline-none"
                 />
               </div>
@@ -1863,11 +1850,15 @@ export default function HardwareSuppliersView() {
                 <button
                   type="submit"
                   disabled={editingPOId ? updatePOMutation.isPending : createPOMutation.isPending}
-                  className="px-5 py-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow"
+                  className={`px-5 py-2 text-sm font-semibold rounded-xl text-white shadow cursor-pointer ${
+                    poForm.isReturn ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
                   {editingPOId
                     ? (updatePOMutation.isPending ? 'Saving...' : 'Save Changes')
-                    : (createPOMutation.isPending ? 'Creating PO...' : 'Create Purchase Order')}
+                    : (createPOMutation.isPending
+                        ? (poForm.isReturn ? 'Creating Return PO...' : 'Creating PO...')
+                        : (poForm.isReturn ? 'Create Return PO' : 'Create Purchase Order'))}
                 </button>
               </div>
             </form>
@@ -1928,16 +1919,30 @@ export default function HardwareSuppliersView() {
                       <tr key={entry._id}>
                         <td className="p-3">{new Date(entry.date).toLocaleDateString()}</td>
                         <td className="p-3 font-semibold">
-                          <span className={`px-2 py-0.5 rounded text-[10px] ${
-                            entry.transactionType === 'payment' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            entry.transactionType === 'payment'
+                              ? 'bg-emerald-500/10 text-emerald-600'
+                              : entry.transactionType === 'return_po'
+                              ? 'bg-rose-500/10 text-rose-600 border border-rose-200'
+                              : 'bg-amber-500/10 text-amber-600'
                           }`}>
-                            {entry.transactionType === 'payment' ? 'PAYMENT' : 'PO BILL'}
+                            {entry.transactionType === 'payment'
+                              ? 'PAYMENT'
+                              : entry.transactionType === 'return_po'
+                              ? 'RETURN PO'
+                              : 'PO BILL'}
                           </span>
                         </td>
                         <td className="p-3 font-mono">{entry.referenceNumber || entry.referencePO?.poNumber || '-'}</td>
                         <td className="p-3 text-slate-500">{entry.notes}</td>
-                        <td className={`p-3 text-right font-bold ${entry.transactionType === 'payment' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                          {entry.transactionType === 'payment' ? '-' : '+'} LKR {(entry.amount || 0).toLocaleString()}
+                        <td className={`p-3 text-right font-bold ${
+                          entry.transactionType === 'payment'
+                            ? 'text-emerald-600'
+                            : entry.transactionType === 'return_po'
+                            ? 'text-rose-600'
+                            : 'text-amber-600'
+                        }`}>
+                          {entry.transactionType === 'payment' || entry.transactionType === 'return_po' ? '-' : '+'} LKR {(entry.amount || 0).toLocaleString()}
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-slate-900">
                           LKR {(entry.runningBalance || 0).toLocaleString()}

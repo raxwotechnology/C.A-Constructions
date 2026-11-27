@@ -5,7 +5,7 @@ const supplierLedgerSchema = new mongoose.Schema(
     supplier: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier', required: true },
     transactionType: {
       type: String,
-      enum: ['bill_po', 'payment', 'adjustment'],
+      enum: ['bill_po', 'payment', 'adjustment', 'return_po'],
       required: true,
     },
     referencePO: { type: mongoose.Schema.Types.ObjectId, ref: 'PurchaseOrder' },

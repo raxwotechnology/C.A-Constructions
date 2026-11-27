@@ -214,7 +214,7 @@ exports.recordSupplierPayment = async (req, res) => {
 // Create Purchase Order
 exports.createPurchaseOrder = async (req, res) => {
   try {
-    const { supplierId, projectId, expectedDeliveryDate, items, tax, discount, notes } = req.body;
+    const { supplierId, projectId, expectedDeliveryDate, items, tax, discount, notes, isReturn } = req.body;
 
     const supplier = await Supplier.findById(supplierId);
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
@@ -226,7 +226,10 @@ exports.createPurchaseOrder = async (req, res) => {
       if (projectObj) siteName = projectObj.name || projectObj.title;
     }
 
-    const poNumber = 'PO-' + Date.now().toString().slice(-6);
+    const isReturnPO = Boolean(isReturn);
+    const poNumber = isReturnPO
+      ? 'RPO-' + Date.now().toString().slice(-6)
+      : 'PO-' + Date.now().toString().slice(-6);
 
     let subtotal = 0;
     const formattedItems = (items || []).map(item => {
@@ -260,16 +263,25 @@ exports.createPurchaseOrder = async (req, res) => {
       tax: taxVal,
       discount: discVal,
       totalAmount,
-      status: 'Pending',
-      deliveryStatus: 'Pending',
+      status: isReturnPO ? 'Returned' : 'Pending',
+      deliveryStatus: isReturnPO ? 'Received' : 'Pending',
+      isReturn: isReturnPO,
       notes,
       createdBy: req.user?._id,
     });
 
-    // Immediately record bill in Supplier Ledger (increases supplier outstanding balance)
+    if (isReturnPO) {
+      await reversePOStock(po);
+    }
+
+    // Immediately record bill or return deduction in Supplier Ledger
     await applyPOSupplierBilling(po, req.user?._id);
 
-    res.json({ success: true, message: 'Purchase Order created successfully', po });
+    res.json({
+      success: true,
+      message: isReturnPO ? 'Return Purchase Order created successfully' : 'Purchase Order created successfully',
+      po,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -371,6 +383,9 @@ const reconcileSupplierLedger = async (supplierId) => {
       } else if (entry.transactionType === 'bill_po') {
         totalBilled += amt;
         runningBalance += amt;
+      } else if (entry.transactionType === 'return_po') {
+        totalBilled -= amt;
+        runningBalance -= amt;
       } else if (entry.transactionType === 'adjustment') {
         runningBalance += amt;
       }
@@ -404,10 +419,13 @@ const applyPOSupplierBilling = async (po, userId) => {
     const supplierId = po.supplier?._id || po.supplier;
     if (!supplierId) return;
 
+    const isReturnOrder = po.isReturn || po.status === 'Returned' || po.poNumber?.startsWith('RPO-');
+    const txType = isReturnOrder ? 'return_po' : 'bill_po';
+    const notePrefix = isReturnOrder ? 'Return PO' : 'PO Bill';
+
     const existingLedger = await SupplierLedger.findOne({
       supplier: supplierId,
       referencePO: po._id,
-      transactionType: 'bill_po',
     });
 
     const poAmount = Number(po.totalAmount || 0);
@@ -416,16 +434,17 @@ const applyPOSupplierBilling = async (po, userId) => {
     if (!existingLedger) {
       await SupplierLedger.create({
         supplier: supplierId,
-        transactionType: 'bill_po',
+        transactionType: txType,
         referencePO: po._id,
         referenceNumber: po.poNumber,
         amount: poAmount,
         date: poDate,
-        notes: `PO Bill: ${po.poNumber}`,
+        notes: `${notePrefix}: ${po.poNumber}${po.notes ? ' - ' + po.notes : ''}`,
         runningBalance: 0,
         recordedBy: userId || po.createdBy || null,
       });
     } else {
+      existingLedger.transactionType = txType;
       existingLedger.amount = poAmount;
       existingLedger.referenceNumber = po.poNumber;
       if (!existingLedger.date) existingLedger.date = poDate;
@@ -443,7 +462,7 @@ const reversePOSupplierBilling = async (po) => {
     const supplierId = po.supplier?._id || po.supplier;
     if (!supplierId) return;
 
-    await SupplierLedger.deleteMany({ referencePO: po._id, transactionType: 'bill_po' });
+    await SupplierLedger.deleteMany({ referencePO: po._id });
     await reconcileSupplierLedger(supplierId);
   } catch (err) {
     console.error('[reversePOSupplierBilling] Error:', err);
@@ -557,11 +576,24 @@ const removePOFinanceExpense = async (po) => {
 // Get all POs
 exports.getPurchaseOrders = async (req, res) => {
   try {
-    const { supplierId, status, projectId, sortBy, sortOrder } = req.query;
+    const { supplierId, status, projectId, sortBy, sortOrder, isReturn } = req.query;
     const filter = {};
     if (supplierId) filter.supplier = supplierId;
     if (status) filter.status = status;
     if (projectId) filter.project = projectId;
+    if (isReturn !== undefined) {
+      if (isReturn === 'true') {
+        filter.$or = [
+          { isReturn: true },
+          { status: 'Returned' },
+          { poNumber: { $regex: '^RPO-', $options: 'i' } },
+        ];
+      } else {
+        filter.isReturn = { $ne: true };
+        filter.status = { $ne: 'Returned' };
+        filter.poNumber = { $not: { $regex: '^RPO-', $options: 'i' } };
+      }
+    }
 
     const sortField = sortBy || 'createdAt';
     const sortDirection = sortOrder === 'asc' || sortOrder === '1' ? 1 : -1;
@@ -599,24 +631,18 @@ exports.updatePOStatus = async (req, res) => {
       if (!po.deliveredAt) po.deliveredAt = new Date();
 
       // 1. Stock In to SiteStock (Direct site delivery or central stock)
-      await applyPOStockIn(po);
+      if (!po.isReturn) {
+        await applyPOStockIn(po);
+      }
 
       // 2. Ensure Supplier Ledger & Outstanding Balance are updated
       await applyPOSupplierBilling(po, req.user?._id);
-    } else if (status === 'Returned') {
-      po.returnedAt = new Date();
-      po.deliveryStatus = 'Pending';
-      if (previousStatus === 'Delivered') {
-        await reversePOStock(po);
-      }
-      await reversePOSupplierBilling(po);
-      if (po.financeEntryRef) {
-        await removePOFinanceExpense(po);
-      }
     } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
       // Reverting from Delivered status
       po.deliveryStatus = 'Pending';
-      await reversePOStock(po);
+      if (!po.isReturn) {
+        await reversePOStock(po);
+      }
     }
 
     await po.save();
@@ -647,6 +673,7 @@ exports.updatePurchaseOrder = async (req, res) => {
     if (!po) return res.status(404).json({ success: false, message: 'Purchase Order not found' });
 
     const previousStatus = po.status;
+    if (req.body.isReturn !== undefined) po.isReturn = Boolean(req.body.isReturn);
     if (supplierId) po.supplier = supplierId;
     if (projectId !== undefined) {
       po.project = projectId || null;
@@ -691,33 +718,25 @@ exports.updatePurchaseOrder = async (req, res) => {
 
     if (status) po.status = status;
 
-    if (status === 'Returned') {
-      po.returnedAt = new Date();
-      po.deliveryStatus = 'Pending';
-      if (previousStatus === 'Delivered') {
-        await reversePOStock(po);
-      }
-      await reversePOSupplierBilling(po);
-      if (po.financeEntryRef) {
-        await removePOFinanceExpense(po);
-      }
-    } else {
-      if (po.status === 'Delivered' && previousStatus !== 'Delivered') {
-        po.deliveryStatus = 'Received';
-        if (!po.deliveredAt) po.deliveredAt = new Date();
+    if (po.status === 'Delivered' && previousStatus !== 'Delivered') {
+      po.deliveryStatus = 'Received';
+      if (!po.deliveredAt) po.deliveredAt = new Date();
+      if (!po.isReturn) {
         await applyPOStockIn(po);
-      } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
-        po.deliveryStatus = 'Pending';
+      }
+    } else if (previousStatus === 'Delivered' && status && status !== 'Delivered') {
+      po.deliveryStatus = 'Pending';
+      if (!po.isReturn) {
         await reversePOStock(po);
       }
+    }
 
-      // Always keep supplier ledger billing synced
-      await applyPOSupplierBilling(po, req.user?._id);
+    // Always keep supplier ledger billing synced
+    await applyPOSupplierBilling(po, req.user?._id);
 
-      // If PO was already sent to expenses, keep FinanceEntry synced
-      if (po.financeEntryRef) {
-        await syncPOToFinanceExpense(po, req.user?._id);
-      }
+    // If PO was already sent to expenses, keep FinanceEntry synced
+    if (po.financeEntryRef) {
+      await syncPOToFinanceExpense(po, req.user?._id);
     }
 
     await po.save();
